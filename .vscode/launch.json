@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/backend/cmd/server",
+      "envFile": "${workspaceFolder}/backend/.env"
+    },
+    {
+      "name": "Frontend",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Backend + Frontend",
+      "configurations": ["Backend", "Frontend"]
+    }
+  ]
+}
