@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.local
+
+# backend
+backend/bin/
+
+# frontend
+node_modules/
+.next/
+next-env.d.ts
