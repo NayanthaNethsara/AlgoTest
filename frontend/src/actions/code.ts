@@ -1,35 +1,22 @@
-import type { Problem } from "@/lib/problem";
+"use server";
 
-// The Go judge worker is still a stub, so run/submit are simulated on the
-// client. Swap these two functions for real API calls once judging lands.
+import { getProblem } from "@/lib/problems";
+import type { RunResult, SubmitResult } from "@/types/code";
 
-export type RunResult = {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  timeMs: number;
-};
+// Mocked until the Go judge worker is ready. Only the bodies below change then:
+// replace the simulation with fetch calls to the backend.
 
-export type SubtaskResult = {
-  id: number;
-  points: number;
-  earned: number;
-  passed: boolean;
-  failedTest?: number;
-};
-
-export type SubmitResult = {
-  subtasks: SubtaskResult[];
-  score: number;
-  maxScore: number;
-  improvedBest: boolean;
-  previousBest: number;
-};
+const MAX_CODE_LENGTH = 100_000;
+const MAX_STDIN_LENGTH = 1_000_000;
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Deterministic pseudo-quality in [0, 1] derived from the code, so editing the
-// solution changes the simulated outcome but re-submitting the same code does not.
+function assertLength(value: string, max: number, name: string) {
+  if (typeof value !== "string" || value.length > max) {
+    throw new Error(`invalid ${name}`);
+  }
+}
+
 function codeQuality(code: string): number {
   const meaningful = code.replace(/\s/g, "").length;
   let hash = 0;
@@ -37,10 +24,16 @@ function codeQuality(code: string): number {
     hash = (hash * 31 + code.charCodeAt(i)) >>> 0;
   }
   const size = Math.min(meaningful / 400, 1);
-  return Math.min(1, size * 0.7 + (hash % 100) / 100 * 0.3);
+  return Math.min(1, size * 0.7 + ((hash % 100) / 100) * 0.3);
 }
 
-export async function runCode(code: string, stdin: string): Promise<RunResult> {
+export async function runCode(
+  language: string,
+  code: string,
+  stdin: string,
+): Promise<RunResult> {
+  assertLength(code, MAX_CODE_LENGTH, "code");
+  assertLength(stdin, MAX_STDIN_LENGTH, "stdin");
   await delay(600);
 
   if (!code.trim()) {
@@ -56,14 +49,19 @@ export async function runCode(code: string, stdin: string): Promise<RunResult> {
 }
 
 export async function submitCode(
-  problem: Problem,
+  problemId: string,
   code: string,
   previousBest: number,
 ): Promise<SubmitResult> {
+  assertLength(code, MAX_CODE_LENGTH, "code");
+  const problem = getProblem(problemId);
+  if (!problem) {
+    throw new Error("unknown problem");
+  }
   await delay(1100);
 
   const quality = codeQuality(code);
-  const subtasks: SubtaskResult[] = problem.subtasks.map((subtask, index) => {
+  const subtasks = problem.subtasks.map((subtask, index) => {
     const threshold = (index + 1) / (problem.subtasks.length + 1);
     const passed = quality >= threshold;
     return {

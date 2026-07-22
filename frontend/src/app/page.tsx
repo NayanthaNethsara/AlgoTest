@@ -1,11 +1,11 @@
-import { CodeWorkspace } from "@/components/code-workspace";
-import { ProblemPanel } from "@/components/problem-panel";
+import { ProblemPanel } from "@/components/problem/problem-panel";
+import { CodeWorkspace } from "@/components/workspace/code-workspace";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { SAMPLE_PROBLEM } from "@/lib/problem";
+import { SAMPLE_PROBLEM } from "@/lib/problems";
 
 export default function Home() {
   return (

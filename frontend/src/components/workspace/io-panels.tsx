@@ -1,7 +1,7 @@
 "use client";
 
 import { Textarea } from "@/components/ui/textarea";
-import type { RunResult } from "@/lib/judge";
+import type { RunResult } from "@/types/code";
 
 type IoPanelsProps = {
   stdin: string;

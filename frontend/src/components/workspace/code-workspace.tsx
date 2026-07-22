@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { History, Play, Send } from "lucide-react";
-import { CodeEditor } from "@/components/code-editor";
-import { HistoryPanel } from "@/components/history-panel";
-import { IoPanels } from "@/components/io-panels";
-import { SubmissionResult } from "@/components/submission-result";
+import { runCode, submitCode } from "@/actions/code";
+import { CodeEditor } from "@/components/workspace/code-editor";
+import { HistoryPanel } from "@/components/workspace/history-panel";
+import { IoPanels } from "@/components/workspace/io-panels";
+import { SubmissionResult } from "@/components/workspace/submission-result";
 import { Button } from "@/components/ui/button";
 import {
   ResizableHandle,
@@ -20,10 +21,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { runCode, submitCode, type RunResult, type SubmitResult } from "@/lib/judge";
-import { LANGUAGES, type Language } from "@/lib/languages";
-import type { Problem } from "@/lib/problem";
-import { useHistory, type Snapshot } from "@/lib/use-history";
+import { useHistory } from "@/hooks/use-history";
+import { LANGUAGES } from "@/lib/languages";
+import type { Language, RunResult, SubmitResult } from "@/types/code";
+import type { Snapshot } from "@/types/history";
+import type { Problem } from "@/types/problem";
 
 export function CodeWorkspace({ problem }: { problem: Problem }) {
   const [language, setLanguage] = useState<Language>(LANGUAGES[0]);
@@ -66,7 +68,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     setRunResult(null);
     record("ran", language.id, code);
     try {
-      setRunResult(await runCode(code, stdin));
+      setRunResult(await runCode(language.id, code, stdin));
     } finally {
       setRunning(false);
     }
@@ -78,7 +80,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     setSubmitResult(null);
     record("submitted", language.id, code);
     try {
-      const result = await submitCode(problem, code, best);
+      const result = await submitCode(problem.id, code, best);
       setSubmitResult(result);
       if (result.improvedBest) {
         setBest(result.score);

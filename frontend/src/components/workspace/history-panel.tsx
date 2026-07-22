@@ -12,7 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { Snapshot, SnapshotTrigger } from "@/lib/use-history";
+import type { Snapshot, SnapshotTrigger } from "@/types/history";
 
 const TRIGGER_LABELS: Record<SnapshotTrigger, string> = {
   autosave: "Autosave",

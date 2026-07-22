@@ -1,16 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-
-export type SnapshotTrigger = "autosave" | "ran" | "submitted";
-
-export type Snapshot = {
-  id: string;
-  at: number;
-  trigger: SnapshotTrigger;
-  language: string;
-  code: string;
-};
+import type { Snapshot, SnapshotTrigger } from "@/types/history";
 
 const MAX_SNAPSHOTS = 50;
 

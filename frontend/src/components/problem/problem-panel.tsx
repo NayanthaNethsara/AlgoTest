@@ -1,9 +1,9 @@
 import { Clock, Cpu, Trophy } from "lucide-react";
-import { Markdown } from "@/components/markdown";
+import { Markdown } from "@/components/common/markdown";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import type { Problem, Sample } from "@/lib/problem";
+import type { Problem, Sample } from "@/types/problem";
 
 export function ProblemPanel({ problem }: { problem: Problem }) {
   return (

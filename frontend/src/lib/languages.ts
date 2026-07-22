@@ -1,9 +1,4 @@
-export type Language = {
-  id: string;
-  label: string;
-  monaco: string;
-  starter: string;
-};
+import type { Language } from "@/types/code";
 
 export const LANGUAGES: Language[] = [
   {

@@ -2,7 +2,7 @@
 
 import { Check, TrendingUp, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { SubmitResult } from "@/lib/judge";
+import type { SubmitResult } from "@/types/code";
 
 export function SubmissionResult({
   result,
