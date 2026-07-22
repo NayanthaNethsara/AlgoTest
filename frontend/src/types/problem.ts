@@ -10,9 +10,12 @@ export type Subtask = {
   constraints: string;
 };
 
+export type Difficulty = "Easy" | "Medium" | "Hard";
+
 export type Problem = {
   id: string;
   title: string;
+  difficulty: Difficulty;
   points: number;
   timeLimitMs: number;
   memoryLimitMb: number;
