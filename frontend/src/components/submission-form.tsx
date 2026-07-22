@@ -1,25 +1,40 @@
 "use client";
 
 import { useState } from "react";
+import { CodeEditor } from "@/components/code-editor";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createSubmission, getSubmission, type SubmissionResult } from "@/lib/api";
-
-const LANGUAGES = ["go", "python", "javascript"];
+import { LANGUAGES } from "@/lib/languages";
 
 export function SubmissionForm() {
   const [language, setLanguage] = useState(LANGUAGES[0]);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(LANGUAGES[0].starter);
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function handleLanguageChange(id: string | null) {
+    const next = LANGUAGES.find((lang) => lang.id === id) ?? LANGUAGES[0];
+    setLanguage(next);
+    setCode(next.starter);
+    setResult(null);
+    setError(null);
+  }
+
+  async function handleSubmit() {
     setSubmitting(true);
     setError(null);
     setResult(null);
 
     try {
-      const { id } = await createSubmission(language, code);
+      const { id } = await createSubmission(language.id, code);
       setResult(await pollUntilSettled(id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "submission failed");
@@ -29,43 +44,54 @@ export function SubmissionForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <select
-        value={language}
-        onChange={(e) => setLanguage(e.target.value)}
-        className="w-40 rounded border border-black/20 px-3 py-2 dark:border-white/20"
-      >
-        {LANGUAGES.map((lang) => (
-          <option key={lang} value={lang}>
-            {lang}
-          </option>
-        ))}
-      </select>
+    <div className="flex flex-1 flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <Select value={language.id} onValueChange={handleLanguageChange}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {LANGUAGES.map((lang) => (
+              <SelectItem key={lang.id} value={lang.id}>
+                {lang.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <textarea
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        placeholder="Paste your solution here"
-        required
-        rows={12}
-        className="rounded border border-black/20 p-3 font-mono text-sm dark:border-white/20"
-      />
+        <Button onClick={handleSubmit} disabled={submitting}>
+          {submitting ? "Judging…" : "Run"}
+        </Button>
+      </div>
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-32 rounded bg-foreground px-4 py-2 text-background disabled:opacity-50"
-      >
-        {submitting ? "Judging…" : "Submit"}
-      </button>
+      <div className="min-h-0 flex-1 overflow-hidden rounded-lg border">
+        <CodeEditor language={language.id} value={code} onChange={setCode} />
+      </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {result && (
-        <p className="text-sm">
-          <span className="font-medium">{result.status}</span> — {result.output}
+      <ResultPanel result={result} error={error} />
+    </div>
+  );
+}
+
+function ResultPanel({
+  result,
+  error,
+}: {
+  result: SubmissionResult | null;
+  error: string | null;
+}) {
+  if (!error && !result) return null;
+
+  return (
+    <div className="rounded-lg border p-4 font-mono text-sm">
+      {error ? (
+        <p className="text-destructive">{error}</p>
+      ) : (
+        <p>
+          <span className="font-semibold">{result!.status}</span> — {result!.output}
         </p>
       )}
-    </form>
+    </div>
   );
 }
 
