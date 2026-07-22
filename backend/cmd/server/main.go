@@ -12,6 +12,7 @@ import (
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/api"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 )
 
@@ -22,12 +23,20 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	pool, err := db.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Error("database connection failed", "error", err)
+		os.Exit(1)
+	}
+	defer pool.Close()
+	log.Info("database connected")
+
 	j := judge.New(cfg.JudgeWorkers, cfg.QueueSize, log)
 	go j.Start(ctx)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: api.NewRouter(cfg, j),
+		Handler: api.NewRouter(cfg, j, pool),
 	}
 
 	go func() {

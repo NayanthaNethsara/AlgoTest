@@ -1,20 +1,32 @@
 package api
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 )
 
 type handler struct {
 	judge *judge.Judge
+	db    *pgxpool.Pool
 }
 
 func (h *handler) health(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+	defer cancel()
+
+	if err := h.db.Ping(ctx); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "degraded", "database": "down"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "database": "up"})
 }
 
 type createSubmissionRequest struct {

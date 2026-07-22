@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: algothon-postgres
+    environment:
+      POSTGRES_USER: algothon
+      POSTGRES_PASSWORD: algothon
+      POSTGRES_DB: algothon
+    ports:
+      - "5432:5432"
+    volumes:
+      - algothon-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U algothon -d algothon"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  algothon-pgdata:

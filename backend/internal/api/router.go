@@ -3,16 +3,17 @@ package api
 import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 )
 
-func NewRouter(cfg config.Config, j *judge.Judge) *gin.Engine {
+func NewRouter(cfg config.Config, j *judge.Judge, pool *pgxpool.Pool) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
 
-	h := &handler{judge: j}
+	h := &handler{judge: j, db: pool}
 
 	r.GET("/healthz", h.health)
 
