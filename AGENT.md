@@ -11,6 +11,6 @@ General rules for working in this repo.
 
 ## Git
 
-- Commit in small, focused commits.
+- Do not commit or push. The user reviews and commits changes themselves.
 - Do not add Claude/AI as a co-author in commit messages.
 - Commit messages should be short and to the point (no long bodies unless necessary).
