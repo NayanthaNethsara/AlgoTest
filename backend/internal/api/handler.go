@@ -9,12 +9,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
 type handler struct {
-	judge *judge.Judge
-	db    *pgxpool.Pool
+	cfg      config.Config
+	judge    *judge.Judge
+	db       *pgxpool.Pool
+	users    *user.Repository
+	sessions *session.Repository
 }
 
 func (h *handler) health(c *gin.Context) {
