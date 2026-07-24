@@ -1,4 +1,9 @@
-.PHONY: run build test tidy fmt vet db-up db-down db-logs db-reset migrate user
+.PHONY: run build test tidy fmt vet generate db-up db-down db-logs db-reset migrate user
+
+# Regenerate type-safe query code from internal/db/queries/*.sql.
+# Requires sqlc (https://sqlc.dev): brew install sqlc  OR  go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+generate:
+	sqlc generate
 
 # --- Postgres (docker-compose.yml lives at repo root; these delegate up) ---
 
