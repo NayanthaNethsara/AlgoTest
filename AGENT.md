@@ -50,3 +50,10 @@ Next.js App Router + shadcn.
 - Do not commit or push. The user reviews and commits changes themselves.
 - Do not add Claude/AI as a co-author in commit messages.
 - Commit messages should be short and to the point (no long bodies unless necessary).
+
+## Running the app
+
+- Do not start servers, run `make backend`/`make frontend`/`make dev`, or otherwise
+  launch long-running processes. The user runs the app themselves in their own
+  terminals. Read-only checks (e.g. `lsof`, `curl` against an already-running
+  service, log inspection) are fine.
