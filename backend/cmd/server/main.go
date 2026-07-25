@@ -16,6 +16,7 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
@@ -50,9 +51,20 @@ func main() {
 	j := judge.New(cfg.JudgeWorkers, cfg.QueueSize, log)
 	go j.Start(ctx)
 
+	rn := runner.New(runner.Config{
+		CompileTimeout: cfg.RunCompileTimeout(),
+		WallTimeout:    cfg.RunWallTimeout(),
+		CPUSeconds:     cfg.RunCPUSeconds,
+		Memory:         cfg.RunMemory,
+		Runtime:        cfg.RunDockerRuntime,
+		MaxConcurrent:  cfg.RunMaxConcurrent,
+		MaxQueue:       cfg.RunMaxQueue,
+		MaxWait:        time.Duration(cfg.RunMaxWaitSeconds) * time.Second,
+	})
+
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: api.NewRouter(cfg, j, pool, users, sessions),
+		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions),
 	}
 
 	go func() {

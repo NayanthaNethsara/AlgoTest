@@ -7,15 +7,16 @@ import (
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
-func NewRouter(cfg config.Config, j *judge.Judge, pool *pgxpool.Pool, users *user.Repository, sessions *session.Repository) *gin.Engine {
+func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpool.Pool, users *user.Repository, sessions *session.Repository) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
 
-	h := &handler{cfg: cfg, judge: j, db: pool, users: users, sessions: sessions}
+	h := &handler{cfg: cfg, judge: j, runner: rn, db: pool, users: users, sessions: sessions}
 
 	r.GET("/healthz", h.health)
 
@@ -34,6 +35,8 @@ func NewRouter(cfg config.Config, j *judge.Judge, pool *pgxpool.Pool, users *use
 			admin.PATCH("/users/:id/role", h.updateRole)
 			admin.DELETE("/users/:id", h.deleteUser)
 		}
+
+		v1.POST("/run", h.requireUser, h.runCode)
 
 		v1.POST("/submissions", h.createSubmission)
 		v1.GET("/submissions/:id", h.getSubmission)

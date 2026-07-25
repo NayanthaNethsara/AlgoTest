@@ -1,10 +1,12 @@
 "use server";
 
+import { backendFetch } from "@/lib/api/server";
 import { getProblem } from "@/lib/problems";
 import type { RunResult, SubmitResult } from "@/types/code";
 
-// Mocked until the Go judge worker is ready. Only the bodies below change then:
-// replace the simulation with fetch calls to the backend.
+// submitCode is still mocked until hidden-test-case grading is wired up.
+// runCode calls the Go backend, which executes the code in a sandboxed
+// Docker container against the caller-supplied stdin.
 
 const MAX_CODE_LENGTH = 100_000;
 const MAX_STDIN_LENGTH = 1_000_000;
@@ -34,18 +36,28 @@ export async function runCode(
 ): Promise<RunResult> {
   assertLength(code, MAX_CODE_LENGTH, "code");
   assertLength(stdin, MAX_STDIN_LENGTH, "stdin");
-  await delay(600);
 
   if (!code.trim()) {
     return { stdout: "", stderr: "error: empty program", exitCode: 1, timeMs: 0 };
   }
 
-  return {
-    stdout: stdin.trim() ? stdin.trim().split("\n").slice(1).join("\n") : "(no output)",
-    stderr: "",
-    exitCode: 0,
-    timeMs: 12 + Math.floor(codeQuality(code) * 40),
-  };
+  const res = await backendFetch("/api/v1/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ language, code, stdin }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    return {
+      stdout: "",
+      stderr: body.error ?? "run failed",
+      exitCode: 1,
+      timeMs: 0,
+    };
+  }
+
+  return res.json();
 }
 
 export async function submitCode(

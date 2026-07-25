@@ -1,4 +1,4 @@
-.PHONY: run build test tidy fmt vet generate db-up db-down db-logs db-reset migrate user
+.PHONY: run build test tidy fmt vet generate db-up db-down db-logs db-reset migrate user judge-images
 
 # Regenerate type-safe query code from internal/db/queries/*.sql.
 # Requires sqlc (https://sqlc.dev): brew install sqlc  OR  go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
@@ -26,6 +26,18 @@ migrate:
 
 run:
 	go run ./cmd/server
+
+# Build the sandboxed language images the /run endpoint executes code in.
+# Re-run after changing docker/judge/*/Dockerfile.
+judge-images:
+	docker build -t algothon-judge-cpp docker/judge/cpp
+	docker build -t algothon-judge-java docker/judge/java
+	docker build -t algothon-judge-python docker/judge/python
+
+# Abuse + load harness for the /run sandbox. Needs a running server and a user.
+# e.g.  make judgetest ARGS='-username alice -password secret -burst 500'
+judgetest:
+	go run ./cmd/judgetest $(ARGS)
 
 build:
 	go build -o bin/server ./cmd/server
