@@ -16,6 +16,33 @@ services:
       timeout: 5s
       retries: 5
 
+  # The /run sandbox needs isolate, which needs Linux + cgroup v2, so the
+  # backend cannot run natively on macOS. This container is that Linux host.
+  # Started separately from postgres: `make backend` (or `docker compose up
+  # backend`), since it is only needed when working on the backend.
+  backend:
+    build:
+      context: ./backend/docker/dev
+    container_name: algothon-backend
+    # isolate creates cgroups and switches UIDs; a container manager does not
+    # delegate enough for that unprivileged. Acceptable for local dev only --
+    # production runs isolate on a real host, not in a container.
+    privileged: true
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://algothon:algothon@postgres:5432/algothon?sslmode=disable
+      ALLOWED_ORIGINS: http://localhost:3000
+      RUN_MAX_CONCURRENT: "4"
+    volumes:
+      - ./backend:/app
+      - algothon-gocache:/go
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   algothon-pgdata:
     name: algothon-pgdata
+  algothon-gocache:
+    name: algothon-gocache

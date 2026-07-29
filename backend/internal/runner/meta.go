@@ -1,0 +1,103 @@
+package runner
+
+import (
+	"bufio"
+	"os"
+	"strconv"
+	"strings"
+)
+
+// isolate status codes reported in the meta file. An empty status means the
+// program ran to completion with exit code 0.
+const (
+	statusRuntimeError = "RE" // exited non-zero
+	statusSignalled    = "SG" // died on a signal
+	statusTimedOut     = "TO" // hit --time (+ --extra-time) or --wall-time
+	statusInternal     = "XX" // isolate itself failed
+)
+
+// meta is the outcome isolate writes to its --meta file. It replaces the
+// guesswork the Docker path needed (inferring a CPU kill from exit code
+// 128+SIGXCPU): status says outright how the program ended.
+type meta struct {
+	status      string
+	message     string
+	exitCode    int
+	exitSig     int
+	timeCPU     float64 // CPU seconds
+	timeWall    float64 // Wall seconds
+	cgMemKB     int64   // Memory in KB
+	cgOOMKilled bool
+}
+
+// exitCodeOrSignal reports the exit code the way `docker run` did, so callers
+// (and the API contract) keep seeing 128+signal for signal deaths.
+func (m meta) exitCodeOrSignal() int {
+	if m.status == statusSignalled && m.exitSig > 0 {
+		return 128 + m.exitSig
+	}
+	return m.exitCode
+}
+
+// verdict maps isolate meta flags to a formal Verdict status.
+func (m meta) verdict(memLimitKB int64) Verdict {
+	if m.cgOOMKilled {
+		return VerdictMLE
+	}
+	if m.status == statusTimedOut {
+		return VerdictTLE
+	}
+	if m.status == statusInternal {
+		return VerdictIE
+	}
+	if m.status == statusSignalled && m.exitSig == 25 {
+		return VerdictOLE
+	}
+	if m.status == statusSignalled || m.status == statusRuntimeError {
+		// Memory threshold check catches unhandled OutOfMemory exceptions in languages like Java/Python
+		// that exit non-zero before triggering a hard cgroup kill.
+		if memLimitKB > 0 && m.cgMemKB >= int64(float64(memLimitKB)*0.95) {
+			return VerdictMLE
+		}
+		return VerdictRE
+	}
+	return VerdictAC
+}
+
+// parseMeta reads isolate's meta file, a flat "key:value" listing. Unknown keys
+// are ignored so a newer isolate adding fields doesn't break us.
+func parseMeta(path string) (meta, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return meta{}, err
+	}
+	defer f.Close()
+
+	var m meta
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		key, value, ok := strings.Cut(sc.Text(), ":")
+		if !ok {
+			continue
+		}
+		switch key {
+		case "status":
+			m.status = value
+		case "message":
+			m.message = value
+		case "exitcode":
+			m.exitCode, _ = strconv.Atoi(value)
+		case "exitsig":
+			m.exitSig, _ = strconv.Atoi(value)
+		case "time":
+			m.timeCPU, _ = strconv.ParseFloat(value, 64)
+		case "time-wall":
+			m.timeWall, _ = strconv.ParseFloat(value, 64)
+		case "cg-mem":
+			m.cgMemKB, _ = strconv.ParseInt(value, 10, 64)
+		case "cg-oom-killed":
+			m.cgOOMKilled = value == "1"
+		}
+	}
+	return m, sc.Err()
+}

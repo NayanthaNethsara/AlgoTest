@@ -28,9 +28,23 @@ export function IoPanels({ stdin, onStdinChange, result, running }: IoPanelsProp
         <PanelLabel>
           <span>Output</span>
           {result && (
-            <span className="flex items-center gap-3 font-normal normal-case tracking-normal">
+            <span className="flex items-center gap-3 font-normal normal-case tracking-normal text-xs">
+              {result.verdict && (
+                <span
+                  className={
+                    result.verdict === "AC"
+                      ? "font-semibold text-emerald-500"
+                      : "font-semibold text-rose-500"
+                  }
+                >
+                  {result.verdict}
+                </span>
+              )}
               <span>{result.timeMs} ms</span>
-              <span className={result.exitCode === 0 ? "text-success" : "text-destructive"}>
+              {typeof result.memoryKb === "number" && result.memoryKb > 0 && (
+                <span>{(result.memoryKb / 1024).toFixed(1)} MB</span>
+              )}
+              <span className={result.exitCode === 0 ? "text-muted-foreground" : "text-rose-400"}>
                 exit {result.exitCode}
               </span>
             </span>
@@ -50,13 +64,21 @@ function OutputBody({ result, running }: { result: RunResult | null; running: bo
 
   return (
     <div className="flex flex-col gap-3">
+      {result.compileError && (
+        <div className="rounded-md border border-rose-500/30 bg-rose-500/10 p-2">
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-rose-500">
+            Compilation Error
+          </div>
+          <pre className="whitespace-pre-wrap text-rose-400">{result.compileError}</pre>
+        </div>
+      )}
       {result.stdout && <pre className="whitespace-pre-wrap">{result.stdout}</pre>}
-      {result.stderr && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-destructive">
+      {result.stderr && !result.compileError && (
+        <div className="rounded-md border border-rose-500/30 bg-rose-500/10 p-2">
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-rose-500">
             stderr
           </div>
-          <pre className="whitespace-pre-wrap text-destructive">{result.stderr}</pre>
+          <pre className="whitespace-pre-wrap text-rose-400">{result.stderr}</pre>
         </div>
       )}
     </div>

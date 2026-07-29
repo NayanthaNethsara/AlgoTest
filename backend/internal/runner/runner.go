@@ -1,112 +1,187 @@
-// Package runner executes untrusted, user-submitted code inside short-lived,
-// network-isolated Docker containers and reports back stdout/stderr/exit
-// code/timing. It backs the "Run" action in the editor (arbitrary stdin,
-// synchronous). It is intentionally separate from internal/judge, which
-// grades submissions against a problem's hidden test cases.
+// Package runner executes untrusted, user-submitted code inside isolate
+// (https://github.com/ioi/isolate), the IOI sandbox, and reports back
+// stdout/stderr/exit code/timing. It backs the "Run" action in the editor
+// (arbitrary stdin, synchronous). It is intentionally separate from
+// internal/judge, which grades submissions against a problem's hidden tests.
+//
+// isolate needs a Linux host with cgroup v2 and the language toolchains
+// installed system-wide -- see deploy/provision-isolate.sh. It cannot run on
+// macOS, so this package only works on a provisioned Linux server.
 package runner
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 var ErrUnsupportedLanguage = errors.New("unsupported language")
 
-// outputLimit caps how much stdout/stderr we buffer per run, to keep a
-// runaway program (e.g. an infinite print loop) from exhausting memory
-// before the timeout kills it.
+// outputLimit caps how much stdout/stderr we hand back per run, to keep a
+// runaway program (e.g. an infinite print loop) from ballooning a response.
 const outputLimit = 128 * 1024
+
+// sandboxDir is where the per-run workspace is bind-mounted inside the sandbox.
+// isolate's own box directory is deliberately unused: mounting a directory we
+// create ourselves keeps ownership under our control and mirrors what the
+// previous Docker implementation did with `-v dir:/sandbox`.
+const sandboxDir = "/sandbox"
+
+// fsizeKB bounds any single file the sandboxed program writes. It sits well
+// above outputLimit (so truncation, not this, is what trims a flood the user
+// sees) but low enough that a print-loop can't fill the disk.
+const fsizeKB = 16 * 1024
+
+// openFilesLimit raises isolate's default of 64, which a JVM exhausts on
+// startup.
+const openFilesLimit = 256
+
+// processLimit contains fork bombs. isolate allows a single process by
+// default, which the JVM's threads would trip over immediately.
+const processLimit = 128
+
+// sandboxEnv is the entire environment the untrusted program sees. isolate
+// passes nothing through by default, and we never use --full-env: the server's
+// own environment holds the database URL and session secrets.
+var sandboxEnv = []string{
+	"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+	"HOME=" + sandboxDir,
+	"LANG=C.UTF-8",
+}
+
+type Limits struct {
+	CPUSeconds      float64       // isolate accepts fractional --time
+	Wall            time.Duration // Wall-clock timeout backstop
+	MemoryKB        int64         // Per-request memory limit in KB
+	CompileTimeout  time.Duration // Compile timeout
+	CompileMemoryKB int64         // Separate compile memory limit in KB
+}
 
 type Request struct {
 	Language string
 	Code     string
 	Stdin    string
+	Limits   Limits
 }
 
 type Result struct {
-	Stdout   string `json:"stdout"`
-	Stderr   string `json:"stderr"`
-	ExitCode int    `json:"exitCode"`
-	TimeMs   int64  `json:"timeMs"`
+	Stdout       string  `json:"stdout"`
+	Stderr       string  `json:"stderr"`
+	CompileError string  `json:"compileError,omitempty"`
+	ExitCode     int     `json:"exitCode"`
+	TimeMs       int64   `json:"timeMs"`
+	MemoryKB     int64   `json:"memoryKb"`
+	Verdict      Verdict `json:"verdict"`
 }
 
 type spec struct {
-	image      string
-	filename   string
-	compileCmd []string // nil if the language needs no compile step
-	runCmd     []string
+	filename      string
+	compileCmd    []string // nil if the language needs no compile step
+	runCmd        []string
+	timeFactor    float64 // cpp 1.0, java 2.0, python 3.0
+	memoryBonusKB int64   // interpreter/VM overhead bonus
 }
 
+// Toolchains are installed on the host rather than baked into per-language
+// images, so these commands resolve against sandboxEnv's PATH.
 var specs = map[string]spec{
 	"cpp": {
-		image:      "algothon-judge-cpp",
 		filename:   "main.cpp",
 		compileCmd: []string{"g++", "-O2", "-std=c++17", "-o", "main", "main.cpp"},
 		runCmd:     []string{"./main"},
+		timeFactor: 1.0,
 	},
 	"java": {
-		image:      "algothon-judge-java",
-		filename:   "Main.java",
-		compileCmd: []string{"javac", "Main.java"},
-		runCmd:     []string{"java", "-XX:+UseSerialGC", "-Xmx256m", "Main"},
+		filename:      "Main.java",
+		compileCmd:    []string{"javac", "Main.java"},
+		runCmd:        []string{"java", "-XX:+UseSerialGC", "-Xmx{mem}m", "Main"},
+		timeFactor:    2.0,
+		memoryBonusKB: 128 * 1024,
 	},
 	"python": {
-		image:    "algothon-judge-python",
-		filename: "main.py",
-		runCmd:   []string{"python3", "main.py"},
+		filename:      "main.py",
+		runCmd:        []string{"python3", "main.py"},
+		timeFactor:    3.0,
+		memoryBonusKB: 64 * 1024,
 	},
 }
 
 // Config parameterizes a Runner. WallTimeout is a backstop that force-kills
-// the container regardless of what it's doing (catches sleep/blocking I/O that
-// burns no CPU); CPUSeconds is the fair compute budget enforced via RLIMIT_CPU,
-// so container/JVM startup and idle waiting don't count against a contestant.
+// the program regardless of what it's doing (catches sleep/blocking I/O that
+// burns no CPU); CPUSeconds is the fair compute budget, so interpreter startup
+// and idle waiting don't count against a contestant.
 type Config struct {
-	CompileTimeout time.Duration
-	WallTimeout    time.Duration
-	CPUSeconds     int
-	Memory         string
-	// Runtime is the Docker runtime (e.g. "runsc" for gVisor). Empty uses the
-	// daemon default -- fine for local dev, but set "runsc" in prod so untrusted
-	// code runs against a userspace kernel instead of the host kernel.
-	Runtime   string
-	DockerBin string
+	CompileTimeout  time.Duration
+	WallTimeout     time.Duration
+	CPUSeconds      float64
+	Memory          string
+	IsolateBin      string
+	CompileMemoryKB int64
 
-	// Concurrency control (per node). MaxConcurrent caps containers running at
-	// once; MaxQueue caps how many extra requests may wait for a slot; MaxWait
-	// is how long a waiter blocks before giving up with ErrBusy. MaxConcurrent
-	// <= 0 disables limiting.
+	// Concurrency control (per node). MaxConcurrent caps sandboxes running at
+	// once and must not exceed isolate's provisioned num_boxes; MaxQueue caps
+	// how many extra requests may wait for a box; MaxWait is how long a waiter
+	// blocks before giving up with ErrBusy.
 	MaxConcurrent int
+	RunReserve    int
 	MaxQueue      int
 	MaxWait       time.Duration
 }
 
-// Runner executes Requests inside per-run Docker containers.
+// Runner executes Requests inside per-run isolate sandboxes.
 type Runner struct {
 	cfg     Config
+	memKB   int64
 	limiter *limiter
 }
 
-func New(cfg Config) *Runner {
-	if cfg.DockerBin == "" {
-		cfg.DockerBin = "docker"
+func New(cfg Config) (*Runner, error) {
+	if cfg.IsolateBin == "" {
+		cfg.IsolateBin = "isolate"
+	}
+	if cfg.MaxConcurrent < 1 {
+		cfg.MaxConcurrent = 1
+	}
+	if cfg.CompileMemoryKB <= 0 {
+		cfg.CompileMemoryKB = 1024 * 1024 // 1 GB default compile memory
+	}
+	memKB, err := parseMemoryKB(cfg.Memory)
+	if err != nil {
+		return nil, fmt.Errorf("run memory: %w", err)
 	}
 	return &Runner{
 		cfg:     cfg,
-		limiter: newLimiter(cfg.MaxConcurrent, cfg.MaxQueue, cfg.MaxWait),
-	}
+		memKB:   memKB,
+		limiter: newLimiter(cfg.MaxConcurrent, cfg.MaxQueue, cfg.MaxWait, cfg.RunReserve),
+	}, nil
 }
 
-// OverallTimeout bounds the whole Run call (compile + run + docker overhead),
+// CheckHost verifies isolate is installed and the host is provisioned for the
+// configured concurrency, so a misconfigured box fails at boot instead of
+// surfacing as 500s on the first burst of traffic.
+func (r *Runner) CheckHost(ctx context.Context) error {
+	if out, err := exec.CommandContext(ctx, r.cfg.IsolateBin, "--cg", "--check-config").CombinedOutput(); err != nil {
+		return fmt.Errorf("isolate --check-config: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	// Clean up dirty state before checking highest box ID
+	highest := r.cfg.MaxConcurrent - 1
+	r.cleanupBox(highest)
+	if _, err := r.initBox(ctx, highest); err != nil {
+		return fmt.Errorf("box %d unavailable (raise num_boxes in isolate's config to at least %d): %w",
+			highest, r.cfg.MaxConcurrent, err)
+	}
+	r.cleanupBox(highest)
+	return nil
+}
+
+// OverallTimeout bounds the whole Run call (compile + run + sandbox overhead),
 // for callers that want to derive a request-scoped context.
 func (r *Runner) OverallTimeout() time.Duration {
 	return r.cfg.CompileTimeout + r.cfg.WallTimeout + 10*time.Second
@@ -118,200 +193,333 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 		return Result{}, fmt.Errorf("%w: %s", ErrUnsupportedLanguage, req.Language)
 	}
 
-	// Reserve a run slot before doing any work, so overflow is rejected cheaply.
-	release, err := r.limiter.acquire(ctx)
+	// Reserve a box before doing any work, so overflow is rejected cheaply.
+	slot, release, err := r.limiter.acquireRun(ctx)
 	if err != nil {
 		return Result{}, err
 	}
 	defer release()
 
-	dir, err := os.MkdirTemp("", "algothon-run-*")
+	// Once the slot is acquired, derive a fresh execution deadline context
+	// independent of the time spent waiting in the queue.
+	execCtx, execCancel := context.WithTimeout(context.Background(), r.OverallTimeout())
+	defer execCancel()
+
+	baseCPU := req.Limits.CPUSeconds
+	if baseCPU <= 0 {
+		baseCPU = r.cfg.CPUSeconds
+	}
+	if baseCPU <= 0 {
+		baseCPU = 2.0
+	}
+	effectiveCPU := baseCPU * sp.timeFactor
+
+	effectiveWall := req.Limits.Wall
+	if effectiveWall <= 0 {
+		effectiveWall = r.cfg.WallTimeout
+	}
+	if effectiveWall <= 0 {
+		effectiveWall = 10 * time.Second
+	}
+
+	reqMemKB := req.Limits.MemoryKB
+	if reqMemKB <= 0 {
+		reqMemKB = r.memKB
+	}
+	if reqMemKB <= 0 {
+		reqMemKB = 256 * 1024
+	}
+
+	compileTimeout := req.Limits.CompileTimeout
+	if compileTimeout <= 0 {
+		compileTimeout = r.cfg.CompileTimeout
+	}
+	if compileTimeout <= 0 {
+		compileTimeout = 10 * time.Second
+	}
+
+	compileMemKB := req.Limits.CompileMemoryKB
+	if compileMemKB <= 0 {
+		compileMemKB = r.cfg.CompileMemoryKB
+	}
+
+	// Two directories: work/ is bind-mounted into the sandbox, the parent is
+	// not. Meta files must stay outside, or the program under test could
+	// rewrite them and forge its own verdict.
+	base, err := os.MkdirTemp("", "algothon-run-*")
 	if err != nil {
 		return Result{}, fmt.Errorf("creating workspace: %w", err)
 	}
-	defer os.RemoveAll(dir)
+	defer os.RemoveAll(base)
 
-	// The container runs as root (see execContainer's --cap-drop/--read-only
-	// hardening), so the bind-mounted workspace just needs to be writable.
-	if err := os.Chmod(dir, 0o777); err != nil {
+	work := filepath.Join(base, "work")
+	if err := os.Mkdir(work, 0o777); err != nil {
+		return Result{}, fmt.Errorf("creating workspace: %w", err)
+	}
+	// The sandboxed program runs as isolate's own unprivileged UID, so the
+	// bind-mounted workspace has to be writable by it.
+	if err := os.Chmod(work, 0o777); err != nil {
 		return Result{}, fmt.Errorf("preparing workspace: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, sp.filename), []byte(req.Code), 0o666); err != nil {
+	if err := os.WriteFile(filepath.Join(work, sp.filename), []byte(req.Code), 0o644); err != nil {
 		return Result{}, fmt.Errorf("writing source: %w", err)
 	}
+	if err := os.WriteFile(filepath.Join(work, "stdin.txt"), []byte(req.Stdin), 0o644); err != nil {
+		return Result{}, fmt.Errorf("writing stdin: %w", err)
+	}
 
-	// Compile gets no CPU-time cap (a big legitimate compile can burn CPU); the
-	// wall-clock CompileTimeout is its only bound.
+	if _, err := r.initBox(execCtx, slot.BoxID); err != nil {
+		return Result{}, err
+	}
+	defer r.cleanupBox(slot.BoxID)
+
+	// Compile gets a separate compile memory cap to prevent heavy compiles from OOMing
 	if sp.compileCmd != nil {
-		res, err := r.execContainer(ctx, sp.image, sp.compileCmd, dir, "", r.cfg.CompileTimeout, 0)
+		m, err := r.execBox(execCtx, slot.BoxID, base, work, "compile", sp.compileCmd, execOpts{
+			wall:     compileTimeout,
+			memoryKB: compileMemKB,
+			core:     slot.Core,
+		})
 		if err != nil {
 			return Result{}, err
 		}
-		if res.timedOut {
-			return Result{Stderr: "compile timed out", ExitCode: -1}, nil
+		if m.status == statusTimedOut {
+			return Result{
+				Stderr:       "compile timed out",
+				CompileError: "compile timed out",
+				ExitCode:     -1,
+				Verdict:      VerdictCE,
+				TimeMs:       int64(m.timeCPU * 1000),
+				MemoryKB:     m.cgMemKB,
+			}, nil
 		}
-		if res.exitCode != 0 {
-			return Result{Stderr: res.stderr, ExitCode: res.exitCode}, nil
+		if code := m.exitCodeOrSignal(); code != 0 {
+			compileOut := readCapped(filepath.Join(work, "compile.out"))
+			compileErr := readCapped(filepath.Join(work, "compile.err"))
+			exactErr := combineOutput(compileOut, compileErr)
+			if exactErr == "" {
+				exactErr = "compilation failed"
+			}
+			return Result{
+				Stderr:       exactErr,
+				CompileError: exactErr,
+				ExitCode:     code,
+				Verdict:      VerdictCE,
+				TimeMs:       int64(m.timeCPU * 1000),
+				MemoryKB:     m.cgMemKB,
+			}, nil
 		}
 	}
 
-	// The run gets the fair CPU budget plus a wall-clock backstop.
-	res, err := r.execContainer(ctx, sp.image, sp.runCmd, dir, req.Stdin, r.cfg.WallTimeout, r.cfg.CPUSeconds)
+	// Prepare run command with dynamic memory limits for Java (-Xmx{mem}m)
+	heapMB := reqMemKB / 1024
+	if heapMB < 16 {
+		heapMB = 16
+	}
+	runCmd := make([]string, len(sp.runCmd))
+	for i, arg := range sp.runCmd {
+		runCmd[i] = strings.ReplaceAll(arg, "{mem}", strconv.FormatInt(heapMB, 10))
+	}
+
+	totalRunMemKB := reqMemKB + sp.memoryBonusKB
+	m, err := r.execBox(execCtx, slot.BoxID, base, work, "run", runCmd, execOpts{
+		cpuSeconds: effectiveCPU,
+		wall:       effectiveWall,
+		memoryKB:   totalRunMemKB,
+		stdin:      "stdin.txt",
+		core:       slot.Core,
+	})
 	if err != nil {
 		return Result{}, err
 	}
-	if res.timedOut || isCPULimitKill(res.exitCode) {
+
+	stdout := readCapped(filepath.Join(work, "run.out"))
+	cpuMs := int64(m.timeCPU * 1000)
+	verdict := m.verdict(reqMemKB)
+
+	if verdict == VerdictTLE {
 		return Result{
-			Stdout:   res.stdout,
+			Stdout:   stdout,
 			Stderr:   "time limit exceeded",
 			ExitCode: -1,
-			TimeMs:   res.elapsed.Milliseconds(),
+			TimeMs:   cpuMs,
+			MemoryKB: m.cgMemKB,
+			Verdict:  VerdictTLE,
 		}, nil
 	}
 
 	return Result{
-		Stdout:   res.stdout,
-		Stderr:   res.stderr,
-		ExitCode: res.exitCode,
-		TimeMs:   res.elapsed.Milliseconds(),
+		Stdout:   stdout,
+		Stderr:   readCapped(filepath.Join(work, "run.err")),
+		ExitCode: m.exitCodeOrSignal(),
+		TimeMs:   cpuMs,
+		MemoryKB: m.cgMemKB,
+		Verdict:  verdict,
 	}, nil
 }
 
-// isCPULimitKill reports whether an exit code corresponds to RLIMIT_CPU firing:
-// 128+SIGXCPU (24) when the soft limit terminates the process, or 128+SIGKILL
-// (9) when the hard limit force-kills it.
-func isCPULimitKill(exitCode int) bool {
-	return exitCode == 128+24 || exitCode == 128+9
+type execOpts struct {
+	cpuSeconds float64
+	wall       time.Duration
+	memoryKB   int64
+	stdin      string // filename within the workspace, empty for no stdin
+	core       int
 }
 
-type execResult struct {
-	stdout   string
-	stderr   string
-	exitCode int
-	elapsed  time.Duration
-	timedOut bool
-}
-
-// execContainer runs a single command inside a fresh, network-isolated,
-// resource-capped container bind-mounting dir at /sandbox, and force-kills
-// the container if it outlives timeout (the wall-clock backstop). cpuSeconds,
-// when > 0, additionally caps user+system CPU time via RLIMIT_CPU so idle
-// waiting and startup don't count against the fair compute budget.
-func (r *Runner) execContainer(
+// execBox runs one command inside box boxID, with work bind-mounted at
+// /sandbox. Resource limits are enforced by isolate itself, so unlike the
+// Docker implementation there is no Go-side timeout race or kill path.
+func (r *Runner) execBox(
 	ctx context.Context,
-	image string,
-	args []string,
-	dir, stdin string,
-	timeout time.Duration,
-	cpuSeconds int,
-) (execResult, error) {
-	name := "algothon-run-" + uuid.NewString()
-	dockerArgs := []string{
-		"run", "--rm", "-i", "--name", name,
-		"--network", "none",
-		"--memory", r.cfg.Memory,
-		"--memory-swap", r.cfg.Memory,
-		"--cpus", "1",
-		"--pids-limit", "128",
-		"--security-opt", "no-new-privileges",
-		"--cap-drop", "ALL",
-		"--read-only",
-		"--tmpfs", "/tmp:rw,size=64m",
-	}
-	// gVisor (or any non-default runtime) for real syscall isolation in prod.
-	if r.cfg.Runtime != "" {
-		dockerArgs = append(dockerArgs, "--runtime", r.cfg.Runtime)
-	}
-	// Soft limit sends SIGXCPU (terminates), hard limit +1s sends SIGKILL.
-	if cpuSeconds > 0 {
-		dockerArgs = append(dockerArgs, "--ulimit",
-			fmt.Sprintf("cpu=%d:%d", cpuSeconds, cpuSeconds+1))
-	}
-	dockerArgs = append(dockerArgs,
-		"-v", dir+":/sandbox",
-		"-w", "/sandbox",
-		image,
-	)
-	dockerArgs = append(dockerArgs, args...)
+	boxID int,
+	base, work, step string,
+	cmd []string,
+	opts execOpts,
+) (meta, error) {
+	metaPath := filepath.Join(base, step+".meta")
 
-	cmd := exec.Command(r.dockerBin(), dockerArgs...)
-	cmd.Stdin = strings.NewReader(stdin)
-	stdout := &limitedBuffer{limit: outputLimit}
-	stderr := &limitedBuffer{limit: outputLimit}
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-
-	start := time.Now()
-	if err := cmd.Start(); err != nil {
-		return execResult{}, fmt.Errorf("starting container: %w", err)
+	memKB := opts.memoryKB
+	if memKB <= 0 {
+		memKB = r.memKB
 	}
 
-	waitErr := make(chan error, 1)
-	go func() { waitErr <- cmd.Wait() }()
-
-	select {
-	case werr := <-waitErr:
-		res := execResult{stdout: stdout.String(), stderr: stderr.String(), elapsed: time.Since(start)}
-		if werr != nil {
-			var exitErr *exec.ExitError
-			if errors.As(werr, &exitErr) {
-				res.exitCode = exitErr.ExitCode()
-			} else {
-				return execResult{}, fmt.Errorf("running container: %w", werr)
-			}
-		}
-		return res, nil
-
-	case <-time.After(timeout):
-		r.killContainer(name)
-		<-waitErr
-		return execResult{stdout: stdout.String(), stderr: stderr.String(), elapsed: timeout, timedOut: true}, nil
-
-	case <-ctx.Done():
-		r.killContainer(name)
-		<-waitErr
-		return execResult{}, ctx.Err()
+	args := []string{
+		"--cg",
+		"--box-id=" + strconv.Itoa(boxID),
+		"--meta=" + metaPath,
+		"--silent",
+		// Network isolation is isolate's default (a fresh namespace with only
+		// loopback); --share-net would be what turns it off, so it is never set.
+		"--dir=" + sandboxDir + "=" + work + ":rw",
+		"--chdir=" + sandboxDir,
+		"--processes=" + strconv.Itoa(processLimit),
+		"--open-files=" + strconv.Itoa(openFilesLimit),
+		"--fsize=" + strconv.Itoa(fsizeKB),
+		"--cg-mem=" + strconv.FormatInt(memKB, 10),
+		"--wall-time=" + formatSeconds(opts.wall),
+		"--stdout=" + sandboxDir + "/" + step + ".out",
+		"--stderr=" + sandboxDir + "/" + step + ".err",
 	}
+	if opts.cpuSeconds > 0 {
+		// Soft limit at the fair budget, then a 0.5s grace window before hard kill.
+		args = append(args,
+			"--time="+formatSeconds(time.Duration(opts.cpuSeconds*float64(time.Second))),
+			"--extra-time=0.5",
+		)
+	}
+	if opts.stdin != "" {
+		args = append(args, "--stdin="+sandboxDir+"/"+opts.stdin)
+	}
+	for _, e := range sandboxEnv {
+		args = append(args, "--env="+e)
+	}
+	args = append(args, "--run", "--")
+	args = append(args, cmd...)
+
+	execCmd := r.cfg.IsolateBin
+	execArgs := args
+	if opts.core >= 0 {
+		execCmd = "taskset"
+		execArgs = append([]string{"-c", strconv.Itoa(opts.core), r.cfg.IsolateBin}, args...)
+	}
+
+	// isolate exits non-zero whenever the program itself failed, so the meta
+	// file -- not the exit status -- is what we read the outcome from.
+	runErr := exec.CommandContext(ctx, execCmd, execArgs...).Run()
+
+	m, err := parseMeta(metaPath)
+	if err != nil {
+		return meta{}, fmt.Errorf("reading sandbox result: %w (isolate: %v)", err, runErr)
+	}
+	if m.status == statusInternal {
+		return meta{}, fmt.Errorf("sandbox failed: %s", m.message)
+	}
+	return m, nil
 }
 
-func (r *Runner) killContainer(name string) {
-	killCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func (r *Runner) initBox(ctx context.Context, boxID int) (string, error) {
+	out, err := exec.CommandContext(ctx, r.cfg.IsolateBin,
+		"--cg", "--box-id="+strconv.Itoa(boxID), "--init").Output()
+	if err != nil {
+		return "", fmt.Errorf("initializing sandbox %d: %w", boxID, err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// cleanupBox always runs, even when the request context is already cancelled:
+// leaving a box initialized would poison the next run that draws that ID.
+func (r *Runner) cleanupBox(boxID int) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = exec.CommandContext(killCtx, r.dockerBin(), "kill", name).Run()
+	_ = exec.CommandContext(ctx, r.cfg.IsolateBin,
+		"--cg", "--box-id="+strconv.Itoa(boxID), "--cleanup").Run()
 }
 
-func (r *Runner) dockerBin() string {
-	if r.cfg.DockerBin == "" {
-		return "docker"
+// readCapped returns at most outputLimit bytes of a sandbox output file,
+// flagging the cut so the user knows output is missing. A missing file means
+// the program produced nothing.
+func readCapped(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
 	}
-	return r.cfg.DockerBin
+	defer f.Close()
+
+	data, err := io.ReadAll(io.LimitReader(f, outputLimit+1))
+	if err != nil {
+		return ""
+	}
+	if len(data) > outputLimit {
+		return string(data[:outputLimit]) + "\n... (truncated)"
+	}
+	return string(data)
 }
 
-// limitedBuffer caps how many bytes it will retain, discarding (but still
-// accepting, so io.Copy-style writers don't error out) anything past limit.
-type limitedBuffer struct {
-	buf       bytes.Buffer
-	limit     int
-	truncated bool
+// formatSeconds renders a duration for isolate's fractional-second time flags.
+func formatSeconds(d time.Duration) string {
+	return strconv.FormatFloat(d.Seconds(), 'f', -1, 64)
 }
 
-func (w *limitedBuffer) Write(p []byte) (int, error) {
-	remaining := w.limit - w.buf.Len()
-	if remaining <= 0 {
-		w.truncated = true
-		return len(p), nil
+// parseMemoryKB converts a Docker-style size ("256m", "1g", "512k", or plain
+// bytes) into the kilobytes isolate expects.
+func parseMemoryKB(s string) (int64, error) {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if s == "" {
+		return 0, errors.New("empty size")
 	}
-	if len(p) > remaining {
-		w.buf.Write(p[:remaining])
-		w.truncated = true
-		return len(p), nil
+
+	multiplier := int64(1)
+	switch s[len(s)-1] {
+	case 'k':
+		multiplier, s = 1024, s[:len(s)-1]
+	case 'm':
+		multiplier, s = 1024*1024, s[:len(s)-1]
+	case 'g':
+		multiplier, s = 1024*1024*1024, s[:len(s)-1]
+	case 'b':
+		s = s[:len(s)-1]
 	}
-	return w.buf.Write(p)
+
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q", s)
+	}
+	kb := n * multiplier / 1024
+	if kb <= 0 {
+		return 0, fmt.Errorf("size too small: %q", s)
+	}
+	return kb, nil
 }
 
-func (w *limitedBuffer) String() string {
-	if w.truncated {
-		return w.buf.String() + "\n... (truncated)"
+// combineOutput merges stdout and stderr strings, trimming whitespace and joining non-empty sections.
+func combineOutput(stdout, stderr string) string {
+	stdout = strings.TrimSpace(stdout)
+	stderr = strings.TrimSpace(stderr)
+	if stdout == "" {
+		return stderr
 	}
-	return w.buf.String()
+	if stderr == "" {
+		return stdout
+	}
+	return stdout + "\n" + stderr
 }

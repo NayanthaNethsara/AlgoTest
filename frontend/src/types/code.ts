@@ -5,11 +5,16 @@ export type Language = {
   starter: string;
 };
 
+export type Verdict = "AC" | "WA" | "TLE" | "MLE" | "RE" | "CE" | "OLE" | "IE" | "SK";
+
 export type RunResult = {
   stdout: string;
   stderr: string;
+  compileError?: string;
   exitCode: number;
   timeMs: number;
+  memoryKb?: number;
+  verdict?: Verdict;
 };
 
 export type SubtaskResult = {

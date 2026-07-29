@@ -1,13 +1,21 @@
-.PHONY: install db-up db-down db-logs db-reset migrate user backend frontend dev build test
+.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest frontend dev build test
+
+# No local Go toolchain is needed: every backend command runs in the container
+# from backend/docker/dev, which carries Go, isolate, and the language
+# toolchains. GO also starts postgres; GO_OFFLINE skips it for commands that
+# never touch the database; GO_LIVE reuses the already-running server container.
+GO = docker compose run --rm backend
+GO_OFFLINE = docker compose run --rm --no-deps backend
+GO_LIVE = docker compose exec backend
 
 install:
-	cd backend && go mod download
+	$(GO_OFFLINE) go mod download
 	cd frontend && pnpm install
 
 # --- Database (docker-compose.yml lives at repo root) ---
 
 db-up:
-	docker compose up -d
+	docker compose up -d postgres
 
 db-down:
 	docker compose down
@@ -18,21 +26,32 @@ db-logs:
 # Drops the volume too -- wipes all data, re-applies migrations fresh.
 db-reset:
 	docker compose down -v
-	docker compose up -d
+	docker compose up -d postgres
 
 migrate:
-	cd backend && make migrate
+	$(GO) go run ./cmd/migrate
 
 # Create/import users, e.g.:
 #   make user ARGS='-username alice -role admin'
 #   make user ARGS='-file competitors.csv'
 user:
-	cd backend && make user ARGS='$(ARGS)'
+	$(GO) go run ./cmd/usertool $(ARGS)
 
 # --- App (run each in its own terminal) ---
 
+# Runs in a Linux container because the /run sandbox needs isolate; see
+# backend/docker/dev/Dockerfile. Postgres starts first via depends_on.
 backend:
-	cd backend && make run
+	docker compose up --build backend
+
+# Shell inside the running backend container.
+backend-shell:
+	$(GO_LIVE) bash
+
+# Abuse + load harness for the /run sandbox. Needs `make backend` up already.
+#   make judgetest ARGS='-username alice -password secret -burst 200'
+judgetest:
+	$(GO_LIVE) go run ./cmd/judgetest $(ARGS)
 
 frontend:
 	cd frontend && pnpm dev
@@ -42,8 +61,8 @@ dev:
 	$(MAKE) -j2 backend frontend
 
 build:
-	cd backend && make build
+	$(GO_OFFLINE) go build -o bin/server ./cmd/server
 	cd frontend && pnpm build
 
 test:
-	cd backend && make test
+	$(GO_OFFLINE) go test ./...

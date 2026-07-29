@@ -51,16 +51,26 @@ func main() {
 	j := judge.New(cfg.JudgeWorkers, cfg.QueueSize, log)
 	go j.Start(ctx)
 
-	rn := runner.New(runner.Config{
+	rn, err := runner.New(runner.Config{
 		CompileTimeout: cfg.RunCompileTimeout(),
 		WallTimeout:    cfg.RunWallTimeout(),
-		CPUSeconds:     cfg.RunCPUSeconds,
+		CPUSeconds:     float64(cfg.RunCPUSeconds),
 		Memory:         cfg.RunMemory,
-		Runtime:        cfg.RunDockerRuntime,
+		IsolateBin:     cfg.RunIsolateBin,
 		MaxConcurrent:  cfg.RunMaxConcurrent,
 		MaxQueue:       cfg.RunMaxQueue,
 		MaxWait:        time.Duration(cfg.RunMaxWaitSeconds) * time.Second,
 	})
+	if err != nil {
+		log.Error("runner configuration invalid", "error", err)
+		os.Exit(1)
+	}
+	// Fail at boot rather than serving 500s once traffic arrives.
+	if err := rn.CheckHost(ctx); err != nil {
+		log.Error("sandbox host not ready", "error", err)
+		os.Exit(1)
+	}
+	log.Info("sandbox ready", "boxes", cfg.RunMaxConcurrent)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,

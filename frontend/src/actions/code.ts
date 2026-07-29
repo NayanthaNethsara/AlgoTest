@@ -49,11 +49,21 @@ export async function runCode(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 503) {
+      return {
+        stdout: "",
+        stderr: "Server busy: capacity limit reached. Please retry in a few seconds.",
+        exitCode: 503,
+        timeMs: 0,
+        verdict: "IE",
+      };
+    }
     return {
       stdout: "",
       stderr: body.error ?? "run failed",
       exitCode: 1,
       timeMs: 0,
+      verdict: "IE",
     };
   }
 

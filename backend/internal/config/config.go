@@ -22,10 +22,13 @@ type Config struct {
 	RunWallTimeoutSeconds    int
 	RunCPUSeconds            int
 	RunMemory                string
-	RunDockerRuntime         string
-	RunMaxConcurrent         int
-	RunMaxQueue              int
-	RunMaxWaitSeconds        int
+	RunIsolateBin            string
+	// RunMaxConcurrent must not exceed the isolate host's provisioned
+	// num_boxes; the server checks this at startup and refuses to boot if the
+	// host can't supply that many sandboxes.
+	RunMaxConcurrent  int
+	RunMaxQueue       int
+	RunMaxWaitSeconds int
 }
 
 func Load() Config {
@@ -44,7 +47,7 @@ func Load() Config {
 		RunWallTimeoutSeconds:    getenvInt("RUN_WALL_TIMEOUT_SECONDS", 10),
 		RunCPUSeconds:            getenvInt("RUN_CPU_SECONDS", 5),
 		RunMemory:                getenv("RUN_MEMORY", "256m"),
-		RunDockerRuntime:         getenv("RUN_DOCKER_RUNTIME", ""),
+		RunIsolateBin:            getenv("RUN_ISOLATE_BIN", "isolate"),
 		RunMaxConcurrent:         getenvInt("RUN_MAX_CONCURRENT", 4),
 		RunMaxQueue:              getenvInt("RUN_MAX_QUEUE", 64),
 		RunMaxWaitSeconds:        getenvInt("RUN_MAX_WAIT_SECONDS", 15),
@@ -56,7 +59,7 @@ func (c Config) SessionTTL() time.Duration {
 	return time.Duration(c.SessionTTLHours) * time.Hour
 }
 
-// RunCompileTimeout bounds how long a Docker compile step may run.
+// RunCompileTimeout bounds how long the sandboxed compile step may run.
 func (c Config) RunCompileTimeout() time.Duration {
 	return time.Duration(c.RunCompileTimeoutSeconds) * time.Second
 }

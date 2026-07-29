@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"net/http"
 
@@ -39,10 +38,7 @@ func (h *handler) runCode(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(c.Request.Context(), h.runner.OverallTimeout())
-	defer cancel()
-
-	result, err := h.runner.Run(ctx, runner.Request{
+	result, err := h.runner.Run(c.Request.Context(), runner.Request{
 		Language: req.Language,
 		Code:     req.Code,
 		Stdin:    req.Stdin,
