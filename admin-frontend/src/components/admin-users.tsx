@@ -1,13 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Trash2, Copy, Plus, Upload } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { KeyRound, Trash2, Plus, Upload, Shield, Users, Search } from "lucide-react";
+import { createUserAction, bulkCreateUsersAction, resetPasswordAction, deleteUserAction } from "@/lib/actions/users";
 import type { User, CreateUserInput, BulkResult } from "@/types/user";
+import { ConfirmDialog } from "./confirm-dialog";
+import { CredentialsAlert } from "./credentials-alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Credential = { username: string; password: string };
-
-const ROLES = ["competitor", "admin"];
 
 export function AdminUsers({
   users,
@@ -18,7 +24,13 @@ export function AdminUsers({
   currentUserId?: string;
   onRefresh: () => void;
 }) {
+  const [subTab, setSubTab] = useState<"competitors" | "admins">("competitors");
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [creds, setCreds] = useState<Credential[]>([]);
+  const [resetTarget, setResetTarget] = useState<User | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -27,27 +39,36 @@ export function AdminUsers({
 
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [role, setRole] = useState("competitor");
+  const [role, setRole] = useState<"competitor" | "admin">("competitor");
   const [password, setPassword] = useState("");
 
   const [csvText, setCsvText] = useState("");
-  const [bulkRole, setBulkRole] = useState("competitor");
+
+  const competitorUsers = users.filter((u) => u.role === "competitor");
+  const adminUsers = users.filter((u) => u.role === "admin");
+
+  const currentList = subTab === "competitors" ? competitorUsers : adminUsers;
+  const filteredUsers = currentList.filter(
+    (u) =>
+      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.displayName && u.displayName.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  function openAddFormFor(targetRole: "competitor" | "admin") {
+    setRole(targetRole);
+    setShowAddForm(true);
+    setShowBulkForm(false);
+  }
 
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setPending(true);
     try {
-      const res = await apiFetch("/api/v1/admin/users", {
-        method: "POST",
-        body: JSON.stringify({ username, displayName, role, password }),
-      });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || "Failed to create user");
+      const data = await createUserAction({ username, displayName, role, password });
+      if (data.password) {
+        setCreds((prev) => [{ username: data.user.username, password: data.password! }, ...prev]);
       }
-      const data = await res.json();
-      setCreds((prev) => [{ username: data.user.username, password: data.password }, ...prev]);
       setUsername("");
       setDisplayName("");
       setPassword("");
@@ -68,15 +89,7 @@ export function AdminUsers({
       const rows = parseCsv(csvText);
       if (rows.length === 0) throw new Error("No valid rows found");
 
-      const res = await apiFetch("/api/v1/admin/users/bulk", {
-        method: "POST",
-        body: JSON.stringify({ role: bulkRole, users: rows }),
-      });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || "Bulk import failed");
-      }
-      const data = await res.json();
+      const data = await bulkCreateUsersAction("competitor", rows);
       const createdCreds = (data.results as BulkResult[])
         .filter((r) => r.status === "created" && r.password)
         .map((r) => ({ username: r.username, password: r.password! }));
@@ -92,20 +105,15 @@ export function AdminUsers({
     }
   }
 
-  async function handleResetPassword(id: string) {
+  async function confirmResetPassword() {
+    if (!resetTarget) return;
+    const target = resetTarget;
+    setResetTarget(null);
     setError(null);
     setPending(true);
     try {
-      const res = await apiFetch(`/api/v1/admin/users/${id}/reset-password`, {
-        method: "POST",
-        body: "{}",
-      });
-      if (!res.ok) throw new Error("Failed to reset password");
-      const data = await res.json();
-      const targetUser = users.find((u) => u.id === id);
-      if (targetUser) {
-        setCreds((prev) => [{ username: targetUser.username, password: data.password }, ...prev]);
-      }
+      const data = await resetPasswordAction(target.id);
+      setCreds((prev) => [{ username: target.username, password: data.password }, ...prev]);
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
     } finally {
@@ -113,30 +121,14 @@ export function AdminUsers({
     }
   }
 
-  async function handleRoleChange(id: string, newRole: string) {
+  async function confirmDeleteUser() {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    setDeleteTarget(null);
     setError(null);
     setPending(true);
     try {
-      const res = await apiFetch(`/api/v1/admin/users/${id}/role`, {
-        method: "PATCH",
-        body: JSON.stringify({ role: newRole }),
-      });
-      if (!res.ok) throw new Error("Failed to update role");
-      onRefresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function handleDeleteUser(id: string) {
-    if (!confirm("Are you sure you want to delete this user?")) return;
-    setError(null);
-    setPending(true);
-    try {
-      const res = await apiFetch(`/api/v1/admin/users/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete user");
+      await deleteUserAction(id);
       onRefresh();
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
@@ -147,171 +139,223 @@ export function AdminUsers({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Users</h2>
-          <p className="text-xs text-muted-foreground">{users.length} total user(s)</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowBulkForm(!showBulkForm)}
-            className="flex items-center px-3 py-1.5 text-xs rounded border bg-background hover:bg-muted font-medium"
+      {/* Sub-Tab Navigation Bar & Action Buttons */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+        <Tabs value={subTab} onValueChange={(v) => setSubTab(v as "competitors" | "admins")}>
+          <TabsList className="h-8">
+            <TabsTrigger value="competitors" className="gap-1.5 text-xs h-7">
+              <Users className="h-3.5 w-3.5" /> Contestants & Competitors ({competitorUsers.length})
+            </TabsTrigger>
+            <TabsTrigger value="admins" className="gap-1.5 text-xs h-7">
+              <Shield className="h-3.5 w-3.5" /> Organizers & Admins ({adminUsers.length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="flex items-center gap-2">
+          {subTab === "competitors" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowBulkForm(!showBulkForm);
+                setShowAddForm(false);
+              }}
+              className="h-8 text-xs gap-1.5"
+            >
+              <Upload className="h-3.5 w-3.5" /> Bulk CSV Import
+            </Button>
+          )}
+
+          <Button
+            size="sm"
+            onClick={() => openAddFormFor(subTab === "competitors" ? "competitor" : "admin")}
+            className="h-8 text-xs gap-1.5"
           >
-            <Upload className="h-3.5 w-3.5 mr-1" /> Bulk CSV Import
-          </button>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground font-medium hover:bg-primary/90"
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" /> Add Single User
-          </button>
+            <Plus className="h-3.5 w-3.5" /> Add {subTab === "competitors" ? "Competitor" : "Admin"}
+          </Button>
         </div>
       </div>
 
       {error && (
-        <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-500">
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
           {error}
         </p>
       )}
 
-      {creds.length > 0 && (
-        <div className="rounded-lg border bg-green-500/10 p-4 border-green-500/30">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider">
-              Generated Credentials (Copy Now)
-            </span>
-            <button onClick={() => setCreds([])} className="text-xs text-muted-foreground hover:underline">
-              Clear
-            </button>
-          </div>
-          <div className="font-mono text-xs max-h-36 overflow-y-auto space-y-1">
-            {creds.map((c, i) => (
-              <div key={i} className="flex justify-between border-b border-green-500/20 py-0.5">
-                <span>{c.username}</span>
-                <span className="font-bold">{c.password}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Generated Credentials Alert Component */}
+      <CredentialsAlert credentials={creds} onClear={() => setCreds([])} />
 
+      {/* Single Add User Form */}
       {showAddForm && (
         <form onSubmit={handleCreateUser} className="rounded-lg border p-4 bg-muted/10 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-          <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1">Username</label>
-            <input value={username} onChange={(e) => setUsername(e.target.value)} required className="w-full h-8 rounded border bg-background px-2 text-xs" />
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted-foreground">Username</label>
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. competitor_01"
+              required
+            />
           </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1">Display Name</label>
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full h-8 rounded border bg-background px-2 text-xs" />
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted-foreground">Display Name</label>
+            <Input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="e.g. John Doe"
+            />
           </div>
-          <div>
-            <label className="text-xs font-medium text-muted-foreground block mb-1">Role</label>
-            <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full h-8 rounded border bg-background px-2 text-xs">
-              <option value="competitor">competitor</option>
-              <option value="admin">admin</option>
-            </select>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-muted-foreground">Assigned Role</label>
+            <Input
+              value={role}
+              readOnly
+              className="h-9 w-full bg-muted/20 font-mono text-xs cursor-not-allowed"
+            />
           </div>
           <div className="flex gap-2">
-            <button type="submit" disabled={pending} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground font-medium">
-              Save User
-            </button>
-            <button type="button" onClick={() => setShowAddForm(false)} className="px-3 py-1.5 text-xs rounded border">
+            <Button type="submit" disabled={pending} size="sm">
+              Save Account
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
       )}
 
+      {/* Bulk CSV Import Form */}
       {showBulkForm && (
         <form onSubmit={handleBulkImport} className="rounded-lg border p-4 bg-muted/10 flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-muted-foreground">CSV Input (Format: username,display_name,password)</label>
-            <div className="flex items-center gap-2 text-xs">
-              <span>Role:</span>
-              <select value={bulkRole} onChange={(e) => setBulkRole(e.target.value)} className="h-7 rounded border bg-background px-2 text-xs">
-                <option value="competitor">competitor</option>
-                <option value="admin">admin</option>
-              </select>
-            </div>
+            <label className="text-xs font-medium text-muted-foreground">
+              CSV Competitors List (Format: username, display_name, password)
+            </label>
+            <span className="text-[10px] text-muted-foreground">Passwords auto-generated if omitted</span>
           </div>
-          <textarea
+          <Textarea
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
             rows={4}
-            placeholder="alice, Alice Smith, secret123&#10;bob, Bob Jones"
-            className="w-full rounded border bg-background p-2 font-mono text-xs"
+            placeholder={"alice, Alice Smith, secret123\nbob, Bob Jones\ncharlie, Charlie Brown"}
+            className="font-mono text-xs"
             required
           />
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowBulkForm(false)} className="px-3 py-1.5 text-xs rounded border">
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowBulkForm(false)}>
               Cancel
-            </button>
-            <button type="submit" disabled={pending} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground font-medium">
-              Run Import
-            </button>
+            </Button>
+            <Button type="submit" disabled={pending} size="sm">
+              Run Bulk Import
+            </Button>
           </div>
         </form>
       )}
 
-      <div className="overflow-hidden rounded-lg border">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Username</th>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Role</th>
-              <th className="px-4 py-3 font-medium">Last Login</th>
-              <th className="px-4 py-3 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-t hover:bg-muted/20">
-                <td className="px-4 py-3 font-mono">{u.username}</td>
-                <td className="px-4 py-3">{u.displayName}</td>
-                <td className="px-4 py-3">
-                  <select
-                    value={u.role}
-                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                    disabled={pending || u.id === currentUserId}
-                    className="h-7 rounded border bg-background px-2 text-xs"
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground">
-                  {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => handleResetPassword(u.id)}
-                      disabled={pending}
-                      title="Reset Password"
-                      className="p-1.5 rounded hover:bg-muted text-muted-foreground"
-                    >
-                      <KeyRound className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteUser(u.id)}
-                      disabled={pending || u.id === currentUserId}
-                      title="Delete User"
-                      className="p-1.5 rounded hover:bg-muted text-red-500 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Search & Filter Bar */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={`Search ${subTab === "competitors" ? "competitors" : "admins"} by username or name...`}
+          className="pl-8 text-xs"
+        />
       </div>
+
+      {/* Users Table */}
+      <div className="rounded-md border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Username</TableHead>
+              <TableHead>Display Name</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Last Login</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredUsers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="p-8 text-center text-xs text-muted-foreground">
+                  No {subTab === "competitors" ? "competitors" : "administrators"} found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredUsers.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell className="font-mono text-xs font-medium">{u.username}</TableCell>
+                  <TableCell className="text-xs">{u.displayName || "-"}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="font-mono text-[11px] capitalize">
+                      {u.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setResetTarget(u)}
+                        disabled={pending}
+                        title="Reset Password"
+                        className="h-8 w-8"
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeleteTarget(u)}
+                        disabled={pending || u.id === currentUserId}
+                        title="Delete User"
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Reset Password Confirmation Dialog */}
+      <ConfirmDialog
+        open={Boolean(resetTarget)}
+        onOpenChange={(open) => !open && setResetTarget(null)}
+        title="Reset User Password"
+        description={
+          <>
+            Are you sure you want to generate a new password for <strong className="text-foreground">{resetTarget?.displayName || resetTarget?.username}</strong>?
+          </>
+        }
+        actionLabel="Reset Password"
+        onConfirm={confirmResetPassword}
+      />
+
+      {/* Delete User Confirmation Dialog */}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Delete User Account"
+        description={
+          <>
+            Are you sure you want to delete user account <strong className="text-foreground">{deleteTarget?.username}</strong>? All submission history associated with this user will be removed.
+          </>
+        }
+        actionLabel="Delete User"
+        variant="destructive"
+        onConfirm={confirmDeleteUser}
+      />
     </div>
   );
 }

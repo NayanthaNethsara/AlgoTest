@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+import { createProblemAction } from "@/lib/actions/problems";
 import { ProblemEditor } from "@/components/problem-editor";
 import type { ProblemInput } from "@/types/problem";
 
@@ -13,17 +13,9 @@ export default function NewProblemPage() {
   async function handleSave(input: ProblemInput) {
     setPending(true);
     try {
-      const res = await apiFetch("/api/v1/admin/problems", {
-        method: "POST",
-        body: JSON.stringify(input),
-      });
-
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || "Failed to create problem");
-      }
-
+      await createProblemAction(input);
       router.push("/");
+      router.refresh();
     } finally {
       setPending(false);
     }

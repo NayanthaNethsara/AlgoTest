@@ -1,11 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, Eye, Edit3, Save, Globe } from "lucide-react";
 import { Markdown } from "./markdown";
 import type { Difficulty, ProblemDetail, ProblemInput, Sample } from "@/types/problem";
 import { STARTER_PROBLEM_TEMPLATE } from "@/lib/templates";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type ProblemEditorProps = {
   initialData?: ProblemDetail | null;
@@ -113,10 +119,7 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-card px-6 py-3 shadow-sm">
         <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <Link href="/" className={buttonVariants({ variant: "ghost", size: "sm", className: "gap-1.5 text-xs text-muted-foreground" })}>
             <ArrowLeft className="h-4 w-4" /> Back to Console
           </Link>
           <div className="h-4 w-px bg-border" />
@@ -124,84 +127,67 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
             <h1 className="text-base font-semibold tracking-tight">
               {title || "Untitled Problem"}
             </h1>
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                published
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
+            <Badge variant={published ? "default" : "secondary"} className="text-xs">
               {published ? "Published" : "Draft"}
-            </span>
+            </Badge>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => handleSaveInternal(false)}
-            disabled={pending}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border bg-background hover:bg-muted font-medium transition-colors disabled:opacity-50"
-          >
+          <Button variant="outline" size="sm" onClick={() => handleSaveInternal(false)} disabled={pending} className="gap-1.5 text-xs">
             <Save className="h-3.5 w-3.5" /> Save Draft
-          </button>
+          </Button>
 
-          <button
-            type="button"
-            onClick={() => handleSaveInternal(true)}
-            disabled={pending}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-xs rounded bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
+          <Button size="sm" onClick={() => handleSaveInternal(true)} disabled={pending} className="gap-1.5 text-xs">
             <Globe className="h-3.5 w-3.5" /> {pending ? "Saving..." : "Save & Publish"}
-          </button>
+          </Button>
         </div>
       </header>
 
       {/* Main Workspace Body */}
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-6">
         {error && (
-          <p className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm text-red-500">
+          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
             {error}
           </p>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Panel: Configuration Controls */}
-          <div className="lg:col-span-4 flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm">
+          <Card className="lg:col-span-4 p-5 flex flex-col gap-4 shadow-sm border border-border">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Problem Metadata
             </h2>
 
-            <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">Problem Title</label>
-              <input
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground block">Problem Title</label>
+              <Input
                 value={title}
                 onChange={(e) => handleTitleChange(e.target.value)}
                 placeholder="e.g. Range Sum Queries"
                 required
-                className="w-full h-9 rounded-md border bg-background px-3 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
               />
             </div>
 
-            <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">Slug</label>
-              <input
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground block">Slug</label>
+              <Input
                 value={slug}
                 onChange={(e) => handleSlugChange(e.target.value)}
                 placeholder="e.g. range-sum"
                 disabled={isEditing}
                 required
-                className="w-full h-9 rounded-md border bg-background px-3 text-sm font-mono focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60"
+                className="font-mono"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Difficulty</label>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground block">Difficulty</label>
                 <select
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-                  className="w-full h-9 rounded-md border bg-background px-3 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
+                  className="h-9 w-full rounded-md border bg-background px-3 text-xs"
                 >
                   <option value="Easy">Easy</option>
                   <option value="Medium">Medium</option>
@@ -209,46 +195,43 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                 </select>
               </div>
 
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Max Score</label>
-                <input
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground block">Max Score</label>
+                <Input
                   type="number"
                   value={maxScore}
                   onChange={(e) => setMaxScore(Number(e.target.value))}
                   min={1}
-                  className="w-full h-9 rounded-md border bg-background px-3 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Time Limit (ms)</label>
-                <input
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground block">Time Limit (ms)</label>
+                <Input
                   type="number"
                   value={timeLimitMs}
                   onChange={(e) => setTimeLimitMs(Number(e.target.value))}
                   step={500}
                   min={500}
-                  className="w-full h-9 rounded-md border bg-background px-3 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-1">Memory Limit (MB)</label>
-                <input
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground block">Memory Limit (MB)</label>
+                <Input
                   type="number"
                   value={memoryLimitMb}
                   onChange={(e) => setMemoryLimitMb(Number(e.target.value))}
                   step={64}
                   min={64}
-                  className="w-full h-9 rounded-md border bg-background px-3 text-sm focus:ring-1 focus:ring-primary focus:outline-none"
                 />
               </div>
             </div>
 
             <div className="pt-2 border-t mt-2">
-              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
                 <input
                   type="checkbox"
                   checked={published}
@@ -258,54 +241,38 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                 Published to Contestants
               </label>
             </div>
-          </div>
+          </Card>
 
           {/* Right Panel: Statement & Preview Workspace */}
           <div className="lg:col-span-8 flex flex-col gap-6">
-            <div className="rounded-xl border bg-card p-5 shadow-sm flex flex-col gap-4">
+            <Card className="p-5 flex flex-col gap-4 shadow-sm border border-border">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Statement & Markdown Editor
                 </h2>
 
-                <div className="flex border rounded-lg overflow-hidden text-xs bg-muted p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("edit")}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-colors ${
-                      activeTab === "edit" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Edit3 className="h-3 w-3" /> Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("split")}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-colors ${
-                      activeTab === "split" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Split View
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("preview")}
-                    className={`flex items-center gap-1 px-3 py-1 rounded-md font-medium transition-colors ${
-                      activeTab === "preview" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Eye className="h-3 w-3" /> Live Preview
-                  </button>
-                </div>
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "edit" | "preview" | "split")}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="edit" className="gap-1 text-xs h-7">
+                      <Edit3 className="h-3 w-3" /> Edit
+                    </TabsTrigger>
+                    <TabsTrigger value="split" className="text-xs h-7">
+                      Split View
+                    </TabsTrigger>
+                    <TabsTrigger value="preview" className="gap-1 text-xs h-7">
+                      <Eye className="h-3 w-3" /> Live Preview
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
 
               {activeTab === "edit" && (
-                <textarea
+                <Textarea
                   value={statement}
                   onChange={(e) => setStatement(e.target.value)}
                   rows={14}
                   placeholder="Write statement in Markdown format..."
-                  className="w-full rounded-md border bg-background p-3 text-sm font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="font-mono text-xs leading-relaxed"
                   required
                 />
               )}
@@ -318,12 +285,12 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
 
               {activeTab === "split" && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <textarea
+                  <Textarea
                     value={statement}
                     onChange={(e) => setStatement(e.target.value)}
                     rows={14}
                     placeholder="Write statement in Markdown format..."
-                    className="w-full rounded-md border bg-background p-3 text-xs font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="font-mono text-xs leading-relaxed"
                     required
                   />
                   <div className="min-h-[300px] max-h-[360px] overflow-y-auto rounded-md border bg-muted/10 p-4">
@@ -331,24 +298,24 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Constraints Block */}
-            <div className="rounded-xl border bg-card p-5 shadow-sm flex flex-col gap-3">
+            <Card className="p-5 flex flex-col gap-3 shadow-sm border border-border">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Constraints (Markdown & LaTeX Math)
               </label>
-              <textarea
+              <Textarea
                 value={constraints}
                 onChange={(e) => setConstraints(e.target.value)}
                 rows={3}
                 placeholder="- $1 \le N \le 10^5$"
-                className="w-full rounded-md border bg-background p-3 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                className="font-mono text-xs"
               />
-            </div>
+            </Card>
 
             {/* Sample Test Cases */}
-            <div className="rounded-xl border bg-card p-5 shadow-sm flex flex-col gap-4">
+            <Card className="p-5 flex flex-col gap-4 shadow-sm border border-border">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -356,13 +323,9 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                   </h2>
                   <p className="text-xs text-muted-foreground">These sample inputs and outputs are visible to contestants.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddSample}
-                  className="flex items-center text-xs px-3 py-1.5 rounded border bg-background hover:bg-muted font-medium transition-colors"
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Sample Case
-                </button>
+                <Button variant="outline" size="sm" onClick={handleAddSample} className="h-8 text-xs gap-1">
+                  <Plus className="h-3.5 w-3.5" /> Add Sample Case
+                </Button>
               </div>
 
               <div className="flex flex-col gap-4">
@@ -373,50 +336,51 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                         Sample #{idx + 1}
                       </span>
                       {samples.length > 1 && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleRemoveSample(idx)}
-                          className="text-red-500 hover:text-red-600 p-1"
+                          className="h-7 w-7 text-destructive hover:bg-destructive/10"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        </Button>
                       )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                      <div>
-                        <label className="text-xs text-muted-foreground block mb-1">Standard Input</label>
-                        <textarea
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground block">Standard Input</label>
+                        <Textarea
                           value={s.input}
                           onChange={(e) => handleSampleChange(idx, "input", e.target.value)}
                           rows={3}
-                          className="w-full rounded-md border bg-background p-2 text-xs font-mono"
+                          className="font-mono text-xs"
                         />
                       </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground block mb-1">Standard Output</label>
-                        <textarea
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-muted-foreground block">Standard Output</label>
+                        <Textarea
                           value={s.output}
                           onChange={(e) => handleSampleChange(idx, "output", e.target.value)}
                           rows={3}
-                          className="w-full rounded-md border bg-background p-2 text-xs font-mono"
+                          className="font-mono text-xs"
                         />
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-xs text-muted-foreground block mb-1">Explanation (Optional)</label>
-                      <input
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-muted-foreground block">Explanation (Optional)</label>
+                      <Input
                         value={s.explanation || ""}
                         onChange={(e) => handleSampleChange(idx, "explanation", e.target.value)}
                         placeholder="e.g. 1 + 2 + 3 = 6"
-                        className="w-full h-8 rounded-md border bg-background px-3 text-xs"
+                        className="text-xs"
                       />
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       </div>

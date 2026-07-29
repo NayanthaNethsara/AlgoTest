@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSessionUserAction } from "@/lib/actions/auth";
-import { listProblemsAction } from "@/lib/actions/problems";
+import { listUsersAction } from "@/lib/actions/users";
 import { AdminNavbar } from "@/components/navbar";
-import { AdminProblems } from "@/components/admin-problems";
+import { AdminUsers } from "@/components/admin-users";
 import type { User } from "@/types/user";
-import type { ProblemDetail } from "@/types/problem";
 
-export default function ProblemsPage() {
+export default function UsersPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [problems, setProblems] = useState<ProblemDetail[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,11 +26,11 @@ export default function ProblemsPage() {
       }
       setCurrentUser(user);
 
-      const problemsData = await listProblemsAction();
-      setProblems(problemsData);
+      const usersData = await listUsersAction();
+      setUsers(usersData);
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
-      else setError("Failed to load problem list.");
+      else setError("Failed to load user list.");
     } finally {
       setLoading(false);
     }
@@ -44,7 +43,7 @@ export default function ProblemsPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-xs text-muted-foreground font-medium">
-        Loading Problems...
+        Loading Users...
       </div>
     );
   }
@@ -67,7 +66,7 @@ export default function ProblemsPage() {
     <div className="flex min-h-screen flex-col bg-background">
       <AdminNavbar user={currentUser} onRefresh={loadData} />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-        <AdminProblems problems={problems} onRefresh={loadData} />
+        <AdminUsers users={users} currentUserId={currentUser.id} onRefresh={loadData} />
       </main>
     </div>
   );
