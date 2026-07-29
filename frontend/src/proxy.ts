@@ -1,8 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { API_URL, SESSION_COOKIE } from "@/lib/auth/constants";
 
-const ADMIN_PREFIX = "/admin";
-
 // Gate the authenticated portal. Unlike a presence-only check, this asks the
 // backend whether the session is actually still valid -- so an expired,
 // revoked (logout elsewhere, password reset), or deleted-user session gets a
@@ -24,13 +22,6 @@ export async function proxy(request: NextRequest) {
     return redirectToLogin(request, { clearCookie: true });
   }
 
-  if (request.nextUrl.pathname.startsWith(ADMIN_PREFIX)) {
-    const user = await res.json();
-    if (user.role !== "admin") {
-      return NextResponse.redirect(new URL("/challenges", request.url));
-    }
-  }
-
   return NextResponse.next();
 }
 
@@ -49,6 +40,5 @@ export const config = {
     "/challenges/:path*",
     "/leaderboard/:path*",
     "/submissions/:path*",
-    "/admin/:path*",
   ],
 };

@@ -13,7 +13,7 @@ const NAV_LINKS = [
 
 export function TopNav({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
-  const links = user?.role === "admin" ? [...NAV_LINKS, { href: "/admin", label: "Admin" }] : NAV_LINKS;
+  const links = NAV_LINKS;
 
   return (
     <header className="flex items-center gap-6 border-b px-4 py-2.5">
