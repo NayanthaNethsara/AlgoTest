@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest frontend dev build test
+.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest frontend admin-frontend dev build test
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -11,6 +11,10 @@ GO_LIVE = docker compose exec backend
 install:
 	$(GO_OFFLINE) go mod download
 	cd frontend && pnpm install
+	cd admin-frontend && pnpm install
+
+admin-frontend:
+	cd admin-frontend && pnpm dev -p 3001
 
 # --- Database (docker-compose.yml lives at repo root) ---
 
