@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Plus, Edit2, Trash2, Eye, EyeOff, Layers } from "lucide-react";
-import { apiFetch, getJson } from "@/lib/api";
-import type { ProblemDetail, ProblemInput } from "@/types/problem";
-import { ProblemEditor } from "./problem-editor";
+import { apiFetch } from "@/lib/api";
+import type { ProblemDetail } from "@/types/problem";
 import { TestCaseManager } from "./testcase-manager";
 
 export function AdminProblems({
@@ -14,29 +14,9 @@ export function AdminProblems({
   problems: ProblemDetail[];
   onRefresh: () => void;
 }) {
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingProblem, setEditingProblem] = useState<ProblemDetail | null>(null);
-
   const [testManagerProblem, setTestManagerProblem] = useState<{ id: string; title: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-
-  function handleCreateNew() {
-    setEditingProblem(null);
-    setEditorOpen(true);
-  }
-
-  async function handleEdit(p: ProblemDetail) {
-    setError(null);
-    try {
-      const data = await getJson<{ problem: ProblemDetail }>(`/api/v1/admin/problems/${p.id}`);
-      setEditingProblem(data.problem);
-      setEditorOpen(true);
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
-      else setError("Failed to load problem details.");
-    }
-  }
 
   async function handleTogglePublish(id: string, currentPublished: boolean) {
     setError(null);
@@ -70,29 +50,6 @@ export function AdminProblems({
     }
   }
 
-  async function handleSaveProblem(input: ProblemInput) {
-    if (editingProblem) {
-      const res = await apiFetch(`/api/v1/admin/problems/${editingProblem.id}`, {
-        method: "PUT",
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || "Failed to update problem");
-      }
-    } else {
-      const res = await apiFetch("/api/v1/admin/problems", {
-        method: "POST",
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || "Failed to create problem");
-      }
-    }
-    onRefresh();
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -100,12 +57,12 @@ export function AdminProblems({
           <h2 className="text-xl font-semibold tracking-tight">Problems</h2>
           <p className="text-xs text-muted-foreground">{problems.length} problem(s) total</p>
         </div>
-        <button
-          onClick={handleCreateNew}
-          className="flex items-center px-4 py-2 text-sm rounded bg-primary text-primary-foreground font-medium hover:bg-primary/90"
+        <Link
+          href="/problems/new"
+          className="flex items-center px-4 py-2 text-sm rounded bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
         >
           <Plus className="h-4 w-4 mr-1.5" /> Create Problem
-        </button>
+        </Link>
       </div>
 
       {error && (
@@ -185,13 +142,13 @@ export function AdminProblems({
                       >
                         <Layers className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => handleEdit(p)}
+                      <Link
+                        href={`/problems/${p.id}/edit`}
                         title="Edit Problem"
-                        className="p-1.5 rounded hover:bg-muted text-muted-foreground"
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground inline-flex items-center"
                       >
                         <Edit2 className="h-4 w-4" />
-                      </button>
+                      </Link>
                       <button
                         onClick={() => handleDelete(p.id)}
                         disabled={pending}
@@ -208,15 +165,6 @@ export function AdminProblems({
           </tbody>
         </table>
       </div>
-
-      {editorOpen && (
-        <ProblemEditor
-          initialData={editingProblem}
-          onSave={handleSaveProblem}
-          onClose={() => setEditorOpen(false)}
-          pending={pending}
-        />
-      )}
 
       {testManagerProblem && (
         <TestCaseManager
