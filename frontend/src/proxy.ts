@@ -11,15 +11,21 @@ export async function proxy(request: NextRequest) {
     return redirectToLogin(request);
   }
 
-  const res = await fetch(`${API_URL}/api/v1/me`, {
-    headers: { Cookie: `${SESSION_COOKIE}=${token}` },
-    cache: "no-store",
-  });
+  try {
+    const res = await fetch(`${API_URL}/api/v1/me`, {
+      headers: { Cookie: `${SESSION_COOKIE}=${token}` },
+      cache: "no-store",
+    });
 
-  if (!res.ok) {
-    // The cookie exists but the backend no longer honors it -- clear it so
-    // the browser doesn't keep resending a dead token.
-    return redirectToLogin(request, { clearCookie: true });
+    if (!res.ok) {
+      // The cookie exists but the backend no longer honors it -- clear it so
+      // the browser doesn't keep resending a dead token.
+      return redirectToLogin(request, { clearCookie: true });
+    }
+  } catch {
+    // Backend server unreachable (e.g. backend restarting, down, or network reset)
+    // Redirect to login gracefully instead of throwing an uncaught 500 error
+    return redirectToLogin(request);
   }
 
   return NextResponse.next();
