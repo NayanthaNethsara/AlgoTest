@@ -1,7 +1,7 @@
 .PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest frontend dev build test
 
 # No local Go toolchain is needed: every backend command runs in the container
-# from backend/docker/dev, which carries Go, isolate, and the language
+# from backend/Dockerfile, which carries Go, isolate, and the language
 # toolchains. GO also starts postgres; GO_OFFLINE skips it for commands that
 # never touch the database; GO_LIVE reuses the already-running server container.
 GO = docker compose run --rm backend
@@ -40,7 +40,7 @@ user:
 # --- App (run each in its own terminal) ---
 
 # Runs in a Linux container because the /run sandbox needs isolate; see
-# backend/docker/dev/Dockerfile. Postgres starts first via depends_on.
+# backend/Dockerfile. Postgres starts first via depends_on.
 backend:
 	docker compose up --build backend
 

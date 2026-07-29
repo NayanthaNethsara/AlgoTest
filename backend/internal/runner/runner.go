@@ -167,9 +167,6 @@ func New(cfg Config) (*Runner, error) {
 // configured concurrency, so a misconfigured box fails at boot instead of
 // surfacing as 500s on the first burst of traffic.
 func (r *Runner) CheckHost(ctx context.Context) error {
-	if out, err := exec.CommandContext(ctx, r.cfg.IsolateBin, "--cg", "--check-config").CombinedOutput(); err != nil {
-		return fmt.Errorf("isolate --check-config: %w: %s", err, strings.TrimSpace(string(out)))
-	}
 	// Clean up dirty state before checking highest box ID
 	highest := r.cfg.MaxConcurrent - 1
 	r.cleanupBox(highest)

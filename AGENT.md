@@ -26,7 +26,7 @@ Go + Gin, API and judge worker in one binary.
 - `internal/runner` — the `/api/v1/run` sandbox. Executes untrusted code with
   isolate, which needs a **Linux host** with cgroup v2 and the language
   toolchains installed, so the server does not start natively on macOS. Locally
-  it runs in a privileged Linux container (`backend/docker/dev/`, wired up as
+  it runs in a privileged Linux container ([backend/Dockerfile](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/backend/Dockerfile), wired up as
   the `backend` service in `docker-compose.yml`); production provisions a real
   host with `backend/deploy/provision-isolate.sh`.
 

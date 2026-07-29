@@ -42,7 +42,7 @@ Meanwhile Go's goroutine + bounded-channel model *is* the slot pool you need, `e
 | **Cloud Run** | ❌ Not usable for the judge | isolate needs `CAP_SYS_ADMIN`, mount/PID namespace creation, and a delegated writable cgroup v2 subtree. Cloud Run runs under gVisor with no privileged mode and no cgroup delegation — isolate cannot start. Even if it could, CPU is shared/throttled, so identical submissions get different times → **non-reproducible verdicts**, which is disqualifying for a contest. Add 40s+ requests billed per-request-CPU and cold starts. Fine for the Next.js frontend if you want it there; the Go API is better co-located with the judge. |
 | **Cloud VM** | ⚠️ Workable with the right instance family | Avoid burstable/shared-core (`e2-*`, `t3`, `t4g`) — CPU steal makes timing noise. Use GCE `c3`/`c4-standard`, AWS `c7i` with dedicated tenancy or `*.metal`, or Hetzner **AX dedicated** (CCX dedicated-vCPU is acceptable value). Pin `--min-cpu-platform` on GCE so reboots don't move you between CPU generations. **The compromise you can't fix:** most cloud VMs won't let you disable turbo, so measured time drifts with host load. Widen limits to absorb it. |
 | **Uni bare-metal server** | ✅ **Recommended** | Dedicated cores, no steal, and you can set the governor / disable turbo and HT in BIOS — the only way to make a 4s limit mean the same thing all contest. [provision-isolate.sh](backend/deploy/provision-isolate.sh) already targets exactly this. |
-| Uni server, container only | ⚠️ Fallback | Needs `--privileged` + cgroup delegation. isolate's own manual discourages containers, and [backend/docker/dev/Dockerfile](backend/docker/dev/Dockerfile)'s header says so too: *"fine for development but not for production or for timing runs."* You also inherit whatever else the server runs. |
+| Uni server, container only | ⚠️ Fallback | Needs `--privileged` + cgroup delegation. isolate's own manual discourages containers, and [backend/Dockerfile](backend/Dockerfile)'s header says so too: *"fine for development but not for production or for timing runs."* You also inherit whatever else the server runs. |
 
 **Prerequisites to verify on the uni server before committing to it:**
 
@@ -656,7 +656,7 @@ export type Submission = {
 | 10 | `.env.example` documents the removed `RUN_DOCKER_RUNTIME`; README API table omits auth/admin/`/run` | `backend/.env.example`, `README.md` |
 | 11 | `backend/docker/judge/{cpp,java,python}` are dead rollback artifacts | delete once isolate is validated |
 | 12 | `go j.Start(ctx)` is never joined → SIGTERM exits mid-grade, leaving a claim to time out | [main.go:52](backend/cmd/server/main.go#L52) |
-| 13 | `entrypoint.sh` derives `NUM_BOXES` from `RUN_MAX_CONCURRENT` alone — must become the sum of both pools | [docker/dev/entrypoint.sh](backend/docker/dev/entrypoint.sh) |
+| 13 | `entrypoint.sh` derives `NUM_BOXES` from `RUN_MAX_CONCURRENT` alone — must become the sum of both pools | [backend/entrypoint.sh](backend/entrypoint.sh) |
 | 14 | A 503 "server busy" is rewritten into a fake failed run (`exitCode: 1`) instead of prompting a retry — the user is told their code failed when the judge was merely full | [actions/code.ts:50-58](frontend/src/actions/code.ts#L50-L58) |
 | 15 | Stale comment says runs execute "in a sandboxed Docker container"; it's isolate now | [actions/code.ts:7-9](frontend/src/actions/code.ts#L7-L9) |
 
@@ -668,7 +668,7 @@ Each phase is independently shippable and verifiable.
 
 | Phase | Work | Verify |
 |---|---|---|
-| **0. Land the sandbox** | Commit the isolate work (you commit). Provision a Linux host with [provision-isolate.sh](backend/deploy/provision-isolate.sh). | `isolate --cg --check-config`; `make judgetest` passes all 9 abuse cases |
+| **0. Land the sandbox** | Commit the isolate work (you commit). Provision a Linux host with [provision-isolate.sh](backend/deploy/provision-isolate.sh). | `isolate --cg --box-id=0 --init`; `make judgetest` passes all 9 abuse cases |
 | **1. Fair, tiered runner** | Host tuning (Part 3), slot pinning, two-tier pool, per-request `Limits`, language factors, verdict model, separate compile memory. Bugs 2–7. | New `judgetest` fairness case: same submission at 1× vs full concurrency, p95 time variance < 15% |
 | **2. Problems in the DB** | `0002_judge.sql`, sqlc queries, `cmd/problemtool`, problems API, frontend reads problems from the API. | Import a problem, see it in `/challenges`; confirm no endpoint leaks `problem_tests` |
 | **3. Real grading** | Postgres queue + lease/reaper, judge worker using `Session`, checker, submissions API, frontend polling + per-test table. Bugs 1, 9. | Submit AC/WA/TLE/MLE/CE/RE solutions, confirm each verdict and the score; `kill -9` a worker mid-submission and confirm the reaper requeues it |

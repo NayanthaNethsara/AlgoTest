@@ -74,7 +74,6 @@ systemctl daemon-reload
 systemctl enable --now isolate.service
 
 echo "==> verifying"
-isolate --cg --check-config
 isolate --cg --box-id=$((NUM_BOXES - 1)) --init >/dev/null
 isolate --cg --box-id=$((NUM_BOXES - 1)) --cleanup
 

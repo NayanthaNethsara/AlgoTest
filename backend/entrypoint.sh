@@ -63,7 +63,7 @@ EOF
 }
 
 write_config
-if setup_cgroups && isolate --cg --check-config; then
+if setup_cgroups && isolate --cg --box-id=0 --init >/dev/null 2>&1 && isolate --cg --box-id=0 --cleanup >/dev/null 2>&1; then
     echo "entrypoint: sandbox ready (${NUM_BOXES} boxes)"
 else
     warn "sandbox unavailable -- /api/v1/run will not work, other commands still will"

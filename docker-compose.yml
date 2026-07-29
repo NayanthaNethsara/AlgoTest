@@ -22,7 +22,8 @@ services:
   # backend`), since it is only needed when working on the backend.
   backend:
     build:
-      context: ./backend/docker/dev
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: algothon-backend
     # isolate creates cgroups and switches UIDs; a container manager does not
     # delegate enough for that unprivileged. Acceptable for local dev only --

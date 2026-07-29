@@ -17,7 +17,7 @@ ARG ISOLATE_REF=v2.1
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Toolchain versions match the retired judge images: g++ 13, JDK 21, Python 3.12.
+# Toolchain versions match the server environment: g++ 13, JDK 21, Python 3.12.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl git make pkg-config \
         libcap-dev libseccomp-dev libsystemd-dev \
@@ -41,6 +41,8 @@ ENV GOPATH=/go GOCACHE=/go/cache
 WORKDIR /app
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["go", "run", "./cmd/server"]
