@@ -16,6 +16,7 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
@@ -47,6 +48,7 @@ func main() {
 
 	users := user.NewRepository(pool)
 	sessions := session.NewRepository(pool)
+	problems := problem.NewRepository(pool)
 
 	j := judge.New(cfg.JudgeWorkers, cfg.QueueSize, log)
 	go j.Start(ctx)
@@ -74,7 +76,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions),
+		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions, problems),
 	}
 
 	go func() {

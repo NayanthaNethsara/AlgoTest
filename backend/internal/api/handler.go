@@ -11,6 +11,7 @@ import (
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
@@ -23,6 +24,7 @@ type handler struct {
 	db       *pgxpool.Pool
 	users    *user.Repository
 	sessions *session.Repository
+	problems *problem.Repository
 }
 
 func (h *handler) health(c *gin.Context) {

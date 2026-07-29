@@ -9,17 +9,33 @@ import (
 )
 
 type Querier interface {
+	CreateProblem(ctx context.Context, arg CreateProblemParams) (Problem, error)
+	CreateSample(ctx context.Context, arg CreateSampleParams) (ProblemSample, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) error
+	CreateTest(ctx context.Context, arg CreateTestParams) (ProblemTest, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteExpiredSessions(ctx context.Context) error
+	DeleteProblem(ctx context.Context, id string) (int64, error)
+	DeleteSamplesForProblem(ctx context.Context, problemID string) error
 	DeleteSession(ctx context.Context, token string) error
 	DeleteSessionsByUser(ctx context.Context, userID string) error
+	DeleteTestsForProblem(ctx context.Context, problemID string) error
 	DeleteUser(ctx context.Context, id string) (int64, error)
+	GetFullTestsForProblem(ctx context.Context, problemID string) ([]ProblemTest, error)
+	GetProblemByID(ctx context.Context, id string) (Problem, error)
+	GetProblemBySlug(ctx context.Context, slug string) (Problem, error)
+	GetPublishedProblemBySlug(ctx context.Context, slug string) (Problem, error)
+	GetSamplesForProblem(ctx context.Context, problemID string) ([]ProblemSample, error)
 	GetSession(ctx context.Context, token string) (Session, error)
+	GetTestsForProblem(ctx context.Context, problemID string) ([]GetTestsForProblemRow, error)
 	GetUserByID(ctx context.Context, id string) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	ListAllProblems(ctx context.Context) ([]Problem, error)
+	ListPublishedProblems(ctx context.Context) ([]Problem, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	SetProblemPublished(ctx context.Context, arg SetProblemPublishedParams) (int64, error)
 	TouchUserLastLogin(ctx context.Context, id string) error
+	UpdateProblem(ctx context.Context, arg UpdateProblemParams) (Problem, error)
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (int64, error)
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (int64, error)
 }
