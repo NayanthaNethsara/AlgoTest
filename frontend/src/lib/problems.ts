@@ -1,11 +1,12 @@
-import type { Problem } from "@/types/problem";
+import type { Problem, Difficulty } from "@/types/problem";
+import { backendFetch } from "@/lib/api/server";
 
 export const SAMPLE_PROBLEM: Problem = {
   id: "range-sum",
   title: "Range Sum Queries",
   difficulty: "Medium",
   points: 100,
-  timeLimitMs: 1000,
+  timeLimitMs: 4000,
   memoryLimitMb: 256,
   statement: `You are given an array of $N$ integers $a_1, a_2, \\ldots, a_N$.
 
@@ -37,11 +38,7 @@ For each query, print the sum on its own line.`,
       output: "-6",
     },
   ],
-  subtasks: [
-    { id: 1, points: 25, constraints: "$N, Q \\le 1000$" },
-    { id: 2, points: 35, constraints: "$N, Q \\le 10^5$, all $a_i \\ge 0$" },
-    { id: 3, points: 40, constraints: "No additional constraints" },
-  ],
+  subtasks: [],
 };
 
 const TWO_SUM: Problem = {
@@ -49,50 +46,77 @@ const TWO_SUM: Problem = {
   title: "Two Sum Count",
   difficulty: "Easy",
   points: 50,
-  timeLimitMs: 1000,
+  timeLimitMs: 4000,
   memoryLimitMb: 256,
-  statement: `Given an array of $N$ integers and a target $T$, count the number of pairs
-$(i, j)$ with $i < j$ such that $a_i + a_j = T$.`,
+  statement: `Given an array of $N$ integers and a target $T$, count the number of pairs $(i, j)$ with $i < j$ such that $a_i + a_j = T$.`,
   constraints: `- $1 \\le N \\le 2 \\times 10^5$
 - $-10^9 \\le a_i, T \\le 10^9$`,
   samples: [
     {
       input: "4 6\n1 5 3 2",
       output: "2",
-      explanation: "Pairs $(1,5)$ and $(3, \\text{n/a})$... $1+5=6$ and $4$ not present.",
-    },
-  ],
-  subtasks: [
-    { id: 1, points: 40, constraints: "$N \\le 2000$" },
-    { id: 2, points: 60, constraints: "No additional constraints" },
-  ],
-};
-
-const LONGEST_PREFIX: Problem = {
-  id: "longest-common-prefix",
-  title: "Longest Common Prefix",
-  difficulty: "Easy",
-  points: 30,
-  timeLimitMs: 1000,
-  memoryLimitMb: 256,
-  statement: `Given $N$ lowercase strings, find the length of their longest common prefix.`,
-  constraints: `- $1 \\le N \\le 10^5$
-- Total length of all strings $\\le 10^6$`,
-  samples: [
-    {
-      input: "3\nflower\nflow\nflight",
-      output: "2",
     },
   ],
   subtasks: [],
 };
 
-const PROBLEMS: Problem[] = [SAMPLE_PROBLEM, TWO_SUM, LONGEST_PREFIX];
+const STATIC_PROBLEMS: Problem[] = [SAMPLE_PROBLEM, TWO_SUM];
 
-export function listProblems(): Problem[] {
-  return PROBLEMS;
+type ApiProblem = {
+  id: string;
+  slug: string;
+  title: string;
+  difficulty: string;
+  statement: string;
+  constraints: string;
+  timeLimitMs: number;
+  memoryLimitMb: number;
+  maxScore: number;
+  published: boolean;
+  samples?: { input: string; output: string; explanation?: string }[];
+};
+
+function mapApiProblem(p: ApiProblem): Problem {
+  return {
+    id: p.slug,
+    title: p.title,
+    difficulty: (p.difficulty as Difficulty) || "Easy",
+    points: p.maxScore || 100,
+    timeLimitMs: p.timeLimitMs || 4000,
+    memoryLimitMb: p.memoryLimitMb || 256,
+    statement: p.statement || "",
+    constraints: p.constraints || "",
+    samples: p.samples ?? [],
+    subtasks: [],
+  };
 }
 
-export function getProblem(id: string): Problem | undefined {
-  return PROBLEMS.find((problem) => problem.id === id);
+export async function listProblems(): Promise<Problem[]> {
+  try {
+    const res = await backendFetch("/api/v1/problems");
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.problems) && data.problems.length > 0) {
+        return data.problems.map(mapApiProblem);
+      }
+    }
+  } catch {
+    // Fall back to static problems if API is offline
+  }
+  return STATIC_PROBLEMS;
+}
+
+export async function getProblem(slug: string): Promise<Problem | undefined> {
+  try {
+    const res = await backendFetch(`/api/v1/problems/${slug}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.problem) {
+        return mapApiProblem(data.problem);
+      }
+    }
+  } catch {
+    // Fall back to static lookup
+  }
+  return STATIC_PROBLEMS.find((p) => p.id === slug);
 }

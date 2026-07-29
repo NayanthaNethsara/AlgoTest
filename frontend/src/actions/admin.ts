@@ -3,15 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { backendFetch } from "@/lib/api/server";
 import type { SessionUser } from "@/lib/auth/constants";
+import type { CreateUserInput, BulkResult } from "@/types/user";
 
 export type AdminUser = SessionUser;
-
-export type CreateUserInput = {
-  username: string;
-  displayName?: string;
-  role?: string;
-  password?: string;
-};
+export type { CreateUserInput, BulkResult };
 
 async function errorFrom(res: Response, fallback: string): Promise<string> {
   const body = await res.json().catch(() => ({}));
@@ -60,13 +55,6 @@ export async function deleteUser(id: string): Promise<{ error?: string }> {
   revalidatePath("/admin");
   return {};
 }
-
-export type BulkResult = {
-  username: string;
-  status: "created" | "error";
-  error?: string;
-  password?: string;
-};
 
 export async function bulkCreateUsers(
   text: string,

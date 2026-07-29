@@ -76,15 +76,19 @@ export async function submitCode(
   previousBest: number,
 ): Promise<SubmitResult> {
   assertLength(code, MAX_CODE_LENGTH, "code");
-  const problem = getProblem(problemId);
+  const problem = await getProblem(problemId);
   if (!problem) {
     throw new Error("unknown problem");
   }
   await delay(1100);
 
   const quality = codeQuality(code);
-  const subtasks = problem.subtasks.map((subtask, index) => {
-    const threshold = (index + 1) / (problem.subtasks.length + 1);
+  const mockSubtasks = problem.subtasks && problem.subtasks.length > 0 ? problem.subtasks : [
+    { id: 1, points: Math.floor(problem.points * 0.4), constraints: "Subtask 1" },
+    { id: 2, points: Math.ceil(problem.points * 0.6), constraints: "Subtask 2" },
+  ];
+  const subtasks = mockSubtasks.map((subtask, index) => {
+    const threshold = (index + 1) / (mockSubtasks.length + 1);
     const passed = quality >= threshold;
     return {
       id: subtask.id,

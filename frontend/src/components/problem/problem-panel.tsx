@@ -40,11 +40,11 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
           <Markdown>{problem.constraints}</Markdown>
         </section>
 
-        {problem.subtasks.length > 0 && (
+        {Boolean(problem.subtasks && problem.subtasks.length > 0) && (
           <section className="flex flex-col gap-2">
             <SectionTitle>Subtasks</SectionTitle>
             <div className="flex flex-col gap-2">
-              {problem.subtasks.map((subtask) => (
+              {problem.subtasks?.map((subtask) => (
                 <div
                   key={subtask.id}
                   className="flex items-start justify-between gap-4 rounded-lg border bg-card/50 p-3"

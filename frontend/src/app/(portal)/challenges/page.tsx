@@ -3,8 +3,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { getChallengeProgress } from "@/lib/challenges";
 import { listProblems } from "@/lib/problems";
 
-export default function ChallengesPage() {
-  const problems = listProblems();
+export default async function ChallengesPage() {
+  const problems = await listProblems();
 
   return (
     <ScrollArea className="h-full">

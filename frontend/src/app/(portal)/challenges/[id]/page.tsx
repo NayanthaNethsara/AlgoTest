@@ -14,7 +14,7 @@ export default async function ChallengePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const problem = getProblem(id);
+  const problem = await getProblem(id);
   if (!problem) notFound();
 
   return (
