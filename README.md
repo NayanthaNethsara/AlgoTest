@@ -7,20 +7,20 @@ Algorithm challenge platform. Go (Gin) API with an in-process judge worker and i
 ## Architecture & Directory Structure
 
 ```
-backend/           Go API + judge worker + isolate sandbox execution
-  cmd/             CLI tools (server, migrate, usertool, problemtool, judgetest)
-  internal/api/    HTTP routes and handlers (Gin framework)
-  internal/auth/   Password hashing and authentication logic
-  internal/config/ Environment configuration
-  internal/db/     PostgreSQL connection and database migrations
-  internal/judge/  Submission queue, worker pool, and result evaluation
-  internal/problem/Problem definitions and testcase management
-  internal/runner/ Untrusted code execution using isolate sandbox
-  internal/user/   User accounts repository
-frontend/          Next.js app for competitors (port 3000)
-admin-frontend/    Next.js app for administrators (port 3001)
-docs/              Documentation and system architecture guides
-problems/          Problem definitions and testcase directories
+backend/             Go API + judge worker + isolate sandbox execution
+  cmd/               CLI tools (server, migrate, usertool, problemtool, judgetest)
+  internal/api/      HTTP routes and handlers (Gin framework)
+  internal/auth/     Password hashing and authentication logic
+  internal/config/   Environment configuration
+  internal/db/       PostgreSQL connection and database migrations
+  internal/judge/    Submission queue, worker pool, and result evaluation
+  internal/problem/  Problem definitions and testcase management
+  internal/runner/   Untrusted code execution using isolate sandbox
+  internal/user/     User accounts repository
+competitor-frontend/ Next.js web application for competitors (port 3000)
+admin-frontend/      Next.js web application for administrators (port 3001)
+docs/                Documentation and system architecture guides
+problems/            Problem definitions and testcase directories
 ```
 
 ---
@@ -42,7 +42,7 @@ For complete setup instructions, administrative operations, and environment cust
 
 ```sh
 cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env.local
+cp competitor-frontend/.env.example competitor-frontend/.env.local
 ```
 
 ### 2. Install Dependencies & Start Database
@@ -64,6 +64,9 @@ make user ARGS='-username admin -role admin -password adminpass'
 ```sh
 # Start backend API and competitor frontend concurrently:
 make dev
+
+# Start competitor frontend individually:
+make competitor-frontend
 
 # Start admin frontend (in a separate terminal):
 make admin-frontend

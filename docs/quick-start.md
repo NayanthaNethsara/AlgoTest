@@ -34,10 +34,10 @@ MiniAlgothon consists of four main components running locally:
 
 ```sh
 cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env.local
+cp competitor-frontend/.env.example competitor-frontend/.env.local
 ```
 
-2. Review default ports and settings in `backend/.env` and `frontend/.env.local`.
+2. Review default ports and settings in `backend/.env` and `competitor-frontend/.env.local`.
 
 ---
 

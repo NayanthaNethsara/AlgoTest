@@ -30,26 +30,24 @@ Go + Gin, API and judge worker in one binary.
   the `backend` service in `docker-compose.yml`); production provisions a real
   host with `backend/deploy/provision-isolate.sh`.
 
-### Frontend (`frontend/`)
+### Competitor Frontend (`competitor-frontend/`)
 
-Next.js App Router + shadcn.
+Next.js App Router + shadcn for participant application.
 
 - `src/types/` — shared domain types, grouped by feature (`problem.ts`, `code.ts`,
   `history.ts`, `challenge.ts`, ...). Types used by a single component stay inline in
   that component instead of moving here.
-- `src/actions/` — Next.js server actions (`"use server"`). The Go backend isn't wired
-  up for these yet, so they mock their result inline. Keep function signatures
-  (params/return types) matching what the real backend will need, so swapping the mock
-  body for a real call is the only change required later.
+- `src/actions/` — Next.js server actions (`"use server"`).
 - `src/hooks/` — client-side hooks.
 - `src/lib/` — plain data and helper functions, no React.
-- `src/components/ui/` — shadcn primitives, added via `pnpm dlx shadcn@latest add
-  <name>`. Don't hand-edit generated internals beyond normal wiring.
+- `src/components/ui/` — shadcn primitives.
 - `src/components/common/` — components shared across more than one feature.
 - `src/components/<feature>/` — components scoped to one feature area (e.g.
   `workspace/`, `problem/`, `challenges/`, `portal/`).
-- Routing uses App Router route groups for layout boundaries — e.g. `(portal)` wraps
-  authenticated pages in the top nav, while pages like `/login` stay outside it.
+
+### Admin Frontend (`admin-frontend/`)
+
+Next.js App Router + shadcn for contest management application.
 
 ## Git
 

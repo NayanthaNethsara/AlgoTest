@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest frontend admin-frontend dev build test
+.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest competitor-frontend frontend admin-frontend dev build test
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -10,7 +10,7 @@ GO_LIVE = docker compose exec backend
 
 install:
 	$(GO_OFFLINE) go mod download
-	cd frontend && pnpm install
+	cd competitor-frontend && pnpm install
 	cd admin-frontend && pnpm install
 
 admin-frontend:
@@ -57,16 +57,19 @@ backend-shell:
 judgetest:
 	$(GO_LIVE) go run ./cmd/judgetest $(ARGS)
 
-frontend:
-	cd frontend && pnpm dev
+competitor-frontend:
+	cd competitor-frontend && pnpm dev
 
-# Runs backend + frontend together in one terminal (Ctrl-C stops both).
+frontend: competitor-frontend
+
+# Runs backend + competitor-frontend together in one terminal (Ctrl-C stops both).
 dev:
-	$(MAKE) -j2 backend frontend
+	$(MAKE) -j2 backend competitor-frontend
 
 build:
 	$(GO_OFFLINE) go build -o bin/server ./cmd/server
-	cd frontend && pnpm build
+	cd competitor-frontend && pnpm build
 
 test:
 	$(GO_OFFLINE) go test ./...
+

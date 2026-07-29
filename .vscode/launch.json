@@ -10,10 +10,19 @@
       "envFile": "${workspaceFolder}/backend/.env"
     },
     {
-      "name": "Frontend",
+      "name": "Competitor Frontend",
       "type": "node",
       "request": "launch",
-      "cwd": "${workspaceFolder}/frontend",
+      "cwd": "${workspaceFolder}/competitor-frontend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Admin Frontend",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/admin-frontend",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev"],
       "console": "integratedTerminal"
@@ -21,8 +30,12 @@
   ],
   "compounds": [
     {
-      "name": "Backend + Frontend",
-      "configurations": ["Backend", "Frontend"]
+      "name": "Backend + Competitor Frontend",
+      "configurations": ["Backend", "Competitor Frontend"]
+    },
+    {
+      "name": "All Services",
+      "configurations": ["Backend", "Competitor Frontend", "Admin Frontend"]
     }
   ]
 }
