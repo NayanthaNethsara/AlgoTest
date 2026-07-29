@@ -388,6 +388,8 @@ func (r *Runner) execBox(
 		// Network isolation is isolate's default (a fresh namespace with only
 		// loopback); --share-net would be what turns it off, so it is never set.
 		"--dir=" + sandboxDir + "=" + work + ":rw",
+		"--dir=/etc/alternatives:maybe",
+		"--dir=/proc=proc:fs",
 		"--chdir=" + sandboxDir,
 		"--processes=" + strconv.Itoa(processLimit),
 		"--open-files=" + strconv.Itoa(openFilesLimit),
@@ -410,8 +412,19 @@ func (r *Runner) execBox(
 	for _, e := range sandboxEnv {
 		args = append(args, "--env="+e)
 	}
+
+	// Isolate calls execve() directly on cmd[0] without performing PATH resolution.
+	// Resolve relative toolchain binary names (e.g. "g++", "python3") to absolute paths.
+	resolvedCmd := make([]string, len(cmd))
+	copy(resolvedCmd, cmd)
+	if len(resolvedCmd) > 0 && !strings.Contains(resolvedCmd[0], "/") {
+		if absPath, err := exec.LookPath(resolvedCmd[0]); err == nil {
+			resolvedCmd[0] = absPath
+		}
+	}
+
 	args = append(args, "--run", "--")
-	args = append(args, cmd...)
+	args = append(args, resolvedCmd...)
 
 	execCmd := r.cfg.IsolateBin
 	execArgs := args

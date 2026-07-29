@@ -172,3 +172,49 @@ func TestFormatSeconds(t *testing.T) {
 		}
 	}
 }
+
+func TestRunLanguages(t *testing.T) {
+	if os.Getenv("RUN_TEST_ISOLATE") == "" {
+		t.Skip("skipping isolate integration test; set RUN_TEST_ISOLATE=1 to run")
+	}
+
+	r, err := New(Config{
+		CompileTimeout: 10 * time.Second,
+		WallTimeout:    5 * time.Second,
+		CPUSeconds:     2.0,
+		Memory:         "256m",
+		MaxConcurrent:  1,
+	})
+	if err != nil {
+		t.Fatalf("New runner: %v", err)
+	}
+
+	ctx := context.Background()
+
+	t.Run("cpp", func(t *testing.T) {
+		res, err := r.Run(ctx, Request{
+			Language: "cpp",
+			Code: `#include <iostream>
+int main() { std::cout << "Hello C++" << std::endl; return 0; }`,
+		})
+		if err != nil {
+			t.Fatalf("Run cpp failed: %v", err)
+		}
+		if res.Verdict != VerdictAC {
+			t.Errorf("Verdict = %v, want AC (stderr: %q)", res.Verdict, res.Stderr)
+		}
+	})
+
+	t.Run("python", func(t *testing.T) {
+		res, err := r.Run(ctx, Request{
+			Language: "python",
+			Code:     `print("Hello Python")`,
+		})
+		if err != nil {
+			t.Fatalf("Run python failed: %v", err)
+		}
+		if res.Verdict != VerdictAC {
+			t.Errorf("Verdict = %v, want OK (stderr: %q)", res.Verdict, res.Stderr)
+		}
+	})
+}
