@@ -74,11 +74,14 @@ func (h *handler) me(c *gin.Context) {
 
 // requireUser validates the session cookie and loads the user into the context.
 func (h *handler) requireUser(c *gin.Context) {
-	token, err := c.Cookie(h.cfg.SessionCookieName)
-	if err != nil || token == "" {
-		authHeader := c.GetHeader("Authorization")
-		if strings.HasPrefix(authHeader, "Bearer ") {
-			token = strings.TrimPrefix(authHeader, "Bearer ")
+	var token string
+	authHeader := c.GetHeader("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		token = strings.TrimPrefix(authHeader, "Bearer ")
+	}
+	if token == "" {
+		if cookieToken, err := c.Cookie(h.cfg.SessionCookieName); err == nil {
+			token = cookieToken
 		}
 	}
 	if token == "" {
