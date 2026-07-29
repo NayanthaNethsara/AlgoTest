@@ -60,6 +60,8 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 func corsMiddleware(origins []string) gin.HandlerFunc {
 	c := cors.DefaultConfig()
 	c.AllowOrigins = origins
-	c.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
+	c.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"}
+	c.AllowHeaders = []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With"}
+	c.AllowCredentials = true
 	return cors.New(c)
 }
