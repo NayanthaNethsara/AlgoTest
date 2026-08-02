@@ -74,6 +74,7 @@ make admin-frontend
 
 Service endpoints:
 - **Backend API**: `http://localhost:8080`
+- **Swagger API Docs**: `http://localhost:8080/swagger/index.html`
 - **Competitor Portal**: `http://localhost:3000`
 - **Admin Management Portal**: `http://localhost:3001`
 

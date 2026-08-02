@@ -21,4 +21,6 @@ type User struct {
 	Role        string     `json:"role"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
+	TeamID      *string    `json:"teamId,omitempty"`
+	TeamName    *string    `json:"teamName,omitempty"`
 }

@@ -1,0 +1,1180 @@
+basePath: /
+definitions:
+  api.bulkCreateRequest:
+    properties:
+      role:
+        type: string
+      users:
+        items:
+          $ref: '#/definitions/api.createUserRequest'
+        type: array
+    required:
+    - users
+    type: object
+  api.bulkResult:
+    properties:
+      error:
+        type: string
+      password:
+        type: string
+      status:
+        description: created | error
+        type: string
+      user:
+        $ref: '#/definitions/user.User'
+      username:
+        type: string
+    type: object
+  api.createAdminRequest:
+    properties:
+      displayName:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - username
+    type: object
+  api.createSubmissionRequest:
+    properties:
+      code:
+        type: string
+      language:
+        type: string
+    required:
+    - code
+    - language
+    type: object
+  api.createTeamRequest:
+    properties:
+      members:
+        items:
+          $ref: '#/definitions/api.teamMemberRequest'
+        type: array
+      name:
+        type: string
+    required:
+    - members
+    - name
+    type: object
+  api.createUserRequest:
+    properties:
+      displayName:
+        type: string
+      password:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    required:
+    - username
+    type: object
+  api.loginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  api.loginResponse:
+    properties:
+      expiresInSeconds:
+        type: integer
+      sessionToken:
+        type: string
+      user:
+        $ref: '#/definitions/user.User'
+    type: object
+  api.passwordRequest:
+    properties:
+      password:
+        type: string
+    type: object
+  api.problemPayload:
+    properties:
+      constraints:
+        type: string
+      difficulty:
+        type: string
+      maxScore:
+        type: integer
+      memoryLimitMb:
+        type: integer
+      published:
+        type: boolean
+      samples:
+        items:
+          $ref: '#/definitions/problem.SampleInput'
+        type: array
+      slug:
+        type: string
+      statement:
+        type: string
+      timeLimitMs:
+        type: integer
+      title:
+        type: string
+    required:
+    - difficulty
+    - slug
+    - statement
+    - title
+    type: object
+  api.publishPayload:
+    properties:
+      published:
+        type: boolean
+    type: object
+  api.replaceTestsPayload:
+    properties:
+      tests:
+        items:
+          $ref: '#/definitions/api.testCaseDTO'
+        type: array
+    type: object
+  api.roleRequest:
+    properties:
+      role:
+        type: string
+    required:
+    - role
+    type: object
+  api.runCodeRequest:
+    properties:
+      code:
+        type: string
+      language:
+        type: string
+      stdin:
+        type: string
+    required:
+    - code
+    - language
+    type: object
+  api.teamMemberRequest:
+    properties:
+      displayName:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - username
+    type: object
+  api.testCaseDTO:
+    properties:
+      expected:
+        type: string
+      input:
+        type: string
+      ordinal:
+        type: integer
+      points:
+        type: integer
+    type: object
+  judge.Result:
+    properties:
+      output:
+        type: string
+      status:
+        $ref: '#/definitions/judge.Status'
+      submission_id:
+        type: string
+    type: object
+  judge.Status:
+    enum:
+    - queued
+    - running
+    - passed
+    - failed
+    type: string
+    x-enum-varnames:
+    - StatusQueued
+    - StatusRunning
+    - StatusPassed
+    - StatusFailed
+  problem.Problem:
+    properties:
+      constraints:
+        type: string
+      createdAt:
+        type: string
+      difficulty:
+        type: string
+      id:
+        type: string
+      maxScore:
+        type: integer
+      memoryLimitMb:
+        type: integer
+      published:
+        type: boolean
+      slug:
+        type: string
+      statement:
+        type: string
+      timeLimitMs:
+        type: integer
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  problem.ProblemDetail:
+    properties:
+      constraints:
+        type: string
+      createdAt:
+        type: string
+      difficulty:
+        type: string
+      id:
+        type: string
+      maxScore:
+        type: integer
+      memoryLimitMb:
+        type: integer
+      published:
+        type: boolean
+      samples:
+        items:
+          $ref: '#/definitions/problem.Sample'
+        type: array
+      slug:
+        type: string
+      statement:
+        type: string
+      tests:
+        items:
+          $ref: '#/definitions/problem.TestMetadata'
+        type: array
+      timeLimitMs:
+        type: integer
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  problem.Sample:
+    properties:
+      explanation:
+        type: string
+      id:
+        type: string
+      input:
+        type: string
+      ordinal:
+        type: integer
+      output:
+        type: string
+      problemId:
+        type: string
+    type: object
+  problem.SampleInput:
+    properties:
+      explanation:
+        type: string
+      input:
+        type: string
+      ordinal:
+        type: integer
+      output:
+        type: string
+    type: object
+  problem.TestMetadata:
+    properties:
+      expectedSha:
+        type: string
+      id:
+        type: string
+      inputSha:
+        type: string
+      ordinal:
+        type: integer
+      points:
+        type: integer
+      problemId:
+        type: string
+    type: object
+  runner.Result:
+    properties:
+      compileError:
+        type: string
+      exitCode:
+        type: integer
+      memoryKb:
+        type: integer
+      stderr:
+        type: string
+      stdout:
+        type: string
+      timeMs:
+        type: integer
+      verdict:
+        $ref: '#/definitions/runner.Verdict'
+    type: object
+  runner.Verdict:
+    enum:
+    - AC
+    - WA
+    - TLE
+    - MLE
+    - RE
+    - CE
+    - OLE
+    - IE
+    - SK
+    type: string
+    x-enum-comments:
+      VerdictAC: Accepted / Exited zero
+      VerdictCE: Compile Error
+      VerdictIE: Internal Sandbox Error
+      VerdictMLE: Memory Limit Exceeded
+      VerdictOLE: Output Limit Exceeded
+      VerdictRE: Runtime Error / Non-zero Exit
+      VerdictSK: Skipped (budget exhausted)
+      VerdictTLE: Time Limit Exceeded
+      VerdictWA: Wrong Answer
+    x-enum-descriptions:
+    - Accepted / Exited zero
+    - Wrong Answer
+    - Time Limit Exceeded
+    - Memory Limit Exceeded
+    - Runtime Error / Non-zero Exit
+    - Compile Error
+    - Output Limit Exceeded
+    - Internal Sandbox Error
+    - Skipped (budget exhausted)
+    x-enum-varnames:
+    - VerdictAC
+    - VerdictWA
+    - VerdictTLE
+    - VerdictMLE
+    - VerdictRE
+    - VerdictCE
+    - VerdictOLE
+    - VerdictIE
+    - VerdictSK
+  team.Team:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      members:
+        items:
+          $ref: '#/definitions/user.User'
+        type: array
+      name:
+        type: string
+    type: object
+  user.User:
+    properties:
+      createdAt:
+        type: string
+      displayName:
+        type: string
+      id:
+        type: string
+      lastLoginAt:
+        type: string
+      role:
+        type: string
+      teamId:
+        type: string
+      teamName:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Algorithmic contest platform REST API & judge engine.
+  title: MiniAlgothon API
+  version: "1.0"
+paths:
+  /api/v1/admin/admins:
+    post:
+      consumes:
+      - application/json
+      description: Create an administrator account without a team assignment.
+      parameters:
+      - description: Admin account payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.createAdminRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Create Administrator Account
+      tags:
+      - Admin
+  /api/v1/admin/problems:
+    get:
+      description: Fetch all problems including draft and published problems.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/problem.Problem'
+              type: array
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin List All Problems
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Create a new contest problem with metadata and sample test cases.
+      parameters:
+      - description: Problem definition
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.problemPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/problem.ProblemDetail'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Create Problem
+      tags:
+      - Admin
+  /api/v1/admin/problems/{id}:
+    delete:
+      description: Delete a problem and all associated test cases.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "244":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Delete Problem
+      tags:
+      - Admin
+    get:
+      description: Fetch full problem details by ID for editing.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/problem.ProblemDetail'
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Get Problem by ID
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/json
+      description: Update existing problem statement, limits, and sample testcases.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated problem payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.problemPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/problem.ProblemDetail'
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Update Problem
+      tags:
+      - Admin
+  /api/v1/admin/problems/{id}/publish:
+    patch:
+      consumes:
+      - application/json
+      description: Publish or unpublish a problem for contest visibility.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Publish state
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.publishPayload'
+      responses:
+        "244":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Toggle Published Status
+      tags:
+      - Admin
+  /api/v1/admin/problems/{id}/tests:
+    put:
+      consumes:
+      - application/json
+      description: Replace official evaluation test cases for a problem.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Test cases payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.replaceTestsPayload'
+      responses:
+        "244":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Admin Replace Test Cases
+      tags:
+      - Admin
+  /api/v1/admin/teams:
+    post:
+      consumes:
+      - application/json
+      description: Atomically create a team and 1 to 3 member user accounts.
+      parameters:
+      - description: Team creation payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.createTeamRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Create Team with Members
+      tags:
+      - Admin
+  /api/v1/admin/users:
+    get:
+      description: Fetch all user accounts and team assignments.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/user.User'
+              type: array
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin List Users
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Create a single user account.
+      parameters:
+      - description: User creation payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.createUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Create User
+      tags:
+      - Admin
+  /api/v1/admin/users/{id}:
+    delete:
+      description: Delete user account.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "244":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Delete User
+      tags:
+      - Admin
+  /api/v1/admin/users/{id}/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Reset user password and invalidate all active sessions.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New password
+        in: body
+        name: payload
+        schema:
+          $ref: '#/definitions/api.passwordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Reset Password
+      tags:
+      - Admin
+  /api/v1/admin/users/{id}/role:
+    patch:
+      consumes:
+      - application/json
+      description: Update user role (competitor or admin).
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.roleRequest'
+      responses:
+        "244":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Update User Role
+      tags:
+      - Admin
+  /api/v1/admin/users/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Bulk create user accounts.
+      parameters:
+      - description: Bulk user creation payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.bulkCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/api.bulkResult'
+              type: array
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Bulk Create Users
+      tags:
+      - Admin
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with username and password, creating a server-side
+        session.
+      parameters:
+      - description: Login Credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/api.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.loginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: User Login
+      tags:
+      - Auth
+  /api/v1/auth/logout:
+    post:
+      description: Delete current server-side session token.
+      responses:
+        "244":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: User Logout
+      tags:
+      - Auth
+  /api/v1/me:
+    get:
+      description: Fetch authenticated user profile details and team info.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Current User Profile
+      tags:
+      - Auth
+  /api/v1/problems:
+    get:
+      description: Fetch list of published contest problems for competitors.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/problem.Problem'
+              type: array
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List Published Problems
+      tags:
+      - Problems
+  /api/v1/problems/{slug}:
+    get:
+      description: Fetch detailed problem statement and sample testcases by problem
+        slug.
+      parameters:
+      - description: Problem slug identifier
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/problem.ProblemDetail'
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Problem by Slug
+      tags:
+      - Problems
+  /api/v1/run:
+    post:
+      consumes:
+      - application/json
+      description: Execute untrusted code in isolate sandbox against user-supplied
+        stdin input.
+      parameters:
+      - description: Code execution request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.runCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/runner.Result'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Run Code in Sandbox
+      tags:
+      - Sandbox
+  /api/v1/submissions:
+    post:
+      consumes:
+      - application/json
+      description: Queue code submission for official contest judging.
+      parameters:
+      - description: Submission payload
+        in: body
+        name: submission
+        required: true
+        schema:
+          $ref: '#/definitions/api.createSubmissionRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Submit Code
+      tags:
+      - Submissions
+  /api/v1/submissions/{id}:
+    get:
+      description: Fetch evaluation verdict and test results by submission ID.
+      parameters:
+      - description: Submission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/judge.Result'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get Submission Result
+      tags:
+      - Submissions
+  /api/v1/teams:
+    get:
+      description: Fetch all teams and their assigned member accounts.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/team.Team'
+              type: array
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List Teams
+      tags:
+      - Teams
+  /healthz:
+    get:
+      description: Check backend database connection and API service health status.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "533":
+          description: ""
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: System Health Check
+      tags:
+      - Health
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

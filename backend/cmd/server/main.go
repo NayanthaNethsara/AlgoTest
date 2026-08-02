@@ -19,9 +19,18 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
+// @title MiniAlgothon API
+// @version 1.0
+// @description Algorithmic contest platform REST API & judge engine.
+// @host localhost:8080
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
@@ -49,6 +58,7 @@ func main() {
 	users := user.NewRepository(pool)
 	sessions := session.NewRepository(pool)
 	problems := problem.NewRepository(pool)
+	teams := team.NewRepository(pool)
 
 	j := judge.New(cfg.JudgeWorkers, cfg.QueueSize, log)
 	go j.Start(ctx)
@@ -76,7 +86,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions, problems),
+		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions, problems, teams),
 	}
 
 	go func() {

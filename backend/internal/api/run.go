@@ -20,9 +20,17 @@ type runCodeRequest struct {
 	Stdin    string `json:"stdin"`
 }
 
-// runCode executes submitted code against the caller-supplied stdin inside a
-// sandboxed container and returns immediately with stdout/stderr/exit code.
-// Unlike createSubmission, this never touches hidden test cases.
+// @Summary Run Code in Sandbox
+// @Description Execute untrusted code in isolate sandbox against user-supplied stdin input.
+// @Tags Sandbox
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body runCodeRequest true "Code execution request"
+// @Success 200 {object} runner.Result
+// @Failure 400 {object} map[string]string
+// @Failure 503 {object} map[string]string
+// @Router /api/v1/run [post]
 func (h *handler) runCode(c *gin.Context) {
 	var req runCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

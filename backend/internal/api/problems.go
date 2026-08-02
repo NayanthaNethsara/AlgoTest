@@ -9,6 +9,15 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 )
 
+// @Summary List Published Problems
+// @Description Fetch list of published contest problems for competitors.
+// @Tags Problems
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string][]problem.Problem
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/problems [get]
 func (h *handler) listPublishedProblems(c *gin.Context) {
 	problems, err := h.problems.ListPublished(c.Request.Context())
 	if err != nil {
@@ -18,6 +27,17 @@ func (h *handler) listPublishedProblems(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"problems": problems})
 }
 
+// @Summary Get Problem by Slug
+// @Description Fetch detailed problem statement and sample testcases by problem slug.
+// @Tags Problems
+// @Produce json
+// @Security BearerAuth
+// @Param slug path string true "Problem slug identifier"
+// @Success 200 {object} map[string]problem.ProblemDetail
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/problems/{slug} [get]
 func (h *handler) getPublishedProblemBySlug(c *gin.Context) {
 	slug := c.Param("slug")
 	detail, err := h.problems.GetPublishedBySlug(c.Request.Context(), slug)
@@ -32,6 +52,15 @@ func (h *handler) getPublishedProblemBySlug(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"problem": detail})
 }
 
+// @Summary Admin List All Problems
+// @Description Fetch all problems including draft and published problems.
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string][]problem.Problem
+// @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Router /api/v1/admin/problems [get]
 func (h *handler) listAllProblems(c *gin.Context) {
 	problems, err := h.problems.ListAll(c.Request.Context())
 	if err != nil {
@@ -41,6 +70,15 @@ func (h *handler) listAllProblems(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"problems": problems})
 }
 
+// @Summary Admin Get Problem by ID
+// @Description Fetch full problem details by ID for editing.
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Problem ID"
+// @Success 200 {object} map[string]problem.ProblemDetail
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/admin/problems/{id} [get]
 func (h *handler) getAdminProblemByID(c *gin.Context) {
 	id := c.Param("id")
 	detail, err := h.problems.GetByID(c.Request.Context(), id, true)
@@ -68,6 +106,17 @@ type problemPayload struct {
 	Samples       []problem.SampleInput `json:"samples"`
 }
 
+// @Summary Admin Create Problem
+// @Description Create a new contest problem with metadata and sample test cases.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param payload body problemPayload true "Problem definition"
+// @Success 201 {object} map[string]problem.ProblemDetail
+// @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Router /api/v1/admin/problems [post]
 func (h *handler) createProblem(c *gin.Context) {
 	var req problemPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -99,6 +148,17 @@ func (h *handler) createProblem(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"problem": created})
 }
 
+// @Summary Admin Update Problem
+// @Description Update existing problem statement, limits, and sample testcases.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Problem ID"
+// @Param payload body problemPayload true "Updated problem payload"
+// @Success 200 {object} map[string]problem.ProblemDetail
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/admin/problems/{id} [put]
 func (h *handler) updateProblem(c *gin.Context) {
 	id := c.Param("id")
 	var req problemPayload
@@ -135,6 +195,16 @@ type publishPayload struct {
 	Published bool `json:"published"`
 }
 
+// @Summary Admin Toggle Published Status
+// @Description Publish or unpublish a problem for contest visibility.
+// @Tags Admin
+// @Accept json
+// @Security BearerAuth
+// @Param id path string true "Problem ID"
+// @Param payload body publishPayload true "Publish state"
+// @Success 244 "No Content"
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/admin/problems/{id}/publish [patch]
 func (h *handler) setProblemPublished(c *gin.Context) {
 	id := c.Param("id")
 	var req publishPayload
@@ -155,6 +225,14 @@ func (h *handler) setProblemPublished(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary Admin Delete Problem
+// @Description Delete a problem and all associated test cases.
+// @Tags Admin
+// @Security BearerAuth
+// @Param id path string true "Problem ID"
+// @Success 244 "No Content"
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/admin/problems/{id} [delete]
 func (h *handler) deleteProblem(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.problems.Delete(c.Request.Context(), id); err != nil {
@@ -180,6 +258,15 @@ type replaceTestsPayload struct {
 	Tests []testCaseDTO `json:"tests"`
 }
 
+// @Summary Admin Replace Test Cases
+// @Description Replace official evaluation test cases for a problem.
+// @Tags Admin
+// @Accept json
+// @Security BearerAuth
+// @Param id path string true "Problem ID"
+// @Param payload body replaceTestsPayload true "Test cases payload"
+// @Success 244 "No Content"
+// @Router /api/v1/admin/problems/{id}/tests [put]
 func (h *handler) replaceTestCases(c *gin.Context) {
 	id := c.Param("id")
 	var req replaceTestsPayload

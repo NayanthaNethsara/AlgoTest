@@ -4,28 +4,34 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
+	_ "github.com/NayanthaNethsara/mini-algothon/backend/docs"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
-func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpool.Pool, users *user.Repository, sessions *session.Repository, problems *problem.Repository) *gin.Engine {
+func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpool.Pool, users *user.Repository, sessions *session.Repository, problems *problem.Repository, teams *team.Repository) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
 
-	h := &handler{cfg: cfg, judge: j, runner: rn, db: pool, users: users, sessions: sessions, problems: problems}
+	h := &handler{cfg: cfg, judge: j, runner: rn, db: pool, users: users, sessions: sessions, problems: problems, teams: teams}
 
 	r.GET("/healthz", h.health)
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	v1 := r.Group("/api/v1")
 	{
 		v1.POST("/auth/login", h.login)
 		v1.POST("/auth/logout", h.logout)
 		v1.GET("/me", h.requireUser, h.me)
+		v1.GET("/teams", h.requireUser, h.listTeams)
 
 		v1.GET("/problems", h.requireUser, h.listPublishedProblems)
 		v1.GET("/problems/:slug", h.requireUser, h.getPublishedProblemBySlug)
@@ -38,6 +44,9 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 			admin.POST("/users/:id/reset-password", h.resetPassword)
 			admin.PATCH("/users/:id/role", h.updateRole)
 			admin.DELETE("/users/:id", h.deleteUser)
+
+			admin.POST("/teams", h.createTeam)
+			admin.POST("/admins", h.createAdminUser)
 
 			admin.GET("/problems", h.listAllProblems)
 			admin.POST("/problems", h.createProblem)

@@ -3,109 +3,188 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db/sqlc"
 )
 
-// ErrDuplicateUsername is returned by Create when the username is already taken.
-var ErrDuplicateUsername = errors.New("username already exists")
-
-// ErrNotFound is returned when a targeted user row does not exist.
-var ErrNotFound = errors.New("user not found")
+var (
+	ErrDuplicateUsername = errors.New("username already exists")
+	ErrNotFound          = errors.New("user not found")
+)
 
 type Repository struct {
-	q *sqlc.Queries
+	pool *pgxpool.Pool
 }
 
 func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{q: sqlc.New(pool)}
+	return &Repository{pool: pool}
 }
 
 func (r *Repository) Create(ctx context.Context, username, displayName, passwordHash, role string) (User, error) {
-	row, err := r.q.CreateUser(ctx, sqlc.CreateUserParams{
-		Username:     username,
-		DisplayName:  displayName,
-		PasswordHash: passwordHash,
-		Role:         role,
-	})
+	return r.CreateWithTeam(ctx, username, displayName, passwordHash, role, nil)
+}
+
+func (r *Repository) CreateWithTeam(ctx context.Context, username, displayName, passwordHash, role string, teamID *string) (User, error) {
+	query := `
+		INSERT INTO users (username, display_name, password_hash, role, team_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, username, display_name, role, created_at, last_login_at, team_id
+	`
+	var u User
+	err := r.pool.QueryRow(ctx, query, username, displayName, passwordHash, role, teamID).Scan(
+		&u.ID,
+		&u.Username,
+		&u.DisplayName,
+		&u.Role,
+		&u.CreatedAt,
+		&u.LastLoginAt,
+		&u.TeamID,
+	)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return User{}, ErrDuplicateUsername
 		}
-		return User{}, err
+		return User{}, fmt.Errorf("create user: %w", err)
 	}
-	return toDomain(row), nil
+	return u, nil
 }
 
 func (r *Repository) List(ctx context.Context) ([]User, error) {
-	rows, err := r.q.ListUsers(ctx)
+	query := `
+		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name
+		FROM users u
+		LEFT JOIN teams t ON u.team_id = t.id
+		ORDER BY u.created_at ASC
+	`
+	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list users: %w", err)
 	}
-	users := make([]User, len(rows))
-	for i, row := range rows {
-		users[i] = toDomain(row)
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		err := rows.Scan(
+			&u.ID,
+			&u.Username,
+			&u.DisplayName,
+			&u.Role,
+			&u.CreatedAt,
+			&u.LastLoginAt,
+			&u.TeamID,
+			&u.TeamName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		users = append(users, u)
 	}
 	return users, nil
 }
 
 // GetForLogin returns the user together with its stored password hash.
 func (r *Repository) GetForLogin(ctx context.Context, username string) (User, string, error) {
-	row, err := r.q.GetUserByUsername(ctx, username)
+	query := `
+		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name, u.password_hash
+		FROM users u
+		LEFT JOIN teams t ON u.team_id = t.id
+		WHERE u.username = $1
+	`
+	var u User
+	var hash string
+	err := r.pool.QueryRow(ctx, query, username).Scan(
+		&u.ID,
+		&u.Username,
+		&u.DisplayName,
+		&u.Role,
+		&u.CreatedAt,
+		&u.LastLoginAt,
+		&u.TeamID,
+		&u.TeamName,
+		&hash,
+	)
 	if err != nil {
-		return User{}, "", err
+		if errors.Is(err, pgx.ErrNoRows) {
+			return User{}, "", ErrNotFound
+		}
+		return User{}, "", fmt.Errorf("get user for login: %w", err)
 	}
-	return toDomain(row), row.PasswordHash, nil
+	return u, hash, nil
 }
 
 func (r *Repository) GetByID(ctx context.Context, id string) (User, error) {
-	row, err := r.q.GetUserByID(ctx, id)
+	query := `
+		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name
+		FROM users u
+		LEFT JOIN teams t ON u.team_id = t.id
+		WHERE u.id = $1
+	`
+	var u User
+	err := r.pool.QueryRow(ctx, query, id).Scan(
+		&u.ID,
+		&u.Username,
+		&u.DisplayName,
+		&u.Role,
+		&u.CreatedAt,
+		&u.LastLoginAt,
+		&u.TeamID,
+		&u.TeamName,
+	)
 	if err != nil {
-		return User{}, err
+		if errors.Is(err, pgx.ErrNoRows) {
+			return User{}, ErrNotFound
+		}
+		return User{}, fmt.Errorf("get user by id: %w", err)
 	}
-	return toDomain(row), nil
+	return u, nil
 }
 
 func (r *Repository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
-	n, err := r.q.UpdateUserPassword(ctx, sqlc.UpdateUserPasswordParams{ID: id, PasswordHash: passwordHash})
-	return notFoundIfZero(n, err)
+	query := `UPDATE users SET password_hash = $2 WHERE id = $1`
+	tag, err := r.pool.Exec(ctx, query, id, passwordHash)
+	if err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *Repository) UpdateRole(ctx context.Context, id, role string) error {
-	n, err := r.q.UpdateUserRole(ctx, sqlc.UpdateUserRoleParams{ID: id, Role: role})
-	return notFoundIfZero(n, err)
+	query := `UPDATE users SET role = $2 WHERE id = $1`
+	tag, err := r.pool.Exec(ctx, query, id, role)
+	if err != nil {
+		return fmt.Errorf("update role: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	n, err := r.q.DeleteUser(ctx, id)
-	return notFoundIfZero(n, err)
+	query := `DELETE FROM users WHERE id = $1`
+	tag, err := r.pool.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *Repository) TouchLastLogin(ctx context.Context, id string) error {
-	return r.q.TouchUserLastLogin(ctx, id)
-}
-
-func toDomain(row sqlc.User) User {
-	return User{
-		ID:          row.ID,
-		Username:    row.Username,
-		DisplayName: row.DisplayName,
-		Role:        row.Role,
-		CreatedAt:   row.CreatedAt,
-		LastLoginAt: row.LastLoginAt,
-	}
-}
-
-func notFoundIfZero(n int64, err error) error {
+	query := `UPDATE users SET last_login_at = now() WHERE id = $1`
+	_, err := r.pool.Exec(ctx, query, id)
 	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrNotFound
+		return fmt.Errorf("touch last login: %w", err)
 	}
 	return nil
 }
