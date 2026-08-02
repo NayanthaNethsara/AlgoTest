@@ -26,6 +26,7 @@ export type SubtaskResult = {
 };
 
 export type SubmitResult = {
+  submissionId?: string;
   subtasks: SubtaskResult[];
   score: number;
   maxScore: number;

@@ -15,4 +15,6 @@ export type SessionUser = {
   role: string;
   createdAt: string;
   lastLoginAt?: string;
+  teamId?: string;
+  teamName?: string;
 };
