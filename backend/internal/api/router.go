@@ -59,8 +59,8 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 
 		v1.POST("/run", h.requireUser, h.runCode)
 
-		v1.POST("/submissions", h.createSubmission)
-		v1.GET("/submissions/:id", h.getSubmission)
+		v1.POST("/submissions", h.requireUser, h.createSubmission)
+		v1.GET("/submissions/:id", h.requireUser, h.getSubmission)
 	}
 
 	return r

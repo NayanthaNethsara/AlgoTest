@@ -260,6 +260,22 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 	if err != nil {
 		return user.User{}, "", err
 	}
+
+	if role == user.RoleCompetitor {
+		_, createdUsers, err := h.teams.CreateTeamWithMembers(c.Request.Context(), req.Username, []team.CreateMemberParams{
+			{
+				Username:     req.Username,
+				DisplayName:  name,
+				PasswordHash: hash,
+				Role:         role,
+			},
+		})
+		if err != nil {
+			return user.User{}, "", err
+		}
+		return createdUsers[0], password, nil
+	}
+
 	created, err := h.users.Create(c.Request.Context(), req.Username, name, hash, role)
 	if err != nil {
 		return user.User{}, "", err
@@ -324,18 +340,13 @@ func (h *handler) createTeam(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
-	t, err := h.teams.CreateTeam(ctx, req.Name)
-	if err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-		return
-	}
-
 	type createdMember struct {
 		User     user.User `json:"user"`
 		Password string    `json:"password"`
 	}
-	var created []createdMember
+
+	memberParams := make([]team.CreateMemberParams, 0, len(req.Members))
+	passwords := make([]string, 0, len(req.Members))
 
 	for _, m := range req.Members {
 		pw := m.Password
@@ -351,12 +362,24 @@ func (h *handler) createTeam(c *gin.Context) {
 		if displayName == "" {
 			displayName = m.Username
 		}
-		u, err := h.users.CreateWithTeam(ctx, m.Username, displayName, hash, user.RoleCompetitor, &t.ID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		created = append(created, createdMember{User: u, Password: pw})
+		memberParams = append(memberParams, team.CreateMemberParams{
+			Username:     m.Username,
+			DisplayName:  displayName,
+			PasswordHash: hash,
+			Role:         user.RoleCompetitor,
+		})
+		passwords = append(passwords, pw)
+	}
+
+	t, createdUsers, err := h.teams.CreateTeamWithMembers(c.Request.Context(), req.Name, memberParams)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	created := make([]createdMember, len(createdUsers))
+	for i, u := range createdUsers {
+		created[i] = createdMember{User: u, Password: passwords[i]}
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"team": t, "members": created})

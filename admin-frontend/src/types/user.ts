@@ -7,6 +7,8 @@ export type User = {
   role: UserRole;
   createdAt: string;
   lastLoginAt?: string;
+  teamId?: string;
+  teamName?: string;
 };
 
 export type CreateUserInput = {

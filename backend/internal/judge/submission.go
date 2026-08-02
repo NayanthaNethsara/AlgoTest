@@ -11,6 +11,8 @@ const (
 
 type Submission struct {
 	ID       string `json:"id"`
+	TeamID   string `json:"team_id,omitempty"`
+	UserID   string `json:"user_id,omitempty"`
 	Language string `json:"language"`
 	Code     string `json:"code"`
 }

@@ -38,6 +38,7 @@ CREATE TABLE problem_tests (
 
 CREATE TABLE submissions (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id       UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     problem_id    UUID NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
     language      TEXT NOT NULL,
@@ -61,6 +62,7 @@ CREATE TABLE submissions (
 
 CREATE INDEX idx_submissions_queued ON submissions (created_at) WHERE state = 'queued';
 CREATE INDEX idx_submissions_lease  ON submissions (lease_until) WHERE state = 'running';
+CREATE INDEX idx_submissions_team   ON submissions (team_id, problem_id, created_at DESC);
 CREATE INDEX idx_submissions_user   ON submissions (user_id, problem_id, created_at DESC);
 
 CREATE TABLE submission_tests (
@@ -74,12 +76,13 @@ CREATE TABLE submission_tests (
 );
 
 CREATE TABLE problem_scores (
-    user_id            UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    team_id            UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     problem_id         UUID NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+    user_id            UUID REFERENCES users(id) ON DELETE SET NULL,
     best_score         INTEGER NOT NULL,
     best_submission_id UUID REFERENCES submissions(id) ON DELETE SET NULL,
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, problem_id)
+    PRIMARY KEY (team_id, problem_id)
 );
 
 -- +goose Down

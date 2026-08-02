@@ -88,8 +88,16 @@ func (h *handler) createSubmission(c *gin.Context) {
 		return
 	}
 
+	u := currentUser(c)
+	teamID := ""
+	if u.TeamID != nil {
+		teamID = *u.TeamID
+	}
+
 	submission := judge.Submission{
 		ID:       uuid.NewString(),
+		UserID:   u.ID,
+		TeamID:   teamID,
 		Language: req.Language,
 		Code:     req.Code,
 	}

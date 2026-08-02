@@ -45,6 +45,51 @@ func (r *Repository) CreateTeam(ctx context.Context, name string) (*Team, error)
 	return t, nil
 }
 
+func (r *Repository) CreateTeamWithMembers(ctx context.Context, name string, members []CreateMemberParams) (*Team, []user.User, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	t := &Team{}
+	createTeamQuery := `INSERT INTO teams (name) VALUES ($1) RETURNING id, name, created_at`
+	if err := tx.QueryRow(ctx, createTeamQuery, name).Scan(&t.ID, &t.Name, &t.CreatedAt); err != nil {
+		return nil, nil, fmt.Errorf("create team: %w", err)
+	}
+
+	createdUsers := make([]user.User, 0, len(members))
+	createUserQuery := `
+		INSERT INTO users (username, display_name, password_hash, role, team_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, username, display_name, role, created_at, last_login_at, team_id
+	`
+	for _, m := range members {
+		var u user.User
+		err := tx.QueryRow(ctx, createUserQuery, m.Username, m.DisplayName, m.PasswordHash, m.Role, t.ID).Scan(
+			&u.ID,
+			&u.Username,
+			&u.DisplayName,
+			&u.Role,
+			&u.CreatedAt,
+			&u.LastLoginAt,
+			&u.TeamID,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("create team member %s: %w", m.Username, err)
+		}
+		u.TeamName = &t.Name
+		createdUsers = append(createdUsers, u)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, fmt.Errorf("commit team creation: %w", err)
+	}
+
+	t.Members = createdUsers
+	return t, createdUsers, nil
+}
+
 func (r *Repository) GetByID(ctx context.Context, id string) (*Team, error) {
 	query := `
 		SELECT id, name, created_at
@@ -90,9 +135,15 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Team, error) 
 }
 
 func (r *Repository) AddMember(ctx context.Context, teamID string, userID string) error {
-	countQuery := `SELECT COUNT(*) FROM users WHERE team_id = $1`
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
 	var count int
-	if err := r.pool.QueryRow(ctx, countQuery, teamID).Scan(&count); err != nil {
+	countQuery := `SELECT COUNT(*) FROM users WHERE team_id = $1`
+	if err := tx.QueryRow(ctx, countQuery, teamID).Scan(&count); err != nil {
 		return fmt.Errorf("check team count: %w", err)
 	}
 	if count >= MaxTeamMembers {
@@ -100,14 +151,14 @@ func (r *Repository) AddMember(ctx context.Context, teamID string, userID string
 	}
 
 	updateQuery := `UPDATE users SET team_id = $1 WHERE id = $2`
-	tag, err := r.pool.Exec(ctx, updateQuery, teamID, userID)
+	tag, err := tx.Exec(ctx, updateQuery, teamID, userID)
 	if err != nil {
 		return fmt.Errorf("add user to team: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return user.ErrNotFound
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) GetTeamMembers(ctx context.Context, teamID string) ([]user.User, error) {

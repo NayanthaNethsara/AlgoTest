@@ -272,6 +272,7 @@ export function AdminUsers({
             <TableRow>
               <TableHead>Username</TableHead>
               <TableHead>Display Name</TableHead>
+              <TableHead>Assigned Team</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Last Login</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -280,7 +281,7 @@ export function AdminUsers({
           <TableBody>
             {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="p-8 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={6} className="p-8 text-center text-xs text-muted-foreground">
                   No {subTab === "competitors" ? "competitors" : "administrators"} found.
                 </TableCell>
               </TableRow>
@@ -289,6 +290,15 @@ export function AdminUsers({
                 <TableRow key={u.id}>
                   <TableCell className="font-mono text-xs font-medium">{u.username}</TableCell>
                   <TableCell className="text-xs">{u.displayName || "-"}</TableCell>
+                  <TableCell className="text-xs font-mono">
+                    {u.teamName ? (
+                      <Badge variant="secondary" className="font-mono text-[11px]">
+                        {u.teamName}
+                      </Badge>
+                    ) : (
+                      "-"
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="font-mono text-[11px] capitalize">
                       {u.role}
