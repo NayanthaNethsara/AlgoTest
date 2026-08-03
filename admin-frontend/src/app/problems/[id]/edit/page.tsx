@@ -40,7 +40,6 @@ export default function EditProblemPage({
     try {
       await updateProblemAction(id, input);
       router.push("/");
-      router.refresh();
     } finally {
       setPending(false);
     }

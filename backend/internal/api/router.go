@@ -59,6 +59,7 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 			admin.PUT("/problems/:id", h.updateProblem)
 			admin.PATCH("/problems/:id/publish", h.setProblemPublished)
 			admin.DELETE("/problems/:id", h.deleteProblem)
+			admin.GET("/problems/:id/tests", h.getAdminProblemTests)
 			admin.PUT("/problems/:id/tests", h.replaceTestCases)
 		}
 

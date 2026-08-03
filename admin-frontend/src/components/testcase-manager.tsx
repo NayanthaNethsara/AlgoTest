@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, ShieldAlert } from "lucide-react";
-import { getProblemDetailAction, replaceTestCasesAction } from "@/lib/actions/problems";
+import { getProblemDetailAction, getProblemTestsAction, replaceTestCasesAction } from "@/lib/actions/problems";
 import type { ProblemDetail, TestCaseInput } from "@/types/problem";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,14 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
     async function load() {
       setLoading(true);
       try {
-        const data = await getProblemDetailAction(problemId);
+        const [data, fullTests] = await Promise.all([
+          getProblemDetailAction(problemId),
+          getProblemTestsAction(problemId).catch(() => []),
+        ]);
         setProblemDetail(data);
+        if (fullTests && fullTests.length > 0) {
+          setTestCases(fullTests);
+        }
       } catch (err: unknown) {
         if (err instanceof Error) setError(err.message);
       } finally {

@@ -15,7 +15,6 @@ export default function NewProblemPage() {
     try {
       await createProblemAction(input);
       router.push("/");
-      router.refresh();
     } finally {
       setPending(false);
     }

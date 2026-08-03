@@ -292,3 +292,32 @@ func (h *handler) replaceTestCases(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
+
+// @Summary Admin Get Problem Test Cases
+// @Description Fetch full input and expected output for test cases of a problem.
+// @Tags Admin
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Problem ID"
+// @Success 200 {object} map[string][]testCaseDTO
+// @Router /api/v1/admin/problems/{id}/tests [get]
+func (h *handler) getAdminProblemTests(c *gin.Context) {
+	id := c.Param("id")
+	tests, err := h.problems.GetFullTests(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch test cases"})
+		return
+	}
+
+	dtos := make([]testCaseDTO, len(tests))
+	for i, t := range tests {
+		dtos[i] = testCaseDTO{
+			Ordinal:  t.Ordinal,
+			Input:    string(t.Input),
+			Expected: string(t.Expected),
+			Points:   t.Points,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"tests": dtos})
+}

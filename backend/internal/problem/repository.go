@@ -329,6 +329,23 @@ func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests [
 	return tx.Commit(ctx)
 }
 
+func (r *Repository) GetFullTests(ctx context.Context, problemID string) ([]TestInput, error) {
+	rows, err := r.q.GetFullTestsForProblem(ctx, problemID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]TestInput, len(rows))
+	for i, row := range rows {
+		result[i] = TestInput{
+			Ordinal:  row.Ordinal,
+			Input:    row.Input,
+			Expected: row.Expected,
+			Points:   row.Points,
+		}
+	}
+	return result, nil
+}
+
 func notFoundIfZero(n int64, err error) error {
 	if err != nil {
 		return err

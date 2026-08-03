@@ -67,6 +67,16 @@ export async function deleteProblemAction(id: string): Promise<void> {
   }
 }
 
+export async function getProblemTestsAction(id: string): Promise<TestCaseInput[]> {
+  const res = await backendFetch(`/api/v1/admin/problems/${id}/tests`);
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || "Failed to fetch test cases");
+  }
+  const data = await res.json();
+  return data.tests || [];
+}
+
 export async function replaceTestCasesAction(id: string, tests: TestCaseInput[]): Promise<void> {
   const res = await backendFetch(`/api/v1/admin/problems/${id}/tests`, {
     method: "PUT",
