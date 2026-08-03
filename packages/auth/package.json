@@ -1,0 +1,19 @@
+{
+  "name": "@mini-algothon/auth",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "next": "16.2.11",
+    "react": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}
