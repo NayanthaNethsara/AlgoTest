@@ -86,15 +86,25 @@ func parseMeta(path string) (meta, error) {
 		case "message":
 			m.message = value
 		case "exitcode":
-			m.exitCode, _ = strconv.Atoi(value)
+			if val, err := strconv.Atoi(value); err == nil {
+				m.exitCode = val
+			}
 		case "exitsig":
-			m.exitSig, _ = strconv.Atoi(value)
+			if val, err := strconv.Atoi(value); err == nil {
+				m.exitSig = val
+			}
 		case "time":
-			m.timeCPU, _ = strconv.ParseFloat(value, 64)
+			if val, err := strconv.ParseFloat(value, 64); err == nil {
+				m.timeCPU = val
+			}
 		case "time-wall":
-			m.timeWall, _ = strconv.ParseFloat(value, 64)
+			if val, err := strconv.ParseFloat(value, 64); err == nil {
+				m.timeWall = val
+			}
 		case "cg-mem":
-			m.cgMemKB, _ = strconv.ParseInt(value, 10, 64)
+			if val, err := strconv.ParseInt(value, 10, 64); err == nil {
+				m.cgMemKB = val
+			}
 		case "cg-oom-killed":
 			m.cgOOMKilled = value == "1"
 		}

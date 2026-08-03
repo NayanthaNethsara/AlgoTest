@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -67,7 +68,9 @@ func (h *handler) login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
 		return
 	}
-	_ = h.users.TouchLastLogin(ctx, u.ID)
+	if err := h.users.TouchLastLogin(ctx, u.ID); err != nil {
+		log.Printf("failed to touch last login for user %s: %v", u.ID, err)
+	}
 
 	c.JSON(http.StatusOK, loginResponse{
 		SessionToken:     token,
@@ -84,7 +87,9 @@ func (h *handler) login(c *gin.Context) {
 // @Router /api/v1/auth/logout [post]
 func (h *handler) logout(c *gin.Context) {
 	if token, err := c.Cookie(h.cfg.SessionCookieName); err == nil && token != "" {
-		_ = h.sessions.Delete(c.Request.Context(), token)
+		if err := h.sessions.Delete(c.Request.Context(), token); err != nil {
+			log.Printf("failed to delete session during logout: %v", err)
+		}
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -125,7 +130,9 @@ func (h *handler) requireUser(c *gin.Context) {
 		return
 	}
 	if time.Now().After(s.ExpiresAt) {
-		_ = h.sessions.Delete(ctx, token)
+		if err := h.sessions.Delete(ctx, token); err != nil {
+			log.Printf("failed to delete expired session: %v", err)
+		}
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "session expired"})
 		return
 	}

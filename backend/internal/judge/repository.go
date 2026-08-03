@@ -79,10 +79,12 @@ func (r *Repository) CreateSubmission(ctx context.Context, s Submission) (*Submi
 
 	// Calculate initial queue position
 	var pos int
-	_ = r.pool.QueryRow(ctx, `
+	if err := r.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM submissions
 		WHERE state = 'queued' AND created_at <= $1;
-	`, s.CreatedAt).Scan(&pos)
+	`, s.CreatedAt).Scan(&pos); err != nil {
+		pos = 1
+	}
 	s.QueuePosition = pos
 
 	return &s, nil
@@ -119,10 +121,12 @@ func (r *Repository) GetSubmission(ctx context.Context, id string) (*Result, boo
 
 	if res.Status == StatusQueued {
 		var pos int
-		_ = r.pool.QueryRow(ctx, `
+		if err := r.pool.QueryRow(ctx, `
 			SELECT COUNT(*) FROM submissions
 			WHERE state = 'queued' AND created_at <= $1;
-		`, res.CreatedAt).Scan(&pos)
+		`, res.CreatedAt).Scan(&pos); err != nil {
+			pos = 1
+		}
 		res.QueuePosition = pos
 	}
 

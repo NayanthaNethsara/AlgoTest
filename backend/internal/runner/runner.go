@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -461,8 +462,10 @@ func (r *Runner) initBox(ctx context.Context, boxID int) (string, error) {
 func (r *Runner) cleanupBox(boxID int) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = exec.CommandContext(ctx, r.cfg.IsolateBin,
-		"--cg", "--box-id="+strconv.Itoa(boxID), "--cleanup").Run()
+	if err := exec.CommandContext(ctx, r.cfg.IsolateBin,
+		"--cg", "--box-id="+strconv.Itoa(boxID), "--cleanup").Run(); err != nil {
+		log.Printf("failed to cleanup isolate box %d: %v", boxID, err)
+	}
 }
 
 // readCapped returns at most outputLimit bytes of a sandbox output file,

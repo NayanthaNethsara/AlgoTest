@@ -20,14 +20,19 @@ export async function runCode(
   code: string,
   stdin: string,
 ): Promise<RunResult> {
-  assertLength(code, MAX_CODE_LENGTH, "code");
-  assertLength(stdin, MAX_STDIN_LENGTH, "stdin");
+  try {
+    assertLength(code, MAX_CODE_LENGTH, "code");
+    assertLength(stdin, MAX_STDIN_LENGTH, "stdin");
 
-  if (!code.trim()) {
-    return { stdout: "", stderr: "error: empty program", exitCode: 1, timeMs: 0 };
+    if (!code.trim()) {
+      return { stdout: "", stderr: "error: empty program", exitCode: 1, timeMs: 0 };
+    }
+
+    return await executeRun(language, code, stdin);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Execution failed";
+    return { stdout: "", stderr: `Error: ${message}`, exitCode: 1, timeMs: 0 };
   }
-
-  return executeRun(language, code, stdin);
 }
 
 export async function submitCode(
@@ -36,58 +41,53 @@ export async function submitCode(
   previousBest: number,
   language = "cpp",
 ): Promise<SubmitResult> {
-  assertLength(code, MAX_CODE_LENGTH, "code");
-  const problem = await getProblemAction(problemId);
-  if (!problem) {
-    throw new Error("unknown problem");
-  }
-
   try {
+    assertLength(code, MAX_CODE_LENGTH, "code");
+    const problem = await getProblemAction(problemId);
+    const maxScore = problem ? problem.points : 100;
+
     const res = await backendFetch("/api/v1/submissions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ problem_id: problemId, language, code }),
     });
 
-    if (res.status === 409) {
+    if (res.status === 409 || !res.ok) {
       const errBody = await res.json().catch(() => ({}));
       return {
-        error: errBody.error ?? "Active submission already in progress.",
+        error: errBody.error ?? `Submission failed (${res.status})`,
         subtasks: [],
         score: previousBest,
-        maxScore: problem.points,
+        maxScore,
         improvedBest: false,
         previousBest,
       };
     }
 
-    if (res.ok) {
-      const data = await res.json();
-      return {
-        submissionId: data.id,
-        status: data.status,
-        queuePosition: data.queue_position,
-        subtasks: [
-          { id: 1, points: problem.points, earned: problem.points, passed: true },
-        ],
-        score: problem.points,
-        maxScore: problem.points,
-        improvedBest: problem.points > previousBest,
-        previousBest,
-      };
-    }
-  } catch {
-    // Backend fetch failed or unauthenticated
+    const data = await res.json();
+    return {
+      submissionId: data.id,
+      status: data.status,
+      queuePosition: data.queue_position,
+      subtasks: [
+        { id: 1, points: maxScore, earned: maxScore, passed: true },
+      ],
+      score: maxScore,
+      maxScore,
+      improvedBest: maxScore > previousBest,
+      previousBest,
+    };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Failed to queue submission. Please check your connection.";
+    return {
+      error: errorMsg,
+      subtasks: [],
+      score: previousBest,
+      maxScore: 100,
+      improvedBest: false,
+      previousBest,
+    };
   }
-
-  return {
-    error: "Failed to queue submission. Please check your network connection.",
-    subtasks: [],
-    score: previousBest,
-    maxScore: problem.points,
-    improvedBest: false,
-    previousBest,
-  };
 }
 
 export async function getSubmissionStatusAction(

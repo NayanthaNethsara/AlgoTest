@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -150,7 +151,12 @@ type passwordRequest struct {
 // @Router /api/v1/admin/users/{id}/reset-password [post]
 func (h *handler) resetPassword(c *gin.Context) {
 	var req passwordRequest
-	_ = c.ShouldBindJSON(&req)
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json payload: " + err.Error()})
+			return
+		}
+	}
 
 	if err := checkPasswordLength(req.Password); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "password too short"})
@@ -173,7 +179,9 @@ func (h *handler) resetPassword(c *gin.Context) {
 		writeUpdateError(c, err)
 		return
 	}
-	_ = h.sessions.DeleteByUser(ctx, id)
+	if err := h.sessions.DeleteByUser(ctx, id); err != nil {
+		log.Printf("failed to delete sessions for user %s: %v", id, err)
+	}
 
 	c.JSON(http.StatusOK, gin.H{"password": password})
 }
