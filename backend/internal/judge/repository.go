@@ -432,3 +432,36 @@ func (r *Repository) GetProblemTests(ctx context.Context, problemID string) ([]T
 	return tests, nil
 }
 
+// GetTeamProgress queries problem_scores to return team best scores and completion statuses by problem_id.
+func (r *Repository) GetTeamProgress(ctx context.Context, teamID string, userID string) (map[string]ProblemProgress, error) {
+	query := `
+		SELECT ps.problem_id, ps.best_score, COALESCE(p.max_score, 100) AS max_score
+		FROM problem_scores ps
+		JOIN problems p ON ps.problem_id = p.id
+		WHERE (NULLIF($1, '')::uuid IS NOT NULL AND ps.team_id = $1::uuid) OR ps.user_id = $2::uuid;
+	`
+	rows, err := r.pool.Query(ctx, query, teamID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query team progress: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]ProblemProgress)
+	for rows.Next() {
+		var probID string
+		var bestScore, maxScore int
+		if err := rows.Scan(&probID, &bestScore, &maxScore); err == nil {
+			status := "attempted"
+			if bestScore >= maxScore && maxScore > 0 {
+				status = "solved"
+			}
+			result[probID] = ProblemProgress{
+				ProblemID: probID,
+				BestScore: bestScore,
+				Status:    status,
+			}
+		}
+	}
+	return result, nil
+}
+

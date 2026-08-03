@@ -38,6 +38,8 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 		v1.GET("/problems", h.requireUser, h.listPublishedProblems)
 		v1.GET("/problems/:slug", h.requireUser, h.getPublishedProblemBySlug)
 
+		v1.GET("/leaderboard", h.requireUser, h.getLeaderboard)
+
 		admin := v1.Group("/admin", h.requireUser, h.requireAdmin)
 		{
 			admin.GET("/users", h.listUsers)

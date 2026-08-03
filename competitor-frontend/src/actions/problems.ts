@@ -47,19 +47,30 @@ function mapApiProblem(p: ApiProblem): Problem {
   };
 }
 
-export async function listProblemsAction(): Promise<Problem[]> {
+export type ChallengeProgressItem = {
+  problemId: string;
+  bestScore: number;
+  status: "solved" | "attempted" | "not_attempted";
+};
+
+export type ChallengeProgressMap = Record<string, ChallengeProgressItem>;
+
+export async function listProblemsAction(): Promise<{
+  problems: Problem[];
+  progress: ChallengeProgressMap;
+}> {
   try {
     const res = await backendFetch("/api/v1/problems");
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data.problems)) {
-        return data.problems.map(mapApiProblem);
-      }
+      const problems = Array.isArray(data.problems) ? data.problems.map(mapApiProblem) : [];
+      const progress = (data.progress || {}) as ChallengeProgressMap;
+      return { problems, progress };
     }
   } catch (err: unknown) {
     console.error("Failed to list problems from backend:", err);
   }
-  return [];
+  return { problems: [], progress: {} };
 }
 
 export async function getProblemAction(slug: string): Promise<Problem | null> {

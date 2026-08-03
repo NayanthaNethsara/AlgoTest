@@ -325,3 +325,36 @@ func (r *Repository) List(ctx context.Context) ([]*Team, error) {
 
 	return teams, nil
 }
+
+func (r *Repository) GetLeaderboard(ctx context.Context) ([]LeaderboardEntry, error) {
+	query := `
+		SELECT 
+			t.id AS team_id,
+			t.name AS team_name,
+			COALESCE(SUM(ps.best_score), 0)::INT AS total_score,
+			COUNT(DISTINCT CASE WHEN ps.best_score > 0 THEN ps.problem_id END)::INT AS problems_solved,
+			MAX(ps.updated_at) AS last_submission_at
+		FROM teams t
+		LEFT JOIN problem_scores ps ON t.id = ps.team_id
+		GROUP BY t.id, t.name
+		ORDER BY total_score DESC, last_submission_at ASC NULLS LAST, t.name ASC;
+	`
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query leaderboard: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []LeaderboardEntry
+	rank := 1
+	for rows.Next() {
+		var entry LeaderboardEntry
+		if err := rows.Scan(&entry.TeamID, &entry.TeamName, &entry.TotalScore, &entry.ProblemsSolved, &entry.LastSubmissionAt); err != nil {
+			return nil, fmt.Errorf("scan leaderboard entry: %w", err)
+		}
+		entry.Rank = rank
+		rank++
+		entries = append(entries, entry)
+	}
+	return entries, rows.Err()
+}

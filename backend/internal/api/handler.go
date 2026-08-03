@@ -289,5 +289,21 @@ func (h *handler) unstickTeamSubmissions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "active submission locks cleared for team"})
 }
 
-
-
+// @Summary Get Leaderboard Standings
+// @Description Retrieve team leaderboard ranked by best scores per problem.
+// @Tags Leaderboard
+// @Produce json
+// @Success 200 {array} team.LeaderboardEntry
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/leaderboard [get]
+func (h *handler) getLeaderboard(c *gin.Context) {
+	entries, err := h.teams.GetLeaderboard(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch leaderboard"})
+		return
+	}
+	if entries == nil {
+		entries = []team.LeaderboardEntry{}
+	}
+	c.JSON(http.StatusOK, gin.H{"leaderboard": entries})
+}

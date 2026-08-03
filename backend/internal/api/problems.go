@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 )
 
@@ -24,7 +25,22 @@ func (h *handler) listPublishedProblems(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list problems"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"problems": problems})
+
+	u := currentUser(c)
+	teamID := ""
+	if u.TeamID != nil {
+		teamID = *u.TeamID
+	}
+
+	progressMap := make(map[string]judge.ProblemProgress)
+	if pMap, pErr := h.judge.Repo().GetTeamProgress(c.Request.Context(), teamID, u.ID); pErr == nil && pMap != nil {
+		progressMap = pMap
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"problems": problems,
+		"progress": progressMap,
+	})
 }
 
 // @Summary Get Problem by Slug

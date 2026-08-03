@@ -14,3 +14,12 @@ type Team struct {
 	CreatedAt time.Time   `json:"createdAt"`
 	Members   []user.User `json:"members,omitempty"`
 }
+
+type LeaderboardEntry struct {
+	Rank             int        `json:"rank"`
+	TeamID           string     `json:"teamId"`
+	TeamName         string     `json:"teamName"`
+	TotalScore       int        `json:"totalScore"`
+	ProblemsSolved   int        `json:"problemsSolved"`
+	LastSubmissionAt *time.Time `json:"lastSubmissionAt,omitempty"`
+}

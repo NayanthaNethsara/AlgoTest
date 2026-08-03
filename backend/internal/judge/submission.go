@@ -85,3 +85,9 @@ type AdminSubmissionItem struct {
 	Language     string `json:"language"`
 	Code         string `json:"code"`
 }
+
+type ProblemProgress struct {
+	ProblemID string `json:"problemId"`
+	BestScore int    `json:"bestScore"`
+	Status    string `json:"status"`
+}

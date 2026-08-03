@@ -4,9 +4,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { listProblemsAction } from "@/actions/problems";
 import { Users, Trophy, Code2 } from "lucide-react";
+import { CHALLENGE_STATUS } from "@/types/challenge";
 
 export default async function ChallengesPage() {
-  const [user, problems] = await Promise.all([getSessionUser(), listProblemsAction()]);
+  const [user, { problems, progress }] = await Promise.all([
+    getSessionUser(),
+    listProblemsAction(),
+  ]);
 
   const totalPoints = problems.reduce((acc, p) => acc + p.points, 0);
 
@@ -72,9 +76,27 @@ export default async function ChallengesPage() {
               </p>
             </div>
           ) : (
-            problems.map((problem) => (
-              <ChallengeCard key={problem.id} problem={problem} />
-            ))
+            problems.map((problem) => {
+              const pProgress =
+                (problem.id ? progress[problem.id] : undefined) ||
+                (problem.slug ? progress[problem.slug] : undefined) || {
+                  problemId: problem.id,
+                  status: CHALLENGE_STATUS.NOT_ATTEMPTED,
+                  bestScore: 0,
+                };
+
+              return (
+                <ChallengeCard
+                  key={problem.id}
+                  problem={problem}
+                  progress={{
+                    problemId: problem.id,
+                    status: (pProgress.status as any) || CHALLENGE_STATUS.NOT_ATTEMPTED,
+                    bestScore: pProgress.bestScore ?? 0,
+                  }}
+                />
+              );
+            })
           )}
         </div>
       </div>
