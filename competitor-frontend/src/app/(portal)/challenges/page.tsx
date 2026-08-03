@@ -2,12 +2,11 @@ import { getSessionUser } from "@/lib/auth/session";
 import { ChallengeCard } from "@/components/challenges/challenge-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { getChallengeProgress } from "@/lib/challenges";
-import { listProblems } from "@/lib/problems";
+import { listProblemsAction } from "@/actions/problems";
 import { Users, Trophy, Code2 } from "lucide-react";
 
 export default async function ChallengesPage() {
-  const [user, problems] = await Promise.all([getSessionUser(), listProblems()]);
+  const [user, problems] = await Promise.all([getSessionUser(), listProblemsAction()]);
 
   const totalPoints = problems.reduce((acc, p) => acc + p.points, 0);
 
@@ -64,13 +63,19 @@ export default async function ChallengesPage() {
             <span className="text-xs text-muted-foreground">{problems.length} challenges available</span>
           </div>
 
-          {problems.map((problem) => (
-            <ChallengeCard
-              key={problem.id}
-              problem={problem}
-              progress={getChallengeProgress(problem.id)}
-            />
-          ))}
+          {problems.length === 0 ? (
+            <div className="rounded-xl border bg-card p-12 text-center">
+              <Code2 className="mx-auto h-8 w-8 text-muted-foreground/60 mb-2" />
+              <h3 className="font-semibold text-sm">No Active Problems</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                There are no published challenges available right now. Please check back later!
+              </p>
+            </div>
+          ) : (
+            problems.map((problem) => (
+              <ChallengeCard key={problem.id} problem={problem} />
+            ))
+          )}
         </div>
       </div>
     </ScrollArea>

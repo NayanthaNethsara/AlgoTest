@@ -6,7 +6,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { getProblem } from "@/lib/problems";
+import { getProblemAction } from "@/actions/problems";
 
 export default async function ChallengePage({
   params,
@@ -14,7 +14,7 @@ export default async function ChallengePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const problem = await getProblem(id);
+  const problem = await getProblemAction(id);
   if (!problem) notFound();
 
   return (

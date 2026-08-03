@@ -1,7 +1,7 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
-import { getProblem } from "@/lib/problems";
+import { getProblemAction } from "@/actions/problems";
 import type { RunResult, SubmitResult } from "@/types/code";
 
 // submitCode is still mocked until hidden-test-case grading is wired up.
@@ -77,7 +77,7 @@ export async function submitCode(
   language = "cpp",
 ): Promise<SubmitResult> {
   assertLength(code, MAX_CODE_LENGTH, "code");
-  const problem = await getProblem(problemId);
+  const problem = await getProblemAction(problemId);
   if (!problem) {
     throw new Error("unknown problem");
   }

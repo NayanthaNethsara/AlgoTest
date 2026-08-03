@@ -1,31 +1,31 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { ChallengeProgress, ChallengeStatus } from "@/types/challenge";
-import type { Problem } from "@/types/problem";
+import { CHALLENGE_STATUS, type ChallengeProgress, type ChallengeStatus } from "@/types/challenge";
+import { DIFFICULTY, type Difficulty, type Problem } from "@/types/problem";
 
 const STATUS_LABELS: Record<ChallengeStatus, string> = {
-  solved: "Solved",
-  attempted: "Attempted",
-  not_attempted: "Not attempted",
+  [CHALLENGE_STATUS.SOLVED]: "Solved",
+  [CHALLENGE_STATUS.ATTEMPTED]: "Attempted",
+  [CHALLENGE_STATUS.NOT_ATTEMPTED]: "Not attempted",
 };
 
-const DIFFICULTY_STYLES: Record<string, string> = {
-  easy: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
-  medium: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
-  hard: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30",
+const DIFFICULTY_STYLES: Record<Difficulty, string> = {
+  [DIFFICULTY.EASY]: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+  [DIFFICULTY.MEDIUM]: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+  [DIFFICULTY.HARD]: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30",
 };
 
 export function ChallengeCard({
   problem,
-  progress,
+  progress = { problemId: problem.id, status: CHALLENGE_STATUS.NOT_ATTEMPTED, bestScore: 0 },
 }: {
   problem: Problem;
-  progress: ChallengeProgress;
+  progress?: ChallengeProgress;
 }) {
-  const isSolved = progress.status === "solved";
-  const isAttempted = progress.status === "attempted";
-  const difficultyKey = (problem.difficulty || "medium").toLowerCase();
+  const isSolved = progress.status === CHALLENGE_STATUS.SOLVED;
+  const isAttempted = progress.status === CHALLENGE_STATUS.ATTEMPTED;
+  const difficultyStyle = DIFFICULTY_STYLES[problem.difficulty] || DIFFICULTY_STYLES[DIFFICULTY.EASY];
 
   return (
     <Link
@@ -39,7 +39,7 @@ export function ChallengeCard({
           </span>
           <Badge
             variant="outline"
-            className={`font-mono text-[11px] capitalize ${DIFFICULTY_STYLES[difficultyKey] || ""}`}
+            className={`font-mono text-[11px] capitalize ${difficultyStyle}`}
           >
             {problem.difficulty}
           </Badge>
