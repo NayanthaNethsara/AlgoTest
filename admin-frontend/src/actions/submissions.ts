@@ -1,28 +1,9 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
+import type { AdminSubmission } from "@/types/submission";
 
-export type AdminSubmission = {
-  submissionId: string;
-  userId: string;
-  teamId: string;
-  problemId: string;
-  userName: string;
-  userEmail: string;
-  teamName: string;
-  problemTitle: string;
-  language: string;
-  code: string;
-  status: "queued" | "running" | "passed" | "failed";
-  verdict?: string;
-  score: number;
-  maxScore: number;
-  testsTotal: number;
-  testsDone: number;
-  compileError?: string;
-  createdAt: string;
-  finishedAt?: string;
-};
+export type { AdminSubmission };
 
 export async function listAdminSubmissionsAction(
   statusFilter = "",

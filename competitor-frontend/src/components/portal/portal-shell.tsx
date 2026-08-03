@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { SubmissionsProvider, useSubmissions } from "@/components/providers/submissions-context";
+import { TelemetryBridge } from "@/components/providers/telemetry-bridge";
 import { TopNav } from "@/components/portal/top-nav";
 import type { SessionUser } from "@/lib/auth/constants";
 
@@ -15,6 +16,7 @@ export function PortalShell({
 }) {
   return (
     <SubmissionsProvider>
+      <TelemetryBridge />
       <div className="flex h-dvh flex-col">
         <TopNav user={user} />
         <div className="relative min-h-0 flex-1">

@@ -17,18 +17,20 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
 type handler struct {
-	cfg      config.Config
-	judge    *judge.Judge
-	runner   *runner.Runner
-	db       *pgxpool.Pool
-	users    *user.Repository
-	sessions *session.Repository
-	problems *problem.Repository
-	teams    *team.Repository
+	cfg       config.Config
+	judge     *judge.Judge
+	runner    *runner.Runner
+	db        *pgxpool.Pool
+	users     *user.Repository
+	sessions  *session.Repository
+	problems  *problem.Repository
+	teams     *team.Repository
+	telemetry *telemetry.Repository
 }
 
 // @Summary System Health Check

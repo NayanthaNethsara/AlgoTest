@@ -20,6 +20,7 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
@@ -59,6 +60,7 @@ func main() {
 	sessions := session.NewRepository(pool)
 	problems := problem.NewRepository(pool)
 	teams := team.NewRepository(pool)
+	telemetryRepo := telemetry.NewRepository(pool)
 
 	rn, err := runner.New(runner.Config{
 		CompileTimeout: cfg.RunCompileTimeout(),
@@ -88,7 +90,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions, problems, teams),
+		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions, problems, teams, telemetryRepo),
 	}
 
 	go func() {

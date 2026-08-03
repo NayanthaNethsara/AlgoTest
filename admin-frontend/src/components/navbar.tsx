@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FileCode2, History, LogOut, RefreshCw, Users, Users2 } from "lucide-react";
+import { Activity, FileCode2, History, LogOut, RefreshCw, Users, Users2 } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
 import type { User } from "@/types/user";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
   const isUsersActive = pathname.startsWith("/users");
   const isTeamsActive = pathname.startsWith("/teams");
   const isSubmissionsActive = pathname.startsWith("/submissions");
+  const isMonitoringActive = pathname.startsWith("/monitoring");
 
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-card px-6 py-3 shadow-sm">
@@ -75,6 +76,17 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
             })}
           >
             <History className="h-3.5 w-3.5" /> Submissions & Judge
+          </Link>
+
+          <Link
+            href="/monitoring"
+            className={buttonVariants({
+              variant: isMonitoringActive ? "default" : "ghost",
+              size: "sm",
+              className: "gap-1.5 text-xs h-8",
+            })}
+          >
+            <Activity className="h-3.5 w-3.5" /> Onsite Monitoring
           </Link>
         </nav>
       </div>

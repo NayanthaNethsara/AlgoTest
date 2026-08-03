@@ -18,6 +18,8 @@ type Config struct {
 	SessionCookieName string
 	SessionTTLHours   int
 
+	EnableTelemetry bool
+
 	RunCompileTimeoutSeconds int
 	RunWallTimeoutSeconds    int
 	RunCPUSeconds            int
@@ -43,6 +45,8 @@ func Load() Config {
 
 		SessionCookieName: getenv("SESSION_COOKIE_NAME", "session"),
 		SessionTTLHours:   getenvInt("SESSION_TTL_HOURS", 24*7),
+
+		EnableTelemetry: getenvBool("ENABLE_TELEMETRY", true),
 
 		RunCompileTimeoutSeconds: getenvInt("RUN_COMPILE_TIMEOUT_SECONDS", 10),
 		RunWallTimeoutSeconds:    getenvInt("RUN_WALL_TIMEOUT_SECONDS", 10),
@@ -85,4 +89,12 @@ func getenvInt(key string, fallback int) int {
 		return fallback
 	}
 	return v
+}
+
+func getenvBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	return v == "true" || v == "1"
 }

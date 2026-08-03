@@ -16,14 +16,15 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
-func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpool.Pool, users *user.Repository, sessions *session.Repository, problems *problem.Repository, teams *team.Repository) *gin.Engine {
+func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpool.Pool, users *user.Repository, sessions *session.Repository, problems *problem.Repository, teams *team.Repository, telemetryRepo *telemetry.Repository) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
 
-	h := &handler{cfg: cfg, judge: j, runner: rn, db: pool, users: users, sessions: sessions, problems: problems, teams: teams}
+	h := &handler{cfg: cfg, judge: j, runner: rn, db: pool, users: users, sessions: sessions, problems: problems, teams: teams, telemetry: telemetryRepo}
 
 	r.GET("/healthz", h.health)
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -39,6 +40,8 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 		v1.GET("/problems/:slug", h.requireUser, h.getPublishedProblemBySlug)
 
 		v1.GET("/leaderboard", h.requireUser, h.getLeaderboard)
+
+		v1.POST("/telemetry/ping", h.requireUser, h.pingTelemetry)
 
 		admin := v1.Group("/admin", h.requireUser, h.requireAdmin)
 		{
@@ -70,6 +73,8 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 			admin.POST("/submissions/:id/rejudge", h.rejudgeSubmission)
 			admin.POST("/submissions/:id/cancel", h.cancelSubmission)
 			admin.POST("/teams/:id/unstick", h.unstickTeamSubmissions)
+
+			admin.GET("/telemetry", h.listAdminTelemetry)
 		}
 
 		v1.POST("/run", h.requireUser, h.runCode)
