@@ -38,6 +38,8 @@ problems/            Problem definitions and testcase directories
 
 For complete setup instructions, administrative operations, and environment customization, refer to the [Quick Start Guide](docs/quick-start.md).
 
+For desktop application installation, macOS Gatekeeper troubleshooting, building, and multi-platform CI/CD deployment, refer to the [Competitor Desktop App Guide](docs/desktop-app-guide.md).
+
 ### 1. Configure Environment Files
 
 ```sh
