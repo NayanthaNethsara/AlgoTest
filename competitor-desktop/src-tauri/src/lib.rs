@@ -40,6 +40,11 @@ struct TelemetryPayload {
 }
 
 #[tauri::command]
+fn exit_app(app_handle: tauri::AppHandle) {
+    app_handle.exit(0);
+}
+
+#[tauri::command]
 fn update_telemetry_auth(
     token: String,
     api_url: Option<String>,
@@ -129,6 +134,21 @@ fn collect_running_processes() -> Vec<String> {
     let mut process_set = HashSet::new();
     for process in sys.processes().values() {
         let name = process.name().to_string();
+        let lower = name.to_lowercase();
+
+        // Skip standard low-level system background daemons
+        if lower.starts_with("kworker")
+            || lower.starts_with("systemd")
+            || lower.contains("launchd")
+            || lower.contains("kernel_task")
+            || lower.contains("dbus")
+            || lower.contains("syslog")
+            || lower.contains("helper")
+            || lower.contains("service")
+        {
+            continue;
+        }
+
         if !name.is_empty() {
             process_set.insert(name);
         }
@@ -206,7 +226,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(telemetry_state)
-        .invoke_handler(tauri::generate_handler![update_telemetry_auth])
+        .invoke_handler(tauri::generate_handler![update_telemetry_auth, exit_app])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

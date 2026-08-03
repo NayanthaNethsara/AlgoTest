@@ -50,8 +50,13 @@ export function TelemetryBridge() {
       } else {
         const sendWebPing = async () => {
           const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "Web Browser";
+          const isTabActive = typeof document !== "undefined" ? !document.hidden : true;
+          const activeWindowStatus = isTabActive
+            ? "Web Portal (Active Tab)"
+            : "Web Portal (Background Tab / Unfocused)";
+
           await pingWebTelemetryAction({
-            active_window: "Web Portal Client",
+            active_window: activeWindowStatus,
             running_processes: [],
             os_info: userAgent,
             client_type: "WEB",
