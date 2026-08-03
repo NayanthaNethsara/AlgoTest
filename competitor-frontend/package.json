@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@mini-algothon/auth": "workspace:*",
     "@base-ui/react": "^1.6.0",
     "@monaco-editor/react": "^4.7.0",
     "class-variance-authority": "^0.7.1",

@@ -4,9 +4,9 @@ import { getSessionUser } from "@/lib/auth/session";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
-  // Defense in depth: proxy.ts already enforces this, but this covers any
-  // portal route it doesn't (yet) match, or a backend blip during proxy.
-  if (!user) redirect("/login");
+  if (!user) {
+    redirect("/login");
+  }
 
   return (
     <div className="flex h-dvh flex-col">

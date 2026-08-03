@@ -1,15 +1,7 @@
-export type UserRole = "competitor" | "admin";
+import type { SessionUser, UserRole } from "@mini-algothon/auth";
 
-export type User = {
-  id: string;
-  username: string;
-  displayName: string;
-  role: UserRole;
-  createdAt: string;
-  lastLoginAt?: string;
-  teamId?: string;
-  teamName?: string;
-};
+export type { UserRole };
+export type User = SessionUser;
 
 export type CreateUserInput = {
   username: string;

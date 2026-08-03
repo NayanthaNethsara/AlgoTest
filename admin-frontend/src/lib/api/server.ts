@@ -1,9 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { API_URL, ADMIN_SESSION_COOKIE, SESSION_COOKIE, COOKIE_SECURE } from "@mini-algothon/auth";
 
-export const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-export const ADMIN_SESSION_COOKIE = "admin_session";
-export const COOKIE_SECURE = process.env.COOKIE_SECURE === "true";
+export { API_URL, ADMIN_SESSION_COOKIE, COOKIE_SECURE };
 
 export async function backendFetch(path: string, init?: RequestInit): Promise<Response> {
   const cookieStore = await cookies();
@@ -13,7 +12,7 @@ export async function backendFetch(path: string, init?: RequestInit): Promise<Re
   headers.set("Content-Type", "application/json");
 
   if (sessionToken) {
-    headers.set("Cookie", `session=${sessionToken}`);
+    headers.set("Cookie", `${SESSION_COOKIE}=${sessionToken}`);
     headers.set("Authorization", `Bearer ${sessionToken}`);
   }
 

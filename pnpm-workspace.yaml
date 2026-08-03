@@ -1,0 +1,4 @@
+packages:
+  - "admin-frontend"
+  - "competitor-frontend"
+  - "packages/*"

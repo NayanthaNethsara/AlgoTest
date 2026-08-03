@@ -10,8 +10,8 @@ GO_LIVE = docker compose exec backend
 
 install:
 	$(GO_OFFLINE) go mod download
-	cd competitor-frontend && pnpm install
-	cd admin-frontend && pnpm install
+	pnpm install
+
 
 admin-frontend:
 	cd admin-frontend && pnpm dev -p 3001

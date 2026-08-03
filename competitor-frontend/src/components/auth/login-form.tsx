@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { authenticateUser } from "@mini-algothon/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -9,61 +10,58 @@ export function LoginForm() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleFormSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setLoading(true);
-    setError(null);
+    setIsAuthenticating(true);
+    setErrorMessage(null);
+
     try {
-      const res = await fetch("/api/auth/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
-      if (!res.ok) {
-        setError("Invalid username or password.");
+      const result = await authenticateUser({ username, password });
+      if (!result.success) {
+        setErrorMessage(result.error || "Invalid username or password.");
         return;
       }
-      router.replace("/challenges");
+      router.push("/challenges");
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setErrorMessage("Something went wrong. Please try again.");
     } finally {
-      setLoading(false);
+      setIsAuthenticating(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <Field label="Username">
+    <form onSubmit={handleFormSubmit} className="flex flex-col gap-3">
+      <FormField label="Username">
         <Input
           type="text"
           autoComplete="username"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(event) => setUsername(event.target.value)}
           required
         />
-      </Field>
-      <Field label="Password">
+      </FormField>
+      <FormField label="Password">
         <Input
           type="password"
           autoComplete="current-password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(event) => setPassword(event.target.value)}
           required
         />
-      </Field>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" disabled={loading} className="mt-1">
-        {loading ? "Signing in…" : "Sign in"}
+      </FormField>
+      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+      <Button type="submit" disabled={isAuthenticating} className="mt-1">
+        {isAuthenticating ? "Signing in…" : "Sign in"}
       </Button>
     </form>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5 text-sm">
       <span className="text-muted-foreground">{label}</span>

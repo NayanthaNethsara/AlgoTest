@@ -3,25 +3,26 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { revokeUserSession } from "@mini-algothon/auth";
 import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   async function handleSignOut() {
-    setLoading(true);
+    setIsSigningOut(true);
     try {
-      await fetch("/api/auth/session", { method: "DELETE" });
-      router.replace("/login");
+      await revokeUserSession();
+      router.push("/login");
       router.refresh();
     } finally {
-      setLoading(false);
+      setIsSigningOut(false);
     }
   }
 
   return (
-    <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={loading}>
+    <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={isSigningOut}>
       <LogOut className="size-4" />
       Sign out
     </Button>
