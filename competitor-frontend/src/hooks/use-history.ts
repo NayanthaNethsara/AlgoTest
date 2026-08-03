@@ -19,17 +19,47 @@ export function useHistory(problemId: string) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>(() => loadSnapshots(problemId));
 
   const record = useCallback(
-    (trigger: SnapshotTrigger, language: string, code: string) => {
+    (
+      trigger: SnapshotTrigger,
+      language: string,
+      code: string,
+      extra?: { verdict?: string; score?: number; maxScore?: number; submissionId?: string },
+    ) => {
       setSnapshots((current) => {
-        if (current[0]?.code === code && current[0]?.trigger === trigger) {
+        if (extra?.submissionId) {
+          const idx = current.findIndex((s) => s.submissionId === extra.submissionId);
+          if (idx !== -1) {
+            const updated = [...current];
+            updated[idx] = {
+              ...updated[idx],
+              verdict: extra.verdict ?? updated[idx].verdict,
+              score: extra.score ?? updated[idx].score,
+              maxScore: extra.maxScore ?? updated[idx].maxScore,
+            };
+            localStorage.setItem(storageKey(problemId), JSON.stringify(updated));
+            return updated;
+          }
+        }
+
+        const lastAutosave = current.find((s) => s.trigger === "autosave");
+        if (trigger === "autosave" && lastAutosave && lastAutosave.code === code) {
           return current;
         }
+
+        if (current[0]?.code === code && current[0]?.trigger === trigger && !extra?.submissionId) {
+          return current;
+        }
+
         const snapshot: Snapshot = {
           id: crypto.randomUUID(),
           at: Date.now(),
           trigger,
           language,
           code,
+          verdict: extra?.verdict,
+          score: extra?.score,
+          maxScore: extra?.maxScore,
+          submissionId: extra?.submissionId,
         };
         const next = [snapshot, ...current].slice(0, MAX_SNAPSHOTS);
         localStorage.setItem(storageKey(problemId), JSON.stringify(next));

@@ -62,12 +62,18 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   useEffect(() => {
     if (lastResult && lastResult.submissionId) {
       setSubmitResult(lastResult);
-      if (lastResult.improvedBest && lastResult.score > best) {
+      if (lastResult.score > best) {
         setBest(lastResult.score);
         localStorage.setItem(bestKey, String(lastResult.score));
       }
+      record("submitted", language.id, code, {
+        submissionId: lastResult.submissionId,
+        verdict: lastResult.verdict,
+        score: lastResult.score,
+        maxScore: lastResult.maxScore,
+      });
     }
-  }, [lastResult, best, bestKey]);
+  }, [lastResult, best, bestKey, language.id, code, record]);
 
   function handleLanguageChange(id: string | null) {
     const next = LANGUAGES.find((lang) => lang.id === id) ?? LANGUAGES[0];
@@ -90,10 +96,17 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   async function handleSubmit() {
     setTab("submission");
     setSubmitting(true);
-    record("submitted", language.id, code);
     try {
       const res = await submitFast(problem.id, code, best, language.id);
       setSubmitResult(res);
+      if (res.submissionId) {
+        record("submitted", language.id, code, {
+          submissionId: res.submissionId,
+          score: res.score,
+          maxScore: res.maxScore,
+          verdict: res.verdict,
+        });
+      }
     } finally {
       setSubmitting(false);
     }

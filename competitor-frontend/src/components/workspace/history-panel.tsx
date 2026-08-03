@@ -20,6 +20,8 @@ const TRIGGER_LABELS: Record<SnapshotTrigger, string> = {
   submitted: "Submitted",
 };
 
+type HistoryFilter = "all" | "submitted" | "autosave" | "ran";
+
 type HistoryPanelProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,24 +30,71 @@ type HistoryPanelProps = {
 };
 
 export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: HistoryPanelProps) {
+  const [filter, setFilter] = useState<HistoryFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = snapshots.find((s) => s.id === selectedId) ?? snapshots[0] ?? null;
+
+  const filteredSnapshots = snapshots.filter((s) => {
+    if (filter === "all") return true;
+    return s.trigger === filter;
+  });
+
+  const selected =
+    filteredSnapshots.find((s) => s.id === selectedId) ?? filteredSnapshots[0] ?? null;
+
+  const countSubmitted = snapshots.filter((s) => s.trigger === "submitted").length;
+  const countAutosave = snapshots.filter((s) => s.trigger === "autosave").length;
+  const countRan = snapshots.filter((s) => s.trigger === "ran").length;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
-        <SheetHeader className="border-b">
+        <SheetHeader className="border-b px-4 py-3">
           <SheetTitle>Version history</SheetTitle>
           <SheetDescription>Snapshots saved as you work on this problem.</SheetDescription>
         </SheetHeader>
 
-        {snapshots.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground">No snapshots yet.</div>
+        <div className="flex items-center gap-1.5 border-b bg-muted/30 px-3 py-2 text-xs">
+          <Button
+            variant={filter === "all" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs px-2.5"
+            onClick={() => setFilter("all")}
+          >
+            All ({snapshots.length})
+          </Button>
+          <Button
+            variant={filter === "submitted" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs px-2.5"
+            onClick={() => setFilter("submitted")}
+          >
+            Submissions ({countSubmitted})
+          </Button>
+          <Button
+            variant={filter === "autosave" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs px-2.5"
+            onClick={() => setFilter("autosave")}
+          >
+            Autosaves ({countAutosave})
+          </Button>
+          <Button
+            variant={filter === "ran" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 text-xs px-2.5"
+            onClick={() => setFilter("ran")}
+          >
+            Runs ({countRan})
+          </Button>
+        </div>
+
+        {filteredSnapshots.length === 0 ? (
+          <div className="p-6 text-sm text-muted-foreground">No snapshots found for this category.</div>
         ) : (
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
             <ScrollArea className="border-r">
               <ol className="flex flex-col p-2">
-                {snapshots.map((snapshot) => (
+                {filteredSnapshots.map((snapshot) => (
                   <li key={snapshot.id}>
                     <button
                       onClick={() => setSelectedId(snapshot.id)}
@@ -54,11 +103,30 @@ export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: Histo
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <Badge variant="secondary">{TRIGGER_LABELS[snapshot.trigger]}</Badge>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="secondary">{TRIGGER_LABELS[snapshot.trigger]}</Badge>
+                          {snapshot.verdict && (
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] py-0 px-1 font-semibold ${
+                                snapshot.verdict === "AC"
+                                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                  : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                              }`}
+                            >
+                              {snapshot.verdict}
+                            </Badge>
+                          )}
+                        </div>
                         <span className="text-xs text-muted-foreground">
                           {relativeTime(snapshot.at)}
                         </span>
                       </div>
+                      {typeof snapshot.score === "number" && (
+                        <div className="text-[11px] font-mono text-muted-foreground">
+                          Score: {snapshot.score}/{snapshot.maxScore ?? 100} pts
+                        </div>
+                      )}
                       <pre className="line-clamp-2 overflow-hidden font-mono text-[11px] text-muted-foreground">
                         {snapshot.code.trim() || "(empty)"}
                       </pre>

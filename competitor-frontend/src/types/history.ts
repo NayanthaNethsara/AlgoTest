@@ -6,4 +6,8 @@ export type Snapshot = {
   trigger: SnapshotTrigger;
   language: string;
   code: string;
+  verdict?: string;
+  score?: number;
+  maxScore?: number;
+  submissionId?: string;
 };
