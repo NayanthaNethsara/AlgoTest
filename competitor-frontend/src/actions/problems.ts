@@ -27,8 +27,8 @@ type ApiProblem = {
 
 function mapApiProblem(p: ApiProblem): Problem {
   return {
-    id: p.slug || p.id,
-    slug: p.slug,
+    id: p.id || p.slug,
+    slug: p.slug || p.id,
     title: p.title,
     difficulty: (p.difficulty as Difficulty) || "Easy",
     points: p.maxScore ?? 100,

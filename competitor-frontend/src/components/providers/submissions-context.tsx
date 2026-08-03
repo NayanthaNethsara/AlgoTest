@@ -1,17 +1,23 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { getSubmissionStatusAction, submitCode } from "@/actions/code";
-import type { SubmissionStatus, SubmitResult } from "@/types";
+import type { SubmitResult } from "@/types/code";
 
-type ActiveSubmission = {
+export type ActiveSubmission = {
   id: string;
   problemId: string;
-  status: SubmissionStatus;
+  status: "queued" | "running";
   queuePosition?: number;
 };
 
-type ToastMessage = {
+export type ToastMessage = {
   id: string;
   title: string;
   description: string;
@@ -33,10 +39,53 @@ type SubmissionsContextType = {
 
 const SubmissionsContext = createContext<SubmissionsContextType | null>(null);
 
-export function SubmissionsProvider({ children }: { children: React.ReactNode }) {
+function parseSubmissionResult(data: any): SubmitResult & { problemId?: string } {
+  const submissionId = data.submissionId || data.submission_id || data.id;
+  const problemId = data.problemId || data.problem_id;
+  const score = data.score ?? 0;
+  const maxScore = data.maxScore ?? data.max_score ?? 100;
+  const queuePosition = data.queuePosition ?? data.queue_position;
+  const compileError = data.compileError ?? data.compile_error;
+  const verdict = data.verdict;
+  const status = data.status;
+
+  const rawTests = data.tests;
+  const subtasks =
+    Array.isArray(rawTests) && rawTests.length > 0
+      ? rawTests.map((t: any) => {
+          const tTime = t.timeMs ?? t.time_ms;
+          return {
+            id: t.ordinal,
+            points: t.points ?? 0,
+            earned: t.verdict === "AC" ? (t.points ?? 0) : 0,
+            passed: t.verdict === "AC",
+            verdict: t.verdict,
+            timeMs: typeof tTime === "number" ? tTime : 0,
+          };
+        })
+      : [];
+
+  return {
+    submissionId,
+    problemId,
+    status,
+    score,
+    maxScore,
+    queuePosition,
+    compileError,
+    verdict,
+    subtasks,
+    improvedBest: false,
+    previousBest: 0,
+  };
+}
+
+export function SubmissionsProvider({ children }: { children: ReactNode }) {
   const [activeSubmission, setActiveSubmission] = useState<ActiveSubmission | null>(null);
   const [lastResult, setLastResult] = useState<SubmitResult | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const clearToast = () => setToast(null);
 
   // Background SSE listener for real-time submission pushes
   useEffect(() => {
@@ -49,48 +98,30 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
       eventSource.addEventListener("submission", (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (!data || !data.submission_id) return;
+          const parsed = parseSubmissionResult(data);
+          if (!parsed.submissionId) return;
 
-          if (data.status === "queued") {
-            setActiveSubmission({
-              id: data.submission_id,
-              problemId: data.problem_id,
-              status: "queued",
-              queuePosition: data.queue_position,
-            });
-          } else if (data.status === "running") {
-            setActiveSubmission({
-              id: data.submission_id,
-              problemId: data.problem_id,
-              status: "running",
-            });
-          } else if (data.status === "passed" || data.status === "failed") {
+          if (parsed.status === "queued" || parsed.status === "running") {
+            setActiveSubmission((prev) => ({
+              id: parsed.submissionId!,
+              problemId: prev?.problemId || parsed.problemId || "",
+              status: parsed.status as "queued" | "running",
+              queuePosition: parsed.queuePosition ?? prev?.queuePosition,
+            }));
+          } else if (parsed.status === "passed" || parsed.status === "failed") {
             setActiveSubmission(null);
-            const score = data.score ?? 0;
-            const maxScore = data.max_score ?? 100;
-            const passed = data.status === "passed";
+            const passed = parsed.status === "passed";
 
-            setLastResult({
-              submissionId: data.submission_id,
-              status: data.status,
-              score,
-              maxScore,
-              improvedBest: false,
-              previousBest: 0,
-              compileError: data.compile_error,
-              subtasks: [
-                { id: 1, points: maxScore, earned: score, passed },
-              ],
-            });
+            setLastResult(parsed);
 
             setToast({
-              id: data.submission_id,
+              id: parsed.submissionId,
               title: passed ? "Submission Accepted!" : "Submission Failed",
               description: passed
-                ? `Scored ${score} / ${maxScore} points.`
-                : data.compile_error
+                ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
+                : parsed.compileError
                 ? "Compilation Error"
-                : `Verdict: ${data.verdict || "Failed"}`,
+                : `Verdict: ${parsed.verdict || "Failed"}`,
               variant: passed ? "success" : "error",
             });
           }
@@ -117,41 +148,32 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
       const statusData = await getSubmissionStatusAction(activeSubmission.id);
       if (!statusData) return;
 
-      if (statusData.status === "queued") {
+      const parsed = parseSubmissionResult(statusData);
+
+      if (parsed.status === "queued" || parsed.status === "running") {
         setActiveSubmission((prev) =>
           prev
-            ? { ...prev, status: "queued", queuePosition: statusData.queue_position }
+            ? {
+                ...prev,
+                status: parsed.status as "queued" | "running",
+                queuePosition: parsed.queuePosition ?? prev.queuePosition,
+              }
             : null,
         );
-      } else if (statusData.status === "running") {
-        setActiveSubmission((prev) =>
-          prev ? { ...prev, status: "running" } : null,
-        );
-      } else if (statusData.status === "passed" || statusData.status === "failed") {
+      } else if (parsed.status === "passed" || parsed.status === "failed") {
         setActiveSubmission(null);
-        const score = statusData.score ?? 0;
-        const maxScore = statusData.max_score ?? 100;
-        const passed = statusData.status === "passed";
+        const passed = parsed.status === "passed";
 
-        setLastResult({
-          submissionId: statusData.submission_id,
-          status: statusData.status,
-          score,
-          maxScore,
-          improvedBest: false,
-          previousBest: 0,
-          compileError: statusData.compile_error,
-          subtasks: [{ id: 1, points: maxScore, earned: score, passed }],
-        });
+        setLastResult(parsed);
 
         setToast({
-          id: statusData.submission_id,
+          id: parsed.submissionId || activeSubmission.id,
           title: passed ? "Submission Accepted!" : "Submission Failed",
           description: passed
-            ? `Scored ${score} / ${maxScore} points.`
-            : statusData.compile_error
+            ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
+            : parsed.compileError
             ? "Compilation Error"
-            : `Verdict: ${statusData.verdict || "Failed"}`,
+            : `Verdict: ${parsed.verdict || "Failed"}`,
           variant: passed ? "success" : "error",
         });
       }
@@ -185,20 +207,9 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
         status: "queued",
         queuePosition: result.queuePosition,
       });
-
-      setToast({
-        id: result.submissionId,
-        title: "Submission Queued",
-        description: `Position #${result.queuePosition ?? 1} in queue. You can continue writing code or switch tabs.`,
-        variant: "info",
-      });
     }
 
     return result;
-  }
-
-  function clearToast() {
-    setToast(null);
   }
 
   return (
@@ -217,9 +228,9 @@ export function SubmissionsProvider({ children }: { children: React.ReactNode })
 }
 
 export function useSubmissions() {
-  const ctx = useContext(SubmissionsContext);
-  if (!ctx) {
+  const context = useContext(SubmissionsContext);
+  if (!context) {
     throw new Error("useSubmissions must be used within a SubmissionsProvider");
   }
-  return ctx;
+  return context;
 }

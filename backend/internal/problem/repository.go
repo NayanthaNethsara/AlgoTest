@@ -99,6 +99,9 @@ func (r *Repository) GetPublishedBySlug(ctx context.Context, slug string) (Probl
 	p, err := r.q.GetPublishedProblemBySlug(ctx, slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			if detail, idErr := r.GetByID(ctx, slug, false); idErr == nil && detail.Published {
+				return detail, nil
+			}
 			return ProblemDetail{}, ErrNotFound
 		}
 		return ProblemDetail{}, err

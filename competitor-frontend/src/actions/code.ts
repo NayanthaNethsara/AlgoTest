@@ -69,12 +69,10 @@ export async function submitCode(
       submissionId: data.id,
       status: data.status,
       queuePosition: data.queue_position,
-      subtasks: [
-        { id: 1, points: maxScore, earned: maxScore, passed: true },
-      ],
-      score: maxScore,
+      subtasks: [],
+      score: 0,
       maxScore,
-      improvedBest: maxScore > previousBest,
+      improvedBest: false,
       previousBest,
     };
   } catch (err) {

@@ -24,6 +24,8 @@ export type SubtaskResult = {
   points: number;
   earned: number;
   passed: boolean;
+  verdict?: string;
+  timeMs?: number;
   failedTest?: number;
 };
 

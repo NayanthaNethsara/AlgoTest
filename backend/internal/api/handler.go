@@ -104,10 +104,15 @@ func (h *handler) createSubmission(c *gin.Context) {
 		return
 	}
 
-	// 1. Validate UUID format
-	if _, err := uuid.Parse(req.ProblemID); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid problem_id format"})
-		return
+	// 1. Resolve & Validate Problem ID (accepts UUID or slug)
+	problemID := req.ProblemID
+	if _, err := uuid.Parse(problemID); err != nil {
+		p, err := h.problems.GetPublishedBySlug(c.Request.Context(), problemID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid problem_id format or problem not found"})
+			return
+		}
+		problemID = p.ID
 	}
 
 	// 2. Validate language whitelist
@@ -138,7 +143,7 @@ func (h *handler) createSubmission(c *gin.Context) {
 		ID:        uuid.NewString(),
 		UserID:    u.ID,
 		TeamID:    teamID,
-		ProblemID: req.ProblemID,
+		ProblemID: problemID,
 		Language:  langLower,
 		Code:      req.Code,
 	}

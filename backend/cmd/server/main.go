@@ -60,9 +60,6 @@ func main() {
 	problems := problem.NewRepository(pool)
 	teams := team.NewRepository(pool)
 
-	j := judge.New(pool, cfg.JudgeWorkers, log)
-	go j.Start(ctx)
-
 	rn, err := runner.New(runner.Config{
 		CompileTimeout: cfg.RunCompileTimeout(),
 		WallTimeout:    cfg.RunWallTimeout(),
@@ -83,6 +80,10 @@ func main() {
 		log.Error("sandbox host not ready", "error", err)
 		os.Exit(1)
 	}
+
+	j := judge.New(pool, cfg.JudgeWorkers, log)
+	j.SetRunner(rn)
+	go j.Start(ctx)
 	log.Info("sandbox ready", "boxes", cfg.RunMaxConcurrent)
 
 	server := &http.Server{

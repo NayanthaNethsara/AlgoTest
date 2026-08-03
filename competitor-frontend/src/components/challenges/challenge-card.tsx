@@ -29,7 +29,7 @@ export function ChallengeCard({
 
   return (
     <Link
-      href={`/challenges/${problem.id}`}
+      href={`/challenges/${problem.slug || problem.id}`}
       className="group flex items-center justify-between gap-4 rounded-xl border bg-card p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-md"
     >
       <div className="flex flex-col gap-1.5">

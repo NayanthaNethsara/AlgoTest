@@ -41,6 +41,14 @@ type Submission struct {
 	FinishedAt    *time.Time `json:"finishedAt,omitempty"`
 }
 
+type TestCase struct {
+	ID       string `json:"id"`
+	Ordinal  int    `json:"ordinal"`
+	Input    []byte `json:"input"`
+	Expected []byte `json:"expected"`
+	Points   int    `json:"points"`
+}
+
 type SubmissionTest struct {
 	SubmissionID string `json:"submissionId"`
 	Ordinal      int    `json:"ordinal"`

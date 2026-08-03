@@ -378,3 +378,57 @@ func (r *Repository) UnstickTeamSubmissions(ctx context.Context, teamID string) 
 	return err
 }
 
+// GetProblemTests fetches all test cases stored in DB for a given problem ID, falling back to samples if hidden tests are empty.
+func (r *Repository) GetProblemTests(ctx context.Context, problemID string) ([]TestCase, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, ordinal, input, expected, points
+		FROM problem_tests
+		WHERE problem_id = $1
+		ORDER BY ordinal ASC;
+	`, problemID)
+	if err != nil {
+		return nil, fmt.Errorf("query problem tests: %w", err)
+	}
+	defer rows.Close()
+
+	var tests []TestCase
+	for rows.Next() {
+		var t TestCase
+		if err := rows.Scan(&t.ID, &t.Ordinal, &t.Input, &t.Expected, &t.Points); err != nil {
+			return nil, fmt.Errorf("scan problem test: %w", err)
+		}
+		tests = append(tests, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(tests) == 0 {
+		sampleRows, err := r.pool.Query(ctx, `
+			SELECT id, ordinal, input, output
+			FROM problem_samples
+			WHERE problem_id = $1
+			ORDER BY ordinal ASC;
+		`, problemID)
+		if err == nil {
+			defer sampleRows.Close()
+			for sampleRows.Next() {
+				var sID string
+				var ord int
+				var inStr, outStr string
+				if err := sampleRows.Scan(&sID, &ord, &inStr, &outStr); err == nil {
+					tests = append(tests, TestCase{
+						ID:       sID,
+						Ordinal:  ord,
+						Input:    []byte(inStr),
+						Expected: []byte(outStr),
+						Points:   33,
+					})
+				}
+			}
+		}
+	}
+
+	return tests, nil
+}
+

@@ -106,7 +106,13 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   }
 
   const isCurrentProblemSubmitting =
-    submitting || (activeSubmission && activeSubmission.problemId === problem.id);
+    submitting ||
+    Boolean(
+      activeSubmission &&
+        (activeSubmission.problemId === problem.id ||
+          activeSubmission.problemId === problem.slug ||
+          activeSubmission.id === submitResult?.submissionId)
+    );
 
   return (
     <div className="flex h-full flex-col">
@@ -171,7 +177,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
               />
             </TabsContent>
 
-            <TabsContent value="submission" className="min-h-0 flex-1 overflow-hidden">
+            <TabsContent value="submission" className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <SubmissionResult
                 result={submitResult}
                 submitting={Boolean(isCurrentProblemSubmitting)}
