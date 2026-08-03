@@ -70,6 +70,7 @@ func main() {
 		Memory:         cfg.RunMemory,
 		IsolateBin:     cfg.RunIsolateBin,
 		MaxConcurrent:  cfg.RunMaxConcurrent,
+		RunReserve:     cfg.RunReserve,
 		MaxQueue:       cfg.RunMaxQueue,
 		MaxWait:        time.Duration(cfg.RunMaxWaitSeconds) * time.Second,
 	})

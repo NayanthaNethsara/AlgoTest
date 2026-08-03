@@ -27,6 +27,7 @@ type Config struct {
 	// num_boxes; the server checks this at startup and refuses to boot if the
 	// host can't supply that many sandboxes.
 	RunMaxConcurrent  int
+	RunReserve        int
 	RunMaxQueue       int
 	RunMaxWaitSeconds int
 }
@@ -49,6 +50,7 @@ func Load() Config {
 		RunMemory:                getenv("RUN_MEMORY", "256m"),
 		RunIsolateBin:            getenv("RUN_ISOLATE_BIN", "isolate"),
 		RunMaxConcurrent:         getenvInt("RUN_MAX_CONCURRENT", 4),
+		RunReserve:               getenvInt("RUN_RESERVE", 1),
 		RunMaxQueue:              getenvInt("RUN_MAX_QUEUE", 64),
 		RunMaxWaitSeconds:        getenvInt("RUN_MAX_WAIT_SECONDS", 15),
 	}

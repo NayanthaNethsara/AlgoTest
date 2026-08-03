@@ -45,6 +45,15 @@ export async function executeRun(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (res.status === 409) {
+      return {
+        stdout: "",
+        stderr: body.error ?? "You already have an active code run in progress. Please wait for it to complete.",
+        exitCode: 409,
+        timeMs: 0,
+        verdict: "IE",
+      };
+    }
     if (res.status === 503) {
       return {
         stdout: "",

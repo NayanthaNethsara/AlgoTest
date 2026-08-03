@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 
@@ -13,6 +14,29 @@ const (
 	maxRunCodeLength  = 100_000
 	maxRunStdinLength = 1_000_000
 )
+
+var (
+	activeRunsMu   sync.Mutex
+	activeRunUsers = make(map[string]bool)
+)
+
+func tryAcquireUserRun(userID string) bool {
+	activeRunsMu.Lock()
+	defer activeRunsMu.Unlock()
+
+	if activeRunUsers[userID] {
+		return false
+	}
+	activeRunUsers[userID] = true
+	return true
+}
+
+func releaseUserRun(userID string) {
+	activeRunsMu.Lock()
+	defer activeRunsMu.Unlock()
+
+	delete(activeRunUsers, userID)
+}
 
 type runCodeRequest struct {
 	Language string `json:"language" binding:"required"`
@@ -29,6 +53,7 @@ type runCodeRequest struct {
 // @Param request body runCodeRequest true "Code execution request"
 // @Success 200 {object} runner.Result
 // @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
 // @Failure 503 {object} map[string]string
 // @Router /api/v1/run [post]
 func (h *handler) runCode(c *gin.Context) {
@@ -45,6 +70,13 @@ func (h *handler) runCode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "stdin too long"})
 		return
 	}
+
+	u := currentUser(c)
+	if !tryAcquireUserRun(u.ID) {
+		c.JSON(http.StatusConflict, gin.H{"error": "You already have an active code run in progress. Please wait for it to complete."})
+		return
+	}
+	defer releaseUserRun(u.ID)
 
 	result, err := h.runner.Run(c.Request.Context(), runner.Request{
 		Language: req.Language,
