@@ -10,12 +10,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var (
-	ErrActiveSubmissionExists = errors.New("active submission already in progress for this problem")
-	ErrProblemNotFound        = errors.New("problem not found")
-	ErrNoQueuedSubmission     = errors.New("no queued submission available")
-)
-
 type Repository struct {
 	pool *pgxpool.Pool
 }
@@ -264,3 +258,119 @@ func (r *Repository) CompleteSubmission(ctx context.Context, res Result) error {
 
 	return tx.Commit(ctx)
 }
+
+// ListAdminSubmissions lists submissions joining users, teams, and problems for admin monitoring.
+func (r *Repository) ListAdminSubmissions(ctx context.Context, statusFilter, problemID, teamID string, limit, offset int) ([]AdminSubmissionItem, int, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	whereClause := "WHERE 1=1"
+	args := []interface{}{}
+	argID := 1
+
+	if statusFilter != "" {
+		whereClause += fmt.Sprintf(" AND s.state = $%d", argID)
+		args = append(args, statusFilter)
+		argID++
+	}
+	if problemID != "" {
+		whereClause += fmt.Sprintf(" AND s.problem_id = $%d", argID)
+		args = append(args, problemID)
+		argID++
+	}
+	if teamID != "" {
+		whereClause += fmt.Sprintf(" AND s.team_id = $%d", argID)
+		args = append(args, teamID)
+		argID++
+	}
+
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM submissions s %s;`, whereClause)
+	var total int
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count admin submissions: %w", err)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT s.id, s.user_id, s.team_id, s.problem_id, s.language, s.code, s.state, s.verdict, s.score, s.max_score,
+		       s.tests_total, s.tests_done, s.compile_error, s.created_at, s.finished_at,
+		       COALESCE(u.display_name, u.username, '') AS user_name,
+		       COALESCE(u.email, '') AS user_email,
+		       COALESCE(t.name, '') AS team_name,
+		       COALESCE(p.title, '') AS problem_title
+		FROM submissions s
+		LEFT JOIN users u ON s.user_id = u.id
+		LEFT JOIN teams t ON s.team_id = t.id
+		LEFT JOIN problems p ON s.problem_id = p.id
+		%s
+		ORDER BY s.created_at DESC
+		LIMIT $%d OFFSET $%d;
+	`, whereClause, argID, argID+1)
+
+	args = append(args, limit, offset)
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query admin submissions: %w", err)
+	}
+	defer rows.Close()
+
+	var list []AdminSubmissionItem
+	for rows.Next() {
+		var item AdminSubmissionItem
+		var stateStr string
+		var verdict, compileErr *string
+		var finishedAt *time.Time
+
+		err := rows.Scan(
+			&item.SubmissionID, &item.UserID, &item.TeamID, &item.ProblemID, &item.Language, &item.Code,
+			&stateStr, &verdict, &item.Score, &item.MaxScore, &item.TestsTotal, &item.TestsDone,
+			&compileErr, &item.CreatedAt, &finishedAt,
+			&item.UserName, &item.UserEmail, &item.TeamName, &item.ProblemTitle,
+		)
+		if err == nil {
+			item.Status = Status(stateStr)
+			item.Verdict = verdict
+			item.CompileError = compileErr
+			item.FinishedAt = finishedAt
+			list = append(list, item)
+		}
+	}
+
+	return list, total, nil
+}
+
+// RejudgeSubmission resets submission to queued state for re-evaluation.
+func (r *Repository) RejudgeSubmission(ctx context.Context, id string) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE submissions
+		SET state = 'queued', verdict = NULL, score = 0, tests_done = 0, compile_error = NULL,
+		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL, finished_at = NULL
+		WHERE id = $1;
+	`, id)
+	return err
+}
+
+// CancelSubmission marks a stuck submission as failed.
+func (r *Repository) CancelSubmission(ctx context.Context, id string) error {
+	verdict := "IE"
+	now := time.Now().UTC()
+	_, err := r.pool.Exec(ctx, `
+		UPDATE submissions
+		SET state = 'failed', verdict = $1, finished_at = $2
+		WHERE id = $3;
+	`, verdict, now, id)
+	return err
+}
+
+// UnstickTeamSubmissions cancels all pending queued/running submissions for a team to release 409 active locks.
+func (r *Repository) UnstickTeamSubmissions(ctx context.Context, teamID string) error {
+	verdict := "IE"
+	now := time.Now().UTC()
+	_, err := r.pool.Exec(ctx, `
+		UPDATE submissions
+		SET state = 'failed', verdict = $1, finished_at = $2
+		WHERE team_id = $3 AND state IN ('queued', 'running');
+	`, verdict, now, teamID)
+	return err
+}
+

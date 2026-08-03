@@ -32,6 +32,10 @@ func (j *Judge) Broadcaster() *Broadcaster {
 	return j.broadcaster
 }
 
+func (j *Judge) Repo() *Repository {
+	return j.repo
+}
+
 func (j *Judge) Submit(ctx context.Context, s Submission) (*Submission, error) {
 	created, err := j.repo.CreateSubmission(ctx, s)
 	if err != nil {

@@ -238,4 +238,51 @@ func (h *handler) streamSubmissions(c *gin.Context) {
 	}
 }
 
+func (h *handler) listAdminSubmissions(c *gin.Context) {
+	statusFilter := c.Query("status")
+	problemID := c.Query("problem_id")
+	teamID := c.Query("team_id")
+	limit := 50
+	offset := 0
+
+	submissions, total, err := h.judge.Repo().ListAdminSubmissions(c.Request.Context(), statusFilter, problemID, teamID, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list submissions: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"submissions": submissions,
+		"total":       total,
+	})
+}
+
+func (h *handler) rejudgeSubmission(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.judge.Repo().RejudgeSubmission(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to rejudge submission: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "submission re-queued for judging"})
+}
+
+func (h *handler) cancelSubmission(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.judge.Repo().CancelSubmission(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cancel submission: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "submission cancelled"})
+}
+
+func (h *handler) unstickTeamSubmissions(c *gin.Context) {
+	teamID := c.Param("id")
+	if err := h.judge.Repo().UnstickTeamSubmissions(c.Request.Context(), teamID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to unstick team submissions: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "active submission locks cleared for team"})
+}
+
+
 

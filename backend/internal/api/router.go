@@ -63,6 +63,11 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 			admin.DELETE("/problems/:id", h.deleteProblem)
 			admin.GET("/problems/:id/tests", h.getAdminProblemTests)
 			admin.PUT("/problems/:id/tests", h.replaceTestCases)
+
+			admin.GET("/submissions", h.listAdminSubmissions)
+			admin.POST("/submissions/:id/rejudge", h.rejudgeSubmission)
+			admin.POST("/submissions/:id/cancel", h.cancelSubmission)
+			admin.POST("/teams/:id/unstick", h.unstickTeamSubmissions)
 		}
 
 		v1.POST("/run", h.requireUser, h.runCode)

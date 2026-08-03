@@ -1,6 +1,15 @@
 package judge
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+var (
+	ErrActiveSubmissionExists = errors.New("active submission already in progress for this problem")
+	ErrProblemNotFound        = errors.New("problem not found")
+	ErrNoQueuedSubmission     = errors.New("no queued submission available")
+)
 
 type Status string
 
@@ -13,48 +22,58 @@ const (
 
 type Submission struct {
 	ID            string     `json:"id"`
-	TeamID        string     `json:"team_id"`
-	UserID        string     `json:"user_id"`
-	ProblemID     string     `json:"problem_id"`
+	TeamID        string     `json:"teamId"`
+	UserID        string     `json:"userId"`
+	ProblemID     string     `json:"problemId"`
 	Language      string     `json:"language"`
 	Code          string     `json:"code"`
 	State         Status     `json:"state"`
 	Verdict       *string    `json:"verdict,omitempty"`
 	Score         int        `json:"score"`
-	MaxScore      int        `json:"max_score"`
-	TestsTotal    int        `json:"tests_total"`
-	TestsDone     int        `json:"tests_done"`
-	CompileError  *string    `json:"compile_error,omitempty"`
-	MaxTimeMS     int        `json:"max_time_ms"`
-	MaxMemoryKB    int        `json:"max_memory_kb"`
-	QueuePosition int        `json:"queue_position,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
-	FinishedAt    *time.Time `json:"finished_at,omitempty"`
+	MaxScore      int        `json:"maxScore"`
+	TestsTotal    int        `json:"testsTotal"`
+	TestsDone     int        `json:"testsDone"`
+	CompileError  *string    `json:"compileError,omitempty"`
+	MaxTimeMS     int        `json:"maxTimeMs"`
+	MaxMemoryKB    int        `json:"maxMemoryKb"`
+	QueuePosition int        `json:"queuePosition,omitempty"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	FinishedAt    *time.Time `json:"finishedAt,omitempty"`
 }
 
 type SubmissionTest struct {
-	SubmissionID string `json:"submission_id"`
+	SubmissionID string `json:"submissionId"`
 	Ordinal      int    `json:"ordinal"`
 	Verdict      string `json:"verdict"`
-	TimeMS       int    `json:"time_ms"`
-	MemoryKB     int    `json:"memory_kb"`
+	TimeMS       int    `json:"timeMs"`
+	MemoryKB     int    `json:"memoryKb"`
 	Points       int    `json:"points"`
 }
 
 type Result struct {
-	SubmissionID  string           `json:"submission_id"`
-	UserID        string           `json:"user_id"`
-	TeamID        string           `json:"team_id"`
-	ProblemID     string           `json:"problem_id"`
+	SubmissionID  string           `json:"submissionId"`
+	UserID        string           `json:"userId"`
+	TeamID        string           `json:"teamId"`
+	ProblemID     string           `json:"problemId"`
 	Status        Status           `json:"status"`
 	Verdict       *string          `json:"verdict,omitempty"`
 	Score         int              `json:"score"`
-	MaxScore      int              `json:"max_score"`
-	TestsTotal    int              `json:"tests_total"`
-	TestsDone     int              `json:"tests_done"`
-	CompileError  *string          `json:"compile_error,omitempty"`
-	QueuePosition int              `json:"queue_position,omitempty"`
+	MaxScore      int              `json:"maxScore"`
+	TestsTotal    int              `json:"testsTotal"`
+	TestsDone     int              `json:"testsDone"`
+	CompileError  *string          `json:"compileError,omitempty"`
+	QueuePosition int              `json:"queuePosition,omitempty"`
 	Tests         []SubmissionTest `json:"tests,omitempty"`
-	CreatedAt     time.Time        `json:"created_at"`
-	FinishedAt    *time.Time       `json:"finished_at,omitempty"`
+	CreatedAt     time.Time        `json:"createdAt"`
+	FinishedAt    *time.Time       `json:"finishedAt,omitempty"`
+}
+
+type AdminSubmissionItem struct {
+	Result
+	UserName     string `json:"userName"`
+	UserEmail    string `json:"userEmail"`
+	TeamName     string `json:"teamName"`
+	ProblemTitle string `json:"problemTitle"`
+	Language     string `json:"language"`
+	Code         string `json:"code"`
 }
