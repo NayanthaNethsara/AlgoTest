@@ -35,7 +35,7 @@ func Load() Config {
 	return Config{
 		Port:           getenv("PORT", "8080"),
 		Env:            getenv("ENV", "development"),
-		AllowedOrigins: strings.Split(getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001"), ","),
+		AllowedOrigins: strings.Split(getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,tauri://localhost,http://tauri.localhost,https://tauri.localhost"), ","),
 		DatabaseURL:    getenv("DATABASE_URL", "postgres://algothon:algothon@localhost:5432/algothon?sslmode=disable"),
 		JudgeWorkers:   getenvInt("JUDGE_WORKERS", 2),
 		QueueSize:      getenvInt("JUDGE_QUEUE_SIZE", 64),

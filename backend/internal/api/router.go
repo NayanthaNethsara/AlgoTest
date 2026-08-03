@@ -1,6 +1,8 @@
 package api
 
 import (
+	"strings"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -73,10 +75,21 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 }
 
 func corsMiddleware(origins []string) gin.HandlerFunc {
-	c := cors.DefaultConfig()
-	c.AllowOrigins = origins
-	c.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"}
-	c.AllowHeaders = []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With"}
-	c.AllowCredentials = true
+	c := cors.Config{
+		AllowOriginFunc: func(origin string) bool {
+			if strings.HasPrefix(origin, "tauri://") || strings.HasPrefix(origin, "http://tauri.localhost") || strings.HasPrefix(origin, "https://tauri.localhost") {
+				return true
+			}
+			for _, o := range origins {
+				if o == origin || o == "*" {
+					return true
+				}
+			}
+			return false
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With"},
+		AllowCredentials: true,
+	}
 	return cors.New(c)
 }

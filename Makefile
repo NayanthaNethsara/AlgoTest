@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest competitor-frontend frontend admin-frontend dev build test
+.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest competitor-frontend competitor-desktop desktop desktop-build frontend admin-frontend dev build test
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -59,6 +59,17 @@ judgetest:
 
 competitor-frontend:
 	cd competitor-frontend && pnpm dev
+
+competitor-desktop:
+	cd competitor-desktop && pnpm dev
+
+desktop: competitor-desktop
+
+desktop-build:
+	cd competitor-desktop && pnpm build
+	@echo "Copying server bundle into .app..."
+	node scripts/copy-app-server.mjs
+	@echo "Desktop build complete!"
 
 frontend: competitor-frontend
 

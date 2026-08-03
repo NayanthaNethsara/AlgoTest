@@ -4,15 +4,15 @@
   "version": "0.1.0",
   "identifier": "com.minialgothon.competitor",
   "build": {
-    "frontendDist": "../competitor-frontend/out",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "pnpm --filter competitor-frontend dev",
-    "beforeBuildCommand": "pnpm --filter competitor-frontend build"
+    "beforeBuildCommand": "pnpm --filter competitor-frontend build && node ../scripts/bundle-server.mjs"
   },
   "app": {
     "windows": [
       {
         "title": "MiniAlgothon Competitor",
+        "url": "http://localhost:3000",
         "width": 1280,
         "height": 800,
         "resizable": true,
@@ -25,7 +25,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["app"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
