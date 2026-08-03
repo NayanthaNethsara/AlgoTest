@@ -52,10 +52,20 @@ jobs:
         run: pnpm install
 
       - name: Build Desktop Application
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:8080' }}
         run: make desktop-build
 
-      - name: Upload Desktop Artifacts
+      - name: Upload Desktop Artifacts to Actions
         uses: actions/upload-artifact@v4
         with:
           name: mini-algothon-competitor-${{ matrix.target }}
           path: competitor-desktop/src-tauri/target/release/bundle/
+
+      - name: Release Packages to GitHub Releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: 'competitor-desktop/src-tauri/target/release/bundle/**/*'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true

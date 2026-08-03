@@ -72,6 +72,11 @@ fn spawn_next_server(app: &tauri::App) -> Option<Child> {
         .env("PORT", "3000")
         .env("HOSTNAME", "127.0.0.1")
         .env("NODE_ENV", "production")
+        .env(
+            "NEXT_PUBLIC_API_URL",
+            std::env::var("NEXT_PUBLIC_API_URL")
+                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
+        )
         .spawn()
         .map_err(|e| log::error!("Failed to start Node server: {}", e))
         .ok()?;
