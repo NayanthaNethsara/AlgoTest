@@ -1,9 +1,9 @@
-"use client";
-
 import { useState } from "react";
-import { KeyRound, Trash2, Plus, Upload, Shield, Users, Search } from "lucide-react";
+import { KeyRound, Trash2, Plus, Upload, Shield, Users, Search, Users2 } from "lucide-react";
 import { createUserAction, bulkCreateUsersAction, resetPasswordAction, deleteUserAction } from "@/lib/actions/users";
+import { addTeamMemberAction, removeTeamMemberAction } from "@/lib/actions/teams";
 import type { User, CreateUserInput, BulkResult } from "@/types/user";
+import type { Team } from "@/types/team";
 import { ConfirmDialog } from "./confirm-dialog";
 import { CredentialsAlert } from "./credentials-alert";
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,12 @@ type Credential = { username: string; password: string };
 
 export function AdminUsers({
   users,
+  teams = [],
   currentUserId,
   onRefresh,
 }: {
   users: User[];
+  teams?: Team[];
   currentUserId?: string;
   onRefresh: () => void;
 }) {
@@ -30,9 +32,33 @@ export function AdminUsers({
   const [creds, setCreds] = useState<Credential[]>([]);
   const [resetTarget, setResetTarget] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [assignTeamTarget, setAssignTeamTarget] = useState<User | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  async function handleAssignTeam(e: React.FormEvent) {
+    e.preventDefault();
+    if (!assignTeamTarget) return;
+    setError(null);
+    setPending(true);
+    try {
+      if (assignTeamTarget.teamId) {
+        await removeTeamMemberAction(assignTeamTarget.teamId, assignTeamTarget.id);
+      }
+      if (selectedTeamId) {
+        await addTeamMemberAction(selectedTeamId, { userId: assignTeamTarget.id });
+      }
+      setAssignTeamTarget(null);
+      setSelectedTeamId("");
+      onRefresh();
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+    } finally {
+      setPending(false);
+    }
+  }
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkForm, setShowBulkForm] = useState(false);
@@ -309,6 +335,21 @@ export function AdminUsers({
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      {u.role === "competitor" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setAssignTeamTarget(u);
+                            setSelectedTeamId(u.teamId || "");
+                          }}
+                          disabled={pending}
+                          title={u.teamId ? "Change / Remove Team" : "Assign to Team"}
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        >
+                          <Users2 className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -337,6 +378,56 @@ export function AdminUsers({
           </TableBody>
         </Table>
       </div>
+
+      {/* Assign Team Modal */}
+      {assignTeamTarget && (
+        <div className="rounded-lg border bg-card p-4 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <h3 className="text-sm font-semibold">
+              Assign Team for {assignTeamTarget.displayName || assignTeamTarget.username}
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setAssignTeamTarget(null)}
+              className="h-7 text-xs text-muted-foreground"
+            >
+              Cancel
+            </Button>
+          </div>
+          <form onSubmit={handleAssignTeam} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium">Select Team</label>
+              <select
+                value={selectedTeamId}
+                onChange={(e) => setSelectedTeamId(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">-- No Team (Unassigned) --</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} (Members: {t.members?.length || 0}/3)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAssignTeamTarget(null)}
+                className="h-8 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={pending} className="h-8 text-xs font-medium">
+                {pending ? "Saving..." : "Save Assignment"}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Reset Password Confirmation Dialog */}
       <ConfirmDialog

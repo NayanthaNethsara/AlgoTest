@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FileCode2, Users, LogOut, RefreshCw } from "lucide-react";
+import { FileCode2, Users, Users2, LogOut, RefreshCw } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
 import type { User } from "@/types/user";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -19,6 +19,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
 
   const isProblemsActive = pathname === "/" || pathname.startsWith("/problems");
   const isUsersActive = pathname.startsWith("/users");
+  const isTeamsActive = pathname.startsWith("/teams");
 
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-card px-6 py-3 shadow-sm">
@@ -51,6 +52,17 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
             })}
           >
             <Users className="h-3.5 w-3.5" /> User Management
+          </Link>
+
+          <Link
+            href="/teams"
+            className={buttonVariants({
+              variant: isTeamsActive ? "default" : "ghost",
+              size: "sm",
+              className: "gap-1.5 text-xs h-8",
+            })}
+          >
+            <Users2 className="h-3.5 w-3.5" /> Teams
           </Link>
         </nav>
       </div>

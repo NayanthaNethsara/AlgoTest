@@ -261,21 +261,6 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 		return user.User{}, "", err
 	}
 
-	if role == user.RoleCompetitor {
-		_, createdUsers, err := h.teams.CreateTeamWithMembers(c.Request.Context(), req.Username, []team.CreateMemberParams{
-			{
-				Username:     req.Username,
-				DisplayName:  name,
-				PasswordHash: hash,
-				Role:         role,
-			},
-		})
-		if err != nil {
-			return user.User{}, "", err
-		}
-		return createdUsers[0], password, nil
-	}
-
 	created, err := h.users.Create(c.Request.Context(), req.Username, name, hash, role)
 	if err != nil {
 		return user.User{}, "", err
@@ -314,11 +299,20 @@ type teamMemberRequest struct {
 
 type createTeamRequest struct {
 	Name    string              `json:"name" binding:"required"`
-	Members []teamMemberRequest `json:"members" binding:"required"`
+	Members []teamMemberRequest `json:"members"`
 }
 
-// @Summary Admin Create Team with Members
-// @Description Atomically create a team and 1 to 3 member user accounts.
+func (h *handler) listAdminTeams(c *gin.Context) {
+	teams, err := h.teams.List(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list teams"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"teams": teams})
+}
+
+// @Summary Admin Create Team with Optional Members
+// @Description Atomically create a team with optional member user accounts.
 // @Tags Admin
 // @Accept json
 // @Produce json
@@ -335,14 +329,24 @@ func (h *handler) createTeam(c *gin.Context) {
 		return
 	}
 
-	if len(req.Members) < 1 || len(req.Members) > team.MaxTeamMembers {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "a team must have between 1 and 3 members"})
-		return
-	}
-
 	type createdMember struct {
 		User     user.User `json:"user"`
 		Password string    `json:"password"`
+	}
+
+	if len(req.Members) == 0 {
+		t, err := h.teams.CreateTeam(c.Request.Context(), req.Name)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"team": t, "members": []createdMember{}})
+		return
+	}
+
+	if len(req.Members) > team.MaxTeamMembers {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "a team can have at most 3 members"})
+		return
 	}
 
 	memberParams := make([]team.CreateMemberParams, 0, len(req.Members))
@@ -383,6 +387,158 @@ func (h *handler) createTeam(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"team": t, "members": created})
+}
+
+type updateTeamRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+func (h *handler) updateTeam(c *gin.Context) {
+	id := c.Param("id")
+	var req updateTeamRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	t, err := h.teams.UpdateTeam(c.Request.Context(), id, req.Name)
+	if err != nil {
+		if errors.Is(err, team.ErrTeamNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"team": t})
+}
+
+func (h *handler) deleteTeam(c *gin.Context) {
+	id := c.Param("id")
+	err := h.teams.DeleteTeam(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, team.ErrTeamNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "team deleted successfully"})
+}
+
+type addTeamMemberRequest struct {
+	UserID      string `json:"userId"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	Password    string `json:"password"`
+}
+
+func (h *handler) addTeamMember(c *gin.Context) {
+	teamID := c.Param("id")
+	var req addTeamMemberRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.UserID != "" {
+		err := h.teams.AddMember(c.Request.Context(), teamID, req.UserID)
+		if err != nil {
+			if errors.Is(err, team.ErrTeamFull) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "team capacity reached (max 3 members)"})
+				return
+			}
+			if errors.Is(err, user.ErrNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "competitor user not found"})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		t, err := h.teams.GetByID(c.Request.Context(), teamID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch updated team"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"team": t})
+		return
+	}
+
+	if req.Username != "" {
+		if err := checkPasswordLength(req.Password); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		pw := req.Password
+		if pw == "" {
+			pw = auth.GeneratePassword(generatedPasswordLength)
+		}
+		hash, err := auth.HashPassword(pw)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
+			return
+		}
+
+		displayName := req.DisplayName
+		if displayName == "" {
+			displayName = req.Username
+		}
+
+		createdUser, err := h.teams.CreateAndAddMember(c.Request.Context(), teamID, team.CreateMemberParams{
+			Username:     req.Username,
+			DisplayName:  displayName,
+			PasswordHash: hash,
+			Role:         user.RoleCompetitor,
+		})
+		if err != nil {
+			if errors.Is(err, team.ErrTeamFull) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "team capacity reached (max 3 members)"})
+				return
+			}
+			if errors.Is(err, team.ErrTeamNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		t, err := h.teams.GetByID(c.Request.Context(), teamID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch updated team"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"team": t, "user": createdUser, "password": pw})
+		return
+	}
+
+	c.JSON(http.StatusBadRequest, gin.H{"error": "userId or username must be provided"})
+}
+
+func (h *handler) removeTeamMember(c *gin.Context) {
+	teamID := c.Param("id")
+	userID := c.Param("userId")
+
+	err := h.teams.RemoveMember(c.Request.Context(), teamID, userID)
+	if err != nil {
+		if errors.Is(err, user.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found in team"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	t, err := h.teams.GetByID(c.Request.Context(), teamID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch updated team"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"team": t})
 }
 
 type createAdminRequest struct {

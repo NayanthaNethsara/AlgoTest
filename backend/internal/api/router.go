@@ -45,7 +45,12 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 			admin.PATCH("/users/:id/role", h.updateRole)
 			admin.DELETE("/users/:id", h.deleteUser)
 
+			admin.GET("/teams", h.listAdminTeams)
 			admin.POST("/teams", h.createTeam)
+			admin.PUT("/teams/:id", h.updateTeam)
+			admin.DELETE("/teams/:id", h.deleteTeam)
+			admin.POST("/teams/:id/members", h.addTeamMember)
+			admin.DELETE("/teams/:id/members/:userId", h.removeTeamMember)
 			admin.POST("/admins", h.createAdminUser)
 
 			admin.GET("/problems", h.listAllProblems)

@@ -6,15 +6,15 @@ import { getSessionUserAction } from "@/lib/actions/auth";
 import { listUsersAction } from "@/lib/actions/users";
 import { listTeamsAction } from "@/lib/actions/teams";
 import { AdminNavbar } from "@/components/navbar";
-import { AdminUsers } from "@/components/admin-users";
+import { AdminTeams } from "@/components/admin-teams";
 import type { User } from "@/types/user";
 import type { Team } from "@/types/team";
 
-export default function UsersPage() {
+export default function TeamsPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,15 +29,15 @@ export default function UsersPage() {
       }
       setCurrentUser(user);
 
-      const [usersData, teamsData] = await Promise.all([
-        listUsersAction(),
+      const [teamsData, usersData] = await Promise.all([
         listTeamsAction(),
+        listUsersAction(),
       ]);
-      setUsers(usersData);
       setTeams(teamsData);
+      setUsers(usersData);
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
-      else setError("Failed to load user list.");
+      else setError("Failed to load teams data.");
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ export default function UsersPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-xs text-muted-foreground font-medium">
-        Loading Users...
+        Loading Teams...
       </div>
     );
   }
@@ -69,11 +69,13 @@ export default function UsersPage() {
     );
   }
 
+  const competitors = users.filter((u) => u.role === "competitor");
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <AdminNavbar user={currentUser} onRefresh={loadData} />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-        <AdminUsers users={users} teams={teams} currentUserId={currentUser.id} onRefresh={loadData} />
+        <AdminTeams teams={teams} competitors={competitors} onRefresh={loadData} />
       </main>
     </div>
   );
