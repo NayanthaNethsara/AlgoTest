@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Terminal, Code2, Trophy, History, Users } from "lucide-react";
+import { Code2, History, Loader2, Terminal, Trophy, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { useSubmissions } from "@/components/providers/submissions-context";
 import { Badge } from "@/components/ui/badge";
 import type { SessionUser } from "@/lib/auth/constants";
 
@@ -15,6 +16,7 @@ const NAV_LINKS = [
 
 export function TopNav({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
+  const { activeSubmission } = useSubmissions();
 
   return (
     <header className="flex items-center justify-between border-b bg-card px-6 py-2.5 shadow-sm">
@@ -50,6 +52,21 @@ export function TopNav({ user }: { user: SessionUser | null }) {
 
       {user && (
         <div className="flex items-center gap-3">
+          {/* Active Submission Pill */}
+          {activeSubmission && (
+            <Badge
+              variant="outline"
+              className="gap-1.5 border-primary/40 bg-primary/10 text-primary text-[11px] h-7 px-2.5 animate-pulse"
+            >
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>
+                {activeSubmission.status === "queued"
+                  ? `Queued #${activeSubmission.queuePosition ?? 1}`
+                  : "Evaluating submission..."}
+              </span>
+            </Badge>
+          )}
+
           {/* Team Name Badge */}
           {user.teamName ? (
             <Badge variant="secondary" className="gap-1.5 font-mono text-[11px] h-7 px-2.5">

@@ -2,31 +2,15 @@
 
 import { backendFetch } from "@/lib/api/server";
 import { getProblemAction } from "@/actions/problems";
-import type { RunResult, SubmitResult } from "@/types/code";
-
-// submitCode is still mocked until hidden-test-case grading is wired up.
-// runCode calls the Go backend, which executes the code in a sandboxed
-// Docker container against the caller-supplied stdin.
+import type { RunResult, SubmissionStatusResponse, SubmitResult } from "@/types/code";
 
 const MAX_CODE_LENGTH = 100_000;
 const MAX_STDIN_LENGTH = 1_000_000;
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function assertLength(value: string, max: number, name: string) {
   if (typeof value !== "string" || value.length > max) {
     throw new Error(`invalid ${name}`);
   }
-}
-
-function codeQuality(code: string): number {
-  const meaningful = code.replace(/\s/g, "").length;
-  let hash = 0;
-  for (let i = 0; i < code.length; i++) {
-    hash = (hash * 31 + code.charCodeAt(i)) >>> 0;
-  }
-  const size = Math.min(meaningful / 400, 1);
-  return Math.min(1, size * 0.7 + ((hash % 100) / 100) * 0.3);
 }
 
 export async function runCode(
@@ -86,13 +70,27 @@ export async function submitCode(
     const res = await backendFetch("/api/v1/submissions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ language, code }),
+      body: JSON.stringify({ problem_id: problemId, language, code }),
     });
+
+    if (res.status === 409) {
+      const errBody = await res.json().catch(() => ({}));
+      return {
+        error: errBody.error ?? "Active submission already in progress.",
+        subtasks: [],
+        score: previousBest,
+        maxScore: problem.points,
+        improvedBest: false,
+        previousBest,
+      };
+    }
 
     if (res.ok) {
       const data = await res.json();
       return {
         submissionId: data.id,
+        status: data.status,
+        queuePosition: data.queue_position,
         subtasks: [
           { id: 1, points: problem.points, earned: problem.points, passed: true },
         ],
@@ -103,34 +101,31 @@ export async function submitCode(
       };
     }
   } catch {
-    // Fall back to local mock scoring if backend offline
+    // Backend fetch failed or unauthenticated
   }
 
-  await delay(800);
-  const quality = codeQuality(code);
-  const mockSubtasks = problem.subtasks && problem.subtasks.length > 0 ? problem.subtasks : [
-    { id: 1, points: Math.floor(problem.points * 0.4), constraints: "Subtask 1" },
-    { id: 2, points: Math.ceil(problem.points * 0.6), constraints: "Subtask 2" },
-  ];
-  const subtasks = mockSubtasks.map((subtask, index) => {
-    const threshold = (index + 1) / (mockSubtasks.length + 1);
-    const passed = quality >= threshold;
-    return {
-      id: subtask.id,
-      points: subtask.points,
-      earned: passed ? subtask.points : 0,
-      passed,
-      failedTest: passed ? undefined : 1 + Math.floor(quality * 8),
-    };
-  });
-
-  const score = subtasks.reduce((sum, s) => sum + s.earned, 0);
-
   return {
-    subtasks,
-    score,
+    error: "Failed to queue submission. Please check your network connection.",
+    subtasks: [],
+    score: previousBest,
     maxScore: problem.points,
-    improvedBest: score > previousBest,
+    improvedBest: false,
     previousBest,
   };
+}
+
+export async function getSubmissionStatusAction(
+  submissionId: string,
+): Promise<SubmissionStatusResponse | null> {
+  try {
+    const res = await backendFetch(`/api/v1/submissions/${submissionId}`, {
+      method: "GET",
+    });
+    if (res.ok) {
+      return res.json();
+    }
+  } catch {
+    // Ignore transient network errors
+  }
+  return null;
 }

@@ -1,3 +1,5 @@
+import type { SubmissionStatus, SubmissionStatusResponse } from "./submission";
+
 export type Language = {
   id: string;
   label: string;
@@ -27,9 +29,16 @@ export type SubtaskResult = {
 
 export type SubmitResult = {
   submissionId?: string;
+  status?: SubmissionStatus;
+  queuePosition?: number;
+  error?: string;
   subtasks: SubtaskResult[];
   score: number;
   maxScore: number;
   improvedBest: boolean;
   previousBest: number;
+  verdict?: Verdict;
+  compileError?: string;
 };
+
+export type { SubmissionStatusResponse };

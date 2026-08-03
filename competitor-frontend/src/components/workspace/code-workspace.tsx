@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { History, Play, Send } from "lucide-react";
-import { runCode, submitCode } from "@/actions/code";
+import { runCode } from "@/actions/code";
 import { CodeEditor } from "@/components/workspace/code-editor";
 import { HistoryPanel } from "@/components/workspace/history-panel";
 import { IoPanels } from "@/components/workspace/io-panels";
 import { SubmissionResult } from "@/components/workspace/submission-result";
+import { useSubmissions } from "@/components/providers/submissions-context";
 import { Button } from "@/components/ui/button";
 import {
   ResizableHandle,
@@ -34,6 +35,8 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
 
   const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [running, setRunning] = useState(false);
+
+  const { activeSubmission, lastResult, submitFast } = useSubmissions();
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -56,6 +59,16 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     return () => clearTimeout(timer);
   }, [code, language.id, record]);
 
+  useEffect(() => {
+    if (lastResult && lastResult.submissionId) {
+      setSubmitResult(lastResult);
+      if (lastResult.improvedBest && lastResult.score > best) {
+        setBest(lastResult.score);
+        localStorage.setItem(bestKey, String(lastResult.score));
+      }
+    }
+  }, [lastResult, best, bestKey]);
+
   function handleLanguageChange(id: string | null) {
     const next = LANGUAGES.find((lang) => lang.id === id) ?? LANGUAGES[0];
     setLanguage(next);
@@ -77,15 +90,10 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   async function handleSubmit() {
     setTab("submission");
     setSubmitting(true);
-    setSubmitResult(null);
     record("submitted", language.id, code);
     try {
-      const result = await submitCode(problem.id, code, best);
-      setSubmitResult(result);
-      if (result.improvedBest) {
-        setBest(result.score);
-        localStorage.setItem(bestKey, String(result.score));
-      }
+      const res = await submitFast(problem.id, code, best, language.id);
+      setSubmitResult(res);
     } finally {
       setSubmitting(false);
     }
@@ -96,6 +104,9 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     setLanguage(lang);
     setCode(snapshot.code);
   }
+
+  const isCurrentProblemSubmitting =
+    submitting || (activeSubmission && activeSubmission.problemId === problem.id);
 
   return (
     <div className="flex h-full flex-col">
@@ -161,7 +172,17 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
             </TabsContent>
 
             <TabsContent value="submission" className="min-h-0 flex-1 overflow-hidden">
-              <SubmissionResult result={submitResult} submitting={submitting} />
+              <SubmissionResult
+                result={submitResult}
+                submitting={Boolean(isCurrentProblemSubmitting)}
+                statusMessage={
+                  activeSubmission
+                    ? activeSubmission.status === "queued"
+                      ? `Queued (Position #${activeSubmission.queuePosition ?? 1} in line)...`
+                      : "Evaluating against test cases..."
+                    : "Submitting to queue..."
+                }
+              />
             </TabsContent>
           </Tabs>
         </ResizablePanel>

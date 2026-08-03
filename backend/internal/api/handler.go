@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -67,8 +69,21 @@ func (h *handler) listTeams(c *gin.Context) {
 }
 
 type createSubmissionRequest struct {
-	Language string `json:"language" binding:"required"`
-	Code     string `json:"code" binding:"required"`
+	ProblemID string `json:"problem_id" binding:"required"`
+	Language  string `json:"language" binding:"required"`
+	Code      string `json:"code" binding:"required"`
+}
+
+var supportedLanguages = map[string]bool{
+	"cpp":    true,
+	"c":      true,
+	"java":   true,
+	"python": true,
+	"py":     true,
+	"go":     true,
+	"rs":     true,
+	"js":     true,
+	"ts":     true,
 }
 
 // @Summary Submit Code
@@ -77,9 +92,10 @@ type createSubmissionRequest struct {
 // @Accept json
 // @Produce json
 // @Param submission body createSubmissionRequest true "Submission payload"
-// @Success 202 {object} map[string]string
+// @Success 202 {object} map[string]interface{}
 // @Failure 400 {object} map[string]string
-// @Failure 503 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /api/v1/submissions [post]
 func (h *handler) createSubmission(c *gin.Context) {
 	var req createSubmissionRequest
@@ -88,25 +104,64 @@ func (h *handler) createSubmission(c *gin.Context) {
 		return
 	}
 
+	// 1. Validate UUID format
+	if _, err := uuid.Parse(req.ProblemID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid problem_id format"})
+		return
+	}
+
+	// 2. Validate language whitelist
+	langLower := strings.ToLower(strings.TrimSpace(req.Language))
+	if !supportedLanguages[langLower] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported language"})
+		return
+	}
+
+	// 3. Validate code size & non-empty content
+	trimmedCode := strings.TrimSpace(req.Code)
+	if trimmedCode == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "code cannot be empty"})
+		return
+	}
+	if len(req.Code) > 100_000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "code size exceeds maximum limit (100KB)"})
+		return
+	}
+
 	u := currentUser(c)
-	teamID := ""
-	if u.TeamID != nil {
+	teamID := u.ID
+	if u.TeamID != nil && *u.TeamID != "" {
 		teamID = *u.TeamID
 	}
 
 	submission := judge.Submission{
-		ID:       uuid.NewString(),
-		UserID:   u.ID,
-		TeamID:   teamID,
-		Language: req.Language,
-		Code:     req.Code,
+		ID:        uuid.NewString(),
+		UserID:    u.ID,
+		TeamID:    teamID,
+		ProblemID: req.ProblemID,
+		Language:  langLower,
+		Code:      req.Code,
 	}
-	if err := h.judge.Submit(submission); err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+
+	created, err := h.judge.Submit(c.Request.Context(), submission)
+	if err != nil {
+		if errors.Is(err, judge.ErrActiveSubmissionExists) {
+			c.JSON(http.StatusConflict, gin.H{"error": "Your team already has an active submission queued or running for this problem. Please wait for it to complete."})
+			return
+		}
+		if errors.Is(err, judge.ErrProblemNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Problem not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create submission: " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusAccepted, gin.H{"id": submission.ID, "status": judge.StatusQueued})
+	c.JSON(http.StatusAccepted, gin.H{
+		"id":             created.ID,
+		"status":         created.State,
+		"queue_position": created.QueuePosition,
+	})
 }
 
 // @Summary Get Submission Result
@@ -115,13 +170,72 @@ func (h *handler) createSubmission(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Submission ID"
 // @Success 200 {object} judge.Result
+// @Failure 403 {object} map[string]string
 // @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /api/v1/submissions/{id} [get]
 func (h *handler) getSubmission(c *gin.Context) {
-	result, ok := h.judge.Result(c.Param("id"))
+	u := currentUser(c)
+	result, ok, err := h.judge.Result(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch submission"})
+		return
+	}
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "submission not found"})
 		return
 	}
+
+	// Enforce ownership access control: Admins can view any, competitors can only view their own user/team submissions
+	if u.Role != user.RoleAdmin {
+		isOwnerUser := result.UserID == u.ID
+		isOwnerTeam := u.TeamID != nil && *u.TeamID != "" && result.TeamID == *u.TeamID
+		if !isOwnerUser && !isOwnerTeam {
+			c.JSON(http.StatusForbidden, gin.H{"error": "access denied to this submission"})
+			return
+		}
+	}
+
 	c.JSON(http.StatusOK, result)
 }
+
+// @Summary Stream Submission Status (SSE)
+// @Description Server-Sent Events stream for real-time submission progress and result pushes.
+// @Tags Submissions
+// @Produce text/event-stream
+// @Router /api/v1/submissions/stream [get]
+func (h *handler) streamSubmissions(c *gin.Context) {
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Transfer-Encoding", "chunked")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+
+	u := currentUser(c)
+	ch, unsubscribe := h.judge.Broadcaster().Subscribe(u.ID)
+	defer unsubscribe()
+
+	c.SSEvent("connected", gin.H{"status": "connected"})
+	c.Writer.Flush()
+
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case <-ticker.C:
+			c.SSEvent("ping", gin.H{"time": time.Now().Unix()})
+			c.Writer.Flush()
+		case res, ok := <-ch:
+			if !ok {
+				return
+			}
+			c.SSEvent("submission", res)
+			c.Writer.Flush()
+		}
+	}
+}
+
+

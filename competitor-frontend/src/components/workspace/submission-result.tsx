@@ -1,20 +1,23 @@
 "use client";
 
-import { Check, TrendingUp, X } from "lucide-react";
+import { AlertCircle, Check, Loader2, TrendingUp, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { SubmitResult } from "@/types/code";
 
 export function SubmissionResult({
   result,
   submitting,
+  statusMessage,
 }: {
   result: SubmitResult | null;
   submitting: boolean;
+  statusMessage?: string;
 }) {
   if (submitting) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">
-        Running against hidden test cases…
+      <div className="flex flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
+        <Loader2 className="size-6 animate-spin text-primary" />
+        <span>{statusMessage || "Submitting to evaluation queue..."}</span>
       </div>
     );
   }
@@ -22,7 +25,21 @@ export function SubmissionResult({
   if (!result) {
     return (
       <div className="p-4 text-sm text-muted-foreground">
-        Submit to score against hidden test cases.
+        Submit code to evaluate against contest test cases.
+      </div>
+    );
+  }
+
+  if (result.error) {
+    return (
+      <div className="p-4">
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-destructive">
+          <AlertCircle className="size-5 shrink-0 mt-0.5" />
+          <div className="flex flex-col gap-1 text-sm">
+            <span className="font-semibold">Submission Error</span>
+            <span>{result.error}</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -54,6 +71,13 @@ export function SubmissionResult({
         )}
       </div>
 
+      {result.compileError && (
+        <div className="rounded-lg border bg-destructive/10 p-3 text-xs font-mono text-destructive">
+          <span className="font-semibold">Compilation Error:</span>
+          <pre className="mt-1 whitespace-pre-wrap">{result.compileError}</pre>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         {result.subtasks.map((subtask) => (
           <div
@@ -67,7 +91,7 @@ export function SubmissionResult({
                 <span className="text-xs text-muted-foreground">
                   {subtask.passed
                     ? "All tests passed"
-                    : `Failed on test ${subtask.failedTest}`}
+                    : `Failed on test ${subtask.failedTest ?? 1}`}
                 </span>
               </div>
             </div>

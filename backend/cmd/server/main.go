@@ -60,7 +60,7 @@ func main() {
 	problems := problem.NewRepository(pool)
 	teams := team.NewRepository(pool)
 
-	j := judge.New(cfg.JudgeWorkers, cfg.QueueSize, log)
+	j := judge.New(pool, cfg.JudgeWorkers, log)
 	go j.Start(ctx)
 
 	rn, err := runner.New(runner.Config{
