@@ -4,6 +4,8 @@ import { backendFetch } from "@/lib/api/server";
 import { getProblemAction } from "@/actions/problems";
 import type { RunResult, SubmissionStatusResponse, SubmitResult } from "@/types/code";
 
+import { executeRun } from "@/lib/runner";
+
 const MAX_CODE_LENGTH = 100_000;
 const MAX_STDIN_LENGTH = 1_000_000;
 
@@ -25,33 +27,7 @@ export async function runCode(
     return { stdout: "", stderr: "error: empty program", exitCode: 1, timeMs: 0 };
   }
 
-  const res = await backendFetch("/api/v1/run", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ language, code, stdin }),
-  });
-
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    if (res.status === 503) {
-      return {
-        stdout: "",
-        stderr: "Server busy: capacity limit reached. Please retry in a few seconds.",
-        exitCode: 503,
-        timeMs: 0,
-        verdict: "IE",
-      };
-    }
-    return {
-      stdout: "",
-      stderr: body.error ?? "run failed",
-      exitCode: 1,
-      timeMs: 0,
-      verdict: "IE",
-    };
-  }
-
-  return res.json();
+  return executeRun(language, code, stdin);
 }
 
 export async function submitCode(
