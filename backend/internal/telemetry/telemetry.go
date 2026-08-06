@@ -34,11 +34,32 @@ type Heartbeat struct {
 	Status           Status     `json:"status"`
 }
 
+type PortMatchSignal struct {
+	Port      int    `json:"port"`
+	RuleID    string `json:"rule_id"`
+	Product   string `json:"product"`
+	Confirmed bool   `json:"confirmed"`
+}
+
+type ForegroundSignal struct {
+	Supported bool   `json:"supported"`
+	AppID     string `json:"app_id"`
+}
+
+type SignalReportPayload struct {
+	Ports             []PortMatchSignal `json:"ports"`
+	InternetReachable bool              `json:"internet_reachable"`
+	ProcessMatches    []string          `json:"process_matches"`
+	TotalProcesses    int               `json:"total_processes"`
+	Foreground        ForegroundSignal  `json:"foreground"`
+}
+
 type PingRequest struct {
-	ActiveWindow     string     `json:"active_window"`
-	RunningProcesses []string   `json:"running_processes"`
-	OSInfo           string     `json:"os_info"`
-	ClientType       ClientType `json:"client_type"`
+	ActiveWindow     string               `json:"active_window"`
+	RunningProcesses []string             `json:"running_processes"`
+	OSInfo           string               `json:"os_info"`
+	ClientType       ClientType           `json:"client_type"`
+	Signals          *SignalReportPayload `json:"signals,omitempty"`
 }
 
 func CalculateStatus(lastPingAt time.Time, now time.Time) Status {

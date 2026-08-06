@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+pub mod signals;
+
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
@@ -32,6 +33,7 @@ struct TelemetryPayload {
     running_processes: Vec<String>,
     os_info: String,
     client_type: String,
+    signals: Option<signals::SignalReport>,
 }
 
 #[tauri::command]
@@ -104,46 +106,7 @@ fn set_client_config(
     Ok(())
 }
 
-fn collect_running_processes() -> Vec<String> {
-    let mut sys = System::new_all();
-    sys.refresh_processes();
-
-    let mut process_set = HashSet::new();
-    for process in sys.processes().values() {
-        let name = process.name().to_string();
-        let lower = name.to_lowercase();
-
-        // Skip standard low-level system background daemons
-        if lower.starts_with("kworker")
-            || lower.starts_with("systemd")
-            || lower.contains("launchd")
-            || lower.contains("kernel_task")
-            || lower.contains("dbus")
-            || lower.contains("syslog")
-        {
-            continue;
-        }
-
-        if !name.is_empty() {
-            process_set.insert(name);
-        }
-    }
-
-    let mut list: Vec<String> = process_set.into_iter().collect();
-    list.sort();
-    list
-}
-
 fn spawn_telemetry_loop(state: TelemetryState) {
-    let is_telemetry_enabled = std::env::var("ENABLE_TELEMETRY")
-        .map(|v| v != "false" && v != "0")
-        .unwrap_or(true);
-
-    if !is_telemetry_enabled {
-        log::info!("Telemetry disabled via ENABLE_TELEMETRY env var");
-        return;
-    }
-
     std::thread::spawn(move || {
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(5))
@@ -151,9 +114,12 @@ fn spawn_telemetry_loop(state: TelemetryState) {
             .unwrap_or_default();
 
         let os_description = format!("{} {}", std::env::consts::OS, std::env::consts::ARCH);
+        let mut sys = System::new_all();
+        let mut tick_count: u64 = 0;
 
         loop {
             std::thread::sleep(Duration::from_secs(15));
+            tick_count = tick_count.wrapping_add(1);
 
             let token_option = state.session_token.lock().ok().and_then(|t| t.clone());
             let target_api_url = state
@@ -164,12 +130,21 @@ fn spawn_telemetry_loop(state: TelemetryState) {
                 .unwrap_or_else(|| "http://localhost:8080".to_string());
 
             if let Some(token) = token_option {
-                let processes = collect_running_processes();
+                let probe_ports = tick_count % 4 == 1; // probe ports every 60 seconds (every 4th tick)
+                let report = signals::probe_all_signals(&mut sys, probe_ports);
+
+                let active_win = if report.foreground.supported && !report.foreground.app_id.is_empty() {
+                    report.foreground.app_id.clone()
+                } else {
+                    "MiniAlgothon Desktop Client".to_string()
+                };
+
                 let payload = TelemetryPayload {
-                    active_window: "MiniAlgothon Desktop Client".to_string(),
-                    running_processes: processes,
+                    active_window: active_win,
+                    running_processes: report.process_matches.clone(),
                     os_info: os_description.clone(),
                     client_type: "DESKTOP".to_string(),
+                    signals: Some(report),
                 };
 
                 let request_url = format!("{}/api/v1/telemetry/ping", target_api_url.trim_end_matches('/'));
@@ -216,7 +191,6 @@ pub fn run() {
                 )?;
             }
 
-            // Check for existing client config to navigate automatically
             if let Ok(path) = app.path().app_config_dir().map(|p| p.join("client.json")) {
                 if path.exists() {
                     if let Ok(content) = std::fs::read_to_string(&path) {
