@@ -17,16 +17,13 @@ int main() {
 `,
   },
   {
-    id: "java",
-    label: "Java",
-    monaco: "java",
-    starter: `import java.util.*;
-import java.io.*;
+    id: "c",
+    label: "C",
+    monaco: "cpp",
+    starter: `#include <stdio.h>
 
-public class Main {
-    public static void main(String[] args) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-    }
+int main() {
+    return 0;
 }
 `,
   },
@@ -44,6 +41,19 @@ def main():
 
 if __name__ == "__main__":
     main()
+`,
+  },
+  {
+    id: "js",
+    label: "JavaScript",
+    monaco: "javascript",
+    starter: `const fs = require('fs');
+
+function main() {
+    const input = fs.readFileSync('/dev/stdin', 'utf-8');
+}
+
+main();
 `,
   },
 ];

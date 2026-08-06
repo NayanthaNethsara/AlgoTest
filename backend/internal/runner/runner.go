@@ -99,17 +99,16 @@ var specs = map[string]spec{
 		runCmd:     []string{"./main"},
 		timeFactor: 1.0,
 	},
-	"java": {
-		filename:      "Main.java",
-		compileCmd:    []string{"javac", "Main.java"},
-		runCmd:        []string{"java", "-XX:+UseSerialGC", "-Xmx{mem}m", "Main"},
-		timeFactor:    2.0,
-		memoryBonusKB: 128 * 1024,
-	},
 	"python": {
 		filename:      "main.py",
 		runCmd:        []string{"python3", "main.py"},
 		timeFactor:    3.0,
+		memoryBonusKB: 64 * 1024,
+	},
+	"js": {
+		filename:      "main.js",
+		runCmd:        []string{"node", "main.js"},
+		timeFactor:    2.0,
 		memoryBonusKB: 64 * 1024,
 	},
 }
@@ -185,8 +184,22 @@ func (r *Runner) OverallTimeout() time.Duration {
 	return r.cfg.CompileTimeout + r.cfg.WallTimeout + 10*time.Second
 }
 
+func normalizeLanguage(lang string) string {
+	l := strings.ToLower(strings.TrimSpace(lang))
+	switch l {
+	case "c", "c++", "cpp":
+		return "cpp"
+	case "py", "python", "python3":
+		return "python"
+	case "js", "javascript", "node":
+		return "js"
+	default:
+		return l
+	}
+}
+
 func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
-	sp, ok := specs[req.Language]
+	sp, ok := specs[normalizeLanguage(req.Language)]
 	if !ok {
 		return Result{}, fmt.Errorf("%w: %s", ErrUnsupportedLanguage, req.Language)
 	}

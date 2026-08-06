@@ -299,7 +299,7 @@ func (r *Repository) ListAdminSubmissions(ctx context.Context, statusFilter, pro
 		SELECT s.id, s.user_id, s.team_id, s.problem_id, s.language, s.code, s.state, s.verdict, s.score, s.max_score,
 		       s.tests_total, s.tests_done, s.compile_error, s.created_at, s.finished_at,
 		       COALESCE(u.display_name, u.username, '') AS user_name,
-		       COALESCE(u.email, '') AS user_email,
+		       '' AS user_email,
 		       COALESCE(t.name, '') AS team_name,
 		       COALESCE(p.title, '') AS problem_title
 		FROM submissions s
@@ -360,9 +360,10 @@ func (r *Repository) CancelSubmission(ctx context.Context, id string) error {
 	now := time.Now().UTC()
 	_, err := r.pool.Exec(ctx, `
 		UPDATE submissions
-		SET state = 'failed', verdict = $1, finished_at = $2
-		WHERE id = $3;
-	`, verdict, now, id)
+		SET state = 'failed', verdict = $2, finished_at = $3,
+		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
+		WHERE id = $1;
+	`, id, verdict, now)
 	return err
 }
 
@@ -378,7 +379,7 @@ func (r *Repository) UnstickTeamSubmissions(ctx context.Context, teamID string) 
 	return err
 }
 
-// GetProblemTests fetches all test cases stored in DB for a given problem ID, falling back to samples if hidden tests are empty.
+// GetProblemTests fetches all test cases stored in DB for a given problem ID.
 func (r *Repository) GetProblemTests(ctx context.Context, problemID string) ([]TestCase, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, ordinal, input, expected, points
@@ -401,32 +402,6 @@ func (r *Repository) GetProblemTests(ctx context.Context, problemID string) ([]T
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
-	}
-
-	if len(tests) == 0 {
-		sampleRows, err := r.pool.Query(ctx, `
-			SELECT id, ordinal, input, output
-			FROM problem_samples
-			WHERE problem_id = $1
-			ORDER BY ordinal ASC;
-		`, problemID)
-		if err == nil {
-			defer sampleRows.Close()
-			for sampleRows.Next() {
-				var sID string
-				var ord int
-				var inStr, outStr string
-				if err := sampleRows.Scan(&sID, &ord, &inStr, &outStr); err == nil {
-					tests = append(tests, TestCase{
-						ID:       sID,
-						Ordinal:  ord,
-						Input:    []byte(inStr),
-						Expected: []byte(outStr),
-						Points:   33,
-					})
-				}
-			}
-		}
 	}
 
 	return tests, nil

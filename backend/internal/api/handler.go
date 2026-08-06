@@ -76,16 +76,16 @@ type createSubmissionRequest struct {
 	Code      string `json:"code" binding:"required"`
 }
 
-var supportedLanguages = map[string]bool{
-	"cpp":    true,
-	"c":      true,
-	"java":   true,
-	"python": true,
-	"py":     true,
-	"go":     true,
-	"rs":     true,
-	"js":     true,
-	"ts":     true,
+var supportedLanguages = map[string]string{
+	"cpp":        "cpp",
+	"c++":        "cpp",
+	"c":          "cpp",
+	"python":     "python",
+	"py":         "python",
+	"python3":    "python",
+	"js":         "js",
+	"javascript": "js",
+	"node":       "js",
 }
 
 // @Summary Submit Code
@@ -117,9 +117,10 @@ func (h *handler) createSubmission(c *gin.Context) {
 		problemID = p.ID
 	}
 
-	// 2. Validate language whitelist
-	langLower := strings.ToLower(strings.TrimSpace(req.Language))
-	if !supportedLanguages[langLower] {
+	// 2. Validate language whitelist and normalize
+	rawLang := strings.ToLower(strings.TrimSpace(req.Language))
+	normalizedLang, supported := supportedLanguages[rawLang]
+	if !supported {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported language"})
 		return
 	}
@@ -146,7 +147,7 @@ func (h *handler) createSubmission(c *gin.Context) {
 		UserID:    u.ID,
 		TeamID:    teamID,
 		ProblemID: problemID,
-		Language:  langLower,
+		Language:  normalizedLang,
 		Code:      req.Code,
 	}
 

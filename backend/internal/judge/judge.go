@@ -128,23 +128,39 @@ func (j *Judge) processNext(ctx context.Context, workerID string) {
 
 func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 	tests, err := j.repo.GetProblemTests(ctx, s.ProblemID)
-	if err != nil || len(tests) == 0 {
-		verdict := "AC"
-		score := s.MaxScore
-		if score == 0 {
-			score = 100
-		}
+	if err != nil {
+		j.log.Error("failed to fetch problem tests for evaluation", "problem_id", s.ProblemID, "error", err)
+		verdict := "IE"
 		return Result{
 			SubmissionID: s.ID,
 			UserID:       s.UserID,
 			TeamID:       s.TeamID,
 			ProblemID:    s.ProblemID,
-			Status:       StatusPassed,
+			Status:       StatusFailed,
 			Verdict:      &verdict,
-			Score:        score,
-			MaxScore:     score,
+			Score:        0,
+			MaxScore:     s.MaxScore,
 			TestsTotal:   s.TestsTotal,
-			TestsDone:    s.TestsTotal,
+			TestsDone:    0,
+		}
+	}
+
+	if len(tests) == 0 {
+		j.log.Error("no test cases found for problem", "problem_id", s.ProblemID)
+		verdict := "IE"
+		errMsg := "No test cases configured for this problem"
+		return Result{
+			SubmissionID: s.ID,
+			UserID:       s.UserID,
+			TeamID:       s.TeamID,
+			ProblemID:    s.ProblemID,
+			Status:       StatusFailed,
+			Verdict:      &verdict,
+			Score:        0,
+			MaxScore:     s.MaxScore,
+			TestsTotal:   0,
+			TestsDone:    0,
+			CompileError: &errMsg,
 		}
 	}
 
@@ -181,6 +197,7 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 				testVerdict = "RTE"
 			} else {
 				timeMs = int(runRes.TimeMs)
+				memoryKb = int(runRes.MemoryKB)
 				if runRes.CompileError != "" {
 					testVerdict = "CE"
 					compileErrStr = &runRes.CompileError
@@ -212,9 +229,11 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 				}
 			}
 		} else {
-			// Default fallback when runner is not attached
-			testVerdict = "AC"
-			earnedPoints = t.Points
+			// Fallback when runner is unattached
+			testVerdict = "IE"
+			earnedPoints = 0
+			errMsg := "Execution runner is unattached"
+			compileErrStr = &errMsg
 		}
 
 		totalScore += earnedPoints

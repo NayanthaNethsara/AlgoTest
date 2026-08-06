@@ -77,7 +77,7 @@ echo "==> verifying"
 isolate --cg --box-id=$((NUM_BOXES - 1)) --init >/dev/null
 isolate --cg --box-id=$((NUM_BOXES - 1)) --cleanup
 
-for tool in g++ javac java python3; do
+for tool in g++ gcc node python3; do
     printf '  %-8s %s\n' "${tool}" "$(command -v "${tool}")"
 done
 

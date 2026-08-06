@@ -229,6 +229,14 @@ func (h *handler) setProblemPublished(c *gin.Context) {
 		return
 	}
 
+	if req.Published {
+		tests, err := h.judge.Repo().GetProblemTests(c.Request.Context(), id)
+		if err != nil || len(tests) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "cannot publish problem with zero test cases"})
+			return
+		}
+	}
+
 	if err := h.problems.SetPublished(c.Request.Context(), id, req.Published); err != nil {
 		if errors.Is(err, problem.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
