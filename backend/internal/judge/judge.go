@@ -180,89 +180,129 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 	overallVerdict := "AC"
 	var compileErrStr *string
 
-	for i, t := range tests {
-		testVerdict := "AC"
-		earnedPoints := 0
-		var timeMs int
-		var memoryKb int
+	normalizeOutput := func(str string) string {
+		str = strings.ReplaceAll(str, "\r\n", "\n")
+		str = strings.ReplaceAll(str, "\r", "\n")
+		lines := strings.Split(str, "\n")
+		for j := range lines {
+			lines[j] = strings.TrimRight(lines[j], " \t")
+		}
+		return strings.TrimSpace(strings.Join(lines, "\n"))
+	}
 
-		if j.runner != nil {
-			runRes, runErr := j.runner.Run(ctx, runner.Request{
-				Language: s.Language,
-				Code:     s.Code,
-				Stdin:    string(t.Input),
-			})
+	if j.runner != nil {
+		batchCases := make([]runner.BatchCase, len(tests))
+		for i, t := range tests {
+			batchCases[i] = runner.BatchCase{
+				Ordinal: t.Ordinal,
+				Stdin:   string(t.Input),
+			}
+		}
 
-			if runErr != nil {
-				testVerdict = "RTE"
-			} else {
-				timeMs = int(runRes.TimeMs)
-				memoryKb = int(runRes.MemoryKB)
-				if runRes.CompileError != "" {
-					testVerdict = "CE"
-					compileErrStr = &runRes.CompileError
-				} else if runRes.ExitCode != 0 {
-					if runRes.ExitCode == 137 {
+		completedCount := 0
+		currentScore := 0
+		var mu sync.Mutex
+
+		batchReq := runner.BatchRequest{
+			Language: s.Language,
+			Code:     s.Code,
+			Cases:    batchCases,
+			OnCase: func(cr runner.BatchCaseResult) {
+				mu.Lock()
+				completedCount++
+				cnt := completedCount
+				sc := currentScore
+				mu.Unlock()
+
+				j.broadcaster.Broadcast(Result{
+					SubmissionID: s.ID,
+					UserID:       s.UserID,
+					TeamID:       s.TeamID,
+					ProblemID:    s.ProblemID,
+					Status:       StatusRunning,
+					Score:        sc,
+					MaxScore:     maxScore,
+					TestsTotal:   len(tests),
+					TestsDone:    cnt,
+				})
+			},
+		}
+
+		batchRes, runErr := j.runner.RunBatch(ctx, batchReq)
+		if runErr != nil {
+			overallVerdict = "RTE"
+		} else if batchRes.CompileError != "" {
+			overallVerdict = "CE"
+			compileErrStr = &batchRes.CompileError
+			return Result{
+				SubmissionID: s.ID,
+				UserID:       s.UserID,
+				TeamID:       s.TeamID,
+				ProblemID:    s.ProblemID,
+				Status:       StatusFailed,
+				Verdict:      &overallVerdict,
+				Score:        0,
+				MaxScore:     maxScore,
+				TestsTotal:   len(tests),
+				TestsDone:    0,
+				CompileError: compileErrStr,
+			}
+		} else {
+			testMap := make(map[int]TestCase)
+			for _, t := range tests {
+				testMap[t.Ordinal] = t
+			}
+
+			for _, cr := range batchRes.Cases {
+				t, exists := testMap[cr.Ordinal]
+				testVerdict := "AC"
+				earnedPoints := 0
+
+				if cr.Verdict != runner.VerdictAC {
+					switch cr.Verdict {
+					case runner.VerdictTLE:
 						testVerdict = "TLE"
-					} else {
+					case runner.VerdictCE:
+						testVerdict = "CE"
+					case runner.VerdictMLE:
+						testVerdict = "MLE"
+					default:
 						testVerdict = "RTE"
 					}
 				} else {
-					normalizeOutput := func(str string) string {
-						str = strings.ReplaceAll(str, "\r\n", "\n")
-						str = strings.ReplaceAll(str, "\r", "\n")
-						lines := strings.Split(str, "\n")
-						for j := range lines {
-							lines[j] = strings.TrimRight(lines[j], " \t")
-						}
-						return strings.TrimSpace(strings.Join(lines, "\n"))
-					}
-
-					actualOutput := normalizeOutput(runRes.Stdout)
+					actualOutput := normalizeOutput(cr.Stdout)
 					expectedOutput := normalizeOutput(string(t.Expected))
-					if actualOutput == expectedOutput {
+					if exists && actualOutput == expectedOutput {
 						testVerdict = "AC"
 						earnedPoints = t.Points
 					} else {
 						testVerdict = "WA"
 					}
 				}
+
+				mu.Lock()
+				currentScore += earnedPoints
+				mu.Unlock()
+
+				if testVerdict != "AC" && overallVerdict == "AC" {
+					overallVerdict = testVerdict
+				}
+
+				submissionTests = append(submissionTests, SubmissionTest{
+					SubmissionID: s.ID,
+					Ordinal:      cr.Ordinal,
+					Verdict:      testVerdict,
+					TimeMS:       int(cr.TimeMs),
+					MemoryKB:     int(cr.MemoryKB),
+					Points:       earnedPoints,
+				})
 			}
-		} else {
-			// Fallback when runner is unattached
-			testVerdict = "IE"
-			earnedPoints = 0
-			errMsg := "Execution runner is unattached"
-			compileErrStr = &errMsg
+			totalScore = currentScore
 		}
-
-		totalScore += earnedPoints
-
-		if testVerdict != "AC" && overallVerdict == "AC" {
-			overallVerdict = testVerdict
-		}
-
-		submissionTests = append(submissionTests, SubmissionTest{
-			SubmissionID: s.ID,
-			Ordinal:      t.Ordinal,
-			Verdict:      testVerdict,
-			TimeMS:       timeMs,
-			MemoryKB:     memoryKb,
-			Points:       earnedPoints,
-		})
-
-		// Broadcast real-time progress update
-		j.broadcaster.Broadcast(Result{
-			SubmissionID: s.ID,
-			UserID:       s.UserID,
-			TeamID:       s.TeamID,
-			ProblemID:    s.ProblemID,
-			Status:       StatusRunning,
-			Score:        totalScore,
-			MaxScore:     maxScore,
-			TestsTotal:   len(tests),
-			TestsDone:    i + 1,
-		})
+	} else {
+		overallVerdict = "IE"
+		errMsg := "Execution runner is unattached"
+		compileErrStr = &errMsg
 	}
 
 	finalStatus := StatusPassed

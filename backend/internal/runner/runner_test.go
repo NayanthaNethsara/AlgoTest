@@ -83,7 +83,7 @@ func TestExitCodeOrSignal(t *testing.T) {
 // Every concurrent holder must get a distinct box ID: two runs sharing one
 // would collide inside isolate.
 func TestLimiterHandsOutDistinctBoxes(t *testing.T) {
-	l := newLimiter(3, 0, time.Second, 0)
+	l := newLimiter(3, 0, time.Second, 0, "")
 	ctx := context.Background()
 
 	seen := map[int]bool{}
@@ -118,7 +118,7 @@ func TestLimiterHandsOutDistinctBoxes(t *testing.T) {
 // A burst beyond running+queued capacity is rejected immediately rather than
 // piling up waiter goroutines.
 func TestLimiterRejectsBeyondQueue(t *testing.T) {
-	l := newLimiter(1, 1, 50*time.Millisecond, 0)
+	l := newLimiter(1, 1, 50*time.Millisecond, 0, "")
 	ctx := context.Background()
 
 	_, release, err := l.acquire(ctx)
@@ -217,4 +217,17 @@ int main() { std::cout << "Hello C++" << std::endl; return 0; }`,
 			t.Errorf("Verdict = %v, want OK (stderr: %q)", res.Verdict, res.Stderr)
 		}
 	})
+}
+
+func TestCPUListParsing(t *testing.T) {
+	cores := parseCPUList("3-6,8,10-11", 10)
+	expected := []int{3, 4, 5, 6, 8, 10, 11}
+	if len(cores) != len(expected) {
+		t.Fatalf("parseCPUList length = %d, want %d", len(cores), len(expected))
+	}
+	for i, c := range cores {
+		if c != expected[i] {
+			t.Errorf("core[%d] = %d, want %d", i, c, expected[i])
+		}
+	}
 }

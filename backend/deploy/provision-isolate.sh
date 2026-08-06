@@ -77,6 +77,11 @@ echo "==> verifying"
 isolate --cg --box-id=$((NUM_BOXES - 1)) --init >/dev/null
 isolate --cg --box-id=$((NUM_BOXES - 1)) --cleanup
 
+echo "==> precompiling bits/stdc++.h"
+find /usr/include -name "stdc++.h" 2>/dev/null | while read -r header; do
+    g++ -O2 -std=c++17 -x c++-header "$header" -o "${header}.gch" 2>/dev/null || true
+done
+
 for tool in g++ gcc node python3; do
     printf '  %-8s %s\n' "${tool}" "$(command -v "${tool}")"
 done

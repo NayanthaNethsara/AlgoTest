@@ -3,6 +3,8 @@ package runner
 import (
 	"context"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -36,7 +38,39 @@ type limiter struct {
 	maxWait   time.Duration
 }
 
-func newLimiter(maxConcurrent, maxQueue int, maxWait time.Duration, runReserve int) *limiter {
+func parseCPUList(cpuList string, maxConcurrent int) []int {
+	var cores []int
+	cpuList = strings.TrimSpace(cpuList)
+	if cpuList != "" {
+		parts := strings.Split(cpuList, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if strings.Contains(part, "-") {
+				rangeParts := strings.Split(part, "-")
+				if len(rangeParts) == 2 {
+					start, err1 := strconv.Atoi(strings.TrimSpace(rangeParts[0]))
+					end, err2 := strconv.Atoi(strings.TrimSpace(rangeParts[1]))
+					if err1 == nil && err2 == nil && start <= end {
+						for i := start; i <= end; i++ {
+							cores = append(cores, i)
+						}
+					}
+				}
+			} else if c, err := strconv.Atoi(part); err == nil {
+				cores = append(cores, c)
+			}
+		}
+	}
+
+	if len(cores) == 0 {
+		for i := 0; i < maxConcurrent; i++ {
+			cores = append(cores, i)
+		}
+	}
+	return cores
+}
+
+func newLimiter(maxConcurrent, maxQueue int, maxWait time.Duration, runReserve int, cpuList string) *limiter {
 	if maxQueue < 0 {
 		maxQueue = 0
 	}
@@ -59,10 +93,11 @@ func newLimiter(maxConcurrent, maxQueue int, maxWait time.Duration, runReserve i
 		maxWait:   maxWait,
 	}
 
+	cores := parseCPUList(cpuList, maxConcurrent)
 	for id := 0; id < maxConcurrent; id++ {
 		l.free <- Slot{
 			BoxID: id,
-			Core:  id,
+			Core:  cores[id%len(cores)],
 		}
 	}
 	return l
