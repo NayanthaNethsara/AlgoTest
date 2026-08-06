@@ -5,8 +5,8 @@
   "identifier": "com.minialgothon.competitor",
   "build": {
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "pnpm --filter competitor-frontend dev",
-    "beforeBuildCommand": "pnpm --filter competitor-frontend build"
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
   },
   "app": {
     "windows": [
