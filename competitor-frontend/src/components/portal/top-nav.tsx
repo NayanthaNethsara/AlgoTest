@@ -13,7 +13,6 @@ const NAV_LINKS = [
   { href: "/challenges", label: "Challenges", icon: Code2 },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/submissions", label: "Submissions", icon: History },
-  { href: "/monitoring", label: "Monitoring", icon: ShieldAlert, adminOnly: true },
 ];
 
 export function TopNav({ user }: { user: SessionUser | null }) {
@@ -53,7 +52,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
         </Link>
 
         <nav className="flex items-center gap-1 border-l pl-6">
-          {NAV_LINKS.filter((link) => !link.adminOnly || (user?.role as string) === "admin" || (user?.role as string) === "ADMIN").map((link) => {
+          {NAV_LINKS.map((link) => {
             const active = pathname.startsWith(link.href);
             const Icon = link.icon;
             return (

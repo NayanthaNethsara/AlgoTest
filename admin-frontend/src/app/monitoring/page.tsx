@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import {
   Activity,
-  CheckCircle2,
+  AlertTriangle,
   Clock,
   Globe,
   Laptop,
@@ -15,42 +15,95 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { getAdminTelemetryAction } from "@/actions/telemetry";
+import {
+  getAdminTelemetryAction,
+  getAdminProctorRiskAction,
+  getAdminProctorFindingsAction,
+  toggleProctorExemptionAction,
+} from "@/actions/telemetry";
 import type { CompetitorHeartbeat, TelemetryClientType, TelemetryStatus } from "@/types/telemetry";
 
+interface CompetitorRisk {
+  userId: string;
+  username: string;
+  displayName: string;
+  proctorExempt: boolean;
+  score: number;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  findingCount: number;
+  lastPingAt: string | null;
+}
+
+interface EvidenceFinding {
+  id: string;
+  ruleId: string;
+  title: string;
+  category: string;
+  weight: number;
+  evidence: any;
+  createdAt: string;
+}
+
 export default function OnsiteMonitoringPage() {
+  const [activeTab, setActiveTab] = useState<"TELEMETRY" | "PROCTOR_RISK">("PROCTOR_RISK");
   const [telemetryList, setTelemetryList] = useState<CompetitorHeartbeat[]>([]);
+  const [riskList, setRiskList] = useState<CompetitorRisk[]>([]);
+  const [selectedUserRisk, setSelectedUserRisk] = useState<CompetitorRisk | null>(null);
+  const [userFindings, setUserFindings] = useState<EvidenceFinding[]>([]);
+  const [loadingFindings, setLoadingFindings] = useState(false);
+
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isAutoRefreshActive, setIsAutoRefreshActive] = useState<boolean>(true);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
   const [isPending, startTransition] = useTransition();
 
-  const fetchTelemetryData = () => {
+  const fetchData = () => {
     startTransition(async () => {
-      const res = await getAdminTelemetryAction();
-      if (!res.error) {
-        setTelemetryList(res.telemetry);
-        setLastRefreshedAt(new Date());
+      const [telRes, riskRes] = await Promise.all([
+        getAdminTelemetryAction(),
+        getAdminProctorRiskAction(),
+      ]);
+      if (!telRes.error) {
+        setTelemetryList(telRes.telemetry);
+      }
+      if (!riskRes.error) {
+        setRiskList(riskRes.risk);
       }
     });
   };
 
+  const handleFetchUserFindings = async (user: CompetitorRisk) => {
+    setSelectedUserRisk(user);
+    setLoadingFindings(true);
+    const res = await getAdminProctorFindingsAction(user.userId);
+    if (!res.error) {
+      setUserFindings(res.findings);
+    }
+    setLoadingFindings(false);
+  };
+
+  const handleToggleExemption = async (userId: string, currentExempt: boolean) => {
+    const res = await toggleProctorExemptionAction(userId, !currentExempt);
+    if (!res.error) {
+      fetchData();
+      if (selectedUserRisk?.userId === userId) {
+        setSelectedUserRisk((prev) => (prev ? { ...prev, proctorExempt: !currentExempt } : null));
+      }
+    }
+  };
+
   useEffect(() => {
-    fetchTelemetryData();
+    fetchData();
   }, []);
 
   useEffect(() => {
     if (!isAutoRefreshActive) return;
-    const interval = setInterval(() => {
-      fetchTelemetryData();
-    }, 10_000);
+    const interval = setInterval(fetchData, 10_000);
     return () => clearInterval(interval);
   }, [isAutoRefreshActive]);
 
-  const filteredList = telemetryList.filter((item) => {
-    const matchesStatus =
-      statusFilter === "ALL" || item.status === statusFilter;
+  const filteredTelemetry = telemetryList.filter((item) => {
+    const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
     const matchesQuery =
       searchQuery.trim() === "" ||
       item.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -60,20 +113,29 @@ export default function OnsiteMonitoringPage() {
     return matchesStatus && matchesQuery;
   });
 
+  const filteredRisk = riskList.filter((item) => {
+    const matchesQuery =
+      searchQuery.trim() === "" ||
+      item.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.displayName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSeverity = statusFilter === "ALL" || item.severity === statusFilter;
+    return matchesQuery && matchesSeverity;
+  });
+
   const onlineCount = telemetryList.filter((i) => i.status === "ONLINE").length;
-  const staleCount = telemetryList.filter((i) => i.status === "STALE").length;
-  const offlineCount = telemetryList.filter((i) => i.status === "OFFLINE").length;
+  const highRiskCount = riskList.filter((i) => i.severity === "HIGH").length;
 
   return (
     <div className="flex flex-col gap-6 p-8 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <Activity className="size-6 text-primary" />
-            Onsite Competitor Telemetry Tracker
+            <ShieldAlert className="size-6 text-primary" />
+            Onsite Proctoring & Risk Control Center
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Real-time status monitoring for competitor desktop app background heartbeats.
+            Real-time monitoring of contestant desktop heartbeats, LLM port probes, and non-intrusive risk scoring.
           </p>
         </div>
 
@@ -91,7 +153,7 @@ export default function OnsiteMonitoringPage() {
           </button>
 
           <button
-            onClick={fetchTelemetryData}
+            onClick={fetchData}
             disabled={isPending}
             className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
@@ -101,54 +163,37 @@ export default function OnsiteMonitoringPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="rounded-lg border bg-card p-4 flex items-center justify-between shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">Total Competitors</p>
-            <p className="text-2xl font-bold text-foreground mt-1">{telemetryList.length}</p>
-          </div>
-          <div className="p-2.5 rounded-full bg-secondary text-secondary-foreground">
-            <UserCheck className="size-5" />
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-card p-4 flex items-center justify-between shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-emerald-500">Active Online</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{onlineCount}</p>
-          </div>
-          <div className="p-2.5 rounded-full bg-emerald-500/10 text-emerald-400">
-            <Wifi className="size-5" />
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-card p-4 flex items-center justify-between shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-amber-500">Stale Ping (&gt;45s)</p>
-            <p className="text-2xl font-bold text-amber-400 mt-1">{staleCount}</p>
-          </div>
-          <div className="p-2.5 rounded-full bg-amber-500/10 text-amber-400">
-            <ShieldAlert className="size-5" />
-          </div>
-        </div>
-
-        <div className="rounded-lg border bg-card p-4 flex items-center justify-between shadow-sm">
-          <div>
-            <p className="text-xs font-medium text-destructive">Offline (&gt;2m)</p>
-            <p className="text-2xl font-bold text-destructive mt-1">{offlineCount}</p>
-          </div>
-          <div className="p-2.5 rounded-full bg-destructive/10 text-destructive">
-            <WifiOff className="size-5" />
-          </div>
-        </div>
+      {/* Tabs */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setActiveTab("PROCTOR_RISK")}
+          className={`px-4 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+            activeTab === "PROCTOR_RISK"
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-card text-muted-foreground border-border hover:bg-muted"
+          }`}
+        >
+          Risk & Evidence Findings ({highRiskCount} High Risk)
+        </button>
+        <button
+          onClick={() => setActiveTab("TELEMETRY")}
+          className={`px-4 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+            activeTab === "TELEMETRY"
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-card text-muted-foreground border-border hover:bg-muted"
+          }`}
+        >
+          Live Telemetry Heartbeats ({onlineCount} Online)
+        </button>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+      {/* Search Bar */}
+      <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search competitor name, team, or IP address..."
+            placeholder="Search contestant by name, username..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-xs rounded-md border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
@@ -156,7 +201,7 @@ export default function OnsiteMonitoringPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {["ALL", "ONLINE", "STALE", "OFFLINE"].map((tab) => (
+          {(activeTab === "PROCTOR_RISK" ? ["ALL", "HIGH", "MEDIUM", "LOW"] : ["ALL", "ONLINE", "STALE", "OFFLINE"]).map((tab) => (
             <button
               key={tab}
               onClick={() => setStatusFilter(tab)}
@@ -172,30 +217,148 @@ export default function OnsiteMonitoringPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
-            <thead>
-              <tr className="border-b bg-muted/30 text-muted-foreground font-medium">
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Competitor</th>
-                <th className="px-4 py-3">Team</th>
-                <th className="px-4 py-3">Portal Type</th>
-                <th className="px-4 py-3">Active Window</th>
-                <th className="px-4 py-3">IP &amp; OS</th>
-                <th className="px-4 py-3">Processes Overview</th>
-                <th className="px-4 py-3">Last Ping</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredList.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                    No competitor telemetry heartbeats found matching criteria.
-                  </td>
+      {/* PROCTOR RISK TAB CONTENT */}
+      {activeTab === "PROCTOR_RISK" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className={`${selectedUserRisk ? "lg:col-span-2" : "lg:col-span-3"} rounded-lg border bg-card overflow-hidden shadow-sm`}>
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b bg-muted/30 text-muted-foreground font-medium">
+                  <th className="px-4 py-3">Contestant</th>
+                  <th className="px-4 py-3">Risk Score</th>
+                  <th className="px-4 py-3">Findings</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredRisk.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                      No contestant risk entries found matching filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRisk.map((item) => (
+                    <tr
+                      key={item.userId}
+                      onClick={() => handleFetchUserFindings(item)}
+                      className={`hover:bg-muted/20 transition-colors cursor-pointer ${
+                        selectedUserRisk?.userId === item.userId ? "bg-muted/40" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-foreground">{item.displayName}</div>
+                        <div className="text-[11px] text-muted-foreground font-mono">@{item.username}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                            item.severity === "HIGH"
+                              ? "bg-destructive/10 text-destructive border border-destructive/30"
+                              : item.severity === "MEDIUM"
+                              ? "bg-amber-500/10 text-amber-500 border border-amber-500/30"
+                              : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/30"
+                          }`}
+                        >
+                          {item.score} pts ({item.severity})
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-mono">{item.findingCount} evidence rules</td>
+                      <td className="px-4 py-3">
+                        {item.proctorExempt ? (
+                          <span className="text-[10px] font-semibold text-emerald-400 flex items-center gap-1">
+                            <UserCheck className="size-3" /> EXEMPT
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-muted-foreground">ENFORCED</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleExemption(item.userId, item.proctorExempt);
+                          }}
+                          className="text-[11px] font-medium text-primary hover:underline"
+                        >
+                          {item.proctorExempt ? "Enforce" : "Exempt"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Evidence Details Drawer */}
+          {selectedUserRisk && (
+            <div className="rounded-lg border bg-card p-4 space-y-3 shadow-sm">
+              <div className="flex justify-between items-start border-b pb-2">
+                <div>
+                  <h3 className="font-bold text-foreground text-sm">{selectedUserRisk.displayName}</h3>
+                  <p className="text-[11px] text-muted-foreground font-mono">@{selectedUserRisk.username}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedUserRisk(null)}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Close
+                </button>
+              </div>
+
+              {loadingFindings ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">Loading evidence trail...</div>
+              ) : userFindings.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                  <ShieldCheck className="size-6 text-emerald-500" />
+                  No evidence findings recorded.
+                </div>
               ) : (
-                filteredList.map((item) => (
+                <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                  {userFindings.map((f) => (
+                    <div key={f.id} className="p-3 bg-muted/40 border rounded-md text-xs space-y-1">
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="text-amber-500 flex items-center gap-1">
+                          <AlertTriangle className="size-3.5" />
+                          {f.title}
+                        </span>
+                        <span className="text-destructive font-mono">+{f.weight} pts</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">{f.category}</p>
+                      {f.evidence && (
+                        <pre className="text-[10px] font-mono bg-background p-2 rounded text-foreground overflow-x-auto">
+                          {JSON.stringify(f.evidence, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TELEMETRY TAB CONTENT */}
+      {activeTab === "TELEMETRY" && (
+        <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="border-b bg-muted/30 text-muted-foreground font-medium">
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Competitor</th>
+                  <th className="px-4 py-3">Team</th>
+                  <th className="px-4 py-3">Portal Type</th>
+                  <th className="px-4 py-3">Active Window</th>
+                  <th className="px-4 py-3">IP &amp; OS</th>
+                  <th className="px-4 py-3">Last Ping</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredTelemetry.map((item) => (
                   <tr key={item.user_id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3">
                       <StatusBadge status={item.status} />
@@ -205,37 +368,28 @@ export default function OnsiteMonitoringPage() {
                       <div className="text-[11px] text-muted-foreground font-mono">@{item.username}</div>
                     </td>
                     <td className="px-4 py-3">
-                      {item.team_name ? (
-                        <span className="font-medium text-foreground">{item.team_name}</span>
-                      ) : (
-                        <span className="text-muted-foreground italic">No Team</span>
-                      )}
+                      {item.team_name ? item.team_name : <span className="text-muted-foreground italic">No Team</span>}
                     </td>
                     <td className="px-4 py-3">
                       <ClientTypeBadge clientType={item.client_type} />
                     </td>
-                    <td className="px-4 py-3 max-w-xs truncate">
-                      <span className="font-mono text-[11px] text-foreground">
-                        {item.active_window || "Unknown Window"}
-                      </span>
+                    <td className="px-4 py-3 max-w-xs truncate font-mono text-[11px]">
+                      {item.active_window || "Unknown Window"}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-mono text-[11px] text-foreground">{item.ip_address || "N/A"}</div>
-                      <div className="text-[10px] text-muted-foreground">{item.os_info || "Desktop App"}</div>
-                    </td>
-                    <td className="px-4 py-3 max-w-xs">
-                      <ProcessSummary processes={item.running_processes} />
+                      <div className="font-mono text-[11px]">{item.ip_address || "N/A"}</div>
+                      <div className="text-[10px] text-muted-foreground">{item.os_info}</div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {formatTimeAgo(item.last_ping_at)}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -265,45 +419,6 @@ function StatusBadge({ status }: { status: TelemetryStatus }) {
   );
 }
 
-function ProcessSummary({ processes }: { processes: string[] }) {
-  if (!processes || processes.length === 0) {
-    return <span className="text-muted-foreground italic">No processes</span>;
-  }
-
-  const primaryProcesses = processes.slice(0, 4);
-  const remainingCount = processes.length - primaryProcesses.length;
-
-  return (
-    <div className="flex flex-wrap gap-1 items-center">
-      {primaryProcesses.map((proc, idx) => (
-        <span
-          key={idx}
-          className="px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground font-mono text-[10px]"
-        >
-          {proc}
-        </span>
-      ))}
-      {remainingCount > 0 && (
-        <span className="text-[10px] font-medium text-muted-foreground">
-          +{remainingCount} more
-        </span>
-      )}
-    </div>
-  );
-}
-
-function formatTimeAgo(isoString: string): string {
-  if (!isoString) return "Never";
-  const date = new Date(isoString);
-  if (isNaN(date.getTime())) return "Never";
-
-  const diffSeconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-  if (diffSeconds < 10) return "Just now";
-  if (diffSeconds < 60) return `${diffSeconds}s ago`;
-  if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
-  return `${Math.floor(diffSeconds / 3600)}h ago`;
-}
-
 function ClientTypeBadge({ clientType }: { clientType?: TelemetryClientType }) {
   if (clientType === "WEB") {
     return (
@@ -320,4 +435,16 @@ function ClientTypeBadge({ clientType }: { clientType?: TelemetryClientType }) {
       DESKTOP APP
     </span>
   );
+}
+
+function formatTimeAgo(isoString: string): string {
+  if (!isoString) return "Never";
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return "Never";
+
+  const diffSeconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  if (diffSeconds < 10) return "Just now";
+  if (diffSeconds < 60) return `${diffSeconds}s ago`;
+  if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;
+  return `${Math.floor(diffSeconds / 3600)}h ago`;
 }
