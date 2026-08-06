@@ -1,19 +1,14 @@
 use std::collections::HashSet;
-use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sysinfo::System;
 use tauri::Manager;
 
-struct NodeServer(Mutex<Option<Child>>);
-
-impl Drop for NodeServer {
-    fn drop(&mut self) {
-        if let Some(mut child) = self.0.lock().unwrap().take() {
-            let _ = child.kill();
-        }
-    }
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AppConfig {
+    pub server_url: String,
+    pub api_url: String,
 }
 
 #[derive(Clone)]
@@ -60,71 +55,53 @@ fn update_telemetry_auth(
     }
 }
 
-fn find_server_dir(app: &tauri::App) -> Option<std::path::PathBuf> {
-    if let Ok(exe) = std::env::current_exe() {
-        let exe_dir = exe.parent()?;
-        let server_dir = exe_dir.join("server").join("competitor-frontend");
-        if server_dir.join("server.js").exists() {
-            return Some(server_dir);
-        }
+#[tauri::command]
+fn get_client_config(app_handle: tauri::AppHandle) -> Result<Option<AppConfig>, String> {
+    let path = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())?
+        .join("client.json");
+    if path.exists() {
+        let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+        let cfg: AppConfig = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+        Ok(Some(cfg))
+    } else {
+        Ok(None)
     }
-
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        let server_dir = resource_dir.join("server").join("competitor-frontend");
-        if server_dir.join("server.js").exists() {
-            return Some(server_dir);
-        }
-    }
-
-    None
 }
 
-fn find_node_binary(server_dir: &std::path::Path) -> std::path::PathBuf {
-    let node_name = if cfg!(target_os = "windows") {
-        "node.exe"
-    } else {
-        "node"
+#[tauri::command]
+fn set_client_config(
+    server_url: String,
+    api_url: String,
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, TelemetryState>,
+) -> Result<(), String> {
+    let config_dir = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+
+    let cfg = AppConfig {
+        server_url: server_url.clone(),
+        api_url: api_url.clone(),
     };
 
-    let bundled_node = server_dir.join("bin").join(node_name);
-    if bundled_node.exists() {
-        return bundled_node;
+    let content = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
+    std::fs::write(config_dir.join("client.json"), content).map_err(|e| e.to_string())?;
+
+    if let Ok(mut lock) = state.api_url.lock() {
+        *lock = api_url;
     }
 
-    if let Some(parent) = server_dir.parent() {
-        let parent_node = parent.join("bin").join(node_name);
-        if parent_node.exists() {
-            return parent_node;
-        }
+    if let Some(window) = app_handle.get_webview_window("main") {
+        let parsed_url: reqwest::Url = server_url.parse().map_err(|e| format!("{}", e))?;
+        let _ = window.navigate(parsed_url);
     }
 
-    std::path::PathBuf::from("node")
-}
-
-fn spawn_next_server(app: &tauri::App) -> Option<Child> {
-    let server_dir = find_server_dir(app)?;
-    let server_js = server_dir.join("server.js");
-    let node_bin = find_node_binary(&server_dir);
-
-    log::info!("Starting Next.js server with {:?} from {:?}", node_bin, server_js);
-
-    let child = Command::new(&node_bin)
-        .arg(&server_js)
-        .current_dir(&server_dir)
-        .env("PORT", "3000")
-        .env("HOSTNAME", "127.0.0.1")
-        .env("NODE_ENV", "production")
-        .env(
-            "NEXT_PUBLIC_API_URL",
-            std::env::var("NEXT_PUBLIC_API_URL")
-                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
-        )
-        .spawn()
-        .map_err(|e| log::error!("Failed to start Node server: {}", e))
-        .ok()?;
-
-    std::thread::sleep(Duration::from_millis(2000));
-    Some(child)
+    Ok(())
 }
 
 fn collect_running_processes() -> Vec<String> {
@@ -143,8 +120,6 @@ fn collect_running_processes() -> Vec<String> {
             || lower.contains("kernel_task")
             || lower.contains("dbus")
             || lower.contains("syslog")
-            || lower.contains("helper")
-            || lower.contains("service")
         {
             continue;
         }
@@ -226,7 +201,12 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(telemetry_state)
-        .invoke_handler(tauri::generate_handler![update_telemetry_auth, exit_app])
+        .invoke_handler(tauri::generate_handler![
+            update_telemetry_auth,
+            exit_app,
+            get_client_config,
+            set_client_config
+        ])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -236,9 +216,19 @@ pub fn run() {
                 )?;
             }
 
-            if !cfg!(debug_assertions) {
-                let child = spawn_next_server(app);
-                app.manage(NodeServer(Mutex::new(child)));
+            // Check for existing client config to navigate automatically
+            if let Ok(path) = app.path().app_config_dir().map(|p| p.join("client.json")) {
+                if path.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        if let Ok(cfg) = serde_json::from_str::<AppConfig>(&content) {
+                            if let Some(window) = app.get_webview_window("main") {
+                                if let Ok(target) = cfg.server_url.parse::<reqwest::Url>() {
+                                    let _ = window.navigate(target);
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             Ok(())

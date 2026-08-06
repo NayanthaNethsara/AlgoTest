@@ -67,8 +67,6 @@ desktop: competitor-desktop
 
 desktop-build:
 	cd competitor-desktop && pnpm build
-	@echo "Copying server bundle into .app..."
-	node scripts/copy-app-server.mjs
 	@echo "Desktop build complete!"
 
 frontend: competitor-frontend
