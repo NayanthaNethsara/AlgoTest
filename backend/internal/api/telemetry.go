@@ -68,3 +68,27 @@ func (h *handler) listAdminTelemetry(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"telemetry": heartbeats})
 }
+
+// @Summary Self Proctor Status
+// @Description Check current user proctor agent liveness status and exemption flag.
+// @Tags Telemetry
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {object} map[string]string
+// @Router /api/v1/telemetry/self [get]
+func (h *handler) getProctorSelfStatus(c *gin.Context) {
+	u := currentUser(c)
+	if h.proctorGate == nil {
+		c.JSON(http.StatusOK, gin.H{"allowed": true, "exempt": true})
+		return
+	}
+
+	status, err := h.proctorGate.Check(c.Request.Context(), u.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check proctor status"})
+		return
+	}
+
+	c.JSON(http.StatusOK, status)
+}

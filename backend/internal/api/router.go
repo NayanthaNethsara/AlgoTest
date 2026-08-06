@@ -16,6 +16,7 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/proctor"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
@@ -24,7 +25,21 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
 
-	h := &handler{cfg: cfg, judge: j, runner: rn, db: pool, users: users, sessions: sessions, problems: problems, teams: teams, telemetry: telemetryRepo}
+	proctorRepo := proctor.NewRepository(pool)
+	proctorGate := proctor.NewGate(proctorRepo)
+
+	h := &handler{
+		cfg:         cfg,
+		judge:       j,
+		runner:      rn,
+		db:          pool,
+		users:       users,
+		sessions:    sessions,
+		problems:    problems,
+		teams:       teams,
+		telemetry:   telemetryRepo,
+		proctorGate: proctorGate,
+	}
 
 	r.GET("/healthz", h.health)
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -42,6 +57,7 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 		v1.GET("/leaderboard", h.requireUser, h.getLeaderboard)
 
 		v1.POST("/telemetry/ping", h.requireUser, h.pingTelemetry)
+		v1.GET("/telemetry/self", h.requireUser, h.getProctorSelfStatus)
 
 		admin := v1.Group("/admin", h.requireUser, h.requireAdmin)
 		{

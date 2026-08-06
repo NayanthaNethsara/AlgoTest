@@ -14,6 +14,7 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/proctor"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
@@ -27,10 +28,11 @@ type handler struct {
 	runner    *runner.Runner
 	db        *pgxpool.Pool
 	users     *user.Repository
-	sessions  *session.Repository
-	problems  *problem.Repository
-	teams     *team.Repository
-	telemetry *telemetry.Repository
+	sessions    *session.Repository
+	problems    *problem.Repository
+	teams       *team.Repository
+	telemetry   *telemetry.Repository
+	proctorGate *proctor.Gate
 }
 
 // @Summary System Health Check
@@ -137,6 +139,24 @@ func (h *handler) createSubmission(c *gin.Context) {
 	}
 
 	u := currentUser(c)
+
+	// 4. Submission Gate (proctor agent liveness enforcement)
+	if h.proctorGate != nil {
+		status, err := h.proctorGate.Check(c.Request.Context(), u.ID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to evaluate proctor liveness"})
+			return
+		}
+		if !status.Allowed {
+			c.JSON(http.StatusLocked, gin.H{
+				"error":              "Proctor agent stale or inactive. Please launch desktop client to submit.",
+				"code":               "AGENT_STALE",
+				"last_ping_at":       status.LastPingAt,
+				"seconds_since_ping": status.SecondsSincePing,
+			})
+			return
+		}
+	}
 	teamID := u.ID
 	if u.TeamID != nil && *u.TeamID != "" {
 		teamID = *u.TeamID
