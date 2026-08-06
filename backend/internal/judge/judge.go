@@ -74,6 +74,13 @@ func (j *Judge) Result(ctx context.Context, id string) (*Result, bool, error) {
 // Start spawns worker goroutines that pull queued submissions from DB.
 func (j *Judge) Start(ctx context.Context) {
 	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		j.StartLeaseReaper(ctx, 10*time.Second)
+	}()
+
 	for i := 0; i < j.workers; i++ {
 		wg.Add(1)
 		go func(workerID int) {

@@ -56,7 +56,7 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 
 		v1.GET("/leaderboard", h.requireUser, h.getLeaderboard)
 
-		v1.POST("/telemetry/ping", h.requireUser, h.pingTelemetry)
+		v1.POST("/telemetry/ping", h.requireUser, rateLimitMiddleware(telemetryPingLimiter, userIDKeyFunc), h.pingTelemetry)
 		v1.GET("/telemetry/self", h.requireUser, h.getProctorSelfStatus)
 
 		admin := v1.Group("/admin", h.requireUser, h.requireAdmin)
@@ -93,14 +93,25 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 			admin.GET("/telemetry", h.listAdminTelemetry)
 		}
 
-		v1.POST("/run", h.requireUser, h.runCode)
+		v1.POST("/run", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), h.runCode)
 
-		v1.POST("/submissions", h.requireUser, h.createSubmission)
+		v1.POST("/submissions", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(submissionLimiter, userIDKeyFunc), h.createSubmission)
 		v1.GET("/submissions/stream", h.requireUser, h.streamSubmissions)
-		v1.GET("/submissions/:id", h.requireUser, h.getSubmission)
+		v1.GET("/submissions/:id", h.requireUser, rateLimitMiddleware(submissionStatusLimiter, userIDKeyFunc), h.getSubmission)
 	}
 
 	return r
+}
+
+func userIDKeyFunc(c *gin.Context) string {
+	u, exists := c.Get(contextUserKey)
+	if !exists {
+		return ""
+	}
+	if usr, ok := u.(user.User); ok {
+		return usr.ID
+	}
+	return ""
 }
 
 func corsMiddleware(origins []string) gin.HandlerFunc {

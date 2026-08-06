@@ -44,10 +44,18 @@ func (h *handler) login(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+
+	ip := c.ClientIP()
+	if !loginIPLimiter.Get(ip).Allow() || !loginUserLimiter.Get(strings.ToLower(req.Username)).Allow() {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many login attempts. Please wait a moment."})
+		return
+	}
+
+	loginSemaphore <- struct{}{}
+	defer func() { <-loginSemaphore }()
+
 	u, hash, err := h.users.GetForLogin(ctx, req.Username)
 	if err != nil {
-		// Spend the same time as a real bcrypt check so response timing can't
-		// distinguish "no such user" from "wrong password".
 		auth.DummyCompare(req.Password)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid username or password"})
 		return

@@ -23,7 +23,8 @@ func (r *Repository) HasActiveSubmission(ctx context.Context, teamID, problemID 
 	query := `
 		SELECT EXISTS (
 			SELECT 1 FROM submissions
-			WHERE team_id = $1 AND problem_id = $2 AND state IN ('queued', 'running')
+			WHERE team_id = $1 AND problem_id = $2 
+			  AND (state = 'queued' OR (state = 'running' AND (lease_until IS NULL OR lease_until >= NOW())))
 		);
 	`
 	var active bool
