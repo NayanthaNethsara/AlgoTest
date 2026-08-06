@@ -28,11 +28,13 @@ type handler struct {
 	runner    *runner.Runner
 	db        *pgxpool.Pool
 	users     *user.Repository
-	sessions    *session.Repository
-	problems    *problem.Repository
-	teams       *team.Repository
-	telemetry   *telemetry.Repository
-	proctorGate *proctor.Gate
+	sessions         *session.Repository
+	problems         *problem.Repository
+	teams            *team.Repository
+	telemetry        *telemetry.Repository
+	proctorGate      *proctor.Gate
+	proctorEvaluator *proctor.Evaluator
+	telemetryBatcher *telemetry.Batcher
 }
 
 // @Summary System Health Check
@@ -72,10 +74,19 @@ func (h *handler) listTeams(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"teams": teams})
 }
 
+type submissionProvenancePayload struct {
+	TypedChars        int `json:"typed_chars"`
+	PastedChars       int `json:"pasted_chars"`
+	BulkInsertedChars int `json:"bulk_inserted_chars"`
+	PasteCount        int `json:"paste_count"`
+	LargestPaste      int `json:"largest_paste"`
+}
+
 type createSubmissionRequest struct {
-	ProblemID string `json:"problem_id" binding:"required"`
-	Language  string `json:"language" binding:"required"`
-	Code      string `json:"code" binding:"required"`
+	ProblemID  string                       `json:"problem_id" binding:"required"`
+	Language   string                       `json:"language" binding:"required"`
+	Code       string                       `json:"code" binding:"required"`
+	Provenance *submissionProvenancePayload `json:"provenance,omitempty"`
 }
 
 var supportedLanguages = map[string]string{
@@ -183,6 +194,18 @@ func (h *handler) createSubmission(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create submission: " + err.Error()})
 		return
+	}
+
+	if req.Provenance != nil && h.proctorEvaluator != nil {
+		_ = h.proctorEvaluator.EvaluateSubmissionProvenance(
+			c.Request.Context(),
+			u.ID,
+			created.ID,
+			req.Provenance.TypedChars,
+			req.Provenance.PastedChars,
+			req.Provenance.PasteCount,
+			req.Provenance.LargestPaste,
+		)
 	}
 
 	c.JSON(http.StatusAccepted, gin.H{

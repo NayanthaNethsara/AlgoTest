@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Code2, History, Loader2, Power, Terminal, Trophy, Users } from "lucide-react";
+import { Code2, History, Loader2, Power, ShieldAlert, Terminal, Trophy, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { useSubmissions } from "@/components/providers/submissions-context";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: "/challenges", label: "Challenges", icon: Code2 },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/submissions", label: "Submissions", icon: History },
+  { href: "/monitoring", label: "Monitoring", icon: ShieldAlert, adminOnly: true },
 ];
 
 export function TopNav({ user }: { user: SessionUser | null }) {
@@ -52,7 +53,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
         </Link>
 
         <nav className="flex items-center gap-1 border-l pl-6">
-          {NAV_LINKS.map((link) => {
+          {NAV_LINKS.filter((link) => !link.adminOnly || (user?.role as string) === "admin" || (user?.role as string) === "ADMIN").map((link) => {
             const active = pathname.startsWith(link.href);
             const Icon = link.icon;
             return (

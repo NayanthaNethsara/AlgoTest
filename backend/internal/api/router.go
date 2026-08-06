@@ -27,18 +27,22 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 
 	proctorRepo := proctor.NewRepository(pool)
 	proctorGate := proctor.NewGate(proctorRepo)
+	proctorEval := proctor.NewEvaluator(pool, nil)
+	telemetryBatcher := telemetry.NewBatcher(pool, nil)
 
 	h := &handler{
-		cfg:         cfg,
-		judge:       j,
-		runner:      rn,
-		db:          pool,
-		users:       users,
-		sessions:    sessions,
-		problems:    problems,
-		teams:       teams,
-		telemetry:   telemetryRepo,
-		proctorGate: proctorGate,
+		cfg:              cfg,
+		judge:            j,
+		runner:           rn,
+		db:               pool,
+		users:            users,
+		sessions:         sessions,
+		problems:         problems,
+		teams:            teams,
+		telemetry:        telemetryRepo,
+		proctorGate:      proctorGate,
+		proctorEvaluator: proctorEval,
+		telemetryBatcher: telemetryBatcher,
 	}
 
 	r.GET("/healthz", h.health)
@@ -66,6 +70,7 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 			admin.POST("/users/bulk", h.bulkCreateUsers)
 			admin.POST("/users/:id/reset-password", h.resetPassword)
 			admin.PATCH("/users/:id/role", h.updateRole)
+			admin.PATCH("/users/:id/exemption", h.updateUserProctorExemption)
 			admin.DELETE("/users/:id", h.deleteUser)
 
 			admin.GET("/teams", h.listAdminTeams)
@@ -91,6 +96,8 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 			admin.POST("/teams/:id/unstick", h.unstickTeamSubmissions)
 
 			admin.GET("/telemetry", h.listAdminTelemetry)
+			admin.GET("/proctor/risk", h.listAdminProctorRisk)
+			admin.GET("/proctor/findings/:userId", h.getAdminProctorFindings)
 		}
 
 		v1.POST("/run", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), h.runCode)

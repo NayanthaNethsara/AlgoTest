@@ -41,9 +41,17 @@ func (h *handler) pingTelemetry(c *gin.Context) {
 	}
 
 	clientIPAddress := c.ClientIP()
-	if err := h.telemetry.UpsertHeartbeat(c.Request.Context(), currentUser.ID, currentUser.TeamID, req, clientIPAddress); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record telemetry ping"})
-		return
+	if h.telemetryBatcher != nil {
+		h.telemetryBatcher.Enqueue(currentUser.ID, currentUser.TeamID, req, clientIPAddress)
+	} else {
+		if err := h.telemetry.UpsertHeartbeat(c.Request.Context(), currentUser.ID, currentUser.TeamID, req, clientIPAddress); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record telemetry ping"})
+			return
+		}
+	}
+
+	if h.proctorEvaluator != nil {
+		_ = h.proctorEvaluator.EvaluateTelemetryPing(c.Request.Context(), currentUser.ID, req)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "acknowledged"})
