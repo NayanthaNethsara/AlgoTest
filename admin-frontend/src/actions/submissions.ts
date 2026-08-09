@@ -3,8 +3,6 @@
 import { backendFetch } from "@/lib/api/server";
 import type { AdminSubmission } from "@/types/submission";
 
-export type { AdminSubmission };
-
 export async function listAdminSubmissionsAction(
   statusFilter = "",
   problemId = "",

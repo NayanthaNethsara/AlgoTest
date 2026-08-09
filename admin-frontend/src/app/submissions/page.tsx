@@ -20,8 +20,8 @@ import {
   listAdminSubmissionsAction,
   rejudgeSubmissionAction,
   unstickTeamAction,
-  type AdminSubmission,
 } from "@/actions/submissions";
+import type { AdminSubmission } from "@/types/submission";
 import { getSessionUserAction } from "@/lib/actions/auth";
 import { AdminNavbar } from "@/components/navbar";
 import { Badge } from "@/components/ui/badge";

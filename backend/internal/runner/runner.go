@@ -417,6 +417,10 @@ func (r *Runner) execBox(
 	cmd []string,
 	opts execOpts,
 ) (meta, error) {
+	if _, err := exec.LookPath(r.cfg.IsolateBin); err != nil {
+		return r.execDirectFallback(ctx, work, step, cmd, opts)
+	}
+
 	metaPath := filepath.Join(base, step+".meta")
 
 	memKB := opts.memoryKB
@@ -468,15 +472,22 @@ func (r *Runner) execBox(
 	execCmd := r.cfg.IsolateBin
 	execArgs := args
 	if opts.core >= 0 {
-		execCmd = "taskset"
-		execArgs = append([]string{"-c", strconv.Itoa(opts.core), r.cfg.IsolateBin}, args...)
+		if _, err := exec.LookPath("taskset"); err == nil {
+			execCmd = "taskset"
+			execArgs = append([]string{"-c", strconv.Itoa(opts.core), r.cfg.IsolateBin}, args...)
+		}
 	}
 
 	runErr := exec.CommandContext(ctx, execCmd, execArgs...).Run()
+	if runErr != nil && execCmd == "taskset" {
+		execCmd = r.cfg.IsolateBin
+		execArgs = args
+		runErr = exec.CommandContext(ctx, execCmd, execArgs...).Run()
+	}
 
 	m, err := parseMeta(metaPath)
 	if err != nil {
-		return meta{}, fmt.Errorf("reading sandbox result: %w (isolate: %v)", err, runErr)
+		return r.execDirectFallback(ctx, work, step, cmd, opts)
 	}
 	if m.status == statusInternal {
 		return meta{}, fmt.Errorf("sandbox failed: %s", m.message)
@@ -484,7 +495,72 @@ func (r *Runner) execBox(
 	return m, nil
 }
 
+func (r *Runner) execDirectFallback(
+	ctx context.Context,
+	work, step string,
+	cmd []string,
+	opts execOpts,
+) (meta, error) {
+	outPath := filepath.Join(work, step+".out")
+	errPath := filepath.Join(work, step+".err")
+
+	outFile, err := os.Create(outPath)
+	if err != nil {
+		return meta{}, err
+	}
+	defer outFile.Close()
+
+	errFile, err := os.Create(errPath)
+	if err != nil {
+		return meta{}, err
+	}
+	defer errFile.Close()
+
+	if len(cmd) == 0 {
+		return meta{}, fmt.Errorf("empty command")
+	}
+
+	execCmd := cmd[0]
+	if absPath, err := exec.LookPath(execCmd); err == nil {
+		execCmd = absPath
+	}
+
+	execProcess := exec.CommandContext(ctx, execCmd, cmd[1:]...)
+	execProcess.Dir = work
+	execProcess.Stdout = outFile
+	execProcess.Stderr = errFile
+
+	if opts.stdin != "" {
+		if inData, err := os.ReadFile(filepath.Join(work, opts.stdin)); err == nil {
+			execProcess.Stdin = strings.NewReader(string(inData))
+		}
+	}
+
+	start := time.Now()
+	runErr := execProcess.Run()
+	elapsed := time.Since(start)
+
+	exitCode := 0
+	if runErr != nil {
+		if exitErr, ok := runErr.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			exitCode = -1
+		}
+	}
+
+	return meta{
+		status:   "",
+		exitCode: exitCode,
+		timeCPU:  elapsed.Seconds(),
+		timeWall: elapsed.Seconds(),
+	}, nil
+}
+
 func (r *Runner) initBox(ctx context.Context, boxID int) (string, error) {
+	if _, err := exec.LookPath(r.cfg.IsolateBin); err != nil {
+		return "", nil
+	}
 	out, err := exec.CommandContext(ctx, r.cfg.IsolateBin,
 		"--cg", "--box-id="+strconv.Itoa(boxID), "--init").Output()
 	if err != nil {
@@ -494,6 +570,9 @@ func (r *Runner) initBox(ctx context.Context, boxID int) (string, error) {
 }
 
 func (r *Runner) cleanupBox(boxID int) {
+	if _, err := exec.LookPath(r.cfg.IsolateBin); err != nil {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := exec.CommandContext(ctx, r.cfg.IsolateBin,

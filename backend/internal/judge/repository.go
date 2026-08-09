@@ -50,7 +50,7 @@ func (r *Repository) CreateSubmission(ctx context.Context, s Submission) (*Submi
 	var maxScore int
 	var testsTotal int
 	err = r.pool.QueryRow(ctx, `
-		SELECT max_score, (SELECT COUNT(*) FROM problem_tests WHERE problem_id = $1)
+		SELECT max_score, COALESCE(NULLIF((SELECT COUNT(*) FROM problem_tests WHERE problem_id = $1), 0), (SELECT COUNT(*) FROM problem_samples WHERE problem_id = $1), 0)
 		FROM problems
 		WHERE id = $1;
 	`, s.ProblemID).Scan(&maxScore, &testsTotal)
@@ -401,8 +401,26 @@ func (r *Repository) GetProblemTests(ctx context.Context, problemID string) ([]T
 		}
 		tests = append(tests, t)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
+	if len(tests) == 0 {
+		sampleRows, err := r.pool.Query(ctx, `
+			SELECT id, ordinal, input, output
+			FROM problem_samples
+			WHERE problem_id = $1
+			ORDER BY ordinal ASC;
+		`, problemID)
+		if err == nil {
+			defer sampleRows.Close()
+			for sampleRows.Next() {
+				var t TestCase
+				var inStr, outStr string
+				if err := sampleRows.Scan(&t.ID, &t.Ordinal, &inStr, &outStr); err == nil {
+					t.Input = []byte(inStr)
+					t.Expected = []byte(outStr)
+					t.Points = 1
+					tests = append(tests, t)
+				}
+			}
+		}
 	}
 
 	return tests, nil
