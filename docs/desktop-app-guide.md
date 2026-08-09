@@ -1,6 +1,8 @@
 # Competitor Desktop Application Guide
 
-This guide covers installation, Gatekeeper troubleshooting, building, and deployment for the **MiniAlgothon Competitor Desktop Application** (built with Tauri v2 and Next.js).
+This guide covers installation, Gatekeeper troubleshooting, building, and deployment for the
+**MiniAlgothon Competitor Client** (Tauri v2 + Rust). See
+[client-design.md](client-design.md) for why it is built the way it is.
 
 ---
 
@@ -65,56 +67,108 @@ The Linux release artifact is bundled as a standalone `AppImage`.
 
 ---
 
-## 2. Desktop App Architecture
+## 2. Client Architecture
 
-The desktop application uses a **Zero-Dependency Bundled Standalone Architecture**:
+One binary, two processes, selected by argument:
 
-- **Native Windowing**: Tauri v2 (WebKit/Rust) native desktop shell.
-- **Embedded Server**: Bundles Next.js `.next/standalone` output into `Contents/MacOS/server/`.
-- **Embedded Node.js**: Includes a standalone Node.js binary in `server/bin/node` so competitors do not need Node pre-installed on their machines.
-- **Process Lifecycle**: Tauri automatically spawns the background server on startup and cleans up child processes on app termination.
+| Mode | Command | Role |
+| --- | --- | --- |
+| Proctor agent | `mini-algothon-competitor --agent` | Holds its own enrolled credential, collects endpoint signals, heartbeats every 15s, serves loopback attestation, owns the tray. Autostarts at login. |
+| Contest shell | `mini-algothon-competitor` | A webview pointed at the server-hosted portal. Holds no credential and makes no proctoring decision. |
 
----
+The split is the point: **the shell can crash, hang, or ship a bad portal deploy without
+affecting a contestant's ability to submit**, because liveness lives in a process the UI cannot
+take down. If the shell is unusable, the contestant opens the same portal in a browser and keeps
+working — the agent is still reporting, so the submission gate stays open.
 
-## 3. Building the Desktop Application
+- The agent's loopback bind (`127.0.0.1:47615`, falling back through `47619`) doubles as its
+  single-instance lock. The shell uses `47620` the same way, and answers `/show` on it so the
+  tray raises an existing window instead of opening a second one over unsaved work.
+- The shell posts to the agent every 10s. Three consecutive failures and it relaunches the agent.
+- Contestants use their own IDE and their own compilers. Nothing is bundled: no Node, no
+  Next.js server, no toolchains.
 
-### Local Build Command
+### Why a window is never blank
 
-Build the desktop application bundle locally:
+Three separate causes produced a white screen in the first build of this split, all of them now
+closed:
+
+- **`app.withGlobalTauri` must be `true`.** It defaults to *false* in Tauri v2, so
+  `window.__TAURI__` is never injected and the plain-HTML setup and diagnostics pages died on their
+  first line. `setup/bridge.js` now resolves `__TAURI__` *or* `__TAURI_INTERNALS__` and, if neither
+  exists, prints what to do instead of leaving the page inert.
+- **First run must not spawn-and-exit.** With nothing configured the shell used to launch a detached
+  agent and quit, which is indistinguishable from a crash. `main.rs` now routes an unconfigured or
+  unenrolled client straight into the agent process, which owns setup.
+- **An unreachable portal must not be a blank webview.** The shell probes the portal before creating
+  the window and falls back to a local page naming the address, the reason, a Retry, and a route back
+  to setup. It re-probes every ten seconds and switches to the portal the moment the server answers.
+
+## 3. First run, and everyday use
+
+1. Launch the app. With nothing configured, it opens the **setup window**.
+2. Enter the portal and API addresses for this contest.
+3. Read the proctoring disclosure, which is fetched from the server rather than compiled in.
+   Accept or quit.
+4. Sign in once. This enrols the agent on this machine and writes a token to
+   `agent.json` (mode `0600`); the contestant never signs in here again.
+
+After that the agent starts at login and stays in the tray for the whole contest. The tray menu
+carries the live status, **Open contest window**, **Diagnostics…**, the support code, and
+**Stop proctoring…**.
+
+Stopping is always allowed and never silent: it asks for confirmation, states that scored
+submissions will lock, and reports a clean shutdown to the server so the blackout is not
+recorded as evasion. Testing code with Run keeps working either way.
+
+**Diagnostics** is the contest-day support tool. It shows agent version, uptime, seconds since
+the last acknowledged report, buffered heartbeat count, current signals, and the last twenty
+reports, with one **Copy diagnostics** button. The support code (`USER-MACHINE-BOOT`) resolves a
+contestant to a row in the admin monitoring view without anyone spelling a UUID across a hall.
+
+## 4. Building the Client
 
 ```bash
 make desktop-build
 ```
 
-The output application will be generated at:
+Output:
+
 ```text
 competitor-desktop/src-tauri/target/release/bundle/macos/mini-algothon-competitor.app
 ```
 
-### Building for a Custom Production / Contest Server
+**There is no build-time server URL.** The portal and API addresses are runtime configuration in
+`client.json`, so one binary works for every contest and the server can move without reimaging
+laptops. Config lives at:
 
-To configure the desktop app to connect to your live competition backend API (e.g. `https://api.algothon.example.com` or local server IP `http://192.168.1.100:8080`), set the `NEXT_PUBLIC_API_URL` environment variable during build:
+| Platform | Path |
+| --- | --- |
+| macOS | `~/Library/Application Support/com.minialgothon.competitor/` |
+| Windows | `%APPDATA%\com.minialgothon.competitor\` |
+| Linux | `~/.config/com.minialgothon.competitor/` |
 
-```bash
-NEXT_PUBLIC_API_URL="https://api.algothon.example.com" make desktop-build
+To pre-seed a lab image, write `client.json` there before first launch:
+
+```json
+{ "server_url": "http://contest.local", "api_url": "http://contest.local/api" }
 ```
 
----
+Each contestant still enrols individually — `agent.json` must never be baked into an image, or
+every machine would report as the same person.
 
-## 4. Automated CI/CD GitHub Actions
+## 5. Automated CI/CD GitHub Actions
 
-Multi-platform builds (macOS, Windows, Linux) are fully automated via GitHub Actions in [.github/workflows/build-desktop.yml](file:///.github/workflows/build-desktop.yml).
+Multi-platform builds (macOS, Windows, Linux) are automated in
+[.github/workflows/build-desktop.yml](../.github/workflows/build-desktop.yml).
 
-### Automatic Triggers:
-1. **Pushing to `main`**: Builds all 3 platform packages automatically and uploads build artifacts to the GitHub Actions tab.
-2. **Pushing a Release Tag** (`v*`):
+1. **Pushing to `main`** builds all three platforms and uploads artifacts to the Actions tab.
+2. **Pushing a release tag** (`v*`) publishes a GitHub release:
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
    ```
-   Automatically builds all 3 OS packages and creates a published release on the GitHub Releases page.
-3. **Manual Trigger**: Go to **GitHub Repo -> Actions -> Build Desktop Release Applications -> Run workflow**.
+3. **Manual trigger**: Actions → Build Desktop Release Applications → Run workflow.
 
-### Configuring Production Backend URL in GitHub:
-Go to **GitHub Repository Settings -> Secrets and variables -> Actions -> Variables** and add:
-- `NEXT_PUBLIC_API_URL`: `https://api.algothon.example.com`
+No repository variables are needed. The old `NEXT_PUBLIC_API_URL` build variable is gone with
+the runtime configuration.
