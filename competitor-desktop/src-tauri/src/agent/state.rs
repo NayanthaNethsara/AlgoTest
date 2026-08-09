@@ -17,6 +17,10 @@ pub const BUFFER_CAPACITY: usize = 240;
 /// report the agent as degraded. Matches the server's ONLINE boundary.
 pub const HEALTHY_WINDOW: Duration = Duration::from_secs(45);
 
+/// How long after launch an agent with no acknowledged heartbeat still counts as
+/// starting up rather than unreachable.
+pub const STARTUP_GRACE: Duration = Duration::from_secs(60);
+
 /// The shell reports in every 10s; three misses means it is gone.
 const SHELL_ALIVE_WINDOW: Duration = Duration::from_secs(30);
 
@@ -78,7 +82,7 @@ pub struct TickLog {
 }
 
 pub struct AgentState {
-    pub boot_id: String,
+    pub boot_id: Mutex<String>,
     pub started_at: Instant,
     pub client: Mutex<Option<ClientConfig>>,
     pub enrollment: Mutex<Option<Enrollment>>,
@@ -97,6 +101,8 @@ pub struct AgentState {
     pub history: Mutex<VecDeque<TickLog>>,
     pub last_signals: Mutex<SignalReport>,
     pub app: Mutex<Option<tauri::AppHandle>>,
+    force_heartbeat: AtomicBool,
+    consecutive_rejections: AtomicU64,
     pub stopping: AtomicBool,
     pub revoked: AtomicBool,
     /// Off for in-memory instances so tests never touch a real config directory.
@@ -107,7 +113,7 @@ impl AgentState {
     pub fn new() -> Self {
         Self {
             persist_buffer: true,
-            boot_id: uuid::Uuid::new_v4().to_string(),
+            boot_id: Mutex::new(uuid::Uuid::new_v4().to_string()),
             started_at: Instant::now(),
             client: Mutex::new(crate::config::load_client()),
             enrollment: Mutex::new(crate::config::load_enrollment()),
@@ -128,6 +134,8 @@ impl AgentState {
             history: Mutex::new(VecDeque::with_capacity(20)),
             last_signals: Mutex::new(SignalReport::default()),
             app: Mutex::new(None),
+            force_heartbeat: AtomicBool::new(false),
+            consecutive_rejections: AtomicU64::new(0),
             stopping: AtomicBool::new(false),
             revoked: AtomicBool::new(false),
         }
@@ -140,6 +148,32 @@ impl AgentState {
         state.persist_buffer = false;
         state.buffer = Mutex::new(VecDeque::with_capacity(BUFFER_CAPACITY));
         state
+    }
+
+    pub fn boot_id(&self) -> String {
+        self.boot_id.lock().map(|b| b.clone()).unwrap_or_default()
+    }
+
+    pub fn note_rejection(&self) -> u64 {
+        self.consecutive_rejections.fetch_add(1, Ordering::Relaxed) + 1
+    }
+
+    pub fn clear_rejections(&self) {
+        self.consecutive_rejections.store(0, Ordering::Relaxed);
+    }
+
+    /// Starts a fresh boot: a new id and a sequence back at zero.
+    ///
+    /// Used to break out of a persistent server-side rejection. A contestant must
+    /// never be locked out of submitting because the two sides disagree about
+    /// bookkeeping — a restart is a legitimate reason for the sequence to reset, so
+    /// declaring one costs a low-weight restart finding and nothing else.
+    pub fn rotate_boot(&self) {
+        if let Ok(mut boot) = self.boot_id.lock() {
+            *boot = uuid::Uuid::new_v4().to_string();
+        }
+        self.seq.store(0, Ordering::Relaxed);
+        self.force_heartbeat();
     }
 
     pub fn api_url(&self) -> String {
@@ -185,6 +219,25 @@ impl AgentState {
         if let Ok(mut slot) = self.shell_last_seen.lock() {
             *slot = Some(Instant::now());
         }
+    }
+
+    /// Asks the scheduler to report on its next tick instead of waiting out the
+    /// cadence — used right after enrolling.
+    pub fn force_heartbeat(&self) {
+        self.force_heartbeat.store(true, Ordering::Relaxed);
+    }
+
+    pub fn take_forced_heartbeat(&self) -> bool {
+        self.force_heartbeat.swap(false, Ordering::Relaxed)
+    }
+
+    /// Enrolled, but has not had a heartbeat acknowledged yet and has only just
+    /// launched. Submissions are genuinely locked in this state, but nothing is
+    /// wrong and the contestant must not be told their network is broken.
+    pub fn starting(&self) -> bool {
+        self.is_enrolled()
+            && self.last_ack.lock().ok().and_then(|a| *a).is_none()
+            && self.started_at.elapsed() < STARTUP_GRACE
     }
 
     pub fn healthy(&self) -> bool {
@@ -324,7 +377,7 @@ impl AgentState {
             .ok()
             .and_then(|e| e.as_ref().map(|e| e.machine_id.clone()))
             .unwrap_or_default();
-        super::identity::support_code(&username, &machine, &self.boot_id)
+        super::identity::support_code(&username, &machine, &self.boot_id())
     }
 
     pub fn status_label(&self) -> &'static str {
@@ -334,6 +387,8 @@ impl AgentState {
             "Enrollment revoked"
         } else if self.healthy() {
             "Proctoring: active"
+        } else if self.starting() {
+            "Proctoring: starting"
         } else {
             "Proctoring: not reporting"
         }

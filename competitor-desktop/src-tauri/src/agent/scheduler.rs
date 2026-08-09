@@ -30,9 +30,6 @@ fn run(state: Arc<AgentState>) {
     let mut tick: u64 = 0;
 
     loop {
-        std::thread::sleep(TICK);
-        tick = tick.wrapping_add(1);
-
         if state.stopping.load(Ordering::Relaxed) {
             return;
         }
@@ -45,41 +42,47 @@ fn run(state: Arc<AgentState>) {
 
         let policy = state.policy.lock().map(|p| p.clone()).unwrap_or_default();
         let ticks_per = |seconds: u64| seconds.div_ceil(TICK.as_secs()).max(1);
+        let due = |seconds: u64| tick % ticks_per(seconds) == 0;
 
-        if tick % ticks_per(policy.port_probe_seconds) == 0 {
+        // Report on the very first tick. Waiting a full interval leaves the portal
+        // with no acknowledged heartbeat to point at, which it can only read as
+        // "this agent is not reporting" — a false network alarm every startup, and
+        // 300 of them at once when a contest begins.
+        let forced = state.take_forced_heartbeat();
+        let enrolled = state.is_enrolled() && !state.revoked.load(Ordering::Relaxed);
+
+        if enrolled && (forced || due(policy.heartbeat_seconds)) {
+            reachability.probe();
+            if due(60) {
+                lan = lan_ip();
+            }
+            let processes = collect_matched_processes(&mut system, &policy.process_denylist);
+
+            let report = SignalReport {
+                foreground_dwell: dwell.drain(now),
+                foreground_app: dwell.current(),
+                ports: cached_ports.clone(),
+                internet_reachable: reachability.reachable(),
+                process_matches: processes.matches,
+                total_processes: processes.total_count,
+                lan_ip: lan.clone(),
+            };
+            state.set_last_signals(report.clone());
+            send(&state, &transport, report);
+        }
+
+        // Probed after the heartbeat so a first-run port sweep cannot delay the
+        // first report; the results ride along on the next one.
+        if due(policy.port_probe_seconds) {
             cached_ports = probe_localhost_ports();
         }
 
-        if tick % ticks_per(policy.heartbeat_seconds) != 0 {
-            continue;
-        }
-
-        if !state.is_enrolled() || state.revoked.load(Ordering::Relaxed) {
-            continue;
-        }
-
-        reachability.probe();
-        if tick % ticks_per(60) == 0 {
-            lan = lan_ip();
-        }
-        let processes = collect_matched_processes(&mut system, &policy.process_denylist);
-
-        let report = SignalReport {
-            foreground_dwell: dwell.drain(now),
-            foreground_app: dwell.current(),
-            ports: cached_ports.clone(),
-            internet_reachable: reachability.reachable(),
-            process_matches: processes.matches,
-            total_processes: processes.total_count,
-            lan_ip: lan.clone(),
-        };
-        state.set_last_signals(report.clone());
-
-        send(&state, &transport, report);
-
-        if tick % ticks_per(policy.rules_refresh_seconds) == 0 {
+        if enrolled && tick > 0 && due(policy.rules_refresh_seconds) {
             refresh_policy(&state, &transport);
         }
+
+        std::thread::sleep(TICK);
+        tick = tick.wrapping_add(1);
     }
 }
 
@@ -89,7 +92,7 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
     let summary = dwell_summary(&report.foreground_dwell);
 
     let heartbeat = Heartbeat {
-        boot_id: state.boot_id.clone(),
+        boot_id: state.boot_id(),
         seq,
         mono_ms: state.started_at.elapsed().as_millis() as u64,
         wall_ts: now_iso(),
@@ -113,6 +116,7 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
             // never presents a value the server has never seen.
             state.publish_nonce(nonce);
             state.on_ack();
+            state.clear_rejections();
             state.log("sent", summary);
             flush_buffer(state, transport, &api_url, &token);
         }
@@ -124,6 +128,14 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
         Err(SendError::Rejected(detail)) => {
             state.on_error(format!("heartbeat rejected: {detail}"));
             state.log("rejected", detail);
+
+            // A rejection the agent cannot fix by retrying would otherwise repeat
+            // forever, and every one of those keeps submissions locked. Declaring a
+            // fresh boot resets the sequence the server is objecting to.
+            if state.note_rejection() >= 2 {
+                state.log("recovering", "starting a new boot after repeated rejections".to_string());
+                state.rotate_boot();
+            }
         }
         Err(SendError::Unreachable(detail)) => {
             state.buffer_push(heartbeat);
@@ -182,7 +194,7 @@ pub fn report_shutdown(state: &Arc<AgentState>, reason: &str) {
     let transport = Transport::new();
     if let (api_url, Some(token)) = (state.api_url(), state.token()) {
         if !api_url.is_empty() {
-            let _ = transport.shutdown(&api_url, &token, &state.boot_id, reason);
+            let _ = transport.shutdown(&api_url, &token, &state.boot_id(), reason);
         }
     }
 }

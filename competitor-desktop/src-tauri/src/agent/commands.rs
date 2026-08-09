@@ -94,6 +94,7 @@ pub fn enroll_agent(
         *slot = policy;
     }
     state.revoked.store(false, Ordering::Relaxed);
+    state.force_heartbeat();
     state.log("enrolled", format!("agent enrolled as {}", username.trim()));
 
     windows::close_setup(&app);
@@ -136,7 +137,7 @@ pub fn get_diagnostics(state: State<'_, Arc<AgentState>>) -> Diagnostics {
     Diagnostics {
         status: state.status_label().to_string(),
         agent_version: crate::AGENT_VERSION.to_string(),
-        boot_id: state.boot_id.clone(),
+        boot_id: state.boot_id(),
         support_code: state.support_code(),
         uptime_seconds: state.uptime_seconds(),
         enrolled: enrollment.is_some(),

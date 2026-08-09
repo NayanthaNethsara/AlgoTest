@@ -96,12 +96,15 @@ fn status_json(state: &AgentState) -> String {
     let enrolled = state.is_enrolled();
     serde_json::json!({
         "agent_version": crate::AGENT_VERSION,
-        "boot_id": state.boot_id,
+        "boot_id": state.boot_id(),
         "seq": state.seq.load(Ordering::Relaxed),
         "uptime_s": state.uptime_seconds(),
         "enrolled": enrolled,
         "revoked": state.revoked.load(Ordering::Relaxed),
         "healthy": enrolled && state.healthy(),
+        // Distinguishes "has not reported yet" from "cannot reach the server", so
+        // the portal never accuses a contestant's network during startup.
+        "starting": state.starting(),
         "seconds_since_ack": state.seconds_since_ack(),
         "buffered": state.buffer_len(),
         // The nonce is served only over loopback and only to the portal origin.
