@@ -15,13 +15,20 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
+import Link from "next/link";
 import {
   getAdminTelemetryAction,
   getAdminProctorRiskAction,
   getAdminProctorFindingsAction,
+  getAdminProctorOverviewAction,
+  getAdminAgentsAction,
   toggleProctorExemptionAction,
 } from "@/actions/telemetry";
+import { AgentsTable } from "@/components/monitoring/agents-table";
+import { FleetHeader } from "@/components/monitoring/fleet-header";
+import { formatDuration } from "@/lib/monitoring";
 import type { CompetitorHeartbeat, TelemetryClientType, TelemetryStatus } from "@/types/telemetry";
+import type { EnrolledAgent, ProctorOverview } from "@/types/proctor";
 
 interface CompetitorRisk {
   userId: string;
@@ -45,7 +52,9 @@ interface EvidenceFinding {
 }
 
 export default function OnsiteMonitoringPage() {
-  const [activeTab, setActiveTab] = useState<"TELEMETRY" | "PROCTOR_RISK">("PROCTOR_RISK");
+  const [activeTab, setActiveTab] = useState<"TELEMETRY" | "PROCTOR_RISK" | "AGENTS">("TELEMETRY");
+  const [overview, setOverview] = useState<ProctorOverview | null>(null);
+  const [agents, setAgents] = useState<EnrolledAgent[]>([]);
   const [telemetryList, setTelemetryList] = useState<CompetitorHeartbeat[]>([]);
   const [riskList, setRiskList] = useState<CompetitorRisk[]>([]);
   const [selectedUserRisk, setSelectedUserRisk] = useState<CompetitorRisk | null>(null);
@@ -59,15 +68,23 @@ export default function OnsiteMonitoringPage() {
 
   const fetchData = () => {
     startTransition(async () => {
-      const [telRes, riskRes] = await Promise.all([
+      const [telRes, riskRes, overviewRes, agentsRes] = await Promise.all([
         getAdminTelemetryAction(),
         getAdminProctorRiskAction(),
+        getAdminProctorOverviewAction(),
+        getAdminAgentsAction(),
       ]);
       if (!telRes.error) {
         setTelemetryList(telRes.telemetry);
       }
       if (!riskRes.error) {
         setRiskList(riskRes.risk);
+      }
+      if (overviewRes.overview) {
+        setOverview(overviewRes.overview);
+      }
+      if (!agentsRes.error) {
+        setAgents(agentsRes.agents);
       }
     });
   };
@@ -83,7 +100,19 @@ export default function OnsiteMonitoringPage() {
   };
 
   const handleToggleExemption = async (userId: string, currentExempt: boolean) => {
-    const res = await toggleProctorExemptionAction(userId, !currentExempt);
+    let reason = "";
+    if (!currentExempt) {
+      // An exemption switches proctoring off for one person, so it has to say why
+      // and it lapses on its own. The API rejects a blank reason.
+      const entered = window.prompt(
+        "Granting an exemption lets this contestant submit without a reporting agent.\nIt expires in 4 hours. Reason:",
+        "",
+      );
+      if (entered === null || entered.trim() === "") return;
+      reason = entered.trim();
+    }
+
+    const res = await toggleProctorExemptionAction(userId, !currentExempt, reason);
     if (!res.error) {
       fetchData();
       if (selectedUserRisk?.userId === userId) {
@@ -163,6 +192,8 @@ export default function OnsiteMonitoringPage() {
         </div>
       </div>
 
+      <FleetHeader overview={overview} />
+
       {/* Tabs */}
       <div className="flex items-center gap-3">
         <button
@@ -185,6 +216,16 @@ export default function OnsiteMonitoringPage() {
         >
           Live Telemetry Heartbeats ({onlineCount} Online)
         </button>
+        <button
+          onClick={() => setActiveTab("AGENTS")}
+          className={`px-4 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+            activeTab === "AGENTS"
+              ? "bg-primary text-primary-foreground border-primary"
+              : "bg-card text-muted-foreground border-border hover:bg-muted"
+          }`}
+        >
+          Enrolled Agents ({agents.filter((a) => !a.revokedAt).length})
+        </button>
       </div>
 
       {/* Search Bar */}
@@ -201,7 +242,10 @@ export default function OnsiteMonitoringPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {(activeTab === "PROCTOR_RISK" ? ["ALL", "HIGH", "MEDIUM", "LOW"] : ["ALL", "ONLINE", "STALE", "OFFLINE"]).map((tab) => (
+          {(activeTab === "PROCTOR_RISK"
+            ? ["ALL", "HIGH", "MEDIUM", "LOW"]
+            : ["ALL", "ONLINE", "STALE", "OFFLINE", "GAP"]
+          ).map((tab) => (
             <button
               key={tab}
               onClick={() => setStatusFilter(tab)}
@@ -342,6 +386,8 @@ export default function OnsiteMonitoringPage() {
       )}
 
       {/* TELEMETRY TAB CONTENT */}
+      {activeTab === "AGENTS" && <AgentsTable agents={agents} onChanged={fetchData} />}
+
       {activeTab === "TELEMETRY" && (
         <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
@@ -352,7 +398,9 @@ export default function OnsiteMonitoringPage() {
                   <th className="px-4 py-3">Competitor</th>
                   <th className="px-4 py-3">Team</th>
                   <th className="px-4 py-3">Portal Type</th>
+                  <th className="px-4 py-3">Dark for</th>
                   <th className="px-4 py-3">Active Window</th>
+                  <th className="px-4 py-3">Signals</th>
                   <th className="px-4 py-3">IP &amp; OS</th>
                   <th className="px-4 py-3">Last Ping</th>
                 </tr>
@@ -364,7 +412,12 @@ export default function OnsiteMonitoringPage() {
                       <StatusBadge status={item.status} />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-foreground">{item.display_name}</div>
+                      <Link
+                        href={`/monitoring/${item.user_id}`}
+                        className="font-semibold text-foreground hover:underline"
+                      >
+                        {item.display_name}
+                      </Link>
                       <div className="text-[11px] text-muted-foreground font-mono">@{item.username}</div>
                     </td>
                     <td className="px-4 py-3">
@@ -373,8 +426,14 @@ export default function OnsiteMonitoringPage() {
                     <td className="px-4 py-3">
                       <ClientTypeBadge clientType={item.client_type} />
                     </td>
+                    <td className="px-4 py-3">
+                      <DarkForCell item={item} />
+                    </td>
                     <td className="px-4 py-3 max-w-xs truncate font-mono text-[11px]">
                       {item.active_window || "Unknown Window"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <SignalsCell item={item} />
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-mono text-[11px]">{item.ip_address || "N/A"}</div>
@@ -397,16 +456,16 @@ export default function OnsiteMonitoringPage() {
 function StatusBadge({ status }: { status: TelemetryStatus }) {
   if (status === "ONLINE") {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-        <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-success/10 text-success border border-success/20">
+        <span className="size-1.5 rounded-full bg-success animate-pulse" />
         ONLINE
       </span>
     );
   }
   if (status === "STALE") {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-        <span className="size-1.5 rounded-full bg-amber-400" />
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-warning/10 text-warning border border-warning/20">
+        <span className="size-1.5 rounded-full bg-warning" />
         STALE
       </span>
     );
@@ -419,21 +478,64 @@ function StatusBadge({ status }: { status: TelemetryStatus }) {
   );
 }
 
+// Which client someone uses is a fact, not a severity. Agent liveness owns colour
+// in this table, so this badge stays neutral.
 function ClientTypeBadge({ clientType }: { clientType?: TelemetryClientType }) {
   if (clientType === "WEB") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border text-muted-foreground">
         <Globe className="size-3" />
-        WEB PORTAL
+        BROWSER
+      </span>
+    );
+  }
+  if (clientType === "DESKTOP") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border text-muted-foreground">
+        <Laptop className="size-3" />
+        DESKTOP SHELL
       </span>
     );
   }
 
+  return <span className="text-[10px] text-muted-foreground">AGENT ONLY</span>;
+}
+
+function DarkForCell({ item }: { item: CompetitorHeartbeat }) {
+  if (!item.enrolled) {
+    return <span className="text-[10px] text-warning">never enrolled</span>;
+  }
+  if (item.status === "ONLINE") {
+    return <span className="text-[10px] text-muted-foreground">—</span>;
+  }
+
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-      <Laptop className="size-3" />
-      DESKTOP APP
-    </span>
+    <div className="text-[11px]">
+      <span className={item.in_gap ? "font-semibold text-destructive" : "text-warning"}>
+        {formatDuration(item.offline_seconds)}
+      </span>
+      <div className="text-[10px] text-muted-foreground">
+        {item.stopped_reason
+          ? "stopped deliberately"
+          : item.in_gap
+            ? "blackout, no clean stop"
+            : "no reports"}
+      </div>
+    </div>
+  );
+}
+
+function SignalsCell({ item }: { item: CompetitorHeartbeat }) {
+  const flags: string[] = [];
+  if (item.internet_reachable) flags.push("internet reachable");
+  if (item.process_matches.length > 0) flags.push(item.process_matches.join(", "));
+
+  if (flags.length === 0) {
+    return <span className="text-[10px] text-muted-foreground">clean</span>;
+  }
+
+  return (
+    <span className="text-[11px] text-destructive">{flags.join(" · ")}</span>
   );
 }
 
