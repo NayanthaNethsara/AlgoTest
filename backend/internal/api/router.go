@@ -1,7 +1,10 @@
 package api
 
 import (
+	"context"
+	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -10,25 +13,50 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	_ "github.com/NayanthaNethsara/mini-algothon/backend/docs"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/proctor"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/proctor"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
-func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpool.Pool, users *user.Repository, sessions *session.Repository, problems *problem.Repository, teams *team.Repository, telemetryRepo *telemetry.Repository) *gin.Engine {
+// attestHeader carries the loopback attestation nonce the portal read from the
+// agent over 127.0.0.1.
+const attestHeader = "X-Agent-Attest"
+
+func NewRouter(
+	cfg config.Config,
+	j *judge.Judge,
+	rn *runner.Runner,
+	pool *pgxpool.Pool,
+	users *user.Repository,
+	sessions *session.Repository,
+	problems *problem.Repository,
+	teams *team.Repository,
+	telemetryRepo *telemetry.Repository,
+	log *slog.Logger,
+) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
 
-	proctorRepo := proctor.NewRepository(pool)
-	proctorGate := proctor.NewGate(proctorRepo)
-	proctorEval := proctor.NewEvaluator(pool, nil)
-	telemetryBatcher := telemetry.NewBatcher(pool, nil)
+	proctorEval := proctor.NewEvaluator(pool, log)
+	telemetryBatcher := telemetry.NewBatcher(pool, log)
+	agentRepo := agent.NewRepository(pool)
+	agentService := agent.NewService(agentRepo, telemetryBatcher, proctorEval, log)
+	settings := agent.NewSettings(pool)
+	proctorGate := agent.NewGate(agentRepo, agentService, settings)
+
+	ctx := context.Background()
+	if err := settings.Reload(ctx); err != nil && log != nil {
+		log.Warn("failed to load contest settings; using defaults", "error", err)
+	}
+	go settings.StartRefresher(ctx, 30*time.Second)
+	go agentService.StartSweeper(ctx, 30*time.Second)
 
 	h := &handler{
 		cfg:              cfg,
@@ -40,6 +68,8 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 		problems:         problems,
 		teams:            teams,
 		telemetry:        telemetryRepo,
+		agents:           agentRepo,
+		agentService:     agentService,
 		proctorGate:      proctorGate,
 		proctorEvaluator: proctorEval,
 		telemetryBatcher: telemetryBatcher,
@@ -60,8 +90,25 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 
 		v1.GET("/leaderboard", h.requireUser, h.getLeaderboard)
 
-		v1.POST("/telemetry/ping", h.requireUser, rateLimitMiddleware(telemetryPingLimiter, userIDKeyFunc), h.pingTelemetry)
-		v1.GET("/telemetry/self", h.requireUser, h.getProctorSelfStatus)
+		v1.GET("/proctor/disclosure", h.getProctorDisclosure)
+
+		// The proctor agent authenticates with its own credential, so it keeps
+		// reporting whether or not anyone is signed into the portal.
+		ag := v1.Group("/agent")
+		{
+			ag.POST("/enroll", maxBodySizeMiddleware(4_096), h.enrollAgent)
+			ag.POST("/heartbeat", h.requireAgent, maxBodySizeMiddleware(64_000),
+				rateLimitMiddleware(agentHeartbeatLimiter, agentIDKeyFunc), h.agentHeartbeat)
+			ag.POST("/events", h.requireAgent, maxBodySizeMiddleware(1_000_000),
+				rateLimitMiddleware(agentEventsLimiter, agentIDKeyFunc), h.agentEvents)
+			ag.POST("/shutdown", h.requireAgent, maxBodySizeMiddleware(4_096), h.agentShutdown)
+			ag.GET("/rules", h.requireAgent, h.agentRules)
+		}
+
+		v1.POST("/telemetry/ping", h.requireUser, maxBodySizeMiddleware(4_096),
+			rateLimitMiddleware(telemetryPingLimiter, userIDKeyFunc), h.pingWebTelemetry)
+		v1.GET("/telemetry/self", h.requireUser,
+			rateLimitMiddleware(proctorSelfLimiter, userIDKeyFunc), h.getProctorSelfStatus)
 
 		admin := v1.Group("/admin", h.requireUser, h.requireAdmin)
 		{
@@ -98,6 +145,10 @@ func NewRouter(cfg config.Config, j *judge.Judge, rn *runner.Runner, pool *pgxpo
 			admin.GET("/telemetry", h.listAdminTelemetry)
 			admin.GET("/proctor/risk", h.listAdminProctorRisk)
 			admin.GET("/proctor/findings/:userId", h.getAdminProctorFindings)
+			admin.GET("/proctor/overview", h.getAdminProctorOverview)
+			admin.GET("/proctor/timeline/:userId", h.getAdminProctorTimeline)
+			admin.GET("/proctor/agents", h.listAdminAgents)
+			admin.POST("/proctor/agents/:id/revoke", h.revokeAgent)
 		}
 
 		v1.POST("/run", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), h.runCode)
@@ -121,6 +172,17 @@ func userIDKeyFunc(c *gin.Context) string {
 	return ""
 }
 
+func agentIDKeyFunc(c *gin.Context) string {
+	a, exists := c.Get(contextAgentKey)
+	if !exists {
+		return ""
+	}
+	if ag, ok := a.(agent.Agent); ok {
+		return ag.ID
+	}
+	return ""
+}
+
 func corsMiddleware(origins []string) gin.HandlerFunc {
 	c := cors.Config{
 		AllowOriginFunc: func(origin string) bool {
@@ -135,7 +197,7 @@ func corsMiddleware(origins []string) gin.HandlerFunc {
 			return false
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With", attestHeader},
 		AllowCredentials: true,
 	}
 	return cors.New(c)

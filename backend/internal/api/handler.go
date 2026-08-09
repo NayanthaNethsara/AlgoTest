@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
@@ -23,16 +24,18 @@ import (
 )
 
 type handler struct {
-	cfg       config.Config
-	judge     *judge.Judge
-	runner    *runner.Runner
-	db        *pgxpool.Pool
-	users     *user.Repository
+	cfg              config.Config
+	judge            *judge.Judge
+	runner           *runner.Runner
+	db               *pgxpool.Pool
+	users            *user.Repository
 	sessions         *session.Repository
 	problems         *problem.Repository
 	teams            *team.Repository
 	telemetry        *telemetry.Repository
-	proctorGate      *proctor.Gate
+	agents           *agent.Repository
+	agentService     *agent.Service
+	proctorGate      *agent.Gate
 	proctorEvaluator *proctor.Evaluator
 	telemetryBatcher *telemetry.Batcher
 }
@@ -151,19 +154,21 @@ func (h *handler) createSubmission(c *gin.Context) {
 
 	u := currentUser(c)
 
-	// 4. Submission Gate (proctor agent liveness enforcement)
+	// 4. Submission gate. Liveness is a property of the proctor agent, not of
+	// whichever client is submitting, so the browser fallback works without an
+	// exemption as long as the agent on that machine is reporting.
 	if h.proctorGate != nil {
-		status, err := h.proctorGate.Check(c.Request.Context(), u.ID)
+		decision, err := h.proctorGate.Check(c.Request.Context(), u.ID, c.ClientIP(), c.GetHeader(attestHeader))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to evaluate proctor liveness"})
 			return
 		}
-		if !status.Allowed {
+		if !decision.Allowed {
 			c.JSON(http.StatusLocked, gin.H{
-				"error":              "Proctor agent stale or inactive. Please launch desktop client to submit.",
-				"code":               "AGENT_STALE",
-				"last_ping_at":       status.LastPingAt,
-				"seconds_since_ping": status.SecondsSincePing,
+				"error":              decision.Remedy,
+				"code":               decision.Code,
+				"last_ping_at":       decision.LastSeenAt,
+				"seconds_since_ping": decision.SecondsSincePing,
 			})
 			return
 		}

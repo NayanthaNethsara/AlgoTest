@@ -90,7 +90,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions, problems, teams, telemetryRepo),
+		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions, problems, teams, telemetryRepo, log),
 	}
 
 	go func() {

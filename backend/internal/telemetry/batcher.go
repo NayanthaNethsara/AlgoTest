@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"sync"
 	"time"
@@ -9,30 +10,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type heartbeatItem struct {
-	userID           string
-	teamID           *string
-	activeWindow     string
-	runningProcesses []string
-	osInfo           string
-	ipAddress        string
-	lastPingAt       time.Time
-}
-
+// Batcher absorbs heartbeat writes so 500 agents pinging every 15s cost the
+// request path nothing. Heartbeats are last-write-wins per user, and the whole
+// queue is droppable: proctoring must never stall the contest.
 type Batcher struct {
-	pool    *pgxpool.Pool
-	ch      chan heartbeatItem
-	log     *slog.Logger
-	wg      sync.WaitGroup
-	ctx     context.Context
-	cancel  context.CancelFunc
+	pool   *pgxpool.Pool
+	agents chan AgentRow
+	webs   chan WebRow
+	log    *slog.Logger
+	wg     sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func NewBatcher(pool *pgxpool.Pool, log *slog.Logger) *Batcher {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &Batcher{
 		pool:   pool,
-		ch:     make(chan heartbeatItem, 5000),
+		agents: make(chan AgentRow, 5000),
+		webs:   make(chan WebRow, 2000),
 		log:    log,
 		ctx:    ctx,
 		cancel: cancel,
@@ -42,20 +38,22 @@ func NewBatcher(pool *pgxpool.Pool, log *slog.Logger) *Batcher {
 	return b
 }
 
-func (b *Batcher) Enqueue(userID string, teamID *string, req PingRequest, clientIP string) {
+func (b *Batcher) EnqueueAgent(row AgentRow) {
 	select {
-	case b.ch <- heartbeatItem{
-		userID:           userID,
-		teamID:           teamID,
-		activeWindow:     req.ActiveWindow,
-		runningProcesses: req.RunningProcesses,
-		osInfo:           req.OSInfo,
-		ipAddress:        clientIP,
-		lastPingAt:       time.Now().UTC(),
-	}:
+	case b.agents <- row:
 	default:
 		if b.log != nil {
-			b.log.Warn("telemetry batcher queue full, dropping ping", "user_id", userID)
+			b.log.Warn("telemetry batcher queue full, dropping agent heartbeat", "user_id", row.UserID)
+		}
+	}
+}
+
+func (b *Batcher) EnqueueWeb(row WebRow) {
+	select {
+	case b.webs <- row:
+	default:
+		if b.log != nil {
+			b.log.Warn("telemetry batcher queue full, dropping web ping", "user_id", row.UserID)
 		}
 	}
 }
@@ -65,30 +63,33 @@ func (b *Batcher) worker() {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
-	var batch []heartbeatItem
+	agentBatch := map[string]AgentRow{}
+	webBatch := map[string]WebRow{}
 
 	for {
 		select {
 		case <-b.ctx.Done():
-			b.flush(batch)
+			b.flush(agentBatch, webBatch)
 			return
-		case item := <-b.ch:
-			batch = append(batch, item)
-			if len(batch) >= 100 {
-				b.flush(batch)
-				batch = nil
+		case row := <-b.agents:
+			agentBatch[row.UserID] = row
+			if len(agentBatch) >= 200 {
+				b.flush(agentBatch, webBatch)
+				agentBatch, webBatch = map[string]AgentRow{}, map[string]WebRow{}
 			}
+		case row := <-b.webs:
+			webBatch[row.UserID] = row
 		case <-ticker.C:
-			if len(batch) > 0 {
-				b.flush(batch)
-				batch = nil
+			if len(agentBatch) > 0 || len(webBatch) > 0 {
+				b.flush(agentBatch, webBatch)
+				agentBatch, webBatch = map[string]AgentRow{}, map[string]WebRow{}
 			}
 		}
 	}
 }
 
-func (b *Batcher) flush(items []heartbeatItem) {
-	if len(items) == 0 {
+func (b *Batcher) flush(agentBatch map[string]AgentRow, webBatch map[string]WebRow) {
+	if len(agentBatch) == 0 && len(webBatch) == 0 {
 		return
 	}
 
@@ -97,36 +98,94 @@ func (b *Batcher) flush(items []heartbeatItem) {
 
 	tx, err := b.pool.Begin(ctx)
 	if err != nil {
-		if b.log != nil {
-			b.log.Error("failed to begin telemetry batch transaction", "error", err)
-		}
+		b.logError("failed to begin telemetry batch transaction", err)
 		return
 	}
 	defer tx.Rollback(ctx)
 
-	stmt := `
-		INSERT INTO telemetry_heartbeats (user_id, team_id, active_window, running_processes, os_info, ip_address, last_ping_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (user_id) DO UPDATE
-		SET team_id = EXCLUDED.team_id,
-		    active_window = EXCLUDED.active_window,
-		    running_processes = EXCLUDED.running_processes,
-		    os_info = EXCLUDED.os_info,
-		    ip_address = EXCLUDED.ip_address,
-		    last_ping_at = EXCLUDED.last_ping_at;
-	`
+	// A heartbeat is not worth an fsync; losing the last 2s of liveness data on
+	// a crash is immaterial and this turns 33 commits/s into 0.5.
+	if _, err := tx.Exec(ctx, `SET LOCAL synchronous_commit = off;`); err != nil {
+		b.logError("failed to relax synchronous_commit for telemetry batch", err)
+	}
 
-	for _, item := range items {
-		_, err := tx.Exec(ctx, stmt,
-			item.userID, item.teamID, item.activeWindow, item.runningProcesses, item.osInfo, item.ipAddress, item.lastPingAt,
-		)
-		if err != nil && b.log != nil {
-			b.log.Error("failed to insert telemetry heartbeat in batch", "user_id", item.userID, "error", err)
+	for _, row := range agentBatch {
+		dwell, err := json.Marshal(row.ForegroundDwell)
+		if err != nil || row.ForegroundDwell == nil {
+			dwell = []byte("{}")
+		}
+		ports := row.Ports
+		if len(ports) == 0 {
+			ports = []byte("[]")
+		}
+		matches := row.ProcessMatches
+		if matches == nil {
+			matches = []string{}
+		}
+
+		var agentID any
+		if row.AgentID != "" {
+			agentID = row.AgentID
+		}
+		var bootID any
+		if row.BootID != "" {
+			bootID = row.BootID
+		}
+
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO telemetry_heartbeats (
+				user_id, team_id, agent_id, agent_version, active_window, running_processes,
+				os_info, ip_address, boot_id, seq, signal_hash, shell_alive,
+				internet_reachable, lan_ip, foreground_dwell, ports, last_ping_at
+			) VALUES ($1, (SELECT team_id FROM users WHERE id = $1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+			ON CONFLICT (user_id) DO UPDATE SET
+				team_id            = EXCLUDED.team_id,
+				agent_id           = EXCLUDED.agent_id,
+				agent_version      = EXCLUDED.agent_version,
+				active_window      = EXCLUDED.active_window,
+				running_processes  = EXCLUDED.running_processes,
+				os_info            = EXCLUDED.os_info,
+				ip_address         = EXCLUDED.ip_address,
+				boot_id            = EXCLUDED.boot_id,
+				seq                = GREATEST(telemetry_heartbeats.seq, EXCLUDED.seq),
+				signal_hash        = EXCLUDED.signal_hash,
+				shell_alive        = EXCLUDED.shell_alive,
+				internet_reachable = EXCLUDED.internet_reachable,
+				lan_ip             = EXCLUDED.lan_ip,
+				foreground_dwell   = EXCLUDED.foreground_dwell,
+				ports              = EXCLUDED.ports,
+				last_ping_at       = GREATEST(telemetry_heartbeats.last_ping_at, EXCLUDED.last_ping_at);
+		`,
+			row.UserID, agentID, row.AgentVersion, row.ActiveWindow, matches,
+			row.OSInfo, row.IPAddress, bootID, row.Seq, row.SignalHash, row.ShellAlive,
+			row.InternetReachable, row.LanIP, dwell, ports, row.LastPingAt,
+		); err != nil {
+			b.logError("failed to write agent heartbeat", err)
 		}
 	}
 
-	if err := tx.Commit(ctx); err != nil && b.log != nil {
-		b.log.Error("failed to commit telemetry batch transaction", "error", err)
+	for _, row := range webBatch {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO telemetry_heartbeats (user_id, team_id, web_last_ping_at, web_ip, web_user_agent)
+			VALUES ($1, (SELECT team_id FROM users WHERE id = $1), now(), $2, $3)
+			ON CONFLICT (user_id) DO UPDATE SET
+				team_id          = EXCLUDED.team_id,
+				web_last_ping_at = now(),
+				web_ip           = EXCLUDED.web_ip,
+				web_user_agent   = EXCLUDED.web_user_agent;
+		`, row.UserID, row.IPAddress, row.UserAgent); err != nil {
+			b.logError("failed to write web ping", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		b.logError("failed to commit telemetry batch transaction", err)
+	}
+}
+
+func (b *Batcher) logError(msg string, err error) {
+	if b.log != nil {
+		b.log.Error(msg, "error", err)
 	}
 }
 

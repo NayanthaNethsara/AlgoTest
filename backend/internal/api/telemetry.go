@@ -2,83 +2,85 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
-// @Summary Telemetry Ping
-// @Description Submit lightweight background telemetry heartbeat from competitor desktop app.
+// @Summary Web Portal Ping
+// @Description Record that a contestant is using the browser fallback. Carries no signals and never affects agent liveness.
 // @Tags Telemetry
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param request body telemetry.PingRequest true "Telemetry ping request"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
+// @Param request body telemetry.WebPingRequest true "Web ping request"
+// @Success 202 {object} map[string]string
 // @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
 // @Router /api/v1/telemetry/ping [post]
-func (h *handler) pingTelemetry(c *gin.Context) {
-	if !h.cfg.EnableTelemetry {
-		c.JSON(http.StatusOK, gin.H{"status": "disabled"})
-		return
-	}
+func (h *handler) pingWebTelemetry(c *gin.Context) {
+	u := currentUser(c)
 
-	userVal, exists := c.Get(contextUserKey)
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-	currentUser := userVal.(user.User)
-
-	var req telemetry.PingRequest
+	var req telemetry.WebPingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid telemetry payload"})
 		return
 	}
 
-	clientIPAddress := c.ClientIP()
+	row := telemetry.WebRow{
+		UserID:     u.ID,
+		IPAddress:  c.ClientIP(),
+		UserAgent:  c.GetHeader("User-Agent"),
+		TabVisible: req.TabVisible,
+	}
+
 	if h.telemetryBatcher != nil {
-		h.telemetryBatcher.Enqueue(currentUser.ID, currentUser.TeamID, req, clientIPAddress)
-	} else {
-		if err := h.telemetry.UpsertHeartbeat(c.Request.Context(), currentUser.ID, currentUser.TeamID, req, clientIPAddress); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record telemetry ping"})
-			return
-		}
+		h.telemetryBatcher.EnqueueWeb(row)
+	} else if err := h.telemetry.UpsertWeb(c.Request.Context(), row); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record web ping"})
+		return
 	}
 
-	if h.proctorEvaluator != nil {
-		_ = h.proctorEvaluator.EvaluateTelemetryPing(c.Request.Context(), currentUser.ID, req)
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "acknowledged"})
+	c.JSON(http.StatusAccepted, gin.H{"status": "accepted"})
 }
 
 // @Summary List Telemetry Monitoring Data
-// @Description Fetch live telemetry and online status for all competitor accounts.
+// @Description Fetch live agent telemetry and liveness for competitor accounts.
 // @Tags Admin Telemetry
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {object} map[string][]telemetry.Heartbeat
+// @Param status query string false "Filter by ONLINE, STALE or OFFLINE"
+// @Param q query string false "Match username or display name"
+// @Param limit query int false "Page size (default 100, max 500)"
+// @Param offset query int false "Page offset"
+// @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]string
-// @Failure 403 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/admin/telemetry [get]
 func (h *handler) listAdminTelemetry(c *gin.Context) {
-	heartbeats, err := h.telemetry.ListAllHeartbeats(c.Request.Context())
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	offset, _ := strconv.Atoi(c.Query("offset"))
+
+	heartbeats, total, err := h.telemetry.ListHeartbeats(c.Request.Context(), telemetry.ListFilter{
+		Status: c.Query("status"),
+		Query:  c.Query("q"),
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if heartbeats == nil {
+		heartbeats = []telemetry.Heartbeat{}
+	}
 
-	c.JSON(http.StatusOK, gin.H{"telemetry": heartbeats})
+	c.JSON(http.StatusOK, gin.H{"telemetry": heartbeats, "total": total})
 }
 
 // @Summary Self Proctor Status
-// @Description Check current user proctor agent liveness status and exemption flag.
+// @Description Report the contestant's own agent liveness so the portal can warn them while they still have time to fix it.
 // @Tags Telemetry
 // @Produce json
 // @Security BearerAuth
@@ -92,11 +94,20 @@ func (h *handler) getProctorSelfStatus(c *gin.Context) {
 		return
 	}
 
-	status, err := h.proctorGate.Check(c.Request.Context(), u.ID)
+	decision, loopbackPort, err := h.proctorGate.Status(c.Request.Context(), u.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check proctor status"})
 		return
 	}
 
-	c.JSON(http.StatusOK, status)
+	c.JSON(http.StatusOK, gin.H{
+		"allowed":            decision.Allowed,
+		"code":               decision.Code,
+		"exempt":             decision.Exempt,
+		"active_client":      decision.ActiveClient,
+		"last_ping_at":       decision.LastSeenAt,
+		"seconds_since_ping": decision.SecondsSincePing,
+		"remedy":             decision.Remedy,
+		"loopback_port":      loopbackPort,
+	})
 }

@@ -56,6 +56,12 @@ var (
 	telemetryPingLimiter    = NewLimiterStore(rate.Every(7500*time.Millisecond), 8) // 8 req/min/user
 	adminLimiter            = NewLimiterStore(rate.Every(500*time.Millisecond), 120) // 120 req/min/admin
 
+	// The agent heartbeats every 15s (4/min). The headroom absorbs a reconnect
+	// burst without letting a rogue client flood the ingest path.
+	agentHeartbeatLimiter = NewLimiterStore(rate.Every(5*time.Second), 12)  // 12 req/min/agent
+	agentEventsLimiter    = NewLimiterStore(rate.Every(30*time.Second), 4)  // 2 req/min/agent
+	proctorSelfLimiter    = NewLimiterStore(rate.Every(3*time.Second), 20)  // 20 req/min/user
+
 	// Login bcrypt concurrency semaphore (capacity 8)
 	loginSemaphore = make(chan struct{}, 8)
 )

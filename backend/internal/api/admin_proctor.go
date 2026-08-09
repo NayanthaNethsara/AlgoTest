@@ -7,7 +7,9 @@ import (
 )
 
 type updateExemptionRequest struct {
-	Exempt bool `json:"exempt"`
+	Exempt     bool   `json:"exempt"`
+	Reason     string `json:"reason"`
+	HoursValid int    `json:"hoursValid"`
 }
 
 type postReviewRequest struct {
@@ -33,7 +35,7 @@ func (h *handler) listAdminProctorRisk(c *gin.Context) {
 		FROM users u
 		LEFT JOIN proctor_risk r ON u.id = r.user_id
 		LEFT JOIN telemetry_heartbeats h ON u.id = h.user_id
-		WHERE u.role = 'COMPETITOR'
+		WHERE u.role = 'competitor'
 		ORDER BY r.score DESC NULLS LAST, u.username ASC;
 	`)
 	if err != nil {
@@ -53,7 +55,7 @@ func (h *handler) listAdminProctorRisk(c *gin.Context) {
 		LastPingAt    *string  `json:"lastPingAt"`
 	}
 
-	var items []competitorRiskItem
+	items := []competitorRiskItem{}
 	for rows.Next() {
 		var item competitorRiskItem
 		var pingTime *string
@@ -80,11 +82,12 @@ func (h *handler) getAdminProctorFindings(c *gin.Context) {
 	targetUserID := c.Param("userId")
 
 	rows, err := h.db.Query(c.Request.Context(), `
-		SELECT f.id, f.rule_id, r.title, r.category, f.weight, f.evidence, f.created_at
+		SELECT f.id, f.rule_id, r.title, r.category, f.weight, f.occurrences,
+		       f.evidence, f.submission_id, f.first_seen_at, f.last_seen_at
 		FROM proctor_findings f
 		JOIN proctor_rules r ON f.rule_id = r.id
 		WHERE f.user_id = $1
-		ORDER BY f.created_at DESC;
+		ORDER BY f.last_seen_at DESC;
 	`, targetUserID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -93,19 +96,23 @@ func (h *handler) getAdminProctorFindings(c *gin.Context) {
 	defer rows.Close()
 
 	type findingItem struct {
-		ID        string      `json:"id"`
-		RuleID    string      `json:"ruleId"`
-		Title     string      `json:"title"`
-		Category  string      `json:"category"`
-		Weight    int         `json:"weight"`
-		Evidence  interface{} `json:"evidence"`
-		CreatedAt string      `json:"createdAt"`
+		ID           string      `json:"id"`
+		RuleID       string      `json:"ruleId"`
+		Title        string      `json:"title"`
+		Category     string      `json:"category"`
+		Weight       int         `json:"weight"`
+		Occurrences  int         `json:"occurrences"`
+		Evidence     interface{} `json:"evidence"`
+		SubmissionID *string     `json:"submissionId"`
+		FirstSeenAt  string      `json:"firstSeenAt"`
+		LastSeenAt   string      `json:"lastSeenAt"`
 	}
 
-	var items []findingItem
+	items := []findingItem{}
 	for rows.Next() {
 		var item findingItem
-		if err := rows.Scan(&item.ID, &item.RuleID, &item.Title, &item.Category, &item.Weight, &item.Evidence, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.RuleID, &item.Title, &item.Category, &item.Weight,
+			&item.Occurrences, &item.Evidence, &item.SubmissionID, &item.FirstSeenAt, &item.LastSeenAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -131,9 +138,26 @@ func (h *handler) updateUserProctorExemption(c *gin.Context) {
 		return
 	}
 
+	// An exemption switches proctoring off for one person, so it must say who
+	// granted it, why, and when it lapses. An open-ended flag with no reason is
+	// how a break-glass control quietly becomes the normal path.
+	if req.Exempt && req.Reason == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "a reason is required to grant an exemption"})
+		return
+	}
+	if req.HoursValid <= 0 || req.HoursValid > 24 {
+		req.HoursValid = 4
+	}
+
+	granter := currentUser(c)
 	_, err := h.db.Exec(c.Request.Context(), `
-		UPDATE users SET proctor_exempt = $1 WHERE id = $2;
-	`, req.Exempt, targetID)
+		UPDATE users SET
+			proctor_exempt            = $1,
+			proctor_exempt_reason     = CASE WHEN $1 THEN $2 ELSE '' END,
+			proctor_exempt_until      = CASE WHEN $1 THEN now() + make_interval(hours => $3) ELSE NULL END,
+			proctor_exempt_granted_by = CASE WHEN $1 THEN $4::uuid ELSE NULL END
+		WHERE id = $5;
+	`, req.Exempt, req.Reason, req.HoursValid, granter.ID, targetID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
