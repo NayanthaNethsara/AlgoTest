@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest competitor-frontend competitor-desktop desktop desktop-build frontend admin-frontend dev build test
+.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build frontend admin-frontend dev build test
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -56,6 +56,9 @@ backend-shell:
 #   make judgetest ARGS='-username alice -password secret -burst 200'
 judgetest:
 	$(GO_LIVE) go run ./cmd/judgetest $(ARGS)
+
+proctorsim:
+	$(GO_LIVE) go run ./cmd/proctorsim -api http://localhost:8080 $(ARGS)
 
 competitor-frontend:
 	cd competitor-frontend && pnpm dev
