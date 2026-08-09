@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { getSubmissionStatusAction, submitCode } from "@/actions/code";
+import { useProctor } from "@/components/providers/proctor-provider";
 import type { SubmitResult } from "@/types/code";
 
 export type ActiveSubmission = {
@@ -81,6 +82,7 @@ function parseSubmissionResult(data: any): SubmitResult & { problemId?: string }
 }
 
 export function SubmissionsProvider({ children }: { children: ReactNode }) {
+  const { attestNonce } = useProctor();
   const [activeSubmission, setActiveSubmission] = useState<ActiveSubmission | null>(null);
   const [lastResult, setLastResult] = useState<SubmitResult | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -188,12 +190,13 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     previousBest: number,
     language = "cpp",
   ): Promise<SubmitResult> {
-    const result = await submitCode(problemId, code, previousBest, language);
+    const result = await submitCode(problemId, code, previousBest, language, attestNonce);
 
     if (result.error) {
+      const locked = result.errorCode?.startsWith("AGENT_") || result.errorCode === "NOT_ATTESTED";
       setToast({
         id: Date.now().toString(),
-        title: "Submission Error",
+        title: locked ? "Submissions are locked" : "Submission Error",
         description: result.error,
         variant: "error",
       });

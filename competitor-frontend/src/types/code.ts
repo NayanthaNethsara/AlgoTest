@@ -34,6 +34,9 @@ export type SubmitResult = {
   status?: SubmissionStatus;
   queuePosition?: number;
   error?: string;
+  /** Gate refusal code: AGENT_MISSING, AGENT_STALE, AGENT_STOPPED, NOT_ATTESTED. */
+  errorCode?: string;
+  secondsSincePing?: number;
   subtasks: SubtaskResult[];
   score: number;
   maxScore: number;

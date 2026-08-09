@@ -3,7 +3,8 @@
 import React, { useEffect } from "react";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { SubmissionsProvider, useSubmissions } from "@/components/providers/submissions-context";
-import { TelemetryBridge } from "@/components/providers/telemetry-bridge";
+import { ProctorProvider } from "@/components/providers/proctor-provider";
+import { ProctorLockBanner } from "@/components/portal/proctor-status";
 import { TopNav } from "@/components/portal/top-nav";
 import type { SessionUser } from "@/lib/auth/constants";
 
@@ -15,16 +16,18 @@ export function PortalShell({
   children: React.ReactNode;
 }) {
   return (
-    <SubmissionsProvider>
-      <TelemetryBridge />
-      <div className="flex h-dvh flex-col">
-        <TopNav user={user} />
-        <div className="relative min-h-0 flex-1">
-          {children}
-          <ToastBanner />
+    <ProctorProvider>
+      <SubmissionsProvider>
+        <div className="flex h-dvh flex-col">
+          <TopNav user={user} />
+          <div className="relative min-h-0 flex-1">
+            {children}
+            <ProctorLockBanner />
+            <ToastBanner />
+          </div>
         </div>
-      </div>
-    </SubmissionsProvider>
+      </SubmissionsProvider>
+    </ProctorProvider>
   );
 }
 

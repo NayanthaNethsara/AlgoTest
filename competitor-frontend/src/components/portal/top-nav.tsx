@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Code2, History, Loader2, Power, ShieldAlert, Terminal, Trophy, Users } from "lucide-react";
+import { Code2, History, Loader2, Terminal, Trophy, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ProctorPill } from "@/components/portal/proctor-status";
 import { useSubmissions } from "@/components/providers/submissions-context";
 import { Badge } from "@/components/ui/badge";
 import type { SessionUser } from "@/lib/auth/constants";
@@ -18,28 +18,6 @@ const NAV_LINKS = [
 export function TopNav({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
   const { activeSubmission } = useSubmissions();
-  const [isDesktopEnvironment, setIsDesktopEnvironment] = useState<boolean>(false);
-
-  useEffect(() => {
-    const isDesktop = typeof window !== "undefined" && Boolean(
-      window.__TAURI_INTERNALS__?.invoke || window.__TAURI__?.core?.invoke
-    );
-    setIsDesktopEnvironment(isDesktop);
-  }, []);
-
-  const handleExitDesktopApplication = async () => {
-    const invokeFn =
-      window.__TAURI_INTERNALS__?.invoke ||
-      window.__TAURI__?.core?.invoke;
-
-    if (typeof invokeFn === "function") {
-      try {
-        await invokeFn("exit_app");
-      } catch (err) {
-        console.error("Failed to exit desktop application:", err);
-      }
-    }
-  };
 
   return (
     <header className="flex items-center justify-between border-b bg-card px-6 py-2.5 shadow-sm">
@@ -75,6 +53,8 @@ export function TopNav({ user }: { user: SessionUser | null }) {
 
       {user && (
         <div className="flex items-center gap-3">
+          <ProctorPill />
+
           {/* Active Submission Pill */}
           {activeSubmission && (
             <Badge
@@ -113,18 +93,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
           </div>
 
           <SignOutButton />
-
-          {/* Exit Desktop Application Button */}
-          {isDesktopEnvironment && (
-            <button
-              onClick={handleExitDesktopApplication}
-              title="Exit Application"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors h-8"
-            >
-              <Power className="h-3.5 w-3.5" />
-              Exit App
-            </button>
-          )}
         </div>
       )}
     </header>

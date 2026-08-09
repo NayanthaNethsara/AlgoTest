@@ -40,22 +40,32 @@ export async function submitCode(
   code: string,
   previousBest: number,
   language = "cpp",
+  attestNonce?: string | null,
 ): Promise<SubmitResult> {
   try {
     assertLength(code, MAX_CODE_LENGTH, "code");
     const problem = await getProblemAction(problemId);
     const maxScore = problem ? problem.points : 100;
 
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    // Proof that the browser making this request is on the same machine as the
+    // live proctor agent. Read over 127.0.0.1, so only that machine can supply it.
+    if (attestNonce) {
+      headers["X-Agent-Attest"] = attestNonce;
+    }
+
     const res = await backendFetch("/api/v1/submissions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ problem_id: problemId, language, code }),
     });
 
-    if (res.status === 409 || !res.ok) {
+    if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
       return {
         error: errBody.error ?? `Submission failed (${res.status})`,
+        errorCode: errBody.code,
+        secondsSincePing: errBody.seconds_since_ping,
         subtasks: [],
         score: previousBest,
         maxScore,
