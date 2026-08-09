@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MiniAlgothon — proctoring diagnostics</title>
+    <link rel="stylesheet" href="shared.css" />
+    <script src="bridge.js"></script>
+  </head>
+  <body>
+    <h1>Proctoring diagnostics</h1>
+    <p class="lede">
+      Read the support code to an organizer and they can find you immediately.
+    </p>
+
+    <div class="card">
+      <div class="row" style="margin-top: 0">
+        <span class="pill" id="status">Checking…</span>
+        <span class="pill" id="support">—</span>
+      </div>
+      <div class="notice error" id="error" hidden></div>
+    </div>
+
+    <h2>Agent</h2>
+    <dl class="grid" id="agent-facts"></dl>
+
+    <h2>Current signals</h2>
+    <dl class="grid" id="signal-facts"></dl>
+
+    <h2>Recent reports</h2>
+    <table>
+      <thead>
+        <tr><th>Time</th><th>Seq</th><th>Outcome</th><th>Detail</th></tr>
+      </thead>
+      <tbody id="history"></tbody>
+    </table>
+
+    <div class="row">
+      <button id="copy" type="button">Copy diagnostics</button>
+      <button id="open" type="button" class="secondary">Open contest window</button>
+      <button id="reset" type="button" class="secondary">Re-enrol this machine</button>
+    </div>
+
+    <script>
+      const invoke = window.appInvoke;
+      const el = (id) => document.getElementById(id);
+      let latest = null;
+
+      function facts(target, rows) {
+        const node = el(target);
+        node.innerHTML = "";
+        for (const [label, value] of rows) {
+          const dt = document.createElement("dt");
+          dt.textContent = label;
+          const dd = document.createElement("dd");
+          dd.textContent = value;
+          node.append(dt, dd);
+        }
+      }
+
+      function statusClass(d) {
+        if (!d.enrolled || d.revoked) return "bad";
+        return d.healthy ? "ok" : "warn";
+      }
+
+      async function refresh() {
+        const d = await invoke("get_diagnostics");
+        latest = d;
+
+        el("status").textContent = d.status;
+        el("status").className = `pill ${statusClass(d)}`;
+        el("support").textContent = d.support_code;
+
+        if (d.last_error) {
+          el("error").textContent = d.last_error;
+          el("error").hidden = false;
+        } else {
+          el("error").hidden = true;
+        }
+
+        facts("agent-facts", [
+          ["Version", d.agent_version],
+          ["Uptime", `${Math.floor(d.uptime_seconds / 60)}m ${d.uptime_seconds % 60}s`],
+          ["Last report", d.seconds_since_ack === null ? "never" : `${d.seconds_since_ack}s ago`],
+          ["Reports sent", String(d.seq)],
+          ["Buffered", `${d.buffered_heartbeats} waiting to send`],
+          ["Contest window", d.shell_alive ? "open" : "not running"],
+          ["Signed in as", d.username || "not enrolled"],
+          ["Machine", d.machine_id.slice(0, 12)],
+          ["Boot", d.boot_id.slice(0, 8)],
+          ["Platform", d.platform],
+          ["Portal", d.server_url || "not configured"],
+          ["API", d.api_url || "not configured"],
+          ["Local port", d.loopback_port ? String(d.loopback_port) : "not bound"],
+        ]);
+
+        facts("signal-facts", [
+          ["Internet reachable", d.internet_reachable ? "yes" : "no"],
+          ["Local AI services", d.inference_ports.length ? d.inference_ports.join(", ") : "none detected"],
+          ["Matched processes", d.process_matches.length ? d.process_matches.join(", ") : "none"],
+        ]);
+
+        el("history").innerHTML = "";
+        for (const entry of [...d.history].reverse()) {
+          const row = document.createElement("tr");
+          for (const value of [entry.at.slice(11, 19), entry.seq, entry.outcome, entry.detail]) {
+            const cell = document.createElement("td");
+            cell.textContent = String(value ?? "");
+            row.appendChild(cell);
+          }
+          el("history").appendChild(row);
+        }
+      }
+
+      el("copy").addEventListener("click", async () => {
+        if (!latest) return;
+        await navigator.clipboard.writeText(JSON.stringify(latest, null, 2));
+        el("copy").textContent = "Copied";
+        setTimeout(() => (el("copy").textContent = "Copy diagnostics"), 1500);
+      });
+
+      el("open").addEventListener("click", () => invoke("open_contest_window"));
+      el("reset").addEventListener("click", () => invoke("reset_enrollment"));
+
+      refresh();
+      setInterval(refresh, 3000);
+    </script>
+  </body>
+</html>

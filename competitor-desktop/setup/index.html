@@ -1,214 +1,161 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MiniAlgothon Desktop Client Setup</title>
-  <style>
-    :root {
-      --bg: #090d16;
-      --card-bg: rgba(17, 24, 39, 0.8);
-      --border: rgba(255, 255, 255, 0.1);
-      --text: #f3f4f6;
-      --text-muted: #9ca3af;
-      --accent: #6366f1;
-      --accent-hover: #4f46e5;
-    }
+  <head>
+    <meta charset="utf-8" />
+    <title>MiniAlgothon — proctoring setup</title>
+    <link rel="stylesheet" href="shared.css" />
+    <script src="bridge.js"></script>
+  </head>
+  <body>
+    <h1>Set up proctoring</h1>
+    <p class="lede">
+      One-time setup on this machine. You keep using your own editor and your own compilers.
+    </p>
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 1.5rem;
-    }
-
-    .container {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      backdrop-filter: blur(12px);
-      width: 100%;
-      max-width: 520px;
-      padding: 2rem;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-    }
-
-    .header {
-      margin-bottom: 1.5rem;
-    }
-
-    .title {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: -0.025em;
-      margin-bottom: 0.5rem;
-    }
-
-    .subtitle {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      line-height: 1.4;
-    }
-
-    .form-group {
-      margin-bottom: 1.25rem;
-    }
-
-    label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      padding: 0.75rem 1rem;
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    input[type="text"]:focus {
-      border-color: var(--accent);
-    }
-
-    .consent-box {
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1rem;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      max-height: 140px;
-      overflow-y: auto;
-      margin-bottom: 1.25rem;
-      line-height: 1.4;
-    }
-
-    .consent-check {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.85rem;
-      margin-bottom: 1.5rem;
-      cursor: pointer;
-    }
-
-    .btn {
-      width: 100%;
-      padding: 0.85rem;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .btn:hover:not(:disabled) {
-      background: var(--accent-hover);
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .error-msg {
-      color: #ef4444;
-      font-size: 0.85rem;
-      margin-top: 0.5rem;
-      display: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1 class="title">MiniAlgothon Portal Setup</h1>
-      <p class="subtitle">Enter the contest server IP/URL provided by contest organizers to connect.</p>
-    </div>
-
-    <form id="setupForm">
-      <div class="form-group">
-        <label for="serverUrl">Contest Server URL</label>
-        <input type="text" id="serverUrl" placeholder="http://192.168.1.100" required />
-        <div id="errorMsg" class="error-msg">Invalid URL format</div>
+    <section id="step-server">
+      <h2>Step 1 — contest server</h2>
+      <div class="card">
+        <label for="server">Portal address</label>
+        <input id="server" type="url" placeholder="http://contest.local" autocomplete="off" />
+        <label for="api">API address</label>
+        <input id="api" type="url" placeholder="http://contest.local/api" autocomplete="off" />
+        <div class="row">
+          <button id="save-server" type="button">Continue</button>
+          <span class="pill" id="machine-pill">This machine</span>
+        </div>
       </div>
+      <div class="notice error" id="server-error" hidden></div>
+    </section>
 
-      <div class="consent-box">
-        <strong>Proctoring Disclosure & Consent:</strong><br/>
-        This lightweight desktop client runs non-invasive integrity checks during contest hours. It probes local inference ports (e.g., Ollama), monitors process names against a denylist, and checks network connectivity. No source code contents, keystrokes, screenshots, or personal files are recorded or transmitted.
+    <section id="step-consent" hidden>
+      <h2>Step 2 — what this collects</h2>
+      <div class="card">
+        <p id="disclosure-summary"></p>
+        <h2>Collected</h2>
+        <ul class="tight" id="collected"></ul>
+        <h2>Never collected</h2>
+        <ul class="tight" id="not-collected"></ul>
+        <h2>While it runs</h2>
+        <ul class="tight" id="lifecycle"></ul>
+        <p id="retention" class="lede"></p>
+        <div class="row">
+          <button id="accept" type="button">Accept and continue</button>
+          <button id="quit" type="button" class="secondary">Quit</button>
+        </div>
       </div>
+      <div class="notice error" id="consent-error" hidden></div>
+    </section>
 
-      <label class="consent-check">
-        <input type="checkbox" id="consent" required />
-        <span>I accept the proctoring policy and contest terms</span>
-      </label>
+    <section id="step-enroll" hidden>
+      <h2>Step 3 — sign in once</h2>
+      <div class="card">
+        <p class="lede">
+          This enrols the proctor client on this machine. You will not need to sign in here again.
+        </p>
+        <label for="username">Username</label>
+        <input id="username" type="text" autocomplete="username" />
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" />
+        <div class="row">
+          <button id="enroll" type="button">Enrol this machine</button>
+        </div>
+      </div>
+      <div class="notice error" id="enroll-error" hidden></div>
+    </section>
 
-      <button type="submit" id="submitBtn" class="btn" disabled>Connect to Contest</button>
-    </form>
-  </div>
+    <script>
+      const invoke = window.appInvoke;
+      const el = (id) => document.getElementById(id);
+      let consentVersion = "unknown";
 
-  <script>
-    const form = document.getElementById('setupForm');
-    const serverUrlInput = document.getElementById('serverUrl');
-    const consentCheck = document.getElementById('consent');
-    const submitBtn = document.getElementById('submitBtn');
-    const errorMsg = document.getElementById('errorMsg');
-
-    // Default server URL helper
-    if (!serverUrlInput.value) {
-      serverUrlInput.value = window.location.origin.includes('localhost')
-        ? 'http://localhost:8080'
-        : window.location.origin;
-    }
-
-    function checkValid() {
-      submitBtn.disabled = !consentCheck.checked || !serverUrlInput.value.trim();
-    }
-
-    consentCheck.addEventListener('change', checkValid);
-    serverUrlInput.addEventListener('input', checkValid);
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const rawUrl = serverUrlInput.value.trim();
-      try {
-        const url = new URL(rawUrl);
-        const serverUrl = url.origin;
-        const apiUrl = serverUrl;
-
-        if (window.__TAURI__ && window.__TAURI__.core) {
-          await window.__TAURI__.core.invoke('set_client_config', {
-            serverUrl: serverUrl,
-            apiUrl: apiUrl
-          });
-        } else {
-          window.location.href = serverUrl;
+      function show(step) {
+        for (const id of ["step-server", "step-consent", "step-enroll"]) {
+          el(id).hidden = id !== step;
         }
-      } catch (err) {
-        errorMsg.style.display = 'block';
-        errorMsg.textContent = 'Please enter a valid URL (e.g. http://192.168.1.100)';
       }
-    });
-  </script>
-</body>
+
+      function fail(id, message) {
+        const node = el(id);
+        node.textContent = message;
+        node.hidden = false;
+      }
+
+      function clearError(id) {
+        el(id).hidden = true;
+      }
+
+      function list(id, items) {
+        el(id).innerHTML = "";
+        for (const item of items ?? []) {
+          const li = document.createElement("li");
+          li.textContent = item;
+          el(id).appendChild(li);
+        }
+      }
+
+      async function loadConsent() {
+        clearError("consent-error");
+        try {
+          const payload = await invoke("fetch_disclosure");
+          const d = payload.disclosure ?? {};
+          consentVersion = d.version ?? "unknown";
+          el("disclosure-summary").textContent = d.summary ?? "";
+          list("collected", d.collected);
+          list("not-collected", d.notCollected);
+          list("lifecycle", d.lifecycle);
+          el("retention").textContent = [d.retention, d.policy].filter(Boolean).join(" ");
+        } catch (err) {
+          // The disclosure has to be readable before anyone consents, so a fetch
+          // failure blocks the flow rather than silently showing nothing.
+          fail("consent-error", `Could not load the proctoring disclosure: ${err}`);
+          el("accept").disabled = true;
+        }
+      }
+
+      el("save-server").addEventListener("click", async () => {
+        clearError("server-error");
+        try {
+          await invoke("save_server", {
+            serverUrl: el("server").value,
+            apiUrl: el("api").value,
+          });
+          show("step-consent");
+          await loadConsent();
+        } catch (err) {
+          fail("server-error", String(err));
+        }
+      });
+
+      el("accept").addEventListener("click", () => show("step-enroll"));
+      el("quit").addEventListener("click", () => window.close());
+
+      el("enroll").addEventListener("click", async () => {
+        clearError("enroll-error");
+        const button = el("enroll");
+        button.disabled = true;
+        try {
+          await invoke("enroll_agent", {
+            username: el("username").value,
+            password: el("password").value,
+            consentVersion,
+          });
+        } catch (err) {
+          fail("enroll-error", String(err));
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      (async () => {
+        const state = await invoke("get_setup_state");
+        el("server").value = state.server_url || "";
+        el("api").value = state.api_url || "";
+        el("machine-pill").textContent = `Machine ${state.machine_id.slice(0, 8)} · agent ${state.agent_version}`;
+        if (state.configured) {
+          show("step-consent");
+          await loadConsent();
+        }
+      })();
+    </script>
+  </body>
 </html>

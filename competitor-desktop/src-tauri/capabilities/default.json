@@ -1,17 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables default permissions for local and remote origins",
-  "remote": {
-    "urls": [
-      "http://*/*",
-      "https://*/*"
-    ]
-  },
-  "windows": [
-    "main"
-  ],
-  "permissions": [
-    "core:default"
-  ]
+  "description": "Permissions for the agent's own local pages. The contest shell loads a remote portal and is deliberately granted nothing: no remote origin can invoke a command, which is what removed the runtime-capability problem the old thin-client design had.",
+  "windows": ["setup", "diagnostics"],
+  "permissions": ["core:default", "dialog:default"]
 }

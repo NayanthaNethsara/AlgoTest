@@ -1,45 +1,38 @@
 use serde::{Deserialize, Serialize};
 use sysinfo::System;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ProcessMatchReport {
     pub total_count: usize,
     pub matches: Vec<String>,
 }
 
-const DENYLIST_TERMS: &[&str] = &[
-    "ollama",
-    "lmstudio",
-    "jan",
-    "gpt4all",
-    "llama-server",
-    "vllm",
-    "koboldcpp",
-    "localai",
-    "text-generation-webui",
-];
-
-pub fn collect_matched_processes(sys: &mut System) -> ProcessMatchReport {
+/// Matches against a server-supplied denylist so organizers can tune detection by
+/// editing a table instead of rebuilding 300 binaries.
+///
+/// Both the process name and the joined command line are checked: `vllm` runs as
+/// `python -m vllm.entrypoints...`, whose process name reveals nothing. Only the
+/// matches travel to the server — never the full process list.
+pub fn collect_matched_processes(sys: &mut System, denylist: &[String]) -> ProcessMatchReport {
     sys.refresh_processes();
-    let mut matches = Vec::new();
+
     let total_count = sys.processes().len();
+    let mut matches: Vec<String> = Vec::new();
 
     for process in sys.processes().values() {
         let name = process.name().to_string();
         let name_lower = name.to_lowercase();
+        let cmdline_lower = process.cmd().join(" ").to_lowercase();
 
-        let cmdline = process.cmd().join(" ");
-        let cmdline_lower = cmdline.to_lowercase();
-
-        for &term in DENYLIST_TERMS {
-            if name_lower.contains(term) || cmdline_lower.contains(term) {
-                let match_str = if !name.is_empty() {
-                    name.clone()
-                } else {
-                    term.to_string()
-                };
-                if !matches.contains(&match_str) {
-                    matches.push(match_str);
+        for term in denylist {
+            let term = term.trim().to_lowercase();
+            if term.is_empty() {
+                continue;
+            }
+            if name_lower.contains(&term) || cmdline_lower.contains(&term) {
+                let label = if name.is_empty() { term.clone() } else { name.clone() };
+                if !matches.contains(&label) {
+                    matches.push(label);
                 }
                 break;
             }
@@ -47,9 +40,5 @@ pub fn collect_matched_processes(sys: &mut System) -> ProcessMatchReport {
     }
 
     matches.sort();
-
-    ProcessMatchReport {
-        total_count,
-        matches,
-    }
+    ProcessMatchReport { total_count, matches }
 }

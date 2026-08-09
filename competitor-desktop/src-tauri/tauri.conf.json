@@ -1,41 +1,40 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "mini-algothon-competitor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.minialgothon.competitor",
   "build": {
-    "devUrl": "http://localhost:3000",
+    "frontendDist": "../setup",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },
   "app": {
-    "windows": [
-      {
-        "title": "MiniAlgothon Competitor",
-        "url": "http://localhost:3000",
-        "width": 1280,
-        "height": 800,
-        "resizable": true,
-        "maximized": true,
-        "fullscreen": true
-      }
-    ],
+    "windows": [],
+    "trayIcon": {
+      "id": "proctor",
+      "iconPath": "icons/32x32.png",
+      "iconAsTemplate": true,
+      "tooltip": "MiniAlgothon proctoring"
+    },
     "security": {
       "csp": null
-    }
+    },
+    "withGlobalTauri": true
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
+    "targets": [
+      "app",
+      "dmg",
+      "nsis",
+      "deb"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ],
-    "android": {
-      "debugApplicationIdSuffix": ".debug"
-    }
+    ]
   }
 }

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MiniAlgothon — cannot reach the contest server</title>
+    <link rel="stylesheet" href="shared.css" />
+    <script src="bridge.js"></script>
+  </head>
+  <body>
+    <h1>Cannot reach the contest server</h1>
+    <p class="lede">
+      Proctoring is unaffected and keeps running. This window just cannot load the contest portal
+      yet.
+    </p>
+
+    <div class="card">
+      <div class="grid">
+        <dt>Portal address</dt>
+        <dd id="server">—</dd>
+        <dt>Problem</dt>
+        <dd id="message">—</dd>
+      </div>
+
+      <div class="row">
+        <button id="retry" type="button">Try again</button>
+        <button id="setup" type="button" class="secondary">Change server address</button>
+      </div>
+    </div>
+
+    <div class="notice error" id="error" hidden></div>
+
+    <h2>What to check</h2>
+    <ul class="tight">
+      <li>You are connected to the contest network, not another Wi-Fi.</li>
+      <li>The address above matches the one the organizers gave you.</li>
+      <li>If everyone in the room is affected, the organizers already know — wait for the retry.</li>
+    </ul>
+
+    <p class="lede" style="margin-top: 20px">
+      This window retries on its own every 10 seconds and opens the portal the moment the server
+      answers.
+    </p>
+
+    <script>
+      const invoke = window.appInvoke;
+      const el = (id) => document.getElementById(id);
+
+      async function load() {
+        const target = await invoke("get_shell_target");
+        el("server").textContent = target.server_url || "not configured";
+        el("message").textContent = target.message || "unknown";
+      }
+
+      async function retry(manual) {
+        const button = el("retry");
+        if (manual) {
+          button.disabled = true;
+          button.textContent = "Trying…";
+        }
+        try {
+          // Resolves by navigating this window to the portal, so nothing after
+          // this line runs on success.
+          await invoke("retry_connection");
+        } catch (err) {
+          el("error").textContent = String(err);
+          el("error").hidden = false;
+          el("message").textContent = String(err);
+        } finally {
+          button.disabled = false;
+          button.textContent = "Try again";
+        }
+      }
+
+      el("retry").addEventListener("click", () => retry(true));
+      el("setup").addEventListener("click", async () => {
+        try {
+          await invoke("open_proctor_setup");
+        } catch (err) {
+          el("error").textContent = String(err);
+          el("error").hidden = false;
+        }
+      });
+
+      load();
+      setInterval(() => retry(false), 10_000);
+    </script>
+  </body>
+</html>
