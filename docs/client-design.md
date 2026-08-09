@@ -461,6 +461,66 @@ that true, and both were missing in the first pass:
   had to be right. The agent's loopback report needs no network, so the portal now derives lock state
   from whichever source is more pessimistic.
 
+### Simulating a cheating attempt
+
+`backend/cmd/proctorsim` drives the real HTTP API as fake agents, so what appears in the admin UI is
+what a real endpoint produced — nothing is written straight to the database.
+
+```bash
+make proctorsim ARGS='-list'
+make proctorsim ARGS='-scenario local-llm -user alice -pass secret -admin admin -admin-pass s3cret'
+make proctorsim ARGS='-scenario all -user alice -pass secret -admin admin -admin-pass s3cret'
+make proctorsim ARGS='-scenario fleet-outage -users competitors.csv -count 20'
+```
+
+| Scenario | What it proves |
+| --- | --- |
+| `clean` | A normal contestant produces no findings at all |
+| `local-llm` | Process match + fingerprinted port → risk HIGH |
+| `tethered` | `net.internet` opens, dispositive on an air gap |
+| `blackout` | Held reports replay **at their original timestamps** — disconnecting delays evidence, it does not erase it |
+| `replay` | A captured heartbeat is refused with `409 SEQ_REPLAY`, so it cannot hold the gate open |
+| `rebind` | Second machine revokes the first and raises `tel.agent_rebound` |
+| `clock-jump` | Only a *change* in clock offset counts; a steadily wrong clock does not |
+| `browser` | Browser fallback stays allowed while the agent lives, and is flagged |
+| `stopped` / `crash` | A clean stop is neutral; a kill is recorded |
+| `fleet-outage` | >30% quiet at once opens an incident and suppresses every contestant gap |
+
+With `-admin` credentials each scenario reads its own evidence back through the timeline API and
+prints the findings, so it is self-verifying rather than something you have to go hunting for.
+
+### The sequence counter is per-boot, not per-agent
+
+`seq` exists to catch a replayed heartbeat, and it only means anything *within one boot*. Storing it
+as a running maximum (`GREATEST(seq, incoming)`) looked harmless and was not: after a client restart
+the agent's counter resets to 1 while the server still held the previous boot's high-water mark, so
+every heartbeat of the new boot compared as a replay, got `409`, and never advanced `last_seen_at`.
+The contestant saw *"not reporting · last report 73s ago"* for as long as it took the counter to climb
+past the old value — minutes at a 15s cadence — and then it silently fixed itself.
+
+`RecordHeartbeat` now resets the counter when `boot_id` changes. Two defences sit behind that:
+
+- The agent declares a **fresh boot after two consecutive rejections**. A rejection it cannot fix by
+  retrying would otherwise repeat forever, and each one keeps submissions locked; a restart is a
+  legitimate reason for a sequence to reset, so recovering costs a low-weight restart finding and
+  nothing else. No contestant should ever be locked out because the two sides disagree about
+  bookkeeping.
+- `proctorsim -scenario crash` now climbs to seq 5 before restarting and sends three heartbeats
+  afterwards, so this exact regression fails the scenario. `-scenario server-restart` covers the
+  same ground from the server's side.
+
+### One startup trap, now closed
+
+The scheduler originally slept a full interval before its first heartbeat, so for the first 15
+seconds a freshly launched agent had no acknowledged report — and the portal could only read that as
+"not reporting", which it rendered as *"cannot reach the contest server"*. Every client passed through
+that state on launch, and 300 would at a contest start.
+
+Fixed in three places: the agent reports on its **first** tick (and immediately after enrolling, via a
+force flag), it distinguishes `starting` from unreachable in its loopback status, and the portal shows
+a quiet "Proctoring is starting" strip for that state while polling every 5s instead of 15s until it
+clears.
+
 ### Not built
 
 No alerting — the fleet header has to be on a screen someone is looking at. There is no push when
