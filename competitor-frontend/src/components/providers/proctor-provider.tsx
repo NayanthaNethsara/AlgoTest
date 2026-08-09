@@ -1,11 +1,26 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { getProctorSelfAction, pingWebTelemetryAction } from "@/actions/telemetry";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  getProctorSelfAction,
+  pingWebTelemetryAction,
+} from "@/actions/telemetry";
 import { readLocalAgent } from "@/lib/proctor";
-import type { AgentLocalStatus, ProctorSelfStatus, ProctorState } from "@/types/proctor";
+import type {
+  AgentLocalStatus,
+  ProctorSelfStatus,
+  ProctorState,
+} from "@/types/proctor";
 
-const POLL_INTERVAL_MS = 15_000;
+const POLL_HEALTHY_MS = 15_000;
+const POLL_DEGRADED_MS = 5_000;
 
 const INITIAL: ProctorState = {
   submissionsAllowed: true,
@@ -14,6 +29,7 @@ const INITIAL: ProctorState = {
   local: null,
   attestNonce: null,
   serverReachable: true,
+  starting: false,
   resolved: false,
 };
 
@@ -44,6 +60,9 @@ export function ProctorProvider({ children }: { children: React.ReactNode }) {
     setState({ ...resolve(self, local), resolved: true });
   }, []);
 
+  const degraded =
+    state.resolved && (!state.submissionsAllowed || state.starting);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -54,21 +73,27 @@ export function ProctorProvider({ children }: { children: React.ReactNode }) {
       // carries no signals; the agent covers the endpoint.
       if (!cancelled) {
         void pingWebTelemetryAction({
-          tab_visible: typeof document !== "undefined" ? !document.hidden : true,
+          tab_visible:
+            typeof document !== "undefined" ? !document.hidden : true,
           os_info: typeof navigator !== "undefined" ? navigator.userAgent : "",
         });
       }
     };
 
     void tick();
-    const timer = setInterval(() => void tick(), POLL_INTERVAL_MS);
+    const timer = setInterval(
+      () => void tick(),
+      degraded ? POLL_DEGRADED_MS : POLL_HEALTHY_MS,
+    );
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [refresh]);
+  }, [refresh, degraded]);
 
-  return <ProctorContext.Provider value={state}>{children}</ProctorContext.Provider>;
+  return (
+    <ProctorContext.Provider value={state}>{children}</ProctorContext.Provider>
+  );
 }
 
 /**
@@ -91,6 +116,7 @@ function resolve(
     local,
     attestNonce: local?.attest_nonce ?? null,
     serverReachable,
+    starting: local?.starting ?? false,
   };
 
   if (self?.exempt) {
@@ -102,7 +128,8 @@ function resolve(
       ...base,
       submissionsAllowed: false,
       code: "AGENT_MISSING",
-      remedy: "The proctor client is not enrolled on this machine. Open it and sign in once.",
+      remedy:
+        "The proctor client is not enrolled on this machine. Open it and sign in once.",
     };
   }
 
@@ -111,7 +138,21 @@ function resolve(
       ...base,
       submissionsAllowed: false,
       code: "ENROLLMENT_REVOKED",
-      remedy: "This machine's proctor enrolment was revoked. Re-enrol it from the tray, or ask an organizer.",
+      remedy:
+        "This machine's proctor enrolment was revoked. Re-enrol it from the tray, or ask an organizer.",
+    };
+  }
+
+  // Launched but not yet acknowledged. Submissions really are locked until the
+  // first report lands, but blaming the contestant's network here is simply wrong —
+  // and it is the state every single client passes through on startup.
+  if (local?.starting) {
+    return {
+      ...base,
+      submissionsAllowed: false,
+      code: "AGENT_STARTING",
+      remedy:
+        "The proctor client is starting up. This clears on its own within a few seconds.",
     };
   }
 

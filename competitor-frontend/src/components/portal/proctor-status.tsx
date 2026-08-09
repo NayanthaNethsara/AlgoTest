@@ -1,6 +1,12 @@
 "use client";
 
-import { AlertTriangle, RotateCw, ShieldCheck, ShieldOff } from "lucide-react";
+import {
+  AlertTriangle,
+  Loader2,
+  RotateCw,
+  ShieldCheck,
+  ShieldOff,
+} from "lucide-react";
 import { useProctor } from "@/components/providers/proctor-provider";
 import { Badge } from "@/components/ui/badge";
 
@@ -10,9 +16,28 @@ import { Badge } from "@/components/ui/badge";
  * in this design.
  */
 export function ProctorPill() {
-  const { resolved, submissionsAllowed, exempt, local, serverReachable } = useProctor();
+  const {
+    resolved,
+    submissionsAllowed,
+    exempt,
+    local,
+    serverReachable,
+    starting,
+  } = useProctor();
 
   if (!resolved) return null;
+
+  if (starting) {
+    return (
+      <Badge
+        variant="outline"
+        className="gap-1.5 border-warning/40 bg-warning/10 text-warning text-[11px] h-7 px-2.5"
+      >
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Proctoring starting…
+      </Badge>
+    );
+  }
 
   if (exempt) {
     return (
@@ -29,7 +54,9 @@ export function ProctorPill() {
       <Badge
         variant="outline"
         className="gap-1.5 border-destructive/40 bg-destructive/10 text-destructive text-[11px] h-7 px-2.5"
-        title={local?.support_code ? `Support code ${local.support_code}` : undefined}
+        title={
+          local?.support_code ? `Support code ${local.support_code}` : undefined
+        }
       >
         <ShieldOff className="h-3.5 w-3.5" />
         {cutOff ? "Proctoring not reporting" : "Proctoring off"}
@@ -75,9 +102,33 @@ export function ProctorPill() {
  * this at the deadline with nothing to tell an organizer.
  */
 export function ProctorLockBanner() {
-  const { resolved, submissionsAllowed, exempt, remedy, secondsSincePing, local } = useProctor();
+  const {
+    resolved,
+    submissionsAllowed,
+    exempt,
+    remedy,
+    secondsSincePing,
+    local,
+    starting,
+  } = useProctor();
 
   if (!resolved || submissionsAllowed || exempt) return null;
+
+  if (starting) {
+    return (
+      <div
+        role="status"
+        className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 border-b border-warning/40 bg-warning/10 px-4 py-2 text-xs text-warning"
+      >
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+        <span className="font-semibold">Proctoring is starting.</span>
+        <span className="text-warning/90">
+          {remedy ??
+            "Submissions unlock as soon as the proctor client reports in."}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -85,15 +136,19 @@ export function ProctorLockBanner() {
       className="absolute inset-x-0 top-0 z-40 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-destructive/40 bg-destructive/10 px-4 py-2.5 text-xs text-destructive"
     >
       <AlertTriangle className="h-4 w-4 shrink-0" />
-      <span className="font-semibold">Submissions are locked — the proctor client is not reporting.</span>
+      <span className="font-semibold">
+        Submissions are locked — the proctor client is not reporting.
+      </span>
       <span className="text-destructive/90">
         {remedy ?? "Start the proctor client, then submit again."}
-        {secondsSincePing > 0 && ` Last report ${formatAgo(secondsSincePing)} ago.`}
+        {secondsSincePing > 0 &&
+          ` Last report ${formatAgo(secondsSincePing)} ago.`}
       </span>
       <span className="ml-auto flex items-center gap-3">
         {local?.support_code && (
           <span className="font-mono">
-            Support code <span className="font-semibold">{local.support_code}</span>
+            Support code{" "}
+            <span className="font-semibold">{local.support_code}</span>
           </span>
         )}
         <button

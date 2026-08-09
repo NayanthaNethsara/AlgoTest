@@ -23,6 +23,7 @@ export type AgentLocalStatus = {
   enrolled: boolean;
   revoked: boolean;
   healthy: boolean;
+  starting: boolean;
   seconds_since_ack: number | null;
   buffered: number;
   attest_nonce: string;
@@ -43,6 +44,8 @@ export type ProctorState = {
   attestNonce: string | null;
   /** False when the portal itself could not reach the contest server. */
   serverReachable: boolean;
+  /** The agent is still coming up; submissions are locked but nothing is wrong. */
+  starting: boolean;
   /** False until the first status resolution lands, so nothing flashes a warning. */
   resolved: boolean;
 };
