@@ -8,10 +8,10 @@ import (
 // Block codes returned to the client. 423 Locked carries them; 403 reads as
 // authorization and 409 is already taken by ErrActiveSubmissionExists.
 const (
-	CodeAgentMissing  = "AGENT_MISSING"
-	CodeAgentStale    = "AGENT_STALE"
-	CodeAgentStopped  = "AGENT_STOPPED"
-	CodeNotAttested   = "NOT_ATTESTED"
+	CodeAgentMissing = "AGENT_MISSING"
+	CodeAgentStale   = "AGENT_STALE"
+	CodeAgentStopped = "AGENT_STOPPED"
+	CodeNotAttested  = "NOT_ATTESTED"
 )
 
 type ActiveClient string
@@ -45,14 +45,14 @@ type finding struct {
 }
 
 type Decision struct {
-	Allowed          bool          `json:"allowed"`
-	Code             string        `json:"code,omitempty"`
-	Exempt           bool          `json:"exempt"`
-	Attested         bool          `json:"attested"`
-	ActiveClient     ActiveClient  `json:"active_client"`
-	LastSeenAt       *time.Time    `json:"last_seen_at,omitempty"`
-	SecondsSincePing int           `json:"seconds_since_ping"`
-	Remedy           string        `json:"remedy,omitempty"`
+	Allowed          bool         `json:"allowed"`
+	Code             string       `json:"code,omitempty"`
+	Exempt           bool         `json:"exempt"`
+	Attested         bool         `json:"attested"`
+	ActiveClient     ActiveClient `json:"active_client"`
+	LastSeenAt       *time.Time   `json:"last_seen_at,omitempty"`
+	SecondsSincePing int          `json:"seconds_since_ping"`
+	Remedy           string       `json:"remedy,omitempty"`
 	findings         []finding
 }
 

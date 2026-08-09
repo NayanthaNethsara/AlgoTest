@@ -98,14 +98,22 @@ func (r *Repository) GetByToken(ctx context.Context, tokenHash string) (Agent, e
 // RecordHeartbeat advances the agent's liveness state from a *live* heartbeat.
 // Buffered replays never reach here — see Service.replay.
 //
-// The previous nonce is retained deliberately: the agent rotates its nonce every
-// heartbeat, so a portal that read one moments before a rotation would otherwise
-// fail attestation through no fault of its own.
+// Two deliberate details:
+//
+//   - The sequence counter resets when boot_id changes. It is only monotonic
+//     within a boot, so keeping the old boot's maximum would make a restarted
+//     agent's heartbeats read as replays and refuse them.
+//   - The previous nonce is retained: the agent rotates its nonce every heartbeat,
+//     so a portal that read one moments before a rotation would otherwise fail
+//     attestation through no fault of its own.
 func (r *Repository) RecordHeartbeat(ctx context.Context, agentID string, hb Heartbeat, clockOffsetMs int64, eventWritten bool) error {
 	_, err := r.pool.Exec(ctx, `
 		UPDATE proctor_agents SET
 			boot_id           = $2::uuid,
-			seq               = GREATEST(seq, $3),
+			seq               = CASE
+			                      WHEN boot_id IS DISTINCT FROM $2::uuid THEN $3
+			                      ELSE GREATEST(seq, $3)
+			                    END,
 			loopback_port     = $4,
 			prev_attest_nonce = CASE WHEN $5 <> '' AND $5 <> attest_nonce THEN attest_nonce ELSE prev_attest_nonce END,
 			attest_nonce      = COALESCE(NULLIF($5, ''), attest_nonce),

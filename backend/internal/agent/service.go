@@ -94,9 +94,9 @@ func (s *Service) Heartbeat(ctx context.Context, a Agent, hb Heartbeat, clientIP
 
 	if integ.ClockSkewMs != 0 {
 		s.record(ctx, a.UserID, "tel.clock_skew", 20, map[string]any{
-			"delta_ms":     integ.ClockSkewMs,
-			"agent_wall":   hb.WallTS,
-			"server_wall":  now,
+			"delta_ms":    integ.ClockSkewMs,
+			"agent_wall":  hb.WallTS,
+			"server_wall": now,
 		})
 	}
 

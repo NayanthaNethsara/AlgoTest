@@ -139,11 +139,11 @@ type EnrollResponse struct {
 // Integrity is what the server concluded about this heartbeat's provenance,
 // independent of what it observed on the endpoint.
 type Integrity struct {
-	NewBoot     bool
+	NewBoot      bool
 	CleanRestart bool
-	SeqReplay   bool
-	ClockSkewMs int64
-	Rebound     bool
+	SeqReplay    bool
+	ClockSkewMs  int64
+	Rebound      bool
 }
 
 // NewToken returns the agent's long-lived credential. Its only power is sending

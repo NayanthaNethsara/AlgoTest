@@ -45,14 +45,14 @@ func (h *handler) listAdminProctorRisk(c *gin.Context) {
 	defer rows.Close()
 
 	type competitorRiskItem struct {
-		UserID        string   `json:"userId"`
-		Username      string   `json:"username"`
-		DisplayName   string   `json:"displayName"`
-		ProctorExempt bool     `json:"proctorExempt"`
-		Score         int      `json:"score"`
-		Severity      string   `json:"severity"`
-		FindingCount  int      `json:"findingCount"`
-		LastPingAt    *string  `json:"lastPingAt"`
+		UserID        string  `json:"userId"`
+		Username      string  `json:"username"`
+		DisplayName   string  `json:"displayName"`
+		ProctorExempt bool    `json:"proctorExempt"`
+		Score         int     `json:"score"`
+		Severity      string  `json:"severity"`
+		FindingCount  int     `json:"findingCount"`
+		LastPingAt    *string `json:"lastPingAt"`
 	}
 
 	items := []competitorRiskItem{}
