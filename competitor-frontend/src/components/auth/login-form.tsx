@@ -34,28 +34,30 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleFormSubmit} className="flex flex-col gap-3">
-      <FormField label="Username">
+    <form onSubmit={handleFormSubmit} className="flex flex-col gap-4 font-pixel-body">
+      <FormField label="USERNAME">
         <Input
           type="text"
           autoComplete="username"
           value={username}
           onChange={(event) => setUsername(event.target.value)}
           required
+          placeholder="ENTER USERNAME"
         />
       </FormField>
-      <FormField label="Password">
+      <FormField label="PASSWORD">
         <Input
           type="password"
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
+          placeholder="••••••••"
         />
       </FormField>
-      {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
-      <Button type="submit" disabled={isAuthenticating} className="mt-1">
-        {isAuthenticating ? "Signing in…" : "Sign in"}
+      {errorMessage && <p className="text-xs text-destructive font-bold uppercase">{errorMessage}</p>}
+      <Button type="submit" size="lg" disabled={isAuthenticating} className="mt-2 w-full">
+        {isAuthenticating ? "AUTHENTICATING..." : "START CHALLENGE"}
       </Button>
     </form>
   );
@@ -63,8 +65,8 @@ export function LoginForm() {
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm">
-      <span className="text-muted-foreground">{label}</span>
+    <label className="flex flex-col gap-1.5 text-xs font-pixel-body uppercase tracking-wider">
+      <span className="text-foreground/80 font-bold">{label}</span>
       {children}
     </label>
   );

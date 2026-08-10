@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Pixelify_Sans, Press_Start_2P } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-sans",
+const pixelHeader = Press_Start_2P({
+  weight: "400",
+  variable: "--font-pixel-header",
+  subsets: ["latin"],
+});
+
+const pixelBody = Pixelify_Sans({
+  variable: "--font-pixel-body",
   subsets: ["latin"],
 });
 
@@ -25,10 +31,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${pixelHeader.variable} ${pixelBody.variable} ${geistMono.variable} h-full antialiased`}
       style={{ colorScheme: "dark" }}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );
 }

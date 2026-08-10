@@ -12,29 +12,29 @@ type IoPanelsProps = {
 
 export function IoPanels({ stdin, onStdinChange, result, running }: IoPanelsProps) {
   return (
-    <div className="grid min-h-0 flex-1 gap-px overflow-hidden bg-border sm:grid-cols-2">
+    <div className="grid min-h-0 flex-1 gap-px overflow-hidden bg-black sm:grid-cols-2">
       <div className="flex min-h-0 flex-col bg-background">
-        <PanelLabel>Custom input (stdin)</PanelLabel>
+        <PanelLabel>CUSTOM INPUT (STDIN)</PanelLabel>
         <Textarea
           value={stdin}
           onChange={(e) => onStdinChange(e.target.value)}
-          placeholder="Type your own test input…"
+          placeholder="TYPE TEST INPUT HERE..."
           spellCheck={false}
-          className="min-h-0 flex-1 resize-none rounded-none border-0 font-mono text-xs shadow-none focus-visible:ring-0"
+          className="min-h-0 flex-1 resize-none rounded-none border-0 font-mono text-xs shadow-none focus-visible:ring-0 bg-input"
         />
       </div>
 
       <div className="flex min-h-0 flex-col bg-background">
         <PanelLabel>
-          <span>Output</span>
+          <span>OUTPUT</span>
           {result && (
-            <span className="flex items-center gap-3 font-normal normal-case tracking-normal text-xs">
+            <span className="flex items-center gap-3 font-pixel-body text-[10px]">
               {result.verdict && (
                 <span
                   className={
                     result.verdict === "AC"
-                      ? "font-semibold text-emerald-500"
-                      : "font-semibold text-rose-500"
+                      ? "font-bold text-emerald-400"
+                      : "font-bold text-rose-400"
                   }
                 >
                   {result.verdict}
@@ -50,7 +50,7 @@ export function IoPanels({ stdin, onStdinChange, result, running }: IoPanelsProp
             </span>
           )}
         </PanelLabel>
-        <div className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs">
+        <div className="min-h-0 flex-1 overflow-auto p-3 font-mono text-xs bg-background">
           <OutputBody result={result} running={running} />
         </div>
       </div>
@@ -59,26 +59,26 @@ export function IoPanels({ stdin, onStdinChange, result, running }: IoPanelsProp
 }
 
 function OutputBody({ result, running }: { result: RunResult | null; running: boolean }) {
-  if (running) return <span className="text-muted-foreground">Running…</span>;
-  if (!result) return <span className="text-muted-foreground">Run to see output.</span>;
+  if (running) return <span className="text-muted-foreground font-pixel-body text-xs">RUNNING CODE...</span>;
+  if (!result) return <span className="text-muted-foreground font-pixel-body text-xs">CLICK RUN TO EXECUTE TEST INPUT.</span>;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 font-mono text-xs">
       {result.compileError && (
-        <div className="rounded-md border border-rose-500/30 bg-rose-500/10 p-2">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-rose-500">
-            Compilation Error
+        <div className="border-2 border-black bg-rose-950 p-2.5 shadow-[inset_1px_1px_0px_#000000]">
+          <div className="mb-1 text-[10px] font-pixel-body font-bold uppercase text-rose-400">
+            COMPILATION ERROR
           </div>
-          <pre className="whitespace-pre-wrap text-rose-400">{result.compileError}</pre>
+          <pre className="whitespace-pre-wrap text-rose-300">{result.compileError}</pre>
         </div>
       )}
-      {result.stdout && <pre className="whitespace-pre-wrap">{result.stdout}</pre>}
+      {result.stdout && <pre className="whitespace-pre-wrap text-foreground">{result.stdout}</pre>}
       {result.stderr && !result.compileError && (
-        <div className="rounded-md border border-rose-500/30 bg-rose-500/10 p-2">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-rose-500">
-            stderr
+        <div className="border-2 border-black bg-rose-950 p-2.5 shadow-[inset_1px_1px_0px_#000000]">
+          <div className="mb-1 text-[10px] font-pixel-body font-bold uppercase text-rose-400">
+            STDERR OUTPUT
           </div>
-          <pre className="whitespace-pre-wrap text-rose-400">{result.stderr}</pre>
+          <pre className="whitespace-pre-wrap text-rose-300">{result.stderr}</pre>
         </div>
       )}
     </div>
@@ -87,7 +87,7 @@ function OutputBody({ result, running }: { result: RunResult | null; running: bo
 
 function PanelLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+    <div className="flex items-center justify-between border-b-2 border-black bg-muted px-3 py-1.5 text-[10px] font-pixel-body font-bold uppercase tracking-wider text-foreground">
       {children}
     </div>
   );

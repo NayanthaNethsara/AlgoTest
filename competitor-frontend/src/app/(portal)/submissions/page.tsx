@@ -39,45 +39,47 @@ export default async function SubmissionsPage() {
   ];
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6 font-pixel-body">
       {/* Submissions Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <History className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight">Submission History</h1>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2.5">
+          <History className="h-6 w-6 text-primary" />
+          <h1 className="text-sm font-pixel-header uppercase tracking-wider text-primary pixel-text-shadow">
+            SUBMISSION HISTORY
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Recent solution submissions and execution outcomes for your team.
+        <p className="text-xs text-muted-foreground font-pixel-body">
+          LOG OF RECENT ATTEMPTS AND SYSTEM EVALUATION RESULTS.
         </p>
       </div>
 
       {/* Submissions Table */}
-      <div className="rounded-xl border bg-card shadow-xs overflow-hidden">
-        <table className="w-full border-collapse text-left text-xs">
+      <div className="border-4 border-black bg-card shadow-[inset_3px_3px_0px_oklch(0.45_0.02_260),inset_-3px_-3px_0px_oklch(0.12_0.01_260),0px_6px_0px_#000000] overflow-hidden">
+        <table className="w-full border-collapse text-left text-xs font-pixel-body">
           <thead>
-            <tr className="border-b bg-muted/40 text-muted-foreground font-medium">
-              <th className="p-3.5">Problem</th>
-              <th className="p-3.5">Team</th>
-              <th className="p-3.5">Language</th>
-              <th className="p-3.5">Exec Time</th>
-              <th className="p-3.5">Status</th>
-              <th className="p-3.5 text-right">Submitted At</th>
+            <tr className="border-b-2 border-black bg-muted text-foreground uppercase tracking-wider font-bold">
+              <th className="p-3.5">CHALLENGE</th>
+              <th className="p-3.5">GUILD / TEAM</th>
+              <th className="p-3.5">LANG</th>
+              <th className="p-3.5">TIME</th>
+              <th className="p-3.5">STATUS</th>
+              <th className="p-3.5 text-right">SUBMITTED</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="divide-y-2 divide-black">
             {submissions.map((sub) => {
               const isAccepted = sub.status === "Accepted";
 
               return (
-                <tr key={sub.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="p-3.5 font-semibold text-xs text-foreground">
+                <tr key={sub.id} className="hover:bg-muted/40 transition-colors">
+                  <td className="p-3.5 font-bold text-xs text-foreground uppercase">
                     {sub.problemTitle}
                   </td>
-                  <td className="p-3.5 font-mono text-xs text-muted-foreground">
+                  <td className="p-3.5 text-xs text-muted-foreground uppercase">
                     {sub.teamName}
                   </td>
-                  <td className="p-3.5 font-mono text-xs">
-                    <Badge variant="outline" className="font-mono text-[11px]">
+                  <td className="p-3.5 text-xs">
+                    <Badge variant="outline" className="font-mono text-[10px] uppercase border-black bg-muted">
                       {sub.language}
                     </Badge>
                   </td>
@@ -87,10 +89,10 @@ export default async function SubmissionsPage() {
                   <td className="p-3.5">
                     <Badge
                       variant="secondary"
-                      className={`gap-1 text-[11px] font-medium ${
+                      className={`gap-1.5 text-[10px] uppercase border font-pixel-body font-bold ${
                         isAccepted
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                          : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                          ? "bg-emerald-950 text-emerald-300 border-emerald-500"
+                          : "bg-rose-950 text-rose-300 border-rose-500"
                       }`}
                     >
                       {isAccepted ? (
@@ -101,7 +103,7 @@ export default async function SubmissionsPage() {
                       {sub.status}
                     </Badge>
                   </td>
-                  <td className="p-3.5 text-right text-xs text-muted-foreground">
+                  <td className="p-3.5 text-right text-xs text-muted-foreground uppercase">
                     {sub.submittedAt}
                   </td>
                 </tr>

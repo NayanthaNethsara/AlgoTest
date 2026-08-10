@@ -20,16 +20,16 @@ export function TopNav({ user }: { user: SessionUser | null }) {
   const { activeSubmission } = useSubmissions();
 
   return (
-    <header className="flex items-center justify-between border-b bg-card px-6 py-2.5 shadow-sm">
+    <header className="flex items-center justify-between border-b-2 border-black bg-card px-6 py-2 shadow-[0px_4px_0px_#000000] z-20">
       <div className="flex items-center gap-6">
-        <Link href="/challenges" className="flex items-center gap-2 font-bold tracking-tight text-sm">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+        <Link href="/challenges" className="flex items-center gap-2.5 font-pixel-header text-xs text-primary hover:opacity-90">
+          <div className="flex h-7 w-7 items-center justify-center border-2 border-black bg-primary text-primary-foreground shadow-[inset_2px_2px_0px_rgba(255,255,255,0.4),0px_2px_0px_#000000]">
             <Terminal className="h-4 w-4" />
           </div>
-          <span>MiniAlgothon</span>
+          <span className="tracking-wide text-foreground pixel-text-shadow">MINIALGOTHON</span>
         </Link>
 
-        <nav className="flex items-center gap-1 border-l pl-6">
+        <nav className="flex items-center gap-2 border-l-2 border-black pl-6">
           {NAV_LINKS.map((link) => {
             const active = pathname.startsWith(link.href);
             const Icon = link.icon;
@@ -37,10 +37,10 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 border-2 px-3 py-1 text-xs font-pixel-body uppercase tracking-wider transition-all ${
                   active
-                    ? "bg-accent text-accent-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "border-black bg-primary text-primary-foreground shadow-[inset_2px_2px_0px_rgba(255,255,255,0.4),inset_-2px_-2px_0px_rgba(0,0,0,0.4),0px_2px_0px_#000000]"
+                    : "border-transparent text-muted-foreground hover:border-black hover:bg-muted hover:text-foreground"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -59,35 +59,35 @@ export function TopNav({ user }: { user: SessionUser | null }) {
           {activeSubmission && (
             <Badge
               variant="outline"
-              className="gap-1.5 border-primary/40 bg-primary/10 text-primary text-[11px] h-7 px-2.5 animate-pulse"
+              className="gap-1.5 border-primary bg-primary/20 text-primary text-[11px] h-7 px-2.5 animate-pulse font-pixel-body"
             >
               <Loader2 className="h-3 w-3 animate-spin" />
               <span>
                 {activeSubmission.status === "queued"
-                  ? `Queued #${activeSubmission.queuePosition ?? 1}`
-                  : "Evaluating submission..."}
+                  ? `QUEUED #${activeSubmission.queuePosition ?? 1}`
+                  : "EVALUATING..."}
               </span>
             </Badge>
           )}
 
           {/* Team Name Badge */}
           {user.teamName ? (
-            <Badge variant="secondary" className="gap-1.5 font-mono text-[11px] h-7 px-2.5">
+            <Badge variant="secondary" className="gap-1.5 font-pixel-body text-xs h-7 px-2.5 border-black bg-muted">
               <Users className="h-3.5 w-3.5 text-primary" />
-              <span className="font-semibold text-foreground">{user.teamName}</span>
+              <span className="font-bold text-foreground uppercase">{user.teamName}</span>
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-[11px] text-muted-foreground h-7">
-              No Team Assigned
+            <Badge variant="outline" className="text-xs text-muted-foreground h-7 font-pixel-body">
+              NO TEAM
             </Badge>
           )}
 
           {/* User Profile */}
-          <div className="flex items-center gap-2 border-l pl-3">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+          <div className="flex items-center gap-2 border-l-2 border-black pl-3">
+            <div className="flex h-6 w-6 items-center justify-center border border-black bg-primary text-primary-foreground font-pixel-header text-[10px]">
               {(user.displayName || user.username || "U")[0].toUpperCase()}
             </div>
-            <span className="text-xs font-medium text-foreground">
+            <span className="text-xs font-pixel-body uppercase text-foreground">
               {user.displayName || user.username}
             </span>
           </div>

@@ -10,35 +10,37 @@ export default async function LeaderboardPage() {
   ]);
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6 font-pixel-body">
       {/* Leaderboard Header */}
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <Trophy className="h-5 w-5 text-amber-500" />
-          <h1 className="text-xl font-bold tracking-tight">Competition Leaderboard</h1>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2.5">
+          <Trophy className="h-6 w-6 text-amber-400" />
+          <h1 className="text-sm font-pixel-header uppercase tracking-wider text-amber-400 pixel-text-shadow">
+            LEADERBOARD STANDINGS
+          </h1>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Real-time team standings sorted by total score (best submission per problem) and last submission time.
+        <p className="text-xs text-muted-foreground font-pixel-body">
+          REAL-TIME RANKINGS SORTED BY TOTAL XP SCORES AND SUBMISSION SPEED.
         </p>
       </div>
 
       {/* Standings Table */}
-      <div className="rounded-xl border bg-card shadow-xs overflow-hidden">
+      <div className="border-4 border-black bg-card shadow-[inset_3px_3px_0px_oklch(0.45_0.02_260),inset_-3px_-3px_0px_oklch(0.12_0.01_260),0px_6px_0px_#000000] overflow-hidden">
         {leaderboardData.length === 0 ? (
-          <div className="p-8 text-center text-xs text-muted-foreground">
-            No standings available yet. Submit solutions to appear on the leaderboard!
+          <div className="p-8 text-center text-xs text-muted-foreground font-pixel-body uppercase">
+            NO STANDINGS RECORDED YET. SOLVE QUESTS TO CLAIM HIGH SCORES!
           </div>
         ) : (
-          <table className="w-full border-collapse text-left text-xs">
+          <table className="w-full border-collapse text-left text-xs font-pixel-body">
             <thead>
-              <tr className="border-b bg-muted/40 text-muted-foreground font-medium">
-                <th className="p-3.5 w-16 text-center">Rank</th>
-                <th className="p-3.5">Team Name</th>
-                <th className="p-3.5 text-center">Solved Challenges</th>
-                <th className="p-3.5 text-right">Total Score</th>
+              <tr className="border-b-2 border-black bg-muted text-foreground uppercase tracking-wider font-bold">
+                <th className="p-3.5 w-16 text-center">RANK</th>
+                <th className="p-3.5">GUILD / TEAM</th>
+                <th className="p-3.5 text-center">QUESTS SOLVED</th>
+                <th className="p-3.5 text-right">TOTAL XP</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y-2 divide-black">
               {leaderboardData.map((row) => {
                 const isCurrentTeam =
                   Boolean(currentUser?.teamId && row.teamId === currentUser.teamId) ||
@@ -50,38 +52,38 @@ export default async function LeaderboardPage() {
                   <tr
                     key={row.teamId || row.rank}
                     className={`transition-colors ${
-                      isCurrentTeam ? "bg-primary/5 font-semibold" : "hover:bg-muted/30"
+                      isCurrentTeam ? "bg-primary/20 font-bold" : "hover:bg-muted/40"
                     }`}
                   >
-                    <td className="p-3.5 text-center font-mono font-bold">
+                    <td className="p-3.5 text-center font-bold">
                       {isTop1 ? (
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 text-xs">
+                        <span className="inline-flex h-6 w-6 items-center justify-center border-2 border-black bg-amber-400 text-black text-xs font-pixel-header font-bold shadow-[inset_1px_1px_0px_#ffffff]">
                           1
                         </span>
                       ) : isTop3 ? (
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-muted text-foreground text-xs">
+                        <span className="inline-flex h-6 w-6 items-center justify-center border border-black bg-slate-300 text-black text-xs font-bold">
                           {row.rank}
                         </span>
                       ) : (
-                        row.rank
+                        `#${row.rank}`
                       )}
                     </td>
                     <td className="p-3.5">
                       <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-mono text-xs text-foreground">{row.teamName}</span>
+                        <Users className="h-4 w-4 text-primary" />
+                        <span className="font-bold text-xs uppercase text-foreground">{row.teamName}</span>
                         {isCurrentTeam && (
-                          <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-sans">
-                            Your Team
+                          <Badge variant="secondary" className="text-[9px] py-0 px-1.5 border-black bg-primary text-primary-foreground font-pixel-body uppercase">
+                            YOUR TEAM
                           </Badge>
                         )}
                       </div>
                     </td>
-                    <td className="p-3.5 text-center font-mono text-xs">
+                    <td className="p-3.5 text-center font-bold text-xs">
                       {row.problemsSolved}
                     </td>
-                    <td className="p-3.5 text-right font-mono text-xs font-bold text-foreground">
-                      {row.totalScore} pts
+                    <td className="p-3.5 text-right font-bold text-xs text-amber-400">
+                      {row.totalScore} XP
                     </td>
                   </tr>
                 );

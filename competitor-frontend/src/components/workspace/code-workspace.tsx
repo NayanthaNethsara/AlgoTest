@@ -129,12 +129,12 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+      <div className="flex items-center justify-between gap-2 border-b-2 border-black bg-card px-3 py-2 font-pixel-body">
         <Select value={language.id} onValueChange={handleLanguageChange}>
-          <SelectTrigger className="w-36" size="sm">
+          <SelectTrigger className="w-36 border-2 border-black bg-input text-xs font-pixel-body shadow-[inset_1px_1px_0px_#000000]" size="sm">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="border-2 border-black bg-card font-pixel-body text-xs">
             {LANGUAGES.map((lang) => (
               <SelectItem key={lang.id} value={lang.id}>
                 {lang.label}
@@ -143,40 +143,40 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
           </SelectContent>
         </Select>
 
-        <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
-          <History className="size-4" />
-          History
+        <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)} className="font-pixel-body uppercase text-xs">
+          <History className="size-3.5" />
+          HISTORY
         </Button>
       </div>
 
       <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
         <ResizablePanel defaultSize="62" minSize="30">
-          <div className="h-full">
+          <div className="h-full border-b-2 border-black">
             <CodeEditor language={language.monaco} value={code} onChange={setCode} />
           </div>
         </ResizablePanel>
 
-        <ResizableHandle withHandle />
+        <ResizableHandle withHandle className="bg-black border-y border-black" />
 
         <ResizablePanel defaultSize="38" minSize="20">
           <Tabs value={tab} onValueChange={setTab} className="flex h-full flex-col gap-0">
-            <div className="flex items-center justify-between gap-3 border-b px-3 py-2">
+            <div className="flex items-center justify-between gap-3 border-b-2 border-black bg-card px-3 py-1.5 font-pixel-body">
               <TabsList>
-                <TabsTrigger value="test">Test</TabsTrigger>
-                <TabsTrigger value="submission">Submission</TabsTrigger>
+                <TabsTrigger value="test">TEST</TabsTrigger>
+                <TabsTrigger value="submission">SUBMISSION</TabsTrigger>
               </TabsList>
 
               <div className="flex items-center gap-3">
-                <span className="hidden text-xs text-muted-foreground lg:inline">
-                  Run uses your input · Submit runs hidden tests
+                <span className="hidden text-[10px] text-muted-foreground uppercase font-pixel-body lg:inline">
+                  RUN = TEST INPUT · SUBMIT = SCORED RUN
                 </span>
                 <Button variant="secondary" size="sm" onClick={handleRun} disabled={running}>
-                  <Play className="size-4" />
-                  {running ? "Running…" : "Run"}
+                  <Play className="size-3.5" />
+                  {running ? "RUNNING..." : "RUN"}
                 </Button>
                 <Button size="sm" onClick={handleSubmit} disabled={submitting}>
-                  <Send className="size-4" />
-                  {submitting ? "Submitting…" : "Submit"}
+                  <Send className="size-3.5" />
+                  {submitting ? "SUBMITTING..." : "SUBMIT"}
                 </Button>
               </div>
             </div>
