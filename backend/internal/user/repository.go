@@ -55,7 +55,8 @@ func (r *Repository) CreateWithTeam(ctx context.Context, username, displayName, 
 
 func (r *Repository) List(ctx context.Context) ([]User, error) {
 	query := `
-		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name
+		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name,
+		       (u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())) AS proctor_exempt
 		FROM users u
 		LEFT JOIN teams t ON u.team_id = t.id
 		ORDER BY u.created_at ASC
@@ -78,6 +79,7 @@ func (r *Repository) List(ctx context.Context) ([]User, error) {
 			&u.LastLoginAt,
 			&u.TeamID,
 			&u.TeamName,
+			&u.ProctorExempt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
@@ -90,7 +92,9 @@ func (r *Repository) List(ctx context.Context) ([]User, error) {
 // GetForLogin returns the user together with its stored password hash.
 func (r *Repository) GetForLogin(ctx context.Context, username string) (User, string, error) {
 	query := `
-		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name, u.password_hash
+		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name,
+		       (u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())) AS proctor_exempt,
+		       u.password_hash
 		FROM users u
 		LEFT JOIN teams t ON u.team_id = t.id
 		WHERE u.username = $1
@@ -106,6 +110,7 @@ func (r *Repository) GetForLogin(ctx context.Context, username string) (User, st
 		&u.LastLoginAt,
 		&u.TeamID,
 		&u.TeamName,
+		&u.ProctorExempt,
 		&hash,
 	)
 	if err != nil {
@@ -119,7 +124,8 @@ func (r *Repository) GetForLogin(ctx context.Context, username string) (User, st
 
 func (r *Repository) GetByID(ctx context.Context, id string) (User, error) {
 	query := `
-		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name
+		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name,
+		       (u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())) AS proctor_exempt
 		FROM users u
 		LEFT JOIN teams t ON u.team_id = t.id
 		WHERE u.id = $1
@@ -134,6 +140,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (User, error) {
 		&u.LastLoginAt,
 		&u.TeamID,
 		&u.TeamName,
+		&u.ProctorExempt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

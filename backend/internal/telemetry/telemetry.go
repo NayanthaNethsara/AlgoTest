@@ -43,6 +43,7 @@ type Heartbeat struct {
 	StoppedReason     string     `json:"stopped_reason"`
 	RiskScore         int        `json:"risk_score"`
 	Severity          string     `json:"severity"`
+	ProctorExempt     bool       `json:"proctor_exempt"`
 }
 
 // AgentRow is the agent-owned lane of a contestant's heartbeat row.

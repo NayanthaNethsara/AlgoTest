@@ -15,12 +15,13 @@ func ValidRole(role string) bool {
 // User is a competitor or organizer. The password hash is never included in
 // the JSON representation.
 type User struct {
-	ID          string     `json:"id"`
-	Username    string     `json:"username"`
-	DisplayName string     `json:"displayName"`
-	Role        string     `json:"role"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
-	TeamID      *string    `json:"teamId,omitempty"`
-	TeamName    *string    `json:"teamName,omitempty"`
+	ID            string     `json:"id"`
+	Username      string     `json:"username"`
+	DisplayName   string     `json:"displayName"`
+	Role          string     `json:"role"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	LastLoginAt   *time.Time `json:"lastLoginAt,omitempty"`
+	TeamID        *string    `json:"teamId,omitempty"`
+	TeamName      *string    `json:"teamName,omitempty"`
+	ProctorExempt bool       `json:"proctorExempt"`
 }

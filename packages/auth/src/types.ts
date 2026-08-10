@@ -9,6 +9,7 @@ export interface SessionUser {
   lastLoginAt?: string;
   teamId?: string;
   teamName?: string;
+  proctorExempt?: boolean;
 }
 
 export interface LoginCredentials {

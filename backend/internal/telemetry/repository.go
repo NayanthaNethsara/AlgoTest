@@ -68,6 +68,7 @@ func (r *Repository) ListHeartbeats(ctx context.Context, f ListFilter) ([]Heartb
 			COALESCE(ag.stopped_reason, ''),
 			COALESCE(risk.score, 0),
 			COALESCE(risk.severity, 'LOW'),
+			(u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())) AS proctor_exempt,
 			count(*) OVER ()
 		FROM users u
 		LEFT JOIN teams t ON u.team_id = t.id
@@ -103,7 +104,7 @@ func (r *Repository) ListHeartbeats(ctx context.Context, f ListFilter) ([]Heartb
 			&hb.AgentVersion, &hb.ShellAlive, &hb.InternetReachable,
 			&hb.ProcessMatches, &hb.ClientType, &lastPingAt, &hb.Status,
 			&hb.Enrolled, &hb.OfflineSeconds, &hb.InGap, &hb.GapStartedAt,
-			&hb.StoppedReason, &hb.RiskScore, &hb.Severity, &total,
+			&hb.StoppedReason, &hb.RiskScore, &hb.Severity, &hb.ProctorExempt, &total,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan heartbeat: %w", err)
 		}
