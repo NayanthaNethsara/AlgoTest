@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { KeyRound, Trash2, Plus, Upload, Shield, Users, Search, Users2 } from "lucide-react";
+import { KeyRound, Trash2, ShieldCheck, ShieldOff, Users2, Users, Shield, Plus, Upload, Search } from "lucide-react";
 import { createUserAction, bulkCreateUsersAction, resetPasswordAction, deleteUserAction } from "@/lib/actions/users";
+import { toggleProctorExemptionAction } from "@/actions/telemetry";
 import { addTeamMemberAction, removeTeamMemberAction } from "@/lib/actions/teams";
 import type { User, CreateUserInput, BulkResult } from "@/types/user";
 import type { Team } from "@/types/team";
@@ -55,6 +56,31 @@ export function AdminUsers({
       onRefresh();
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleToggleExemption(user: User) {
+    const isExempt = user.proctorExempt ?? false;
+    let reason = "";
+    if (!isExempt) {
+      const entered = window.prompt(
+        `Granting an exemption to ${user.displayName || user.username} allows them to submit from web browser without desktop proctor.\nReason:`,
+        "Backup web browser usage during competition"
+      );
+      if (entered === null || entered.trim() === "") return;
+      reason = entered.trim();
+    }
+
+    setPending(true);
+    try {
+      const res = await toggleProctorExemptionAction(user.id, !isExempt, reason);
+      if (res.error) {
+        setError(res.error);
+      } else {
+        onRefresh();
+      }
     } finally {
       setPending(false);
     }
@@ -300,6 +326,7 @@ export function AdminUsers({
               <TableHead>Display Name</TableHead>
               <TableHead>Assigned Team</TableHead>
               <TableHead>Role</TableHead>
+              <TableHead>Proctoring</TableHead>
               <TableHead>Last Login</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -307,7 +334,7 @@ export function AdminUsers({
           <TableBody>
             {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="p-8 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={7} className="p-8 text-center text-xs text-muted-foreground">
                   No {subTab === "competitors" ? "competitors" : "administrators"} found.
                 </TableCell>
               </TableRow>
@@ -330,25 +357,52 @@ export function AdminUsers({
                       {u.role}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {u.role === "competitor" ? (
+                      u.proctorExempt ? (
+                        <Badge variant="outline" className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                          EXEMPT
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+                          ENFORCED
+                        </Badge>
+                      )
+                    ) : (
+                      "-"
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       {u.role === "competitor" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setAssignTeamTarget(u);
-                            setSelectedTeamId(u.teamId || "");
-                          }}
-                          disabled={pending}
-                          title={u.teamId ? "Change / Remove Team" : "Assign to Team"}
-                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        >
-                          <Users2 className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleToggleExemption(u)}
+                            disabled={pending}
+                            title={u.proctorExempt ? "Revoke Proctor Exemption (Enforce)" : "Grant Proctor Exemption (Allow Web Backup)"}
+                            className={`h-8 w-8 ${u.proctorExempt ? "text-emerald-500 hover:bg-emerald-500/10" : "text-muted-foreground hover:text-foreground"}`}
+                          >
+                            {u.proctorExempt ? <ShieldOff className="h-4 w-4 text-emerald-400" /> : <ShieldCheck className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setAssignTeamTarget(u);
+                              setSelectedTeamId(u.teamId || "");
+                            }}
+                            disabled={pending}
+                            title={u.teamId ? "Change / Remove Team" : "Assign to Team"}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          >
+                            <Users2 className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
                       <Button
                         variant="ghost"

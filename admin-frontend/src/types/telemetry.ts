@@ -29,4 +29,5 @@ export type CompetitorHeartbeat = {
   stopped_reason: string;
   risk_score: number;
   severity: "HIGH" | "MEDIUM" | "LOW";
+  proctor_exempt?: boolean;
 };

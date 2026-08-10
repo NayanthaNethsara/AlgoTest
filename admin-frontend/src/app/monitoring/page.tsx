@@ -403,6 +403,7 @@ export default function OnsiteMonitoringPage() {
                   <th className="px-4 py-3">Signals</th>
                   <th className="px-4 py-3">IP &amp; OS</th>
                   <th className="px-4 py-3">Last Ping</th>
+                  <th className="px-4 py-3 text-right">Exemption</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -441,6 +442,18 @@ export default function OnsiteMonitoringPage() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {formatTimeAgo(item.last_ping_at)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => handleToggleExemption(item.user_id, Boolean(item.proctor_exempt))}
+                        className={`text-[11px] font-semibold ${
+                          item.proctor_exempt
+                            ? "text-emerald-400 hover:underline"
+                            : "text-primary hover:underline"
+                        }`}
+                      >
+                        {item.proctor_exempt ? "Exempt (Revoke)" : "Grant Exempt"}
+                      </button>
                     </td>
                   </tr>
                 ))}
