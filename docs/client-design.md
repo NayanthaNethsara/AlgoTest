@@ -376,9 +376,8 @@ bypass, `competitor-desktop/src-tauri/server/` (stale bundled Node + Next artifa
 | `POST /api/v1/agent/events` | agent | Buffered flush |
 | `POST /api/v1/agent/shutdown` | agent | Clean stop |
 | `GET /api/v1/agent/rules` | agent | Denylist + cadence, ETag |
-| `GET /api/v1/proctor/disclosure` | none | Consent text |
-| `GET /api/v1/telemetry/self` | user | Extend with `loopback_port`, `attest_ok`, `agent_version` |
-| `POST /api/v1/telemetry/ping` | user | **Web client only** now — provenance and focus, never liveness |
+| `GET /api/v1/proctor/disclosure` | none | Consent text, plus the published port list and process denylist it promises |
+| `GET /api/v1/telemetry/self` | user | Extend with `loopback_port`, `attest_ok`, `agent_version`. Also records browser presence via `?tab_visible=` — the portal polls this every tick regardless, so presence costs no extra request and still never affects liveness |
 
 ---
 
