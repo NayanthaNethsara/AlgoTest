@@ -53,7 +53,6 @@ var (
 	runLimiter              = NewLimiterStore(rate.Every(5*time.Second), 12)         // 12 req/min/user
 	submissionLimiter       = NewLimiterStore(rate.Every(6*time.Second), 10)         // 10 req/min/user
 	submissionStatusLimiter = NewLimiterStore(rate.Every(1*time.Second), 60)         // 60 req/min/user
-	telemetryPingLimiter    = NewLimiterStore(rate.Every(7500*time.Millisecond), 8)  // 8 req/min/user
 	adminLimiter            = NewLimiterStore(rate.Every(500*time.Millisecond), 120) // 120 req/min/admin
 
 	// The agent heartbeats every 15s (4/min). The headroom absorbs a reconnect

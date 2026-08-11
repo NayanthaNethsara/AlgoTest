@@ -74,13 +74,18 @@ func (a *fakeAgent) enroll(s *sim) error {
 		a.shell = true
 	}
 
+	consentVersion, err := s.consentVersion()
+	if err != nil {
+		return err
+	}
+
 	status, body := s.request(http.MethodPost, "/api/v1/agent/enroll", "", map[string]any{
 		"username":        a.user,
 		"password":        a.pass,
 		"machine_id":      a.machineID,
 		"platform":        "proctorsim linux-x86_64",
 		"agent_version":   "sim-0.2.0",
-		"consent_version": "simulated",
+		"consent_version": consentVersion,
 	})
 	if status != http.StatusOK {
 		return fmt.Errorf("enroll returned %d: %s", status, strings.TrimSpace(body))

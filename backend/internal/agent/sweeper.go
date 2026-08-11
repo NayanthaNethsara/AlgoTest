@@ -19,7 +19,7 @@ const (
 // to a contestant when the server was the thing that vanished is the fastest way
 // to make organizers stop trusting the review queue.
 func (s *Service) Sweep(ctx context.Context) error {
-	staleSeconds := s.policy.GateMaxStaleSeconds
+	staleSeconds := s.Policy().GateMaxStaleSeconds
 
 	health, err := s.repo.fleetHealth(ctx, staleSeconds)
 	if err != nil {

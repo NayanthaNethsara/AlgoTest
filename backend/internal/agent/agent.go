@@ -64,10 +64,15 @@ func DefaultPolicy() Policy {
 		KeepaliveSeconds:    300,
 		RulesRefreshSeconds: 300,
 		GateMaxStaleSeconds: GateMaxStaleSeconds,
+		// Terms are matched as whole words against the tokenized process name and
+		// command line, never as bare substrings — see tokenize() in the agent's
+		// signals/processes.rs. Multi-word terms must appear as a contiguous run,
+		// which is what lets "tabby serve" name TabbyML's actual invocation without
+		// flagging every contestant who uses the unrelated Tabby terminal emulator.
 		ProcessDenylist: []string{
 			"ollama", "lmstudio", "lm studio", "jan", "gpt4all", "llama-server",
 			"llama.cpp", "vllm", "koboldcpp", "localai", "text-generation-webui",
-			"tabby", "continue", "gpt4all-chat",
+			"tabby serve", "gpt4all-chat",
 		},
 		ForegroundDenylist: []string{
 			"ai.ollama", "com.ollama", "lmstudio", "ai.jan", "com.gpt4all", "koboldcpp",
@@ -128,12 +133,12 @@ type EnrollRequest struct {
 }
 
 type EnrollResponse struct {
-	AgentID     string `json:"agent_id"`
-	AgentToken  string `json:"agent_token"`
-	UserID      string `json:"user_id"`
-	Username    string `json:"username"`
-	DisplayName string `json:"display_name"`
-	Policy      Policy `json:"policy"`
+	AgentID      string `json:"agent_id"`
+	AgentToken   string `json:"agent_token"`
+	UserID       string `json:"user_id"`
+	Username     string `json:"username"`
+	DisplayName  string `json:"display_name"`
+	Policy       Policy `json:"policy"`
 }
 
 // Integrity is what the server concluded about this heartbeat's provenance,

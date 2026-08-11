@@ -9,40 +9,36 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
 )
 
-// @Summary Web Portal Ping
-// @Description Record that a contestant is using the browser fallback. Carries no signals and never affects agent liveness.
-// @Tags Telemetry
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body telemetry.WebPingRequest true "Web ping request"
-// @Success 202 {object} map[string]string
-// @Failure 401 {object} map[string]string
-// @Router /api/v1/telemetry/ping [post]
-func (h *handler) pingWebTelemetry(c *gin.Context) {
-	u := currentUser(c)
-
-	var req telemetry.WebPingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid telemetry payload"})
-		return
+// recordWebPresence notes that a portal is open for this contestant. It carries no
+// signals and never touches agent liveness — the browser is a fallback UI, not a
+// source of truth, which is what stops "open the portal" from being a way around
+// proctoring.
+//
+// Best-effort by design: presence is context for a reviewer, and failing a
+// contestant's status poll because a presence row could not be written would turn
+// a bookkeeping problem into a submission problem.
+func (h *handler) recordWebPresence(c *gin.Context, userID string) {
+	// Only believed when a configured trusted proxy forwarded it; the portal's own
+	// address recorded as the contestant's would be worse than no address at all.
+	ip, trusted := portalClientIP(c)
+	if !trusted {
+		ip = ""
 	}
 
 	row := telemetry.WebRow{
-		UserID:     u.ID,
-		IPAddress:  c.ClientIP(),
+		UserID:     userID,
+		IPAddress:  ip,
 		UserAgent:  c.GetHeader("User-Agent"),
-		TabVisible: req.TabVisible,
+		TabVisible: c.Query("tab_visible") != "false",
 	}
 
 	if h.telemetryBatcher != nil {
 		h.telemetryBatcher.EnqueueWeb(row)
-	} else if err := h.telemetry.UpsertWeb(c.Request.Context(), row); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to record web ping"})
 		return
 	}
-
-	c.JSON(http.StatusAccepted, gin.H{"status": "accepted"})
+	if err := h.telemetry.UpsertWeb(c.Request.Context(), row); err != nil && h.log != nil {
+		h.log.Warn("failed to record web presence", "user_id", userID, "error", err)
+	}
 }
 
 // @Summary List Telemetry Monitoring Data
@@ -80,15 +76,22 @@ func (h *handler) listAdminTelemetry(c *gin.Context) {
 }
 
 // @Summary Self Proctor Status
-// @Description Report the contestant's own agent liveness so the portal can warn them while they still have time to fix it.
+// @Description Report the contestant's own agent liveness so the portal can warn them while they still have time to fix it. Recording the caller's browser presence is a side effect of the poll.
 // @Tags Telemetry
 // @Produce json
 // @Security BearerAuth
+// @Param tab_visible query bool false "Whether the portal tab was foregrounded when polled"
 // @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]string
 // @Router /api/v1/telemetry/self [get]
 func (h *handler) getProctorSelfStatus(c *gin.Context) {
 	u := currentUser(c)
+
+	// Presence rides on the status poll the portal already makes every tick. As a
+	// separate endpoint it doubled the portal's request count to record something
+	// the poll itself proves: the contestant has a portal open right now.
+	h.recordWebPresence(c, u.ID)
+
 	if h.proctorGate == nil {
 		c.JSON(http.StatusOK, gin.H{"allowed": true, "exempt": true})
 		return

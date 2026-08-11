@@ -93,15 +93,30 @@ func (h *handler) enrollAgent(c *gin.Context) {
 		return
 	}
 
+	// Refuse to enroll against wording the server does not recognise. The setup UI
+	// defaults this to "unknown" when the disclosure fails to load, and an agent
+	// that collects under an unidentifiable consent is not defensible at an appeal.
+	if req.ConsentVersion != ConsentVersion {
+		c.JSON(http.StatusConflict, gin.H{
+			"error":   "the proctoring disclosure has changed; reopen setup and read it again before enrolling",
+			"code":    "CONSENT_VERSION_MISMATCH",
+			"version": ConsentVersion,
+		})
+		return
+	}
+
 	token, err := agent.NewToken()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue agent token"})
 		return
 	}
 
+	// The agent enrolls directly against the API rather than through the portal's
+	// server actions, so ClientIP here really is the contestant's machine — which
+	// is what makes it worth recording alongside the consent.
 	agentID, rebound, err := h.agents.Enroll(
 		c.Request.Context(), u.ID, req.MachineID, agent.HashToken(token),
-		req.Platform, req.AgentVersion, req.ConsentVersion,
+		req.Platform, req.AgentVersion, req.ConsentVersion, ip,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enroll agent"})
@@ -112,6 +127,10 @@ func (h *handler) enrollAgent(c *gin.Context) {
 		h.agentService.OnRebound(c.Request.Context(), u.ID, req.MachineID)
 	}
 
+	// Enrolling deliberately does not mint a portal session. The client cannot
+	// hand one to the portal without granting a remote origin the right to invoke
+	// commands inside it, so the contestant signs in to the portal themselves and
+	// this endpoint issues no credential nobody will ever redeem.
 	c.JSON(http.StatusOK, agent.EnrollResponse{
 		AgentID:     agentID,
 		AgentToken:  token,

@@ -42,7 +42,7 @@ func main() {
 	cfg := config.Load()
 
 	ctx := context.Background()
-	pool, err := db.Connect(ctx, cfg.DatabaseURL)
+	pool, err := db.Connect(ctx, cfg.DatabaseURL, 4, 0)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

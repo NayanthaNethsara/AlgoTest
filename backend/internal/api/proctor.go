@@ -14,16 +14,35 @@ import (
 // It must stay truthful about the background agent: an autostarting proctor that
 // keeps running after the window is closed cannot claim to collect "nothing when
 // the app is closed".
+// ConsentVersion identifies the disclosure wording below. Bump it whenever that
+// wording changes: it is what enrollment records in the consent log, and what
+// tells organizers who is still running under superseded terms.
+const ConsentVersion = "2026-08-agent-split"
+
+// probedPorts is the list the agent sweeps on 127.0.0.1. The disclosure claims a
+// *published* list, so it has to actually be published — a contestant cannot check
+// a promise against a constant compiled into a binary they were handed.
+var probedPorts = []gin.H{
+	{"port": 11434, "product": "Ollama"},
+	{"port": 1234, "product": "LM Studio"},
+	{"port": 1337, "product": "Jan"},
+	{"port": 4891, "product": "GPT4All"},
+	{"port": 8080, "product": "llama-server / vLLM"},
+	{"port": 8000, "product": "vLLM / LocalAI"},
+	{"port": 5000, "product": "KoboldCpp"},
+}
+
 var disclosure = gin.H{
-	"version": "2026-08-agent-split",
+	"version": ConsentVersion,
 	"summary": "The proctor client watches for local AI runtimes and a second route to the internet. It runs in the background for the duration of the contest and shows a tray icon the whole time it is running.",
 	"collected": []string{
 		"Which application has keyboard focus, and for how long",
 		"Names of running processes that match a published denylist, plus the total process count",
-		"Which of a published list of localhost ports answer as a local LLM API",
-		"Whether this machine can reach the public internet",
+		"Which of a published list of localhost ports answer as a local LLM API, listed in full below",
+		"Whether this machine can reach the public internet, by opening a TCP connection to 1.1.1.1:53 and 8.8.8.8:53",
 		"Operating system, architecture, LAN IP address, and agent version",
 		"Editor statistics for code you submit: typed, pasted and bulk-inserted character counts",
+		"The IP address and browser user-agent the portal is opened from",
 	},
 	"notCollected": []string{
 		"No screenshots, screen recording, camera or microphone",
@@ -40,6 +59,7 @@ var disclosure = gin.H{
 		"A tray icon is visible the entire time it is running — there is no hidden state",
 		"You can stop it at any time from the tray in one click; doing so only locks scored submissions",
 		"Autostart is removable, and uninstalling revokes the agent's credential",
+		"The agent listens on 127.0.0.1 (one of ports 47615-47619) so the contest page can confirm it is running on this same machine. It answers only the contest portal, and serves only its own status",
 	},
 	"retention": "Heartbeats and events are kept 30 days. Gaps, findings, provenance and reviews are kept 90 days so appeals can be heard.",
 	"policy":    "Signals are flagged for human review. Nothing here disqualifies anyone automatically.",
@@ -52,9 +72,12 @@ var disclosure = gin.H{
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/proctor/disclosure [get]
 func (h *handler) getProctorDisclosure(c *gin.Context) {
+	policy := h.agentService.Policy()
 	c.JSON(http.StatusOK, gin.H{
-		"disclosure": disclosure,
-		"policy":     h.agentService.Policy(),
+		"disclosure":   disclosure,
+		"policy":       policy,
+		"probedPorts":  probedPorts,
+		"processTerms": policy.ProcessDenylist,
 	})
 }
 

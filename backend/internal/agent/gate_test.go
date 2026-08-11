@@ -124,6 +124,55 @@ func TestDecide(t *testing.T) {
 	}
 }
 
+// The attestation finding is read by a human deciding whether a contestant
+// cheated, so it must never present the portal host as the contestant's address.
+func TestUnattestedEvidenceOmitsUntrustedClientIP(t *testing.T) {
+	now := time.Now()
+	fresh := now.Add(-30 * time.Second)
+	base := GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, AgentLanIP: "10.0.0.5"}
+
+	t.Run("untrusted address is withheld rather than compared", func(t *testing.T) {
+		in := base
+		in.ClientIP = "172.18.0.4" // the Next server, not the contestant
+		in.ClientIPTrusted = false
+
+		got := Decide(in, now)
+		evidence := findingEvidence(t, got, "tel.no_attest")
+
+		if _, ok := evidence["ip_mismatch"]; ok {
+			t.Error("ip_mismatch reported from an address the contestant never owned")
+		}
+		if _, ok := evidence["client_ip"]; ok {
+			t.Error("client_ip recorded despite being a proxy hop")
+		}
+		if _, ok := evidence["client_ip_unknown"]; !ok {
+			t.Error("a reviewer must be able to tell an unknown address from a matching one")
+		}
+	})
+
+	t.Run("trusted address is compared", func(t *testing.T) {
+		in := base
+		in.ClientIP = "10.0.0.9"
+		in.ClientIPTrusted = true
+
+		evidence := findingEvidence(t, Decide(in, now), "tel.no_attest")
+		if mismatch, ok := evidence["ip_mismatch"].(bool); !ok || !mismatch {
+			t.Errorf("ip_mismatch = %v, want true for 10.0.0.9 against agent 10.0.0.5", evidence["ip_mismatch"])
+		}
+	})
+}
+
+func findingEvidence(t *testing.T, d Decision, ruleID string) map[string]any {
+	t.Helper()
+	for _, f := range d.findings {
+		if f.RuleID == ruleID {
+			return f.Evidence
+		}
+	}
+	t.Fatalf("no %q finding in %v", ruleID, ruleIDs(d.findings))
+	return nil
+}
+
 func TestClassify(t *testing.T) {
 	now := time.Now()
 	boot := "11111111-1111-1111-1111-111111111111"

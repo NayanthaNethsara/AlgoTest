@@ -24,16 +24,21 @@ const (
 // GateInput is the decision's whole world, so the decision itself stays pure and
 // testable.
 type GateInput struct {
-	Exempt          bool
-	ExemptReason    string
-	HasAgent        bool
-	LastSeenAt      *time.Time
-	StoppedAt       *time.Time
-	ShellAlive      bool
-	AttestOK        bool
-	RequireAttest   bool
-	IncidentOpen    bool
-	ClientIP        string
+	Exempt        bool
+	ExemptReason  string
+	HasAgent      bool
+	LastSeenAt    *time.Time
+	StoppedAt     *time.Time
+	ShellAlive    bool
+	AttestOK      bool
+	RequireAttest bool
+	IncidentOpen  bool
+	ClientIP      string
+	// ClientIPTrusted is false when ClientIP is a proxy hop rather than the
+	// contestant's own address. Comparing a portal host against the agent's LAN IP
+	// produces a mismatch on every honest submission, so the comparison is omitted
+	// rather than reported as if it meant something.
+	ClientIPTrusted bool
 	AgentLanIP      string
 	MaxStaleSeconds int
 }
@@ -125,11 +130,16 @@ func Decide(in GateInput, now time.Time) Decision {
 		// machine as the live agent. Its absence is not proof of anything, so it
 		// is a review signal by default and a block only when organizers turn
 		// the lever on.
-		d.findings = append(d.findings, finding{"tel.no_attest", 20, map[string]any{
-			"client_ip":    in.ClientIP,
-			"agent_lan_ip": in.AgentLanIP,
-			"ip_mismatch":  in.AgentLanIP != "" && in.ClientIP != "" && in.AgentLanIP != in.ClientIP,
-		}})
+		evidence := map[string]any{"agent_lan_ip": in.AgentLanIP}
+		if in.ClientIPTrusted {
+			evidence["client_ip"] = in.ClientIP
+			evidence["ip_mismatch"] = in.AgentLanIP != "" && in.ClientIP != "" && in.AgentLanIP != in.ClientIP
+		} else {
+			// Say so explicitly. A reviewer who sees no ip_mismatch key must be able
+			// to tell "the addresses matched" from "we never knew the address".
+			evidence["client_ip_unknown"] = "portal did not forward a trusted client address"
+		}
+		d.findings = append(d.findings, finding{"tel.no_attest", 20, evidence})
 		if in.RequireAttest {
 			d.Code = CodeNotAttested
 			d.Remedy = "Submit from the proctor client, or reload the portal so it can reach the agent."
@@ -154,7 +164,17 @@ func NewGate(repo *Repository, service *Service, settings *Settings) *Gate {
 	return &Gate{repo: repo, service: service, settings: settings}
 }
 
-func (g *Gate) Check(ctx context.Context, userID, clientIP, attestNonce string) (Decision, error) {
+// maxStaleSeconds is the live threshold. Reading the compiled-in constant here
+// instead would leave organizers a lever in contest_settings that visibly changed
+// nothing about whether a submission was accepted.
+func (g *Gate) maxStaleSeconds() int {
+	if g.settings == nil {
+		return GateMaxStaleSeconds
+	}
+	return g.settings.Policy().GateMaxStaleSeconds
+}
+
+func (g *Gate) Check(ctx context.Context, userID, clientIP string, clientIPTrusted bool, attestNonce string) (Decision, error) {
 	state, err := g.repo.GateState(ctx, userID)
 	if err != nil {
 		return Decision{}, err
@@ -184,8 +204,9 @@ func (g *Gate) Check(ctx context.Context, userID, clientIP, attestNonce string) 
 		RequireAttest:   requireAttest,
 		IncidentOpen:    state.IncidentOpen,
 		ClientIP:        clientIP,
+		ClientIPTrusted: clientIPTrusted,
 		AgentLanIP:      state.LanIP,
-		MaxStaleSeconds: GateMaxStaleSeconds,
+		MaxStaleSeconds: g.maxStaleSeconds(),
 	}, time.Now())
 
 	if g.service != nil {
@@ -214,7 +235,7 @@ func (g *Gate) Status(ctx context.Context, userID string) (Decision, int, error)
 		ShellAlive:      state.ShellAlive,
 		AttestOK:        true, // attestation is a per-submission property
 		IncidentOpen:    state.IncidentOpen,
-		MaxStaleSeconds: GateMaxStaleSeconds,
+		MaxStaleSeconds: g.maxStaleSeconds(),
 	}, time.Now())
 	d.findings = nil
 

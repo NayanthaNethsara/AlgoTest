@@ -25,6 +25,20 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
+// portalClientIP resolves the contestant's own address, and reports whether that
+// resolution can be believed.
+//
+// Portal traffic reaches the API through the Next server's server actions, so the
+// direct peer is always the portal, never the contestant. The forwarded address is
+// only meaningful when a *configured* trusted proxy supplied it — gin returns the
+// direct peer otherwise, and treating that as the contestant would mean comparing
+// the portal host against the agent's LAN IP and calling the mismatch evidence.
+// Callers that record IP-derived findings must drop them when trusted is false.
+func portalClientIP(c *gin.Context) (ip string, trusted bool) {
+	client := c.ClientIP()
+	return client, client != c.RemoteIP()
+}
+
 // attestHeader carries the loopback attestation nonce the portal read from the
 // agent over 127.0.0.1.
 const attestHeader = "X-Agent-Attest"
@@ -44,18 +58,35 @@ func NewRouter(
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
 
+	// Gin trusts every proxy by default, which would let any caller that can reach
+	// the API set the IP recorded against a submission with a forged header. An
+	// empty TRUSTED_PROXIES trusts none, so ClientIP falls back to the direct peer.
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil && log != nil {
+		log.Error("invalid TRUSTED_PROXIES; trusting no proxy", "error", err)
+		_ = r.SetTrustedProxies(nil)
+	}
+
 	proctorEval := proctor.NewEvaluator(pool, log)
 	telemetryBatcher := telemetry.NewBatcher(pool, log)
 	agentRepo := agent.NewRepository(pool)
-	agentService := agent.NewService(agentRepo, telemetryBatcher, proctorEval, log)
-	settings := agent.NewSettings(pool)
+	// Settings owns the agent policy, so it is constructed before the service that
+	// serves that policy to agents and evaluates their reports against it.
+	settings := agent.NewSettings(pool, log)
+	agentService := agent.NewService(agentRepo, telemetryBatcher, proctorEval, settings, log)
 	proctorGate := agent.NewGate(agentRepo, agentService, settings)
 
 	ctx := context.Background()
+	// Both caches are primed synchronously: serving one request against
+	// compiled-in defaults when the real policy is a query away would mean
+	// evaluating a contestant under rules an organizer had already changed.
 	if err := settings.Reload(ctx); err != nil && log != nil {
 		log.Warn("failed to load contest settings; using defaults", "error", err)
 	}
+	if err := proctorEval.ReloadRules(ctx); err != nil && log != nil {
+		log.Warn("failed to load rule catalogue; using default weights", "error", err)
+	}
 	go settings.StartRefresher(ctx, 30*time.Second)
+	go proctorEval.StartRulesRefresher(ctx, 30*time.Second)
 	go agentService.StartSweeper(ctx, 30*time.Second)
 
 	h := &handler{
@@ -73,6 +104,7 @@ func NewRouter(
 		proctorGate:      proctorGate,
 		proctorEvaluator: proctorEval,
 		telemetryBatcher: telemetryBatcher,
+		log:              log,
 	}
 
 	r.GET("/healthz", h.health)
@@ -105,8 +137,8 @@ func NewRouter(
 			ag.GET("/rules", h.requireAgent, h.agentRules)
 		}
 
-		v1.POST("/telemetry/ping", h.requireUser, maxBodySizeMiddleware(4_096),
-			rateLimitMiddleware(telemetryPingLimiter, userIDKeyFunc), h.pingWebTelemetry)
+		// The portal's status poll also records browser presence, so there is no
+		// separate ping endpoint to keep in step with it.
 		v1.GET("/telemetry/self", h.requireUser,
 			rateLimitMiddleware(proctorSelfLimiter, userIDKeyFunc), h.getProctorSelfStatus)
 

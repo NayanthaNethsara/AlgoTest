@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -17,10 +20,68 @@ const MaxRiskScore = 100
 type Evaluator struct {
 	pool *pgxpool.Pool
 	log  *slog.Logger
+	// rules is the catalogue, cached so a heartbeat that fires three rules costs
+	// three writes rather than three writes and three lookups. Refreshed on a
+	// timer: one query regardless of fleet size, against a path that all 300
+	// agents can hit in the same second when a shared condition changes.
+	rules atomic.Pointer[map[string]ruleConfig]
+}
+
+type ruleConfig struct {
+	weight  int
+	enabled bool
 }
 
 func NewEvaluator(pool *pgxpool.Pool, log *slog.Logger) *Evaluator {
 	return &Evaluator{pool: pool, log: log}
+}
+
+// ReloadRules refreshes the cached rule catalogue.
+func (e *Evaluator) ReloadRules(ctx context.Context) error {
+	rows, err := e.pool.Query(ctx, `SELECT id, weight, enabled FROM proctor_rules;`)
+	if err != nil {
+		return fmt.Errorf("load rule catalogue: %w", err)
+	}
+	defer rows.Close()
+
+	next := map[string]ruleConfig{}
+	for rows.Next() {
+		var id string
+		var cfg ruleConfig
+		if err := rows.Scan(&id, &cfg.weight, &cfg.enabled); err != nil {
+			return fmt.Errorf("scan rule: %w", err)
+		}
+		next[id] = cfg
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("read rules: %w", err)
+	}
+
+	// Never publish an empty catalogue over a populated one. Every rule would fall
+	// back to its compiled-in weight, which silently re-enables rules an organizer
+	// had turned off — the opposite of what a failed read should do.
+	if len(next) == 0 && e.rules.Load() != nil {
+		return fmt.Errorf("rule catalogue came back empty; keeping previous")
+	}
+
+	e.rules.Store(&next)
+	return nil
+}
+
+func (e *Evaluator) StartRulesRefresher(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := e.ReloadRules(ctx); err != nil && e.log != nil {
+				e.log.Warn("failed to refresh rule catalogue; keeping previous", "error", err)
+			}
+		}
+	}
 }
 
 type PortObservation struct {
@@ -124,10 +185,18 @@ func matchForeground(app string, dwell map[string]int64, denylist []string) stri
 	for k := range dwell {
 		candidates = append(candidates, k)
 	}
+
+	terms := make([][]string, 0, len(denylist))
+	for _, term := range denylist {
+		if tokens := tokenize(term); len(tokens) > 0 {
+			terms = append(terms, tokens)
+		}
+	}
+
 	for _, candidate := range candidates {
-		lower := strings.ToLower(candidate)
-		for _, term := range denylist {
-			if term != "" && strings.Contains(lower, strings.ToLower(term)) {
+		tokens := tokenize(candidate)
+		for _, term := range terms {
+			if matchesTerm(tokens, term) {
 				return candidate
 			}
 		}
@@ -135,10 +204,40 @@ func matchForeground(app string, dwell map[string]int64, denylist []string) stri
 	return ""
 }
 
+// tokenize splits on every non-alphanumeric character, lowercasing as it goes.
+//
+// This must stay behaviourally identical to tokenize() in the agent's
+// signals/processes.rs. The two run over different inputs — bundle identifiers here,
+// process names and command lines there — but a term means the same thing in both,
+// and organizers edit one list that feeds both.
+func tokenize(value string) []string {
+	return strings.FieldsFunc(strings.ToLower(value), func(r rune) bool {
+		return !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9'))
+	})
+}
+
+// matchesTerm reports whether the term's tokens appear as a contiguous run in the
+// candidate's, making a denylist term a word rather than a substring.
+//
+// Substring matching was the bug this replaces: `strings.Contains` on `jan` fired
+// against anything containing those three letters. An empty term matches nothing —
+// a typo in an organizer-editable table must not become a match-everything rule.
+func matchesTerm(candidate, term []string) bool {
+	if len(term) == 0 || len(term) > len(candidate) {
+		return false
+	}
+	for i := 0; i+len(term) <= len(candidate); i++ {
+		if slices.Equal(candidate[i:i+len(term)], term) {
+			return true
+		}
+	}
+	return false
+}
+
 // observe upserts the open finding for (user, rule). Errors are logged rather
 // than returned: proctoring must never be able to fail a contestant's request.
 func (e *Evaluator) observe(ctx context.Context, userID, ruleID string, defaultWeight int, evidence map[string]any) {
-	weight := e.ruleWeight(ctx, ruleID, defaultWeight)
+	weight := e.ruleWeight(ruleID, defaultWeight)
 	if weight < 0 {
 		return // rule disabled
 	}
@@ -169,7 +268,7 @@ func (e *Evaluator) recordSubmissionFinding(
 	defaultWeight int,
 	evidence map[string]any,
 ) error {
-	weight := e.ruleWeight(ctx, ruleID, defaultWeight)
+	weight := e.ruleWeight(ruleID, defaultWeight)
 	if weight < 0 {
 		return nil
 	}
@@ -188,17 +287,26 @@ func (e *Evaluator) recordSubmissionFinding(
 
 // ruleWeight returns the configured weight, -1 when the rule is disabled, or the
 // compiled-in default when the catalogue has no row for it.
-func (e *Evaluator) ruleWeight(ctx context.Context, ruleID string, defaultWeight int) int {
-	var weight int
-	var enabled bool
-	err := e.pool.QueryRow(ctx, `SELECT weight, enabled FROM proctor_rules WHERE id = $1;`, ruleID).Scan(&weight, &enabled)
-	if err != nil {
+//
+// Reads the cached catalogue rather than the database. This runs once per firing
+// rule inside heartbeat ingest, and that path is reached by the whole fleet at once
+// whenever a shared condition changes — venue wi-fi returning flips
+// internet_reachable for every contestant in the same second.
+func (e *Evaluator) ruleWeight(ruleID string, defaultWeight int) int {
+	cached := e.rules.Load()
+	if cached == nil {
+		// Not loaded yet. Matches the old behaviour on a failed read: score with the
+		// compiled-in weight rather than dropping the observation.
 		return defaultWeight
 	}
-	if !enabled {
+	cfg, ok := (*cached)[ruleID]
+	if !ok {
+		return defaultWeight
+	}
+	if !cfg.enabled {
 		return -1
 	}
-	return weight
+	return cfg.weight
 }
 
 // recalculateRiskScore recomputes the rollup: repeats grow logarithmically so a

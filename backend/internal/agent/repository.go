@@ -28,7 +28,7 @@ const agentColumns = `id, user_id, machine_id, agent_version, platform, boot_id:
 // move a two-laptop setup makes.
 func (r *Repository) Enroll(
 	ctx context.Context,
-	userID, machineID, tokenHash, platform, agentVersion, consentVersion string,
+	userID, machineID, tokenHash, platform, agentVersion, consentVersion, consentIP string,
 ) (agentID string, rebound bool, err error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -66,10 +66,43 @@ func (r *Repository) Enroll(
 		return "", false, fmt.Errorf("insert enrollment: %w", err)
 	}
 
+	// The consent log is append-only and outlives the enrollment it was given for.
+	// proctor_agents.consent_version is overwritten by the next enrollment and is
+	// deleted with the agent row, so on its own it cannot answer "what was this
+	// contestant shown, and when did they agree to it" months later at an appeal.
+	// Recorded in the same transaction as the enrollment: an agent that is
+	// collecting without a matching consent row is the one state that must be
+	// impossible.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO proctor_consents (user_id, consent_version, ip_address)
+		VALUES ($1, $2, $3);
+	`, userID, consentVersion, consentIP); err != nil {
+		return "", false, fmt.Errorf("record consent: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return "", false, fmt.Errorf("commit enroll: %w", err)
 	}
 	return agentID, rebound, nil
+}
+
+// LatestConsent reports the disclosure version a contestant last agreed to, so
+// organizers can see who is still running under superseded wording after the
+// disclosure is edited mid-contest.
+func (r *Repository) LatestConsent(ctx context.Context, userID string) (version string, agreedAt time.Time, err error) {
+	err = r.pool.QueryRow(ctx, `
+		SELECT consent_version, agreed_at FROM proctor_consents
+		WHERE user_id = $1
+		ORDER BY agreed_at DESC
+		LIMIT 1;
+	`, userID).Scan(&version, &agreedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", time.Time{}, nil
+	}
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("read latest consent: %w", err)
+	}
+	return version, agreedAt, nil
 }
 
 func (r *Repository) GetByToken(ctx context.Context, tokenHash string) (Agent, error) {

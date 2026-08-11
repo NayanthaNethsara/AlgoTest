@@ -47,6 +47,26 @@ func (s *sim) request(method, path, token string, payload any) (int, string) {
 	return resp.StatusCode, readBody(resp)
 }
 
+func (s *sim) consentVersion() (string, error) {
+	status, body := s.request(http.MethodGet, "/api/v1/proctor/disclosure", "", nil)
+	if status != http.StatusOK {
+		return "", fmt.Errorf("fetch disclosure: %d: %s", status, strings.TrimSpace(body))
+	}
+
+	var parsed struct {
+		Disclosure struct {
+			Version string `json:"version"`
+		} `json:"disclosure"`
+	}
+	if err := json.Unmarshal([]byte(body), &parsed); err != nil {
+		return "", fmt.Errorf("parse disclosure: %w", err)
+	}
+	if parsed.Disclosure.Version == "" {
+		return "", fmt.Errorf("disclosure carried no version")
+	}
+	return parsed.Disclosure.Version, nil
+}
+
 func (s *sim) loginAdmin(username, password string) error {
 	status, body := s.request(http.MethodPost, "/api/v1/auth/login", "", map[string]any{
 		"username": username,

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -38,6 +39,7 @@ type handler struct {
 	proctorGate      *agent.Gate
 	proctorEvaluator *proctor.Evaluator
 	telemetryBatcher *telemetry.Batcher
+	log              *slog.Logger
 }
 
 // @Summary System Health Check
@@ -158,7 +160,8 @@ func (h *handler) createSubmission(c *gin.Context) {
 	// whichever client is submitting, so the browser fallback works without an
 	// exemption as long as the agent on that machine is reporting.
 	if h.proctorGate != nil {
-		decision, err := h.proctorGate.Check(c.Request.Context(), u.ID, c.ClientIP(), c.GetHeader(attestHeader))
+		clientIP, ipTrusted := portalClientIP(c)
+		decision, err := h.proctorGate.Check(c.Request.Context(), u.ID, clientIP, ipTrusted, c.GetHeader(attestHeader))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to evaluate proctor liveness"})
 			return

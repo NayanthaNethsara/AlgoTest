@@ -11,22 +11,34 @@ import (
 )
 
 // KeepaliveInterval is how often a heartbeat is persisted as an event even when
-// nothing changed, so a quiet endpoint still leaves a continuous trail.
+// nothing changed, so a quiet endpoint still leaves a continuous trail. It is the
+// fallback for proctor.keepalive_seconds, which overrides it.
+//
+// This is the lever that decides how much the trail costs: every keepalive is a
+// row, so 300 agents at the default write 300 rows per five minutes on top of
+// whatever their signal changes produce.
 const KeepaliveInterval = 5 * time.Minute
 
 type Service struct {
-	repo    *Repository
-	batcher *telemetry.Batcher
-	eval    *proctor.Evaluator
-	policy  Policy
-	log     *slog.Logger
+	repo     *Repository
+	batcher  *telemetry.Batcher
+	eval     *proctor.Evaluator
+	settings *Settings
+	log      *slog.Logger
 }
 
-func NewService(repo *Repository, batcher *telemetry.Batcher, eval *proctor.Evaluator, log *slog.Logger) *Service {
-	return &Service{repo: repo, batcher: batcher, eval: eval, policy: DefaultPolicy(), log: log}
+func NewService(repo *Repository, batcher *telemetry.Batcher, eval *proctor.Evaluator, settings *Settings, log *slog.Logger) *Service {
+	return &Service{repo: repo, batcher: batcher, eval: eval, settings: settings, log: log}
 }
 
-func (s *Service) Policy() Policy { return s.policy }
+// Policy is the live policy, served to agents and used to evaluate their reports.
+// This is an atomic pointer load, not a query — see Settings.
+func (s *Service) Policy() Policy {
+	if s.settings == nil {
+		return DefaultPolicy()
+	}
+	return s.settings.Policy()
+}
 
 func (s *Service) Repo() *Repository { return s.repo }
 
@@ -103,7 +115,11 @@ func (s *Service) Heartbeat(ctx context.Context, a Agent, hb Heartbeat, clientIP
 	observedAt := now
 
 	signalsChanged := hb.SignalHash == "" || hb.SignalHash != a.SignalHash
-	keepaliveDue := a.LastEventAt == nil || now.Sub(*a.LastEventAt) >= KeepaliveInterval
+	keepalive := time.Duration(s.Policy().KeepaliveSeconds) * time.Second
+	if keepalive <= 0 {
+		keepalive = KeepaliveInterval
+	}
+	keepaliveDue := a.LastEventAt == nil || now.Sub(*a.LastEventAt) >= keepalive
 	writeEvent := signalsChanged || keepaliveDue || integ.NewBoot
 
 	if writeEvent {
@@ -163,7 +179,7 @@ func (s *Service) Heartbeat(ctx context.Context, a Agent, hb Heartbeat, clientIP
 			TotalProcesses:     hb.Signals.TotalProcesses,
 			ForegroundApp:      hb.Signals.ForegroundApp,
 			ForegroundDwell:    hb.Signals.ForegroundDwell,
-			ForegroundDenylist: s.policy.ForegroundDenylist,
+			ForegroundDenylist: s.Policy().ForegroundDenylist,
 		}
 		for _, p := range hb.Signals.Ports {
 			input.Ports = append(input.Ports, proctor.PortObservation{

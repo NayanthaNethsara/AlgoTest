@@ -76,14 +76,6 @@ type WebRow struct {
 	TabVisible bool
 }
 
-// WebPingRequest is what the portal sends from a browser. Deliberately minimal:
-// anything richer would be forgeable client-side and is already covered by the
-// agent on the endpoint.
-type WebPingRequest struct {
-	TabVisible bool   `json:"tab_visible"`
-	OSInfo     string `json:"os_info"`
-}
-
 // CalculateStatus grades agent liveness. The 45s boundary is three heartbeats;
 // the submission gate uses a more forgiving threshold so a single congested-LAN
 // drop can't lock someone out mid-submit.
