@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build frontend admin-frontend dev build test
+.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -71,6 +71,13 @@ desktop: competitor-desktop
 desktop-build:
 	cd competitor-desktop && pnpm build
 	@echo "Desktop build complete!"
+
+# Stops any running client and deletes everything it stores on this machine: the
+# server address, the enrollment, buffered heartbeats, and the autostart entry.
+# The agent is built to survive being closed, which is right in a contest hall and
+# unhelpful on a development laptop.
+desktop-reset:
+	cd competitor-desktop/src-tauri && cargo run --quiet --bin app -- --reset
 
 frontend: competitor-frontend
 

@@ -1,8 +1,27 @@
 import { useState } from "react";
-import { KeyRound, Trash2, ShieldCheck, ShieldOff, Users2, Users, Shield, Plus, Upload, Search } from "lucide-react";
-import { createUserAction, bulkCreateUsersAction, resetPasswordAction, deleteUserAction } from "@/lib/actions/users";
+import {
+  KeyRound,
+  Trash2,
+  ShieldCheck,
+  ShieldOff,
+  Users2,
+  Users,
+  Shield,
+  Plus,
+  Upload,
+  Search,
+} from "lucide-react";
+import {
+  createUserAction,
+  bulkCreateUsersAction,
+  resetPasswordAction,
+  deleteUserAction,
+} from "@/lib/actions/users";
 import { toggleProctorExemptionAction } from "@/actions/telemetry";
-import { addTeamMemberAction, removeTeamMemberAction } from "@/lib/actions/teams";
+import {
+  addTeamMemberAction,
+  removeTeamMemberAction,
+} from "@/lib/actions/teams";
 import type { User, CreateUserInput, BulkResult } from "@/types/user";
 import type { Team } from "@/types/team";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -11,7 +30,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Credential = { username: string; password: string };
@@ -46,10 +72,15 @@ export function AdminUsers({
     setPending(true);
     try {
       if (assignTeamTarget.teamId) {
-        await removeTeamMemberAction(assignTeamTarget.teamId, assignTeamTarget.id);
+        await removeTeamMemberAction(
+          assignTeamTarget.teamId,
+          assignTeamTarget.id,
+        );
       }
       if (selectedTeamId) {
-        await addTeamMemberAction(selectedTeamId, { userId: assignTeamTarget.id });
+        await addTeamMemberAction(selectedTeamId, {
+          userId: assignTeamTarget.id,
+        });
       }
       setAssignTeamTarget(null);
       setSelectedTeamId("");
@@ -67,20 +98,28 @@ export function AdminUsers({
     if (!isExempt) {
       const entered = window.prompt(
         `Granting an exemption to ${user.displayName || user.username} allows them to submit from web browser without desktop proctor.\nReason:`,
-        "Backup web browser usage during competition"
+        "Backup web browser usage during competition",
       );
       if (entered === null || entered.trim() === "") return;
       reason = entered.trim();
     }
 
     setPending(true);
+    user.proctorExempt = !isExempt;
     try {
-      const res = await toggleProctorExemptionAction(user.id, !isExempt, reason);
+      const res = await toggleProctorExemptionAction(
+        user.id,
+        !isExempt,
+        reason,
+      );
       if (res.error) {
+        user.proctorExempt = isExempt; // Rollback on error
         setError(res.error);
       } else {
         onRefresh();
       }
+    } catch {
+      user.proctorExempt = isExempt; // Rollback on error
     } finally {
       setPending(false);
     }
@@ -103,7 +142,8 @@ export function AdminUsers({
   const filteredUsers = currentList.filter(
     (u) =>
       u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.displayName && u.displayName.toLowerCase().includes(searchQuery.toLowerCase()))
+      (u.displayName &&
+        u.displayName.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
   function openAddFormFor(targetRole: "competitor" | "admin") {
@@ -117,9 +157,17 @@ export function AdminUsers({
     setError(null);
     setPending(true);
     try {
-      const data = await createUserAction({ username, displayName, role, password });
+      const data = await createUserAction({
+        username,
+        displayName,
+        role,
+        password,
+      });
       if (data.password) {
-        setCreds((prev) => [{ username: data.user.username, password: data.password! }, ...prev]);
+        setCreds((prev) => [
+          { username: data.user.username, password: data.password! },
+          ...prev,
+        ]);
       }
       setUsername("");
       setDisplayName("");
@@ -165,7 +213,10 @@ export function AdminUsers({
     setPending(true);
     try {
       const data = await resetPasswordAction(target.id);
-      setCreds((prev) => [{ username: target.username, password: data.password }, ...prev]);
+      setCreds((prev) => [
+        { username: target.username, password: data.password },
+        ...prev,
+      ]);
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
     } finally {
@@ -193,13 +244,18 @@ export function AdminUsers({
     <div className="flex flex-col gap-6">
       {/* Sub-Tab Navigation Bar & Action Buttons */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
-        <Tabs value={subTab} onValueChange={(v) => setSubTab(v as "competitors" | "admins")}>
+        <Tabs
+          value={subTab}
+          onValueChange={(v) => setSubTab(v as "competitors" | "admins")}
+        >
           <TabsList className="h-8">
             <TabsTrigger value="competitors" className="gap-1.5 text-xs h-7">
-              <Users className="h-3.5 w-3.5" /> Contestants & Competitors ({competitorUsers.length})
+              <Users className="h-3.5 w-3.5" /> Contestants & Competitors (
+              {competitorUsers.length})
             </TabsTrigger>
             <TabsTrigger value="admins" className="gap-1.5 text-xs h-7">
-              <Shield className="h-3.5 w-3.5" /> Organizers & Admins ({adminUsers.length})
+              <Shield className="h-3.5 w-3.5" /> Organizers & Admins (
+              {adminUsers.length})
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -221,10 +277,13 @@ export function AdminUsers({
 
           <Button
             size="sm"
-            onClick={() => openAddFormFor(subTab === "competitors" ? "competitor" : "admin")}
+            onClick={() =>
+              openAddFormFor(subTab === "competitors" ? "competitor" : "admin")
+            }
             className="h-8 text-xs gap-1.5"
           >
-            <Plus className="h-3.5 w-3.5" /> Add {subTab === "competitors" ? "Competitor" : "Admin"}
+            <Plus className="h-3.5 w-3.5" /> Add{" "}
+            {subTab === "competitors" ? "Competitor" : "Admin"}
           </Button>
         </div>
       </div>
@@ -240,9 +299,14 @@ export function AdminUsers({
 
       {/* Single Add User Form */}
       {showAddForm && (
-        <form onSubmit={handleCreateUser} className="rounded-lg border p-4 bg-muted/10 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <form
+          onSubmit={handleCreateUser}
+          className="rounded-lg border p-4 bg-muted/10 grid grid-cols-1 md:grid-cols-4 gap-3 items-end"
+        >
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Username</label>
+            <label className="text-xs font-medium text-muted-foreground">
+              Username
+            </label>
             <Input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -251,7 +315,9 @@ export function AdminUsers({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Display Name</label>
+            <label className="text-xs font-medium text-muted-foreground">
+              Display Name
+            </label>
             <Input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -259,7 +325,9 @@ export function AdminUsers({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Assigned Role</label>
+            <label className="text-xs font-medium text-muted-foreground">
+              Assigned Role
+            </label>
             <Input
               value={role}
               readOnly
@@ -270,7 +338,12 @@ export function AdminUsers({
             <Button type="submit" disabled={pending} size="sm">
               Save Account
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddForm(false)}
+            >
               Cancel
             </Button>
           </div>
@@ -279,23 +352,35 @@ export function AdminUsers({
 
       {/* Bulk CSV Import Form */}
       {showBulkForm && (
-        <form onSubmit={handleBulkImport} className="rounded-lg border p-4 bg-muted/10 flex flex-col gap-3">
+        <form
+          onSubmit={handleBulkImport}
+          className="rounded-lg border p-4 bg-muted/10 flex flex-col gap-3"
+        >
           <div className="flex items-center justify-between">
             <label className="text-xs font-medium text-muted-foreground">
               CSV Competitors List (Format: username, display_name, password)
             </label>
-            <span className="text-[10px] text-muted-foreground">Passwords auto-generated if omitted</span>
+            <span className="text-[10px] text-muted-foreground">
+              Passwords auto-generated if omitted
+            </span>
           </div>
           <Textarea
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
             rows={4}
-            placeholder={"alice, Alice Smith, secret123\nbob, Bob Jones\ncharlie, Charlie Brown"}
+            placeholder={
+              "alice, Alice Smith, secret123\nbob, Bob Jones\ncharlie, Charlie Brown"
+            }
             className="font-mono text-xs"
             required
           />
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowBulkForm(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBulkForm(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={pending} size="sm">
@@ -334,18 +419,30 @@ export function AdminUsers({
           <TableBody>
             {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="p-8 text-center text-xs text-muted-foreground">
-                  No {subTab === "competitors" ? "competitors" : "administrators"} found.
+                <TableCell
+                  colSpan={7}
+                  className="p-8 text-center text-xs text-muted-foreground"
+                >
+                  No{" "}
+                  {subTab === "competitors" ? "competitors" : "administrators"}{" "}
+                  found.
                 </TableCell>
               </TableRow>
             ) : (
               filteredUsers.map((u) => (
                 <TableRow key={u.id}>
-                  <TableCell className="font-mono text-xs font-medium">{u.username}</TableCell>
-                  <TableCell className="text-xs">{u.displayName || "-"}</TableCell>
+                  <TableCell className="font-mono text-xs font-medium">
+                    {u.username}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {u.displayName || "-"}
+                  </TableCell>
                   <TableCell className="text-xs font-mono">
                     {u.teamName ? (
-                      <Badge variant="secondary" className="font-mono text-[11px]">
+                      <Badge
+                        variant="secondary"
+                        className="font-mono text-[11px]"
+                      >
                         {u.teamName}
                       </Badge>
                     ) : (
@@ -353,18 +450,27 @@ export function AdminUsers({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="font-mono text-[11px] capitalize">
+                    <Badge
+                      variant="outline"
+                      className="font-mono text-[11px] capitalize"
+                    >
                       {u.role}
                     </Badge>
                   </TableCell>
                   <TableCell>
                     {u.role === "competitor" ? (
                       u.proctorExempt ? (
-                        <Badge variant="outline" className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        >
                           EXEMPT
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-[10px] text-muted-foreground"
+                        >
                           ENFORCED
                         </Badge>
                       )
@@ -373,7 +479,9 @@ export function AdminUsers({
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
+                    {u.lastLoginAt
+                      ? new Date(u.lastLoginAt).toLocaleString()
+                      : "Never"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -384,10 +492,18 @@ export function AdminUsers({
                             size="icon"
                             onClick={() => handleToggleExemption(u)}
                             disabled={pending}
-                            title={u.proctorExempt ? "Revoke Proctor Exemption (Enforce)" : "Grant Proctor Exemption (Allow Web Backup)"}
+                            title={
+                              u.proctorExempt
+                                ? "Revoke Proctor Exemption (Enforce)"
+                                : "Grant Proctor Exemption (Allow Web Backup)"
+                            }
                             className={`h-8 w-8 ${u.proctorExempt ? "text-emerald-500 hover:bg-emerald-500/10" : "text-muted-foreground hover:text-foreground"}`}
                           >
-                            {u.proctorExempt ? <ShieldOff className="h-4 w-4 text-emerald-400" /> : <ShieldCheck className="h-4 w-4" />}
+                            {u.proctorExempt ? (
+                              <ShieldOff className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <ShieldCheck className="h-4 w-4" />
+                            )}
                           </Button>
                           <Button
                             variant="ghost"
@@ -397,7 +513,11 @@ export function AdminUsers({
                               setSelectedTeamId(u.teamId || "");
                             }}
                             disabled={pending}
-                            title={u.teamId ? "Change / Remove Team" : "Assign to Team"}
+                            title={
+                              u.teamId
+                                ? "Change / Remove Team"
+                                : "Assign to Team"
+                            }
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           >
                             <Users2 className="h-4 w-4" />
@@ -438,7 +558,8 @@ export function AdminUsers({
         <div className="rounded-lg border bg-card p-4 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b pb-3">
             <h3 className="text-sm font-semibold">
-              Assign Team for {assignTeamTarget.displayName || assignTeamTarget.username}
+              Assign Team for{" "}
+              {assignTeamTarget.displayName || assignTeamTarget.username}
             </h3>
             <Button
               variant="ghost"
@@ -475,7 +596,12 @@ export function AdminUsers({
               >
                 Cancel
               </Button>
-              <Button type="submit" size="sm" disabled={pending} className="h-8 text-xs font-medium">
+              <Button
+                type="submit"
+                size="sm"
+                disabled={pending}
+                className="h-8 text-xs font-medium"
+              >
                 {pending ? "Saving..." : "Save Assignment"}
               </Button>
             </div>
@@ -490,7 +616,11 @@ export function AdminUsers({
         title="Reset User Password"
         description={
           <>
-            Are you sure you want to generate a new password for <strong className="text-foreground">{resetTarget?.displayName || resetTarget?.username}</strong>?
+            Are you sure you want to generate a new password for{" "}
+            <strong className="text-foreground">
+              {resetTarget?.displayName || resetTarget?.username}
+            </strong>
+            ?
           </>
         }
         actionLabel="Reset Password"
@@ -504,7 +634,11 @@ export function AdminUsers({
         title="Delete User Account"
         description={
           <>
-            Are you sure you want to delete user account <strong className="text-foreground">{deleteTarget?.username}</strong>? All submission history associated with this user will be removed.
+            Are you sure you want to delete user account{" "}
+            <strong className="text-foreground">
+              {deleteTarget?.username}
+            </strong>
+            ? All submission history associated with this user will be removed.
           </>
         }
         actionLabel="Delete User"
@@ -521,8 +655,14 @@ function parseCsv(text: string): CreateUserInput[] {
     .map((line) => line.trim())
     .filter((line) => line && !/^username\b/i.test(line))
     .map((line) => {
-      const [username, displayName, password] = line.split(",").map((s) => s?.trim());
-      return { username, displayName: displayName || undefined, password: password || undefined };
+      const [username, displayName, password] = line
+        .split(",")
+        .map((s) => s?.trim());
+      return {
+        username,
+        displayName: displayName || undefined,
+        password: password || undefined,
+      };
     })
     .filter((u) => u.username);
 }

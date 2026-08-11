@@ -34,6 +34,9 @@ services:
     environment:
       DATABASE_URL: postgres://algothon:algothon@postgres:5432/algothon?sslmode=disable
       ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+      TRUSTED_PROXIES: ""
+      DB_MAX_CONNS: "25"
+      DB_MIN_CONNS: "5"
       RUN_MAX_CONCURRENT: "4"
     volumes:
       - ./backend:/app
