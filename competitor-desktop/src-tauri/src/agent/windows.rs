@@ -10,6 +10,13 @@ pub const SETUP_WINDOW: &str = "setup";
 pub const DIAGNOSTICS_WINDOW: &str = "diagnostics";
 
 pub fn open_setup(app: &AppHandle) {
+    // An enrolled agent runs as a tray-only accessory, and an accessory's windows
+    // open behind everything with nothing in the dock to click. Setup is the one
+    // screen that exists to be interacted with, so showing it means being a normal
+    // app again — otherwise signing out looks like the client simply vanished.
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+
     if let Some(window) = app.get_webview_window(SETUP_WINDOW) {
         let _ = window.show();
         let _ = window.set_focus();
@@ -32,6 +39,12 @@ pub fn close_setup(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(SETUP_WINDOW) {
         let _ = window.close();
     }
+
+    // Setup is done, so the agent goes back to being a tray icon. Leaving it a
+    // normal app would put a second dock entry beside the contest window for
+    // something the contestant never needs to click.
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 }
 
 pub fn open_diagnostics(app: &AppHandle) {
@@ -91,7 +104,7 @@ fn raise_existing_shell() -> bool {
         .timeout(Duration::from_millis(400))
         .build()
         .ok()
-        .and_then(|client| client.post(format!("http://127.0.0.1:{SHELL_PORT}/show")).send().ok())
+        .and_then(|client| client.post(crate::loopback_url(SHELL_PORT, "/show")).send().ok())
         .map(|response| response.status().is_success())
         .unwrap_or(false)
 }

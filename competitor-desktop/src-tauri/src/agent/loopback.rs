@@ -14,15 +14,15 @@ use crate::LOOPBACK_PORTS;
 /// heartbeat sequences and a permanent replay finding.
 pub fn start(state: Arc<AgentState>) -> Option<u16> {
     for port in LOOPBACK_PORTS {
-        match Server::http(("127.0.0.1", port)) {
+        match Server::http((crate::LOOPBACK_IP, port)) {
             Ok(server) => {
                 state.loopback_port.store(port, Ordering::Relaxed);
                 let state = Arc::clone(&state);
                 std::thread::spawn(move || serve(server, state));
-                log::info!("loopback attestation server listening on 127.0.0.1:{port}");
+                log::info!("loopback attestation server listening on {}:{port}", crate::LOOPBACK_IP);
                 return Some(port);
             }
-            Err(err) => log::warn!("could not bind 127.0.0.1:{port}: {err}"),
+            Err(err) => log::warn!("could not bind {}:{port}: {err}", crate::LOOPBACK_IP),
         }
     }
     None
@@ -37,7 +37,7 @@ fn probe(port: u16) -> bool {
     use std::net::{SocketAddr, TcpStream};
     use std::time::Duration;
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let addr = SocketAddr::from((crate::LOOPBACK_IP, port));
     TcpStream::connect_timeout(&addr, Duration::from_millis(150)).is_ok()
 }
 
@@ -49,10 +49,20 @@ fn serve(server: Server, state: Arc<AgentState>) {
         // Only the configured portal may read the nonce. Any other page in the
         // browser gets no CORS grant, so it cannot use this server to prove
         // co-location on the contestant's behalf.
-        let cors_origin = match (&request_origin, allowed_origin.is_empty()) {
-            (Some(origin), false) if *origin == allowed_origin => Some(origin.clone()),
-            (None, _) => None,
-            _ => {
+        let cors_origin = match &request_origin {
+            Some(origin) if crate::config::origin_matches(&allowed_origin, origin) => {
+                Some(origin.clone())
+            }
+            None => None,
+            Some(origin) => {
+                // Recorded, not just refused. A rejected origin is otherwise
+                // completely silent: the portal reports "no proctor client on this
+                // machine" while the agent sits here answering 403 to every poll,
+                // and nothing on either side names the mismatch.
+                state.log(
+                    "origin_rejected",
+                    format!("refused {origin}; this client is configured for {allowed_origin}"),
+                );
                 let _ = request.respond(with_cors(Response::from_string("").with_status_code(403), None));
                 continue;
             }
@@ -82,6 +92,47 @@ fn serve(server: Server, state: Arc<AgentState>) {
                     let _ = app.run_on_main_thread(move || super::windows::open_setup(&handle));
                 }
                 with_cors(Response::from_string("").with_status_code(204), cors_origin)
+            }
+            // The portal's sign-out. This is the only channel it has: the contest
+            // window loads the portal as a remote origin, which is granted no Tauri
+            // IPC on purpose, so the loopback server the portal already talks to is
+            // where a desktop-aware action has to live.
+            //
+            // The origin was matched against the configured portal above, so a page
+            // from anywhere else was already refused. An Origin-less request is some
+            // local tool rather than the contest page, and belongs on /quit.
+            (Method::Post, "/stop") if request_origin.is_some() => {
+                // Answer before doing the work: unenrolling reports to the server
+                // first, and holding this single-threaded listener for the length of
+                // that request would stall the portal's own status polling.
+                let worker = Arc::clone(&state);
+                std::thread::spawn(move || {
+                    let Some(app) = worker.app_handle() else { return };
+                    if let Err(err) = super::lifecycle::sign_out_and_quit(
+                        &app,
+                        &worker,
+                        "contestant signed out from the portal",
+                    ) {
+                        log::warn!("sign-out could not clear the enrollment: {err}");
+                    }
+                });
+                with_cors(Response::from_string("").with_status_code(204), cors_origin)
+            }
+            // `--reset` needs the running agent gone before it deletes the files out
+            // from under it. A browser always sends an Origin on a cross-origin POST,
+            // so no page can reach this route — and a contestant who can run local
+            // tools could already kill the process outright.
+            (Method::Post, "/quit") if request_origin.is_none() => {
+                let worker = Arc::clone(&state);
+                std::thread::spawn(move || {
+                    worker.stopping.store(true, Ordering::Relaxed);
+                    super::scheduler::report_shutdown(&worker, "client reset on this machine");
+                    match worker.app_handle() {
+                        Some(app) => app.exit(0),
+                        None => std::process::exit(0),
+                    }
+                });
+                Response::from_string("").with_status_code(204)
             }
             _ => with_cors(Response::from_string("").with_status_code(404), cors_origin),
         };

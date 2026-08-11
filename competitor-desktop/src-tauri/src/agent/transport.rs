@@ -32,7 +32,6 @@ impl SendError {
 struct EnrollResponse {
     agent_id: String,
     agent_token: String,
-    session_token: Option<String>,
     user_id: String,
     username: String,
     display_name: String,
@@ -90,7 +89,6 @@ impl Transport {
             Enrollment {
                 agent_id: parsed.agent_id,
                 agent_token: parsed.agent_token,
-                session_token: parsed.session_token,
                 user_id: parsed.user_id,
                 username: parsed.username,
                 display_name: parsed.display_name,

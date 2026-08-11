@@ -78,9 +78,9 @@ pub fn probe_localhost_ports() -> Vec<PortMatch> {
         .unwrap_or_default();
 
     for target in TARGET_PORTS {
-        let addr: SocketAddr = format!("127.0.0.1:{}", target.port).parse().unwrap();
+        let addr = SocketAddr::from((crate::LOOPBACK_IP, target.port));
         if TcpStream::connect_timeout(&addr, Duration::from_millis(200)).is_ok() {
-            let url = format!("http://127.0.0.1:{}{}", target.port, target.path);
+            let url = crate::loopback_url(target.port, target.path);
             let mut confirmed = false;
 
             if let Ok(resp) = client.get(&url).send() {

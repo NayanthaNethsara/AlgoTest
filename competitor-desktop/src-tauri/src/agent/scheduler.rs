@@ -81,8 +81,27 @@ fn run(state: Arc<AgentState>) {
             refresh_policy(&state, &transport);
         }
 
-        std::thread::sleep(TICK);
+        wait_for_next_tick(&state);
         tick = tick.wrapping_add(1);
+    }
+}
+
+/// Sleeps out the tick, but wakes early once a heartbeat has been forced.
+///
+/// Enrolment forces one, and everything the contestant can actually see then waits
+/// on the result: the setup window's first-report check, and the portal's lock
+/// banner after it. Sleeping the full tick in the middle of that adds up to five
+/// seconds of invisible waiting to the one moment someone is watching the screen
+/// for a sign that proctoring works.
+fn wait_for_next_tick(state: &Arc<AgentState>) {
+    const SLICE: Duration = Duration::from_millis(100);
+
+    let deadline = Instant::now() + TICK;
+    while Instant::now() < deadline {
+        if state.stopping.load(Ordering::Relaxed) || state.force_heartbeat_pending() {
+            return;
+        }
+        std::thread::sleep(SLICE);
     }
 }
 

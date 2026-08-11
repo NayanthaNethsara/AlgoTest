@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod identity;
+pub mod lifecycle;
 pub mod loopback;
 pub mod scheduler;
 pub mod state;
@@ -48,6 +49,7 @@ pub fn run() {
             commands::enroll_agent,
             commands::get_diagnostics,
             commands::open_contest_window,
+            commands::enter_contest,
             commands::reset_enrollment,
         ]);
 
@@ -66,7 +68,12 @@ pub fn run() {
 
             setup_state.set_app_handle(app.handle().clone());
             tray::install(app.handle(), Arc::clone(&setup_state))?;
-            enable_autostart(app.handle());
+            lifecycle::sync_autostart(app.handle(), setup_state.is_enrolled());
+
+            #[cfg(target_os = "macos")]
+            if setup_state.is_enrolled() {
+                let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            }
 
             // An unconfigured or unenrolled agent is the one case that needs a
             // window: it cannot report anything until a contestant enrols it.
@@ -95,18 +102,4 @@ pub fn run() {
                 }
             }
         });
-}
-
-fn enable_autostart(app: &tauri::AppHandle) {
-    use tauri_plugin_autostart::ManagerExt;
-
-    let manager = app.autolaunch();
-    match manager.is_enabled() {
-        Ok(true) => {}
-        _ => {
-            if let Err(err) = manager.enable() {
-                log::warn!("could not register autostart: {err}");
-            }
-        }
-    }
 }

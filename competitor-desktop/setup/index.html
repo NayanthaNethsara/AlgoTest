@@ -12,23 +12,8 @@
       One-time setup on this machine. You keep using your own editor and your own compilers.
     </p>
 
-    <section id="step-server">
-      <h2>STEP 1 — CONTEST SERVER</h2>
-      <div class="card">
-        <label for="server">Portal address</label>
-        <input id="server" type="url" placeholder="http://contest.local" autocomplete="off" />
-        <label for="api">API address</label>
-        <input id="api" type="url" placeholder="http://contest.local/api" autocomplete="off" />
-        <div class="row">
-          <button id="save-server" type="button">Continue</button>
-          <span class="pill" id="machine-pill">This machine</span>
-        </div>
-      </div>
-      <div class="notice error" id="server-error" hidden></div>
-    </section>
-
-    <section id="step-consent" hidden>
-      <h2>STEP 2 — DISCLOSURE & CONSENT</h2>
+    <section id="step-consent">
+      <h2>STEP 1 — DISCLOSURE & CONSENT</h2>
       <div class="card">
         <p id="disclosure-summary"></p>
         <h2>COLLECTED</h2>
@@ -59,10 +44,11 @@
     </section>
 
     <section id="step-enroll" hidden>
-      <h2>STEP 3 — SIGN IN ONCE</h2>
+      <h2>STEP 2 — SIGN IN</h2>
       <div class="card">
         <p class="lede">
-          This enrols the proctor client on this machine. You will not need to sign in here again.
+          This enrols the proctor client on this machine. You will sign in to the
+          contest portal separately once the contest window opens.
         </p>
         <label for="username">Username</label>
         <input id="username" type="text" autocomplete="username" />
@@ -75,13 +61,59 @@
       <div class="notice error" id="enroll-error" hidden></div>
     </section>
 
+    <!-- Enrolling proves the server issued a credential. It does not prove this
+         machine can report, and only one of those is what unlocks submissions. -->
+    <section id="step-verify" hidden>
+      <h2>STEP 3 — FIRST REPORT</h2>
+      <div class="card">
+        <p class="lede">
+          <span class="pill working" id="verify-pill">Starting</span>
+        </p>
+        <p class="lede" id="verify-status">Waiting for the proctor client's first report…</p>
+        <div class="row">
+          <button id="verify-retry" type="button" hidden>Check again</button>
+          <button id="verify-continue" type="button" class="secondary" hidden>
+            Open the contest window anyway
+          </button>
+        </div>
+      </div>
+      <div class="notice error" id="verify-error" hidden></div>
+    </section>
+
+    <!-- The contest server is compiled into the client. Shown so a contestant can
+         read it out to the help desk, and editable only behind a deliberate click
+         so an organizer can still move the server mid-contest. -->
+    <p class="lede">
+      <span class="pill" id="machine-pill">This machine</span>
+      <span id="target"></span>
+      <button id="change-server" type="button" class="secondary">Change…</button>
+    </p>
+
+    <section id="step-server" hidden>
+      <div class="card">
+        <label for="server">Portal address</label>
+        <input id="server" type="url" autocomplete="off" />
+        <label for="api">API address</label>
+        <input id="api" type="url" autocomplete="off" />
+        <div class="row">
+          <button id="save-server" type="button">Save addresses</button>
+        </div>
+      </div>
+      <div class="notice error" id="server-error" hidden></div>
+    </section>
+
     <script>
       const invoke = window.appInvoke;
       const el = (id) => document.getElementById(id);
       let consentVersion = "unknown";
 
+      // A heartbeat is forced onto the scheduler's next 5s tick at enrolment, so a
+      // healthy client answers well inside this. Anything longer is a real fault
+      // worth naming rather than waiting out.
+      const FIRST_REPORT_TIMEOUT_MS = 20000;
+
       function show(step) {
-        for (const id of ["step-server", "step-consent", "step-enroll"]) {
+        for (const id of ["step-consent", "step-enroll", "step-verify"]) {
           el(id).hidden = id !== step;
         }
       }
@@ -139,6 +171,10 @@
         }
       }
 
+      el("change-server").addEventListener("click", () => {
+        el("step-server").hidden = !el("step-server").hidden;
+      });
+
       el("save-server").addEventListener("click", async () => {
         clearError("server-error");
         try {
@@ -146,12 +182,83 @@
             serverUrl: el("server").value,
             apiUrl: el("api").value,
           });
+          el("step-server").hidden = true;
+          await refreshTarget();
+          // The disclosure comes from the API, so a changed address means the
+          // consent on screen may no longer be the one that applies.
           show("step-consent");
           await loadConsent();
         } catch (err) {
           fail("server-error", String(err));
         }
       });
+
+      /// Polls the agent's own diagnostics until it has had a heartbeat
+      /// acknowledged. Returns null when reporting, or a sentence naming the fault.
+      async function firstReportProblem() {
+        const startedAt = Date.now();
+        const deadline = startedAt + FIRST_REPORT_TIMEOUT_MS;
+        let last = null;
+        while (Date.now() < deadline) {
+          last = await invoke("get_diagnostics");
+          if (last.healthy) return null;
+          if (last.revoked) {
+            return "This machine's enrolment was revoked. Ask an organizer before trying again.";
+          }
+          // Counting up beats a bare spinner: a contestant can tell a slow start
+          // from a stuck one, and knows the window has not frozen.
+          const waited = Math.round((Date.now() - startedAt) / 1000);
+          el("verify-status").textContent =
+            `Waiting for the proctor client's first report… ${waited}s`;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        const target = last?.api_url || "the contest server";
+        return last?.last_error
+          ? `The proctor client could not report to ${target}: ${last.last_error}`
+          : `The proctor client has not reported to ${target} yet. Check that the contest server is reachable from this machine.`;
+      }
+
+      async function verifyFirstReport() {
+        clearError("verify-error");
+        el("verify-retry").hidden = true;
+        el("verify-continue").hidden = true;
+        el("verify-pill").className = "pill working";
+        el("verify-pill").textContent = "Starting";
+        el("verify-status").textContent = "Waiting for the proctor client's first report…";
+
+        const problem = await firstReportProblem();
+        if (!problem) {
+          el("verify-pill").className = "pill ok";
+          el("verify-pill").textContent = "Reporting";
+          el("verify-status").textContent = "Opening the contest window…";
+          await invoke("enter_contest");
+          return;
+        }
+
+        el("verify-pill").className = "pill bad";
+        el("verify-pill").textContent = "Not reporting";
+
+        // The enrolment itself stands, so this is recoverable without redoing it.
+        // Going through to the portal is still allowed — submissions will be locked
+        // there, but a contestant is never trapped on a setup screen.
+        el("verify-status").textContent =
+          "This machine is enrolled, but the proctor client is not reporting yet. Submissions stay locked until it does.";
+        fail("verify-error", problem);
+        el("verify-retry").hidden = false;
+        el("verify-continue").hidden = false;
+      }
+
+      el("verify-retry").addEventListener("click", () => verifyFirstReport());
+      el("verify-continue").addEventListener("click", () => invoke("enter_contest"));
+
+      async function refreshTarget() {
+        const state = await invoke("get_setup_state");
+        el("server").value = state.server_url;
+        el("api").value = state.api_url;
+        el("target").textContent = `Contest server ${state.server_url}`;
+        el("machine-pill").textContent =
+          `Machine ${state.machine_id.slice(0, 8)} · agent ${state.agent_version}`;
+      }
 
       el("accept").addEventListener("click", () => show("step-enroll"));
       el("quit").addEventListener("click", () => window.close());
@@ -166,6 +273,8 @@
             password: el("password").value,
             consentVersion,
           });
+          show("step-verify");
+          await verifyFirstReport();
         } catch (err) {
           const message = String(err);
           // The server rejects enrollment when the disclosure has been reworded
@@ -185,14 +294,9 @@
       });
 
       (async () => {
-        const state = await invoke("get_setup_state");
-        el("server").value = state.server_url || "";
-        el("api").value = state.api_url || "";
-        el("machine-pill").textContent = `Machine ${state.machine_id.slice(0, 8)} · agent ${state.agent_version}`;
-        if (state.configured) {
-          show("step-consent");
-          await loadConsent();
-        }
+        await refreshTarget();
+        show("step-consent");
+        await loadConsent();
       })();
     </script>
   </body>

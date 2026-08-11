@@ -5,6 +5,23 @@ pub mod signals;
 
 pub const AGENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// The address every part of this client uses to reach the others.
+///
+/// Written down once, here, rather than spelled out at each call site — and it
+/// stays the loopback address. The attestation proof is precisely "the portal
+/// reached the agent on this machine", so an address that could resolve anywhere
+/// else would let a contestant relay it from a second laptop, and binding the
+/// attestation server to a routable interface would publish the nonce to the hall.
+/// The portal holds the same value in `competitor-frontend/src/lib/proctor.ts`;
+/// the two have to agree.
+pub const LOOPBACK_IP: std::net::Ipv4Addr = std::net::Ipv4Addr::LOCALHOST;
+
+/// Builds a URL against a local port, so no module writes out a scheme and host
+/// of its own.
+pub fn loopback_url(port: u16, path: &str) -> String {
+    format!("http://{LOOPBACK_IP}:{port}{path}")
+}
+
 /// Ports the agent tries in order for its loopback attestation server. The portal
 /// probes the same range, so a conflict on the first port costs a retry rather
 /// than a broken install.

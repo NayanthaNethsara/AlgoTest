@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -9,6 +10,10 @@ use crate::{LOOPBACK_PORTS, SHELL_PORT};
 const MAIN_WINDOW: &str = "contest";
 const PROBE_TIMEOUT: Duration = Duration::from_secs(4);
 
+/// Set once the agent has told this shell to go away. The close handler below
+/// otherwise refuses every close, which would turn a deliberate quit into a hang.
+static QUITTING: AtomicBool = AtomicBool::new(false);
+
 /// What the shell knows about its target, for the local fallback page.
 struct ShellState {
     config: Mutex<ClientConfig>,
@@ -19,18 +24,14 @@ struct ShellState {
 /// nothing else. It holds no credential and makes no proctoring decision, so a bug
 /// in here costs a contestant a window, not their ability to submit.
 pub fn run() {
-    let config = match crate::config::load_client() {
-        Some(config) if !config.server_url.is_empty() => config,
-        // main() routes an unconfigured client to the agent, which owns setup.
-        _ => return,
-    };
+    let config = crate::config::load_client();
 
     if config.server_url.parse::<tauri::Url>().is_err() {
         log::error!("configured portal address is not a valid URL: {}", config.server_url);
         return;
     }
 
-    let listener = match std::net::TcpListener::bind(("127.0.0.1", SHELL_PORT)) {
+    let listener = match std::net::TcpListener::bind((crate::LOOPBACK_IP, SHELL_PORT)) {
         Ok(listener) => listener,
         Err(_) => {
             // Another shell already has the portal open. Ask it to come forward
@@ -52,7 +53,7 @@ pub fn run() {
     // mid-contest.
     let (target, message) = match probe(&config.server_url) {
         Ok(()) => (
-            WebviewUrl::External(config.server_url.parse().expect("validated above")),
+            WebviewUrl::External(portal_entry_url(&config.server_url)),
             String::new(),
         ),
         Err(err) => {
@@ -71,7 +72,6 @@ pub fn run() {
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             get_shell_target,
-            get_session_token,
             retry_connection,
             open_proctor_setup
         ])
@@ -94,7 +94,7 @@ pub fn run() {
                 .resizable(true)
                 .build()?;
 
-            spawn_show_listener(listener, app.handle().clone());
+            spawn_control_listener(listener, app.handle().clone());
             spawn_agent_watchdog();
 
             let _ = window.set_focus();
@@ -103,10 +103,14 @@ pub fn run() {
         .on_window_event(|window, event| {
             // Closing the contest window hides it. Proctoring is a separate
             // process and keeps running either way, but the portal editor's state
-            // lives in this webview and is worth preserving.
+            // lives in this webview and is worth preserving. Once the agent has
+            // asked this shell to quit there is nothing left to preserve, and
+            // refusing the close then would hang the exit instead.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                if !QUITTING.load(Ordering::Relaxed) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
         })
         .run(crate::context())
@@ -130,11 +134,6 @@ fn get_shell_target(state: State<'_, ShellState>) -> ShellTarget {
     }
 }
 
-#[tauri::command]
-fn get_session_token() -> Option<String> {
-    crate::config::load_enrollment().and_then(|e| e.session_token)
-}
-
 /// Re-probes the portal and navigates to it if it has come back.
 #[tauri::command]
 fn retry_connection(window: tauri::WebviewWindow, state: State<'_, ShellState>) -> Result<(), String> {
@@ -147,10 +146,9 @@ fn retry_connection(window: tauri::WebviewWindow, state: State<'_, ShellState>) 
 
     match probe(&server_url) {
         Ok(()) => {
-            let url: tauri::Url = server_url.parse().map_err(|e| format!("{e}"))?;
             let _ = window.maximize();
             let _ = window.set_fullscreen(true);
-            window.navigate(url).map_err(|e| e.to_string())
+            window.navigate(portal_entry_url(&server_url)).map_err(|e| e.to_string())
         }
         Err(err) => {
             if let Ok(mut message) = state.message.lock() {
@@ -175,13 +173,26 @@ fn open_proctor_setup() -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     for port in LOOPBACK_PORTS {
-        if let Ok(response) = client.post(format!("http://127.0.0.1:{port}/setup")).send() {
+        if let Ok(response) = client.post(crate::loopback_url(port, "/setup")).send() {
             if response.status().is_success() {
                 return Ok(());
             }
         }
     }
     Err("Could not reach the proctor client on this machine.".into())
+}
+
+/// The portal address with the marker that tells it which client it is inside.
+///
+/// The portal cannot ask over IPC — the contest window loads it as a remote origin
+/// and remote origins are granted no Tauri commands — so the one thing this shell
+/// can hand it is the URL it opens. The portal records the marker for the tab and
+/// uses it to decide whether signing out should also stop proctoring, which is the
+/// right thing here and the wrong thing in a browser.
+fn portal_entry_url(server_url: &str) -> tauri::Url {
+    let mut url: tauri::Url = server_url.parse().expect("validated before the window is built");
+    url.query_pairs_mut().append_pair("client", "desktop");
+    url
 }
 
 /// One request against the portal, so failure is reported as a sentence a
@@ -205,29 +216,50 @@ fn probe(server_url: &str) -> Result<(), String> {
     }
 }
 
-/// Answers the tray's request to raise this window.
-fn spawn_show_listener(listener: std::net::TcpListener, app: tauri::AppHandle) {
+/// Answers the agent's two requests of this shell: come forward, or go away.
+fn spawn_control_listener(listener: std::net::TcpListener, app: tauri::AppHandle) {
     std::thread::spawn(move || {
         for stream in listener.incoming() {
             let Ok(mut stream) = stream else { continue };
 
-            // Drain the request line so the client sees a complete exchange rather
-            // than a reset connection.
-            use std::io::Read;
+            // Read the request line so the client sees a complete exchange rather
+            // than a reset connection, and so the two routes can be told apart.
+            use std::io::{Read, Write};
             let mut scratch = [0u8; 512];
             let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
-            let _ = stream.read(&mut scratch);
+            let read = stream.read(&mut scratch).unwrap_or(0);
+            let path = request_path(&scratch[..read]);
 
-            if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
-                let _ = window.show();
-                let _ = window.unminimize();
-                let _ = window.set_focus();
+            // Answer before acting on /quit: the reply never leaves the socket
+            // otherwise, and the agent waits out its timeout for nothing.
+            let _ = stream
+                .write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+            let _ = stream.flush();
+
+            match path.as_deref() {
+                // Proctoring stopped on purpose. Exiting is what stops the watchdog
+                // below from reading that as a crash and relaunching the agent.
+                Some("/quit") => {
+                    QUITTING.store(true, Ordering::Relaxed);
+                    app.exit(0);
+                    return;
+                }
+                _ => {
+                    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                        let _ = window.show();
+                        let _ = window.unminimize();
+                        let _ = window.set_focus();
+                    }
+                }
             }
-
-            use std::io::Write;
-            let _ = stream.write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
         }
     });
+}
+
+fn request_path(bytes: &[u8]) -> Option<String> {
+    let line = std::str::from_utf8(bytes).ok()?.lines().next()?;
+    let target = line.split_whitespace().nth(1)?;
+    Some(target.split('?').next().unwrap_or(target).to_string())
 }
 
 /// Reports shell liveness to the agent so the server can tell "the shell crashed"
@@ -254,7 +286,7 @@ fn spawn_agent_watchdog() {
 
             for port in ports {
                 let ok = client
-                    .post(format!("http://127.0.0.1:{port}/shell"))
+                    .post(crate::loopback_url(port, "/shell"))
                     .send()
                     .map(|r| r.status().is_success())
                     .unwrap_or(false);
@@ -272,7 +304,11 @@ fn spawn_agent_watchdog() {
 
             known_port = None;
             consecutive_failures += 1;
-            if consecutive_failures == 3 {
+
+            // Self-healing applies to an enrolled machine only. Once the enrollment
+            // is gone the agent stopped on purpose, and relaunching it would fight
+            // the contestant's own sign-out.
+            if consecutive_failures == 3 && crate::config::load_enrollment().is_some() {
                 log::warn!("proctor agent unreachable; relaunching it");
                 launch_agent();
             }
@@ -296,5 +332,5 @@ fn request_show() {
         .timeout(Duration::from_millis(500))
         .build()
         .ok()
-        .and_then(|client| client.post(format!("http://127.0.0.1:{SHELL_PORT}/show")).send().ok());
+        .and_then(|client| client.post(crate::loopback_url(SHELL_PORT, "/show")).send().ok());
 }

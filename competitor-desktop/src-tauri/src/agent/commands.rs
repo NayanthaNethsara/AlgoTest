@@ -6,12 +6,11 @@ use tauri::State;
 
 use super::state::{AgentState, TickLog};
 use super::transport::Transport;
-use super::{identity, windows};
+use super::{identity, lifecycle, windows};
 use crate::config::{self, ClientConfig};
 
 #[derive(Serialize)]
 pub struct SetupState {
-    configured: bool,
     enrolled: bool,
     server_url: String,
     api_url: String,
@@ -22,14 +21,12 @@ pub struct SetupState {
 
 #[tauri::command]
 pub fn get_setup_state(state: State<'_, Arc<AgentState>>) -> SetupState {
-    let client = state.client.lock().ok().and_then(|c| c.clone());
     let enrollment = state.enrollment.lock().ok().and_then(|e| e.clone());
 
     SetupState {
-        configured: client.is_some(),
         enrolled: enrollment.is_some(),
-        server_url: client.as_ref().map(|c| c.server_url.clone()).unwrap_or_default(),
-        api_url: client.as_ref().map(|c| c.api_url.clone()).unwrap_or_default(),
+        server_url: state.server_url(),
+        api_url: state.api_url(),
         username: enrollment.as_ref().map(|e| e.username.clone()).unwrap_or_default(),
         machine_id: identity::machine_id(),
         agent_version: crate::AGENT_VERSION.to_string(),
@@ -50,7 +47,7 @@ pub fn save_server(server_url: String, api_url: String, state: State<'_, Arc<Age
 
     config::save_client(&cfg)?;
     if let Ok(mut slot) = state.client.lock() {
-        *slot = Some(cfg);
+        *slot = cfg;
     }
     Ok(())
 }
@@ -94,12 +91,33 @@ pub fn enroll_agent(
         *slot = policy;
     }
     state.revoked.store(false, Ordering::Relaxed);
+    // Reporting starts now, not when the process launched. Without this, a
+    // contestant who spent a minute reading the disclosure lands on a portal that
+    // has already given up waiting for the first heartbeat.
+    state.mark_reporting_start();
     state.force_heartbeat();
     state.log("enrolled", format!("agent enrolled as {}", username.trim()));
 
-    windows::close_setup(&app);
-    windows::open_contest_shell(&state);
+    // Enrolling is what earns the login item: from here on, a reboot mid-contest
+    // has to bring proctoring back on its own.
+    lifecycle::sync_autostart(&app, true);
+
+    // The handoff to the contest window deliberately does not happen here.
+    // Enrolling only proves the server issued a credential; it says nothing about
+    // whether this machine can actually report. Closing setup on that alone is what
+    // let a client that enrolled but never heartbeat look like a success, and left
+    // the contestant on a portal insisting no proctor client exists — with the one
+    // window that could have explained it already gone. The setup page waits for
+    // the first acknowledged report, then calls `enter_contest`.
     Ok(())
+}
+
+/// Closes setup and opens the contest window. Called by the setup page once it has
+/// seen the agent report in.
+#[tauri::command]
+pub fn enter_contest(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) {
+    windows::close_setup(&app);
+    windows::open_contest_shell(state.inner());
 }
 
 #[derive(Serialize)]
@@ -176,11 +194,7 @@ pub fn open_contest_window(state: State<'_, Arc<AgentState>>) {
 
 #[tauri::command]
 pub fn reset_enrollment(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
-    config::clear_enrollment()?;
-    if let Ok(mut slot) = state.enrollment.lock() {
-        *slot = None;
-    }
-    state.revoked.store(false, Ordering::Relaxed);
+    lifecycle::unenroll(&app, state.inner(), "enrollment reset from the diagnostics window")?;
     windows::open_setup(&app);
     Ok(())
 }

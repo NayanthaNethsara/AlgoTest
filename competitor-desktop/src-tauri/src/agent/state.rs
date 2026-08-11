@@ -17,8 +17,14 @@ pub const BUFFER_CAPACITY: usize = 240;
 /// report the agent as degraded. Matches the server's ONLINE boundary.
 pub const HEALTHY_WINDOW: Duration = Duration::from_secs(45);
 
-/// How long after launch an agent with no acknowledged heartbeat still counts as
-/// starting up rather than unreachable.
+/// How long an agent with no acknowledged heartbeat still counts as starting up
+/// rather than unreachable.
+///
+/// Measured from when the agent last began *trying* to report, not from process
+/// start. An unenrolled agent sits on the setup window for as long as it takes to
+/// read the disclosure and type a password, and charging that time against the
+/// grace period means the portal greets a contestant who did nothing wrong with a
+/// red banner blaming their network.
 pub const STARTUP_GRACE: Duration = Duration::from_secs(60);
 
 /// The shell reports in every 10s; three misses means it is gone.
@@ -84,7 +90,10 @@ pub struct TickLog {
 pub struct AgentState {
     pub boot_id: Mutex<String>,
     pub started_at: Instant,
-    pub client: Mutex<Option<ClientConfig>>,
+    /// When this agent last began trying to report: process start if the machine
+    /// was already enrolled, or the moment of enrolment if it was not.
+    reporting_since: Mutex<Instant>,
+    pub client: Mutex<ClientConfig>,
     pub enrollment: Mutex<Option<Enrollment>>,
     pub policy: Mutex<Policy>,
     pub seq: AtomicU64,
@@ -105,16 +114,16 @@ pub struct AgentState {
     consecutive_rejections: AtomicU64,
     pub stopping: AtomicBool,
     pub revoked: AtomicBool,
-    /// Off for in-memory instances so tests never touch a real config directory.
-    persist_buffer: bool,
+    persist_buffer: AtomicBool,
 }
 
 impl AgentState {
     pub fn new() -> Self {
         Self {
-            persist_buffer: true,
+            persist_buffer: AtomicBool::new(true),
             boot_id: Mutex::new(uuid::Uuid::new_v4().to_string()),
             started_at: Instant::now(),
+            reporting_since: Mutex::new(Instant::now()),
             client: Mutex::new(crate::config::load_client()),
             enrollment: Mutex::new(crate::config::load_enrollment()),
             policy: Mutex::new(Policy::default()),
@@ -144,10 +153,20 @@ impl AgentState {
     /// An instance that keeps its buffer only in memory.
     #[cfg(test)]
     fn ephemeral() -> Self {
-        let mut state = Self::new();
-        state.persist_buffer = false;
-        state.buffer = Mutex::new(VecDeque::with_capacity(BUFFER_CAPACITY));
+        let state = Self::new();
+        state.stop_persisting();
+        state.buffer_take();
         state
+    }
+
+    /// Stops writing the offline buffer to disk. Used by the reset path, which has
+    /// to be able to delete a file nothing will recreate a moment later.
+    pub fn stop_persisting(&self) {
+        self.persist_buffer.store(false, Ordering::Relaxed);
+    }
+
+    fn persists(&self) -> bool {
+        self.persist_buffer.load(Ordering::Relaxed)
     }
 
     pub fn boot_id(&self) -> String {
@@ -179,19 +198,12 @@ impl AgentState {
     pub fn api_url(&self) -> String {
         self.client
             .lock()
-            .ok()
-            .and_then(|c| c.clone())
             .map(|c| c.api_url.trim_end_matches('/').to_string())
             .unwrap_or_default()
     }
 
     pub fn server_url(&self) -> String {
-        self.client
-            .lock()
-            .ok()
-            .and_then(|c| c.clone())
-            .map(|c| c.server_url)
-            .unwrap_or_default()
+        self.client.lock().map(|c| c.server_url.clone()).unwrap_or_default()
     }
 
     pub fn token(&self) -> Option<String> {
@@ -231,13 +243,34 @@ impl AgentState {
         self.force_heartbeat.swap(false, Ordering::Relaxed)
     }
 
+    /// Whether a forced heartbeat is waiting, without consuming it. Lets the
+    /// scheduler cut its sleep short instead of making enrolment wait out a tick.
+    pub fn force_heartbeat_pending(&self) -> bool {
+        self.force_heartbeat.load(Ordering::Relaxed)
+    }
+
+    /// Restarts the startup grace period. Called on enrolment, which is the point
+    /// the agent actually begins reporting — time spent unenrolled on the setup
+    /// window is not evidence of anything.
+    pub fn mark_reporting_start(&self) {
+        if let Ok(mut slot) = self.reporting_since.lock() {
+            *slot = Instant::now();
+        }
+    }
+
     /// Enrolled, but has not had a heartbeat acknowledged yet and has only just
-    /// launched. Submissions are genuinely locked in this state, but nothing is
-    /// wrong and the contestant must not be told their network is broken.
+    /// begun reporting. Submissions are genuinely locked in this state, but nothing
+    /// is wrong and the contestant must not be told their network is broken.
     pub fn starting(&self) -> bool {
+        let since = self
+            .reporting_since
+            .lock()
+            .map(|since| since.elapsed())
+            .unwrap_or_default();
+
         self.is_enrolled()
             && self.last_ack.lock().ok().and_then(|a| *a).is_none()
-            && self.started_at.elapsed() < STARTUP_GRACE
+            && since < STARTUP_GRACE
     }
 
     pub fn healthy(&self) -> bool {
@@ -287,7 +320,7 @@ impl AgentState {
                 buffer.pop_front();
             }
             buffer.push_back(hb);
-            if self.persist_buffer {
+            if self.persists() {
                 persist(&buffer);
             }
         }
@@ -303,7 +336,7 @@ impl AgentState {
     }
 
     pub fn buffer_clear(&self) {
-        if self.persist_buffer {
+        if self.persists() {
             crate::config::clear_buffer();
         }
     }
@@ -316,7 +349,7 @@ impl AgentState {
             for item in items.into_iter().rev() {
                 buffer.push_front(item);
             }
-            if self.persist_buffer {
+            if self.persists() {
                 persist(&buffer);
             }
         }

@@ -63,51 +63,68 @@
       }
 
       async function refresh() {
-        const d = await invoke("get_diagnostics");
-        latest = d;
-
-        el("status").textContent = d.status;
-        el("status").className = `pill ${statusClass(d)}`;
-        el("support").textContent = d.support_code;
-
-        if (d.last_error) {
-          el("error").textContent = d.last_error;
-          el("error").hidden = false;
-        } else {
-          el("error").hidden = true;
-        }
-
-        facts("agent-facts", [
-          ["Version", d.agent_version],
-          ["Uptime", `${Math.floor(d.uptime_seconds / 60)}m ${d.uptime_seconds % 60}s`],
-          ["Last report", d.seconds_since_ack === null ? "never" : `${d.seconds_since_ack}s ago`],
-          ["Reports sent", String(d.seq)],
-          ["Buffered", `${d.buffered_heartbeats} waiting to send`],
-          ["Contest window", d.shell_alive ? "open" : "not running"],
-          ["Signed in as", d.username || "not enrolled"],
-          ["Machine", d.machine_id.slice(0, 12)],
-          ["Boot", d.boot_id.slice(0, 8)],
-          ["Platform", d.platform],
-          ["Portal", d.server_url || "not configured"],
-          ["API", d.api_url || "not configured"],
-          ["Local port", d.loopback_port ? String(d.loopback_port) : "not bound"],
-        ]);
-
-        facts("signal-facts", [
-          ["Internet reachable", d.internet_reachable ? "yes" : "no"],
-          ["Local AI services", d.inference_ports.length ? d.inference_ports.join(", ") : "none detected"],
-          ["Matched processes", d.process_matches.length ? d.process_matches.join(", ") : "none"],
-        ]);
-
-        el("history").innerHTML = "";
-        for (const entry of [...d.history].reverse()) {
-          const row = document.createElement("tr");
-          for (const value of [entry.at.slice(11, 19), entry.seq, entry.outcome, entry.detail]) {
-            const cell = document.createElement("td");
-            cell.textContent = String(value ?? "");
-            row.appendChild(cell);
+        try {
+          const invokeFn = window.appInvoke || window.__TAURI__?.core?.invoke || window.__TAURI_INTERNALS__?.invoke;
+          if (typeof invokeFn !== "function") {
+            el("error").textContent = "Desktop bridge is not available.";
+            el("error").hidden = false;
+            return;
           }
-          el("history").appendChild(row);
+
+          const d = await invokeFn("get_diagnostics");
+          if (!d) return;
+          latest = d;
+
+          el("status").textContent = d.status || "Unknown";
+          el("status").className = `pill ${statusClass(d)}`;
+          el("support").textContent = d.support_code || "—";
+
+          if (d.last_error) {
+            el("error").textContent = d.last_error;
+            el("error").hidden = false;
+          } else {
+            el("error").hidden = true;
+          }
+
+          const machineId = d.machine_id || "";
+          const bootId = d.boot_id || "";
+
+          facts("agent-facts", [
+            ["Version", d.agent_version || "unknown"],
+            ["Uptime", d.uptime_seconds !== undefined ? `${Math.floor(d.uptime_seconds / 60)}m ${d.uptime_seconds % 60}s` : "0s"],
+            ["Last report", d.seconds_since_ack === null || d.seconds_since_ack === undefined ? "never" : `${d.seconds_since_ack}s ago`],
+            ["Reports sent", String(d.seq ?? 0)],
+            ["Buffered", `${d.buffered_heartbeats ?? 0} waiting to send`],
+            ["Contest window", d.shell_alive ? "open" : "not running"],
+            ["Signed in as", d.username || "not enrolled"],
+            ["Machine", machineId.length >= 12 ? machineId.slice(0, 12) : machineId || "unknown"],
+            ["Boot", bootId.length >= 8 ? bootId.slice(0, 8) : bootId || "unknown"],
+            ["Platform", d.platform || "unknown"],
+            ["Portal", d.server_url || "not configured"],
+            ["API", d.api_url || "not configured"],
+            ["Local port", d.loopback_port ? String(d.loopback_port) : "not bound"],
+          ]);
+
+          facts("signal-facts", [
+            ["Internet reachable", d.internet_reachable ? "yes" : "no"],
+            ["Local AI services", d.inference_ports && d.inference_ports.length ? d.inference_ports.join(", ") : "none detected"],
+            ["Matched processes", d.process_matches && d.process_matches.length ? d.process_matches.join(", ") : "none"],
+          ]);
+
+          el("history").innerHTML = "";
+          for (const entry of [...(d.history || [])].reverse()) {
+            const row = document.createElement("tr");
+            const timeStr = entry.at && entry.at.length >= 19 ? entry.at.slice(11, 19) : (entry.at || "");
+            for (const value of [timeStr, entry.seq, entry.outcome, entry.detail]) {
+              const cell = document.createElement("td");
+              cell.textContent = String(value ?? "");
+              row.appendChild(cell);
+            }
+            el("history").appendChild(row);
+          }
+        } catch (err) {
+          el("error").textContent = `Diagnostics error: ${err}`;
+          el("error").hidden = false;
         }
       }
 
