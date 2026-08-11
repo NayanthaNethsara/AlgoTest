@@ -6,6 +6,15 @@ import { authenticateUser } from "@mini-algothon/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+/**
+ * The portal's only way in, in the browser and in the desktop client alike.
+ *
+ * There is no single sign-on from the client's proctor enrolment, by design.
+ * Handing the portal a session over the desktop bridge would mean granting the
+ * remote portal origin the right to invoke commands inside the client, and one
+ * password typed a second time is a smaller cost than that. The two credentials
+ * are the same, so what a contestant experiences is one extra sign-in per contest.
+ */
 export function LoginForm() {
   const router = useRouter();
   const [username, setUsername] = useState("");

@@ -5,6 +5,11 @@ import type { AgentLocalStatus } from "@/types/proctor";
  * conflict on a contestant's machine costs a retry instead of a broken install.
  */
 export const LOOPBACK_PORTS = [47615, 47616, 47617, 47618, 47619] as const;
+const AGENT_HOST = "127.0.0.1";
+
+function agentUrl(port: number, path: string): string {
+  return `http://${AGENT_HOST}:${port}${path}`;
+}
 
 const PROBE_TIMEOUT_MS = 700;
 
@@ -16,23 +21,50 @@ const PROBE_TIMEOUT_MS = 700;
  * was written here — a determined contestant with two machines can relay the value
  * over the LAN — so its absence is a review signal, never a verdict.
  */
-export async function readLocalAgent(preferredPort?: number): Promise<AgentLocalStatus | null> {
-  const ports = preferredPort
-    ? [preferredPort, ...LOOPBACK_PORTS.filter((port) => port !== preferredPort)]
-    : [...LOOPBACK_PORTS];
-
-  for (const port of ports) {
+export async function readLocalAgent(
+  preferredPort?: number,
+): Promise<AgentLocalStatus | null> {
+  for (const port of orderedPorts(preferredPort)) {
     const status = await probe(port);
     if (status) return status;
   }
   return null;
 }
 
+export async function stopLocalAgent(preferredPort?: number): Promise<boolean> {
+  for (const port of orderedPorts(preferredPort)) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+    try {
+      const res = await fetch(agentUrl(port, "/stop"), {
+        method: "POST",
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      if (res.ok) return true;
+    } catch {
+      // Four of the five ports are unreachable in the normal case.
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return false;
+}
+
+function orderedPorts(preferredPort?: number): number[] {
+  return preferredPort
+    ? [
+        preferredPort,
+        ...LOOPBACK_PORTS.filter((port) => port !== preferredPort),
+      ]
+    : [...LOOPBACK_PORTS];
+}
+
 async function probe(port: number): Promise<AgentLocalStatus | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/status`, {
+    const res = await fetch(agentUrl(port, "/status"), {
       signal: controller.signal,
       cache: "no-store",
     });

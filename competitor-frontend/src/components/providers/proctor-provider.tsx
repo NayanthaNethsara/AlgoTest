@@ -184,6 +184,20 @@ function resolve(
     return { ...base, submissionsAllowed: true };
   }
 
+  // The server has never heard from an agent and this page could not reach one
+  // either. Those are two different problems with the same symptom, and the
+  // server's remedy only names the first — telling a contestant whose client is
+  // running fine to install it sends them in circles.
+  if (!local && !self.allowed && self.code === "AGENT_MISSING") {
+    return {
+      ...base,
+      submissionsAllowed: false,
+      code: self.code,
+      remedy:
+        "No proctor client has reported, and this page could not reach one on this machine. Open the client and sign in once — if it is already running, reload this page.",
+    };
+  }
+
   return {
     ...base,
     submissionsAllowed: self.allowed,
