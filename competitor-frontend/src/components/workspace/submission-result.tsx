@@ -24,7 +24,7 @@ export function SubmissionResult({
   if (submitting) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-8 text-center text-xs font-pixel-body text-muted-foreground uppercase">
-        <Loader2 className="size-6 animate-spin text-primary" />
+        <Loader2 className="size-6 pixel-spin text-primary" />
         <span>{statusMessage || "SUBMITTING TO EVALUATION QUEUE..."}</span>
       </div>
     );

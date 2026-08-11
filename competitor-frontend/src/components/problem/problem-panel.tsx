@@ -10,7 +10,9 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-6 p-6">
         <header className="flex flex-col gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">{problem.title}</h1>
+          <h1 className="pixel-text-shadow font-pixel-header text-base leading-relaxed tracking-wider text-primary uppercase">
+            {problem.title}
+          </h1>
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
             <Meta icon={<Trophy className="size-3.5" />}>{problem.points} points</Meta>
             <Meta icon={<Clock className="size-3.5" />}>
@@ -47,7 +49,7 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
               {problem.subtasks?.map((subtask) => (
                 <div
                   key={subtask.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border bg-card/50 p-3"
+                  className="pixel-inset flex items-start justify-between gap-4 bg-input p-3"
                 >
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-medium">Subtask {subtask.id}</span>
@@ -68,7 +70,7 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
 
 function Meta({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1">
+    <span className="inline-flex items-center gap-1.5 border border-black bg-muted px-2 py-1 tracking-wide uppercase shadow-[inset_1px_1px_0_var(--bevel-light),inset_-1px_-1px_0_var(--bevel-dark)]">
       {icon}
       {children}
     </span>
@@ -77,7 +79,7 @@ function Meta({ icon, children }: { icon: React.ReactNode; children: React.React
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <h2 className="pixel-label pixel-prompt">
       {children}
     </h2>
   );
@@ -85,16 +87,16 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 function SampleBlock({ index, sample }: { index: number; sample: Sample }) {
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <div className="border-b bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+    <div className="pixel-raised overflow-hidden">
+      <div className="border-b-2 border-black bg-secondary px-3 py-1.5 font-pixel-header text-[10px] tracking-wider text-muted-foreground uppercase">
         Sample {index}
       </div>
-      <div className="grid gap-px bg-border sm:grid-cols-2">
+      <div className="grid gap-0.5 bg-black sm:grid-cols-2">
         <IoCell label="Input" value={sample.input} />
         <IoCell label="Output" value={sample.output} />
       </div>
       {sample.explanation && (
-        <div className="border-t px-3 py-2 text-xs text-muted-foreground">
+        <div className="border-t-2 border-black px-3 py-2 text-xs text-muted-foreground">
           <Markdown>{sample.explanation}</Markdown>
         </div>
       )}

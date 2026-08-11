@@ -8,10 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  getProctorSelfAction,
-  pingWebTelemetryAction,
-} from "@/actions/telemetry";
+import { getProctorSelfAction } from "@/actions/telemetry";
 import { readLocalAgent } from "@/lib/proctor";
 import type {
   AgentLocalStatus,
@@ -46,8 +43,11 @@ export function ProctorProvider({ children }: { children: React.ReactNode }) {
   const knownPort = useRef<number | undefined>(undefined);
 
   const refresh = useCallback(async () => {
+    // The status poll doubles as the browser-presence record, so tab visibility
+    // rides along on it rather than costing a second request.
+    const tabVisible = typeof document !== "undefined" ? !document.hidden : true;
     const [self, local] = await Promise.all([
-      getProctorSelfAction(),
+      getProctorSelfAction(tabVisible),
       readLocalAgent(knownPort.current),
     ]);
 
@@ -69,25 +69,34 @@ export function ProctorProvider({ children }: { children: React.ReactNode }) {
     const tick = async () => {
       if (cancelled) return;
       await refresh();
-      // The browser lane records that this contestant is on the fallback UI. It
-      // carries no signals; the agent covers the endpoint.
-      if (!cancelled) {
-        void pingWebTelemetryAction({
-          tab_visible:
-            typeof document !== "undefined" ? !document.hidden : true,
-          os_info: typeof navigator !== "undefined" ? navigator.userAgent : "",
-        });
+    };
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden && !cancelled) {
+        void tick();
       }
     };
 
     void tick();
     const timer = setInterval(
-      () => void tick(),
+      () => {
+        if (typeof document === "undefined" || !document.hidden || degraded) {
+          void tick();
+        }
+      },
       degraded ? POLL_DEGRADED_MS : POLL_HEALTHY_MS,
     );
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
+
     return () => {
       cancelled = true;
       clearInterval(timer);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
     };
   }, [refresh, degraded]);
 

@@ -38,7 +38,7 @@ export default async function ChallengesPage() {
 
             <div className="flex items-center gap-4 shrink-0 border-t pt-3 sm:border-t-0 sm:border-l sm:pl-6 sm:pt-0">
               <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-primary/15 text-primary shadow-[inset_2px_2px_0_var(--bevel-light),inset_-2px_-2px_0_var(--bevel-dark)]">
                   <Code2 className="h-5 w-5" />
                 </div>
                 <div>
@@ -48,7 +48,7 @@ export default async function ChallengesPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-warning/15 text-warning shadow-[inset_2px_2px_0_var(--bevel-light),inset_-2px_-2px_0_var(--bevel-dark)]">
                   <Trophy className="h-5 w-5" />
                 </div>
                 <div>

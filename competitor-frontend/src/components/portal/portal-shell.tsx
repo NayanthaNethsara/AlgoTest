@@ -46,13 +46,15 @@ function ToastBanner() {
   const isError = toast.variant === "error";
 
   return (
-    <div className="absolute bottom-4 right-4 z-50 flex max-w-sm items-start gap-3 rounded-lg border bg-card p-4 shadow-lg transition-all animate-in fade-in slide-in-from-bottom-4">
+    <div className="pixel-raised absolute right-4 bottom-4 z-50 flex max-w-sm items-start gap-3 bg-card p-4 animate-in slide-in-from-bottom-2">
       {isSuccess && <CheckCircle2 className="size-5 text-success shrink-0 mt-0.5" />}
       {isError && <AlertCircle className="size-5 text-destructive shrink-0 mt-0.5" />}
       {!isSuccess && !isError && <Info className="size-5 text-primary shrink-0 mt-0.5" />}
 
       <div className="flex flex-col gap-0.5 text-xs">
-        <span className="font-semibold text-foreground">{toast.title}</span>
+        <span className="font-pixel-header text-[10px] tracking-wider uppercase text-foreground">
+          {toast.title}
+        </span>
         <span className="text-muted-foreground">{toast.description}</span>
       </div>
 

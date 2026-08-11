@@ -50,6 +50,9 @@
   --radius-2xl: 0px;
   --radius-3xl: 0px;
   --radius-4xl: 0px;
+  --color-edge: var(--edge);
+  --color-bevel-light: var(--bevel-light);
+  --color-bevel-dark: var(--bevel-dark);
 }
 
 :root {
@@ -79,6 +82,16 @@
   --chart-4: oklch(0.65 0.22 25);
   --chart-5: oklch(0.70 0.18 300);
   --radius: 0px;
+
+  /* Minecraft blocks read as blocks because every face is outlined in near-black
+     and lit from the top-left. These three tokens are that lighting model, and
+     every raised or recessed surface in the app derives from them — which is what
+     stops the bevels drifting apart the way the card and markdown ones had (they
+     were mixing a hue-260 purple into a hue-175 teal palette). */
+  --edge: #000000;
+  --bevel-light: oklch(0.45 0.03 175);
+  --bevel-dark: oklch(0.12 0.015 175);
+
   --sidebar: oklch(0.15 0.02 175);
   --sidebar-foreground: oklch(0.95 0.01 175);
   --sidebar-primary: oklch(0.74 0.18 172);
@@ -130,11 +143,123 @@
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-pixel-body), sans-serif;
+
+    /* A 4px grid at barely-there opacity. Minecraft surfaces are never flat
+       colour, and this gives the page a texture at the same scale as the borders
+       and bevels without costing an image request or reading as noise. */
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        oklch(1 0 0 / 0.016) 0 1px,
+        transparent 1px 4px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        oklch(1 0 0 / 0.016) 0 1px,
+        transparent 1px 4px
+      );
   }
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-pixel-header), sans-serif;
     letter-spacing: 0.02em;
+  }
+
+  /* One hard focus ring for the whole app. A blurred halo is the one thing that
+     cannot be pixel art, and the shadcn defaults ship `ring-3 ring-ring/50`
+     everywhere — so this replaces it rather than living alongside it.
+     Deliberately outline-only: focus styling that touched box-shadow would erase
+     the bevel of whatever it landed on, since every raised surface here *is* a
+     box-shadow. The 2px offset shows the page through the gap, which is what
+     separates the ring from the block's own black border. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+}
+
+@layer components {
+  /* A block lit from the top-left and sitting above the page. */
+  .pixel-raised {
+    border: 2px solid var(--edge);
+    box-shadow:
+      inset 2px 2px 0 var(--bevel-light),
+      inset -2px -2px 0 var(--bevel-dark),
+      0 4px 0 var(--edge);
+  }
+
+  /* The same block pressed into the page: bevel inverted, no drop shadow. Use for
+     anything the contestant types into or reads out of — inputs, wells, consoles. */
+  .pixel-inset {
+    border: 2px solid var(--edge);
+    box-shadow:
+      inset 2px 2px 0 var(--edge),
+      inset -2px -2px 0 var(--bevel-light);
+  }
+
+  /* Interactive blocks physically depress. 2px is one "pixel" at this scale, so the
+     motion lands on the grid instead of blurring across it. */
+  .pixel-press {
+    transition: transform 0.05s ease, box-shadow 0.05s ease;
+  }
+
+  .pixel-press:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: translateY(2px);
+    box-shadow:
+      inset -2px -2px 0 var(--bevel-light),
+      inset 2px 2px 0 var(--bevel-dark),
+      0 1px 0 var(--edge);
+  }
+
+  /* Chunky rule. A 1px hairline is the giveaway that a "pixel" UI is really a
+     default one with the corners filed off. */
+  .pixel-divider {
+    border: 0;
+    background: var(--edge);
+    box-shadow: 0 1px 0 var(--bevel-light);
+  }
+
+  .pixel-divider[data-orientation="vertical"],
+  .pixel-divider[data-vertical] {
+    box-shadow: 1px 0 0 var(--bevel-light);
+  }
+
+  /* Section label: the small uppercase pixel heading used above panels. */
+  .pixel-label {
+    font-family: var(--font-pixel-header), sans-serif;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted-foreground);
+  }
+
+  /* Terminal prompt marker, for headings that should read as a shell line. */
+  .pixel-prompt::before {
+    content: "> ";
+    color: var(--primary);
+  }
+
+  /* Loaders tick around eight positions rather than gliding. A smooth rotation is
+     the other tell that a pixel UI is a normal one recoloured — nothing in this
+     visual language moves between pixels. */
+  .pixel-spin {
+    animation: pixel-spin 0.8s steps(8, end) infinite;
+  }
+
+  @keyframes pixel-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pixel-spin {
+      animation-duration: 2.4s;
+    }
   }
 }
 
@@ -152,14 +277,19 @@
 
 .pixel-box {
   background-color: var(--card);
-  border: 2px solid oklch(0.35 0.03 175);
-  box-shadow: inset 2px 2px 0px oklch(0.45 0.03 175), inset -2px -2px 0px oklch(0.10 0.015 175), 0px 4px 0px #000000;
+  border: 2px solid var(--edge);
+  box-shadow:
+    inset 2px 2px 0 var(--bevel-light),
+    inset -2px -2px 0 var(--bevel-dark),
+    0 4px 0 var(--edge);
 }
 
 .pixel-box-recessed {
-  background-color: oklch(0.14 0.02 175);
-  border: 2px solid oklch(0.10 0.015 175);
-  box-shadow: inset 2px 2px 0px #000000, inset -2px -2px 0px oklch(0.28 0.03 175);
+  background-color: var(--input);
+  border: 2px solid var(--edge);
+  box-shadow:
+    inset 2px 2px 0 var(--edge),
+    inset -2px -2px 0 var(--bevel-light);
 }
 
 .pixel-btn {
@@ -227,7 +357,7 @@
   background: var(--muted);
   padding: 0.1rem 0.35rem;
   border-radius: 0px;
-  border: 1px solid oklch(0.35 0.02 260);
+  border: 1px solid var(--edge);
 }
 .markdown > :first-child {
   margin-top: 0;

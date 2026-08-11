@@ -61,7 +61,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               variant="outline"
               className="gap-1.5 border-primary bg-primary/20 text-primary text-[11px] h-7 px-2.5 animate-pulse font-pixel-body"
             >
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Loader2 className="h-3 w-3 pixel-spin" />
               <span>
                 {activeSubmission.status === "queued"
                   ? `QUEUED #${activeSubmission.queuePosition ?? 1}`

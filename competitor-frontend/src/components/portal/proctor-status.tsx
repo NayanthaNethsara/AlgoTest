@@ -33,7 +33,7 @@ export function ProctorPill() {
         variant="outline"
         className="gap-1.5 border-warning bg-warning/20 text-warning text-xs h-7 px-2.5 font-pixel-body"
       >
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <Loader2 className="h-3.5 w-3.5 pixel-spin" />
         PROCTOR STARTING...
       </Badge>
     );
@@ -120,7 +120,7 @@ export function ProctorLockBanner() {
         role="status"
         className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 border-b-2 border-black bg-warning/20 px-4 py-2 text-xs font-pixel-body text-warning shadow-[0px_4px_0px_#000000]"
       >
-        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+        <Loader2 className="h-3.5 w-3.5 shrink-0 pixel-spin" />
         <span className="font-bold">PROCTORING STARTING.</span>
         <span>
           {remedy ??
