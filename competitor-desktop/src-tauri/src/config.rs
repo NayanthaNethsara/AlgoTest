@@ -17,6 +17,8 @@ pub struct ClientConfig {
 pub struct Enrollment {
     pub agent_id: String,
     pub agent_token: String,
+    #[serde(default)]
+    pub session_token: Option<String>,
     pub user_id: String,
     pub username: String,
     pub display_name: String,

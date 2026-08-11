@@ -17,6 +17,13 @@
   --destructive: #ef4444;
   --font-header: 'Press Start 2P', monospace;
   --font-body: 'Pixelify Sans', monospace;
+
+  /* Same lighting model as the portal's globals.css: every face outlined in black
+     and lit from the top-left. Kept as tokens here too so the two apps cannot
+     drift apart the next time one of them is edited. */
+  --edge: #000000;
+  --bevel-light: #45726a;
+  --bevel-dark: #0a100e;
 }
 
 * {
@@ -32,6 +39,22 @@ body {
   color: var(--fg);
   font: 14px/1.5 var(--font-body), sans-serif;
   letter-spacing: 0.02em;
+
+  /* The portal's 4px texture grid, at the same scale and opacity. */
+  background-image:
+    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 4px);
+}
+
+/* Hard focus ring, outline-only so it never erases a bevel. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 
 h1 {
@@ -42,6 +65,11 @@ h1 {
   color: var(--accent);
   letter-spacing: 0.05em;
   text-shadow: 2px 2px 0px #000000;
+}
+
+h1::before {
+  content: "> ";
+  color: var(--accent-glow);
 }
 
 h2 {
@@ -82,7 +110,7 @@ input {
   color: var(--fg);
   font-family: var(--font-body);
   font-size: 13px;
-  box-shadow: inset 2px 2px 0px #000000, inset -2px -2px 0px var(--border-bevel);
+  box-shadow: inset 2px 2px 0 var(--edge), inset -2px -2px 0 var(--bevel-light);
   outline: none;
 }
 
@@ -139,7 +167,7 @@ button:disabled {
   border: 2px solid #000000;
   background: var(--surface);
   padding: 18px 20px;
-  box-shadow: inset 2px 2px 0px var(--border-bevel), inset -2px -2px 0px #000000, 0px 4px 0px #000000;
+  box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark), 0 4px 0 var(--edge);
 }
 
 .grid {
@@ -278,4 +306,26 @@ code {
   padding: 2px 6px;
   border: 1px solid #000000;
   background: var(--surface-inset);
+}
+
+/* Chunky scrollbars, matching the portal. A default scrollbar is the largest piece
+   of un-themed chrome in a window this size. */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-inset);
+  border-left: 2px solid var(--edge);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface);
+  border: 1px solid var(--edge);
+  box-shadow: inset 1px 1px 0 var(--bevel-light), inset -1px -1px 0 var(--bevel-dark);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-bevel);
 }

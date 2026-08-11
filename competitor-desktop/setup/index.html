@@ -35,6 +35,18 @@
         <ul class="tight" id="collected"></ul>
         <h2>NEVER COLLECTED</h2>
         <ul class="tight" id="not-collected"></ul>
+        <h2>PORTS CHECKED ON THIS MACHINE</h2>
+        <p class="lede">
+          Only 127.0.0.1, only these ports, and only to see whether a local LLM API
+          answers. No other machine on the network is contacted or scanned.
+        </p>
+        <ul class="tight" id="probed-ports"></ul>
+        <h2>PROCESS NAMES MATCHED</h2>
+        <p class="lede">
+          Only names matching these terms are reported, plus how many processes are
+          running in total. The rest of the list never leaves this machine.
+        </p>
+        <ul class="tight" id="process-terms"></ul>
         <h2>WHILE IT RUNS</h2>
         <ul class="tight" id="lifecycle"></ul>
         <p id="retention" class="lede"></p>
@@ -102,8 +114,23 @@
           el("disclosure-summary").textContent = d.summary ?? "";
           list("collected", d.collected);
           list("not-collected", d.notCollected);
+          list(
+            "probed-ports",
+            (payload.probedPorts ?? []).map((p) => `${p.port} — ${p.product}`),
+          );
+          // An empty denylist is a real answer and must not render as a silent
+          // blank: "no process names are matched" is what the contestant needs.
+          list(
+            "process-terms",
+            (payload.processTerms ?? []).length
+              ? payload.processTerms
+              : ["No process names are currently matched."],
+          );
           list("lifecycle", d.lifecycle);
           el("retention").textContent = [d.retention, d.policy].filter(Boolean).join(" ");
+          // A retry after a failed load must be able to re-enable the button it
+          // disabled, or the contestant is stuck on a screen that now works.
+          el("accept").disabled = false;
         } catch (err) {
           // The disclosure has to be readable before anyone consents, so a fetch
           // failure blocks the flow rather than silently showing nothing.
@@ -140,7 +167,18 @@
             consentVersion,
           });
         } catch (err) {
-          fail("enroll-error", String(err));
+          const message = String(err);
+          // The server rejects enrollment when the disclosure has been reworded
+          // since this window loaded it. Sending the contestant back to a freshly
+          // fetched consent step is the only honest recovery — the alternative is
+          // enrolling them against terms they were never shown.
+          if (message.includes("409")) {
+            show("step-consent");
+            await loadConsent();
+            fail("consent-error", "The disclosure was updated. Please read it again before enrolling.");
+          } else {
+            fail("enroll-error", message);
+          }
         } finally {
           button.disabled = false;
         }

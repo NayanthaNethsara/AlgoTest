@@ -71,6 +71,7 @@ pub fn run() {
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             get_shell_target,
+            get_session_token,
             retry_connection,
             open_proctor_setup
         ])
@@ -127,6 +128,11 @@ fn get_shell_target(state: State<'_, ShellState>) -> ShellTarget {
         api_url: config.as_ref().map(|c| c.api_url.clone()).unwrap_or_default(),
         message: state.message.lock().map(|m| m.clone()).unwrap_or_default(),
     }
+}
+
+#[tauri::command]
+fn get_session_token() -> Option<String> {
+    crate::config::load_enrollment().and_then(|e| e.session_token)
 }
 
 /// Re-probes the portal and navigates to it if it has come back.
