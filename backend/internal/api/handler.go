@@ -157,11 +157,17 @@ func (h *handler) createSubmission(c *gin.Context) {
 	u := currentUser(c)
 
 	// 4. Submission gate. Liveness is a property of the proctor agent, not of
-	// whichever client is submitting, so the browser fallback works without an
-	// exemption as long as the agent on that machine is reporting.
+	// whichever client is submitting, so the browser fallbacks are real paths — for
+	// contestants an organizer has granted the matching mode.
 	if h.proctorGate != nil {
 		clientIP, ipTrusted := portalClientIP(c)
-		decision, err := h.proctorGate.Check(c.Request.Context(), u.ID, clientIP, ipTrusted, c.GetHeader(attestHeader))
+		decision, err := h.proctorGate.Check(c.Request.Context(), agent.CheckRequest{
+			UserID:          u.ID,
+			ClaimsDesktop:   portalClaimsDesktop(c),
+			ClientIP:        clientIP,
+			ClientIPTrusted: ipTrusted,
+			AttestNonce:     c.GetHeader(attestHeader),
+		})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to evaluate proctor liveness"})
 			return
@@ -172,6 +178,8 @@ func (h *handler) createSubmission(c *gin.Context) {
 				"code":               decision.Code,
 				"last_ping_at":       decision.LastSeenAt,
 				"seconds_since_ping": decision.SecondsSincePing,
+				"access_mode":        decision.AccessMode,
+				"allowed_modes":      decision.AllowedModes,
 			})
 			return
 		}

@@ -188,7 +188,7 @@ func scenarios() []scenario {
 		{
 			name:    "browser",
 			summary: "Contestant abandons the desktop shell and works in a browser.",
-			expect:  "Allowed — the agent is alive. Live tab flips to BROWSER, and a submission records tel.web_client (15).",
+			expect:  "Live tab flips to BROWSER and a submission records tel.web_client (15). Whether it is accepted depends on the account's grant: refused with CLIENT_NOT_ALLOWED by default, allowed once an organizer ticks browser-with-proctor for them.",
 			run: func(s *sim, a *fakeAgent) error {
 				s.step("reporting with shell_alive=false, as the agent would")
 				for i := 0; i < 3; i++ {
@@ -196,7 +196,8 @@ func scenarios() []scenario {
 						return err
 					}
 				}
-				s.detail("  the gate stays open: liveness is the agent's property, not the UI's")
+				s.detail("  liveness is still the agent's property, not the UI's — the agent stays online here")
+				s.detail("  the gate is a separate question: PATCH /api/v1/admin/users/:id/access opens this path")
 				return nil
 			},
 		},

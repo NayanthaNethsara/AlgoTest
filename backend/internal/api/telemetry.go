@@ -97,7 +97,7 @@ func (h *handler) getProctorSelfStatus(c *gin.Context) {
 		return
 	}
 
-	decision, loopbackPort, err := h.proctorGate.Status(c.Request.Context(), u.ID)
+	decision, loopbackPort, err := h.proctorGate.Status(c.Request.Context(), u.ID, portalClaimsDesktop(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to check proctor status"})
 		return
@@ -108,6 +108,8 @@ func (h *handler) getProctorSelfStatus(c *gin.Context) {
 		"code":               decision.Code,
 		"exempt":             decision.Exempt,
 		"active_client":      decision.ActiveClient,
+		"access_mode":        decision.AccessMode,
+		"allowed_modes":      decision.AllowedModes,
 		"last_ping_at":       decision.LastSeenAt,
 		"seconds_since_ping": decision.SecondsSincePing,
 		"remedy":             decision.Remedy,

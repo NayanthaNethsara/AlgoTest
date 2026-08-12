@@ -56,7 +56,11 @@ func (r *Repository) CreateWithTeam(ctx context.Context, username, displayName, 
 func (r *Repository) List(ctx context.Context) ([]User, error) {
 	query := `
 		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name,
-		       (u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())) AS proctor_exempt
+		       (u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())) AS proctor_exempt,
+		       u.proctor_allow_web_with_agent AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now()),
+		       u.proctor_allow_web_only AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now()),
+		       CASE WHEN u.proctor_access_until IS NULL OR u.proctor_access_until > now()
+		            THEN u.proctor_access_reason ELSE '' END
 		FROM users u
 		LEFT JOIN teams t ON u.team_id = t.id
 		ORDER BY u.created_at ASC
@@ -80,6 +84,9 @@ func (r *Repository) List(ctx context.Context) ([]User, error) {
 			&u.TeamID,
 			&u.TeamName,
 			&u.ProctorExempt,
+			&u.ProctorAllowWebAgent,
+			&u.ProctorAllowWebOnly,
+			&u.ProctorAccessReason,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)

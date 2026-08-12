@@ -230,11 +230,19 @@ type GateState struct {
 	AgentVersion string
 	LanIP        string
 	ShellAlive   bool
+	ShellSeenAt  *time.Time
 	IncidentOpen bool
+	// Grant is this contestant's own grant, already emptied if it has lapsed. The
+	// contest-wide floor is merged in by the gate, not here.
+	Grant        AccessGrant
+	AccessReason string
 }
 
 func (r *Repository) GateState(ctx context.Context, userID string) (GateState, error) {
 	var s GateState
+	// An expired grant is read as no grant in the same expression that reads it, so
+	// no caller can forget the check. The reason is dropped with it: a lapsed
+	// justification presented as current is worse than none.
 	err := r.pool.QueryRow(ctx, `
 		SELECT
 			u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now()),
@@ -246,13 +254,19 @@ func (r *Repository) GateState(ctx context.Context, userID string) (GateState, e
 			COALESCE(a.agent_version, ''),
 			COALESCE(h.lan_ip, ''),
 			COALESCE(h.shell_alive, false),
-			EXISTS (SELECT 1 FROM telemetry_incidents WHERE ended_at IS NULL)
+			h.shell_alive_at,
+			EXISTS (SELECT 1 FROM telemetry_incidents WHERE ended_at IS NULL),
+			u.proctor_allow_web_with_agent AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now()),
+			u.proctor_allow_web_only AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now()),
+			CASE WHEN u.proctor_access_until IS NULL OR u.proctor_access_until > now()
+			     THEN u.proctor_access_reason ELSE '' END
 		FROM users u
 		LEFT JOIN proctor_agents a ON a.user_id = u.id AND a.revoked_at IS NULL
 		LEFT JOIN telemetry_heartbeats h ON h.user_id = u.id
 		WHERE u.id = $1;
 	`, userID).Scan(&s.Exempt, &s.ExemptReason, &s.HasAgent, &s.LastSeenAt, &s.StoppedAt,
-		&s.LoopbackPort, &s.AgentVersion, &s.LanIP, &s.ShellAlive, &s.IncidentOpen)
+		&s.LoopbackPort, &s.AgentVersion, &s.LanIP, &s.ShellAlive, &s.ShellSeenAt,
+		&s.IncidentOpen, &s.Grant.WebWithAgent, &s.Grant.WebOnly, &s.AccessReason)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return GateState{}, fmt.Errorf("user not found")
 	}

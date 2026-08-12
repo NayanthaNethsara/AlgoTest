@@ -43,6 +43,24 @@ func portalClientIP(c *gin.Context) (ip string, trusted bool) {
 // agent over 127.0.0.1.
 const attestHeader = "X-Agent-Attest"
 
+// clientHeader carries the portal's answer to "which window is this?", forwarded
+// from the marker the desktop client sets in the page it opens.
+//
+// It is a claim, not proof: the marker lives in a readable cookie, so a browser can
+// be made to send it. The gate believes it only where the agent independently
+// reports its shell process alive, which means forging it requires running the
+// desktop client — and therefore being proctored — anyway.
+const (
+	clientHeader       = "X-Algothon-Client"
+	clientValueDesktop = "desktop"
+)
+
+// portalClaimsDesktop reports whether this request says it came from the desktop
+// client's own window.
+func portalClaimsDesktop(c *gin.Context) bool {
+	return strings.EqualFold(strings.TrimSpace(c.GetHeader(clientHeader)), clientValueDesktop)
+}
+
 func NewRouter(
 	cfg config.Config,
 	j *judge.Judge,
@@ -150,6 +168,7 @@ func NewRouter(
 			admin.POST("/users/:id/reset-password", h.resetPassword)
 			admin.PATCH("/users/:id/role", h.updateRole)
 			admin.PATCH("/users/:id/exemption", h.updateUserProctorExemption)
+			admin.PATCH("/users/:id/access", h.updateUserProctorAccess)
 			admin.DELETE("/users/:id", h.deleteUser)
 
 			admin.GET("/teams", h.listAdminTeams)
@@ -229,7 +248,7 @@ func corsMiddleware(origins []string) gin.HandlerFunc {
 			return false
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With", attestHeader},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With", attestHeader, clientHeader},
 		AllowCredentials: true,
 	}
 	return cors.New(c)

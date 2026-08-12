@@ -136,8 +136,9 @@ func (b *Batcher) flush(agentBatch map[string]AgentRow, webBatch map[string]WebR
 			INSERT INTO telemetry_heartbeats (
 				user_id, team_id, agent_id, agent_version, active_window, running_processes,
 				os_info, ip_address, boot_id, seq, signal_hash, shell_alive,
-				internet_reachable, lan_ip, foreground_dwell, ports, last_ping_at
-			) VALUES ($1, (SELECT team_id FROM users WHERE id = $1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+				internet_reachable, lan_ip, foreground_dwell, ports, last_ping_at, shell_alive_at
+			) VALUES ($1, (SELECT team_id FROM users WHERE id = $1), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+				CASE WHEN $11::boolean THEN $16::timestamptz ELSE NULL END)
 			ON CONFLICT (user_id) DO UPDATE SET
 				team_id            = EXCLUDED.team_id,
 				agent_id           = EXCLUDED.agent_id,
@@ -150,6 +151,15 @@ func (b *Batcher) flush(agentBatch map[string]AgentRow, webBatch map[string]WebR
 				seq                = GREATEST(telemetry_heartbeats.seq, EXCLUDED.seq),
 				signal_hash        = EXCLUDED.signal_hash,
 				shell_alive        = EXCLUDED.shell_alive,
+				-- Last sighting, not last report: a heartbeat that says false must not
+				-- erase when the shell was last actually seen, or the gate's grace
+				-- window has nothing to be lenient about. Replayed heartbeats carry old
+				-- stamps, so GREATEST keeps a buffered flush from moving it backwards.
+				shell_alive_at     = CASE
+					WHEN EXCLUDED.shell_alive
+						THEN GREATEST(telemetry_heartbeats.shell_alive_at, EXCLUDED.last_ping_at)
+					ELSE telemetry_heartbeats.shell_alive_at
+				END,
 				internet_reachable = EXCLUDED.internet_reachable,
 				lan_ip             = EXCLUDED.lan_ip,
 				foreground_dwell   = EXCLUDED.foreground_dwell,

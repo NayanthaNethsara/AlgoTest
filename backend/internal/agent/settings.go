@@ -102,6 +102,21 @@ func (s *Settings) RequireAgentAttest() bool {
 	return s.bool("require_agent_attest", false)
 }
 
+// ContestAccessGrant is the floor under every contestant: the fallbacks that need
+// no individual grant.
+//
+// Both ship off. Organizers who decide mid-contest that the desktop client is
+// unworkable — a broken build, a lab of locked-down machines — switch one on here
+// instead of granting three hundred people the same accommodation one at a time.
+// Anything unparseable reads as off, so a malformed row cannot open the contest
+// wider than anyone asked.
+func (s *Settings) ContestAccessGrant() AccessGrant {
+	return AccessGrant{
+		WebWithAgent: s.bool("access.allow_web_with_agent", false),
+		WebOnly:      s.bool("access.allow_web_only", false),
+	}
+}
+
 func (s *Settings) bool(key string, fallback bool) bool {
 	switch s.snapshot.Load().values[key] {
 	case "true", "1":

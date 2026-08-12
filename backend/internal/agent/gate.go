@@ -12,6 +12,10 @@ const (
 	CodeAgentStale   = "AGENT_STALE"
 	CodeAgentStopped = "AGENT_STOPPED"
 	CodeNotAttested  = "NOT_ATTESTED"
+	// CodeClientNotAllowed is the browser turned away while the agent is perfectly
+	// healthy. Distinct from the AGENT_* codes on purpose: telling someone whose
+	// proctor client is running fine to restart it sends them in circles.
+	CodeClientNotAllowed = "CLIENT_NOT_ALLOWED"
 )
 
 type ActiveClient string
@@ -24,16 +28,33 @@ const (
 // GateInput is the decision's whole world, so the decision itself stays pure and
 // testable.
 type GateInput struct {
-	Exempt        bool
-	ExemptReason  string
-	HasAgent      bool
-	LastSeenAt    *time.Time
-	StoppedAt     *time.Time
-	ShellAlive    bool
+	Exempt       bool
+	ExemptReason string
+	HasAgent     bool
+	LastSeenAt   *time.Time
+	StoppedAt    *time.Time
+	ShellAlive   bool
+	// ShellSeenAt is when the desktop shell was last seen by the agent, which is not
+	// the same question as whether the newest heartbeat caught it — see
+	// ShellGraceSeconds.
+	ShellSeenAt   *time.Time
 	AttestOK      bool
 	RequireAttest bool
 	IncidentOpen  bool
-	ClientIP      string
+	// ClaimsDesktop is the requesting client's own claim to be the desktop shell,
+	// carried by the marker the client sets in the window it opens. It is believed
+	// only where the agent's own report of the shell corroborates it — see
+	// resolveMode.
+	ClaimsDesktop bool
+	// Grant is the effective permission set for this contestant: the contest-wide
+	// floor merged with their personal grant. The zero value permits the desktop
+	// client only, so an unset field fails closed.
+	Grant AccessGrant
+	// AccessReason is why the grant exists. Recorded with the finding so a reviewer
+	// reading "submitted from a browser" also reads the organizer's justification
+	// for permitting it.
+	AccessReason string
+	ClientIP     string
 	// ClientIPTrusted is false when ClientIP is a proxy hop rather than the
 	// contestant's own address. Comparing a portal host against the agent's LAN IP
 	// produces a mismatch on every honest submission, so the comparison is omitted
@@ -55,28 +76,84 @@ type Decision struct {
 	Exempt           bool         `json:"exempt"`
 	Attested         bool         `json:"attested"`
 	ActiveClient     ActiveClient `json:"active_client"`
+	AccessMode       AccessMode   `json:"access_mode"`
+	Grant            AccessGrant  `json:"grant"`
+	AllowedModes     []AccessMode `json:"allowed_modes"`
 	LastSeenAt       *time.Time   `json:"last_seen_at,omitempty"`
 	SecondsSincePing int          `json:"seconds_since_ping"`
 	Remedy           string       `json:"remedy,omitempty"`
 	findings         []finding
 }
 
+// ShellGraceSeconds is how long a shell sighting keeps corroborating a desktop
+// claim after the newest heartbeat stopped confirming it.
+//
+// The chain is lossy by construction: the shell pings the agent every 10s, the
+// agent forgets it after 30s, and the agent reports to the server every 15s. A
+// laptop resuming from sleep, or a shell stalled under load, therefore produces one
+// heartbeat that says false while the contestant sits in front of the client doing
+// nothing wrong. Refusing them would be this gate's worst failure, so a sighting
+// counts for the same 90s a missing agent heartbeat is tolerated for.
+//
+// The cost is bounded and worth naming: for 90s after genuinely closing the client,
+// a hand-forged marker in a browser would pass as DESKTOP. That requires having just
+// run the proctored client, so it buys a contestant a minute and a half of the
+// weaker mode, never an unproctored one.
+const ShellGraceSeconds = GateMaxStaleSeconds
+
+// resolveMode names how this submission arrived.
+//
+// The desktop claim is only believed where the agent independently places its shell
+// process on that machine. That pairing is what stops the marker — a cookie the
+// contestant's own browser can be made to send — from being an authorization: to
+// forge DESKTOP you must actually be running the desktop client, which means the
+// proctor is watching you anyway. WEB_ONLY cannot be forged in either direction,
+// because it is the absence of agent reports rather than any client's assertion.
+func resolveMode(in GateInput, agentLive bool, now time.Time) AccessMode {
+	switch {
+	case !agentLive:
+		return ModeWebOnly
+	case in.ClaimsDesktop && shellPresent(in, now):
+		return ModeDesktopShell
+	default:
+		return ModeWebWithAgent
+	}
+}
+
+func shellPresent(in GateInput, now time.Time) bool {
+	if in.ShellAlive {
+		return true
+	}
+	return in.ShellSeenAt != nil &&
+		now.Sub(*in.ShellSeenAt) <= ShellGraceSeconds*time.Second
+}
+
 // Decide resolves whether a scored submission may proceed. Liveness is a property
 // of the *agent*, never of whichever client is submitting — that is what lets the
-// browser be a real fallback rather than a way around proctoring.
+// browser be a real fallback rather than a way around proctoring, for contestants
+// an organizer has granted the mode that unlocks it.
 func Decide(in GateInput, now time.Time) Decision {
 	maxStale := in.MaxStaleSeconds
 	if maxStale <= 0 {
 		maxStale = GateMaxStaleSeconds
 	}
+	grant := in.Grant
 
-	d := Decision{ActiveClient: ClientDesktopShell, Attested: in.AttestOK}
-	if !in.ShellAlive {
-		d.ActiveClient = ClientBrowser
+	d := Decision{
+		Attested:     in.AttestOK,
+		Grant:        grant,
+		AllowedModes: grant.Modes(),
 	}
 	if in.LastSeenAt != nil {
 		d.LastSeenAt = in.LastSeenAt
 		d.SecondsSincePing = int(now.Sub(*in.LastSeenAt).Seconds())
+	}
+
+	agentLive := in.HasAgent && in.LastSeenAt != nil && d.SecondsSincePing <= maxStale
+	d.AccessMode = resolveMode(in, agentLive, now)
+	d.ActiveClient = ClientBrowser
+	if d.AccessMode == ModeDesktopShell {
+		d.ActiveClient = ClientDesktopShell
 	}
 
 	if in.Exempt {
@@ -88,16 +165,29 @@ func Decide(in GateInput, now time.Time) Decision {
 		return d
 	}
 
-	if !in.HasAgent || in.LastSeenAt == nil {
-		d.Code = CodeAgentMissing
-		d.Remedy = "Install and start the proctor client, then sign in once to enroll it."
-		d.findings = append(d.findings, finding{"tel.no_agent_submit", 25, map[string]any{
-			"reason": "no enrolled agent has ever reported",
-		}})
-		return d
-	}
+	// No live agent. Allowed only where an organizer granted this mode explicitly —
+	// for everyone else this is the pre-existing lockout, reported with the code that
+	// names the condition they can actually fix.
+	if d.AccessMode == ModeWebOnly {
+		if grant.Allows(ModeWebOnly) {
+			d.Allowed = true
+			d.findings = append(d.findings, finding{"tel.web_only_grant", 15, map[string]any{
+				"reason":             in.AccessReason,
+				"has_agent":          in.HasAgent,
+				"seconds_since_ping": d.SecondsSincePing,
+			}})
+			return d
+		}
 
-	if d.SecondsSincePing > maxStale {
+		if !in.HasAgent || in.LastSeenAt == nil {
+			d.Code = CodeAgentMissing
+			d.Remedy = "Install and start the proctor client, then sign in once to enroll it."
+			d.findings = append(d.findings, finding{"tel.no_agent_submit", 25, map[string]any{
+				"reason": "no enrolled agent has ever reported",
+			}})
+			return d
+		}
+
 		// A fleet-wide outage is ours, not the contestant's. Blocking here would
 		// punish 300 people for one nginx reload.
 		if in.IncidentOpen {
@@ -119,10 +209,20 @@ func Decide(in GateInput, now time.Time) Decision {
 		return d
 	}
 
-	if d.ActiveClient == ClientBrowser {
+	if d.AccessMode == ModeWebWithAgent {
+		// Recorded whether or not it is permitted: an organizer wants "worked in a
+		// browser" in the review timeline even when they are the one who allowed it.
 		d.findings = append(d.findings, finding{"tel.web_client", 15, map[string]any{
-			"reason": "submitted from the browser fallback while the desktop shell was not running",
+			"reason":       "submitted from the browser fallback rather than the desktop client",
+			"claims_shell": in.ClaimsDesktop,
+			"shell_alive":  in.ShellAlive,
+			"granted":      grant.Allows(ModeWebWithAgent),
 		}})
+		if !grant.Allows(ModeWebWithAgent) {
+			d.Code = CodeClientNotAllowed
+			d.Remedy = "Scored submissions must come from the proctor client window. Open the contest there, or ask an organizer to allow browser access for your account."
+			return d
+		}
 	}
 
 	if !in.AttestOK {
@@ -174,15 +274,34 @@ func (g *Gate) maxStaleSeconds() int {
 	return g.settings.Policy().GateMaxStaleSeconds
 }
 
-func (g *Gate) Check(ctx context.Context, userID, clientIP string, clientIPTrusted bool, attestNonce string) (Decision, error) {
-	state, err := g.repo.GateState(ctx, userID)
+// effectiveGrant merges one contestant's grant with the contest-wide floor.
+func (g *Gate) effectiveGrant(granted AccessGrant) AccessGrant {
+	if g.settings == nil {
+		return granted
+	}
+	return UnionAccessGrant(g.settings.ContestAccessGrant(), granted)
+}
+
+// CheckRequest is what the submission path knows about the caller that the stored
+// state cannot tell the gate itself.
+type CheckRequest struct {
+	UserID string
+	// ClaimsDesktop is set when the portal forwarded the desktop client's marker.
+	ClaimsDesktop   bool
+	ClientIP        string
+	ClientIPTrusted bool
+	AttestNonce     string
+}
+
+func (g *Gate) Check(ctx context.Context, req CheckRequest) (Decision, error) {
+	state, err := g.repo.GateState(ctx, req.UserID)
 	if err != nil {
 		return Decision{}, err
 	}
 
 	attestOK := false
-	if attestNonce != "" {
-		attestOK, err = g.repo.VerifyNonce(ctx, userID, attestNonce)
+	if req.AttestNonce != "" {
+		attestOK, err = g.repo.VerifyNonce(ctx, req.UserID, req.AttestNonce)
 		if err != nil {
 			return Decision{}, err
 		}
@@ -200,18 +319,22 @@ func (g *Gate) Check(ctx context.Context, userID, clientIP string, clientIPTrust
 		LastSeenAt:      state.LastSeenAt,
 		StoppedAt:       state.StoppedAt,
 		ShellAlive:      state.ShellAlive,
+		ShellSeenAt:     state.ShellSeenAt,
 		AttestOK:        attestOK,
 		RequireAttest:   requireAttest,
 		IncidentOpen:    state.IncidentOpen,
-		ClientIP:        clientIP,
-		ClientIPTrusted: clientIPTrusted,
+		ClaimsDesktop:   req.ClaimsDesktop,
+		Grant:           g.effectiveGrant(state.Grant),
+		AccessReason:    state.AccessReason,
+		ClientIP:        req.ClientIP,
+		ClientIPTrusted: req.ClientIPTrusted,
 		AgentLanIP:      state.LanIP,
 		MaxStaleSeconds: g.maxStaleSeconds(),
 	}, time.Now())
 
 	if g.service != nil {
 		for _, f := range d.findings {
-			g.service.record(ctx, userID, f.RuleID, f.Weight, f.Evidence)
+			g.service.record(ctx, req.UserID, f.RuleID, f.Weight, f.Evidence)
 		}
 	}
 
@@ -219,8 +342,13 @@ func (g *Gate) Check(ctx context.Context, userID, clientIP string, clientIPTrust
 }
 
 // Status is the read-only view the portal polls so contestants learn their agent
-// is down while coding, not with ninety seconds left on the clock.
-func (g *Gate) Status(ctx context.Context, userID string) (Decision, int, error) {
+// is down — or that the window they are working in will not be accepted — while
+// coding, not with ninety seconds left on the clock.
+//
+// claimsDesktop comes from the polling client, so the answer describes the window
+// the contestant is actually looking at rather than the most permissive one they
+// could open.
+func (g *Gate) Status(ctx context.Context, userID string, claimsDesktop bool) (Decision, int, error) {
 	state, err := g.repo.GateState(ctx, userID)
 	if err != nil {
 		return Decision{}, 0, err
@@ -233,8 +361,12 @@ func (g *Gate) Status(ctx context.Context, userID string) (Decision, int, error)
 		LastSeenAt:      state.LastSeenAt,
 		StoppedAt:       state.StoppedAt,
 		ShellAlive:      state.ShellAlive,
+		ShellSeenAt:     state.ShellSeenAt,
 		AttestOK:        true, // attestation is a per-submission property
 		IncidentOpen:    state.IncidentOpen,
+		ClaimsDesktop:   claimsDesktop,
+		Grant:           g.effectiveGrant(state.Grant),
+		AccessReason:    state.AccessReason,
 		MaxStaleSeconds: g.maxStaleSeconds(),
 	}, time.Now())
 	d.findings = nil

@@ -11,49 +11,118 @@ func TestDecide(t *testing.T) {
 	stale := now.Add(-120 * time.Second)
 	stoppedAt := now.Add(-100 * time.Second)
 
+	// The desktop path, spelled out once: a live agent, its shell process reporting
+	// alive, and a client that says it is that shell.
+	desktop := GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, ClaimsDesktop: true, AttestOK: true}
+
 	tests := []struct {
 		name         string
 		in           GateInput
 		wantAllowed  bool
 		wantCode     string
 		wantClient   ActiveClient
+		wantMode     AccessMode
 		wantFindings []string
 	}{
 		{
 			name:         "desktop shell with fresh attested agent passes clean",
-			in:           GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, AttestOK: true},
+			in:           desktop,
 			wantAllowed:  true,
 			wantClient:   ClientDesktopShell,
+			wantMode:     ModeDesktopShell,
 			wantFindings: nil,
 		},
 		{
-			name:         "browser fallback with a live agent is allowed and flagged",
+			name:         "browser fallback with a live agent is refused by default",
 			in:           GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: false, AttestOK: true},
+			wantAllowed:  false,
+			wantCode:     CodeClientNotAllowed,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebWithAgent,
+			wantFindings: []string{"tel.web_client"},
+		},
+		{
+			name: "browser fallback is allowed and flagged once granted",
+			in: GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: false, AttestOK: true,
+				Grant: AccessGrant{WebWithAgent: true}, AccessReason: "no admin rights on lab machine"},
 			wantAllowed:  true,
 			wantClient:   ClientBrowser,
+			wantMode:     ModeWebWithAgent,
+			wantFindings: []string{"tel.web_client"},
+		},
+		{
+			name: "granting both fallbacks covers the browser-with-agent case",
+			in: GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: false, AttestOK: true,
+				Grant: AccessGrant{WebWithAgent: true, WebOnly: true}, AccessReason: "seat 12, desktop client will not install"},
+			wantAllowed:  true,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebWithAgent,
+			wantFindings: []string{"tel.web_client"},
+		},
+		{
+			name: "no agent at all is allowed once that mode is granted",
+			in: GateInput{HasAgent: false, Grant: AccessGrant{WebOnly: true},
+				AccessReason: "seat 12, desktop client will not install"},
+			wantAllowed:  true,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
+			wantFindings: []string{"tel.web_only_grant"},
+		},
+		{
+			name: "browser access does not extend to submitting with no agent",
+			in: GateInput{HasAgent: false, Grant: AccessGrant{WebWithAgent: true},
+				AccessReason: "no admin rights on lab machine"},
+			wantAllowed:  false,
+			wantCode:     CodeAgentMissing,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
+			wantFindings: []string{"tel.no_agent_submit"},
+		},
+		{
+			name: "a desktop claim the agent does not corroborate is treated as a browser",
+			in: GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: false, ClaimsDesktop: true,
+				AttestOK: true},
+			wantAllowed:  false,
+			wantCode:     CodeClientNotAllowed,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebWithAgent,
+			wantFindings: []string{"tel.web_client"},
+		},
+		{
+			name: "a live shell the contestant is not using does not make the browser desktop",
+			in: GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, ClaimsDesktop: false,
+				AttestOK: true},
+			wantAllowed:  false,
+			wantCode:     CodeClientNotAllowed,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebWithAgent,
 			wantFindings: []string{"tel.web_client"},
 		},
 		{
 			name:         "unattested submission is allowed by default but recorded",
-			in:           GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, AttestOK: false},
+			in:           GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, ClaimsDesktop: true, AttestOK: false},
 			wantAllowed:  true,
 			wantClient:   ClientDesktopShell,
+			wantMode:     ModeDesktopShell,
 			wantFindings: []string{"tel.no_attest"},
 		},
 		{
-			name:         "unattested submission is blocked once organizers require it",
-			in:           GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, AttestOK: false, RequireAttest: true},
+			name: "unattested submission is blocked once organizers require it",
+			in: GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, ClaimsDesktop: true,
+				AttestOK: false, RequireAttest: true},
 			wantAllowed:  false,
 			wantCode:     CodeNotAttested,
 			wantClient:   ClientDesktopShell,
+			wantMode:     ModeDesktopShell,
 			wantFindings: []string{"tel.no_attest"},
 		},
 		{
 			name:         "stale agent locks submissions",
-			in:           GateInput{HasAgent: true, LastSeenAt: &stale, ShellAlive: true, AttestOK: true},
+			in:           GateInput{HasAgent: true, LastSeenAt: &stale, ShellAlive: true, ClaimsDesktop: true, AttestOK: true},
 			wantAllowed:  false,
 			wantCode:     CodeAgentStale,
-			wantClient:   ClientDesktopShell,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
 			wantFindings: []string{"tel.no_agent_submit"},
 		},
 		{
@@ -62,6 +131,7 @@ func TestDecide(t *testing.T) {
 			wantAllowed:  false,
 			wantCode:     CodeAgentStopped,
 			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
 			wantFindings: []string{"tel.no_agent_submit"},
 		},
 		{
@@ -70,6 +140,7 @@ func TestDecide(t *testing.T) {
 			wantAllowed:  false,
 			wantCode:     CodeAgentMissing,
 			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
 			wantFindings: []string{"tel.no_agent_submit"},
 		},
 		{
@@ -78,13 +149,16 @@ func TestDecide(t *testing.T) {
 			wantAllowed:  false,
 			wantCode:     CodeAgentMissing,
 			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
 			wantFindings: []string{"tel.no_agent_submit"},
 		},
 		{
-			name:         "a fleet-wide outage must not lock anyone out",
-			in:           GateInput{HasAgent: true, LastSeenAt: &stale, ShellAlive: true, AttestOK: true, IncidentOpen: true},
+			name: "a fleet-wide outage must not lock anyone out",
+			in: GateInput{HasAgent: true, LastSeenAt: &stale, ShellAlive: true, ClaimsDesktop: true,
+				AttestOK: true, IncidentOpen: true},
 			wantAllowed:  true,
-			wantClient:   ClientDesktopShell,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
 			wantFindings: nil,
 		},
 		{
@@ -92,7 +166,21 @@ func TestDecide(t *testing.T) {
 			in:           GateInput{Exempt: true, ExemptReason: "broken install, seat 42"},
 			wantAllowed:  true,
 			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
 			wantFindings: []string{"tel.exempt"},
+		},
+		{
+			// The flags are independent, so this really does refuse the browser while
+			// permitting the same person to submit with no agent at all. Perverse, and
+			// enforced exactly as configured — the console is where it gets questioned.
+			name: "a web-only grant does not open the browser-with-agent path",
+			in: GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: false, AttestOK: true,
+				Grant: AccessGrant{WebOnly: true}, AccessReason: "machine cannot run the client"},
+			wantAllowed:  false,
+			wantCode:     CodeClientNotAllowed,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebWithAgent,
+			wantFindings: []string{"tel.web_client"},
 		},
 	}
 
@@ -109,6 +197,9 @@ func TestDecide(t *testing.T) {
 			if got.ActiveClient != tt.wantClient {
 				t.Errorf("ActiveClient = %q, want %q", got.ActiveClient, tt.wantClient)
 			}
+			if got.AccessMode != tt.wantMode {
+				t.Errorf("AccessMode = %q, want %q", got.AccessMode, tt.wantMode)
+			}
 			if len(got.findings) != len(tt.wantFindings) {
 				t.Fatalf("findings = %v, want %v", ruleIDs(got.findings), tt.wantFindings)
 			}
@@ -124,12 +215,68 @@ func TestDecide(t *testing.T) {
 	}
 }
 
+// The shell→agent→server chain drops a beat routinely: a resumed laptop or a
+// stalled shell yields one heartbeat that says shell_alive=false. Reading that as
+// "the contestant moved to a browser" would refuse someone sitting in front of the
+// client, which is the worst thing this gate could do.
+func TestDesktopClaimSurvivesOneMissedShellPing(t *testing.T) {
+	now := time.Now()
+	fresh := now.Add(-10 * time.Second)
+
+	base := GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: false, ClaimsDesktop: true, AttestOK: true}
+
+	t.Run("a recent sighting still corroborates the claim", func(t *testing.T) {
+		seen := now.Add(-40 * time.Second)
+		in := base
+		in.ShellSeenAt = &seen
+
+		got := Decide(in, now)
+		if got.AccessMode != ModeDesktopShell {
+			t.Errorf("AccessMode = %q, want %q for a shell seen 40s ago", got.AccessMode, ModeDesktopShell)
+		}
+		if !got.Allowed {
+			t.Errorf("a desktop contestant was refused with code %q", got.Code)
+		}
+	})
+
+	t.Run("a sighting past the grace window does not", func(t *testing.T) {
+		seen := now.Add(-(ShellGraceSeconds + 10) * time.Second)
+		in := base
+		in.ShellSeenAt = &seen
+
+		got := Decide(in, now)
+		if got.AccessMode != ModeWebWithAgent {
+			t.Errorf("AccessMode = %q, want %q once the shell is long gone", got.AccessMode, ModeWebWithAgent)
+		}
+	})
+
+	t.Run("a claim with no sighting at all is never believed", func(t *testing.T) {
+		if got := Decide(base, now); got.AccessMode != ModeWebWithAgent {
+			t.Errorf("AccessMode = %q, want %q when the agent has never seen a shell",
+				got.AccessMode, ModeWebWithAgent)
+		}
+	})
+
+	// The grace window is leniency about *when* the shell was seen, never about
+	// whether an agent is reporting at all.
+	t.Run("grace never substitutes for a live agent", func(t *testing.T) {
+		seen := now.Add(-5 * time.Second)
+		in := GateInput{HasAgent: false, ClaimsDesktop: true, ShellSeenAt: &seen}
+
+		got := Decide(in, now)
+		if got.AccessMode != ModeWebOnly || got.Allowed {
+			t.Errorf("AccessMode = %q, allowed = %v; want %q and refused",
+				got.AccessMode, got.Allowed, ModeWebOnly)
+		}
+	})
+}
+
 // The attestation finding is read by a human deciding whether a contestant
 // cheated, so it must never present the portal host as the contestant's address.
 func TestUnattestedEvidenceOmitsUntrustedClientIP(t *testing.T) {
 	now := time.Now()
 	fresh := now.Add(-30 * time.Second)
-	base := GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, AgentLanIP: "10.0.0.5"}
+	base := GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, ClaimsDesktop: true, AgentLanIP: "10.0.0.5"}
 
 	t.Run("untrusted address is withheld rather than compared", func(t *testing.T) {
 		in := base
