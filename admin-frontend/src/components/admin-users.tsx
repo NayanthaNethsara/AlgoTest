@@ -17,7 +17,10 @@ import {
   resetPasswordAction,
   deleteUserAction,
 } from "@/lib/actions/users";
-import { toggleProctorExemptionAction } from "@/actions/telemetry";
+import {
+  setProctorAccessAction,
+  toggleProctorExemptionAction,
+} from "@/actions/telemetry";
 import {
   addTeamMemberAction,
   removeTeamMemberAction,
@@ -41,6 +44,43 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Credential = { username: string; password: string };
+type AccessGrant = { webWithAgent: boolean; webOnly: boolean };
+const FALLBACKS: {
+  key: keyof AccessGrant;
+  label: string;
+  badge: string;
+  className: string;
+  cost: string;
+  reasonHint: string;
+}[] = [
+  {
+    key: "webWithAgent",
+    label: "Browser, proctor running",
+    badge: "BROWSER +AGENT",
+    className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+    cost: "Allows scored submissions from an ordinary browser, as long as the proctor client keeps reporting from the same machine. Endpoint signals still land; nothing corroborates which window the code was typed in.",
+    reasonHint: "Desktop shell will not open on this machine",
+  },
+  {
+    key: "webOnly",
+    label: "Browser, no proctor",
+    badge: "BROWSER ONLY",
+    className: "bg-rose-500/10 text-rose-400 border-rose-500/30",
+    cost: "Allows scored submissions from a browser with no proctor client at all. No endpoint signals will exist for this contestant.",
+    reasonHint: "Proctor client cannot be installed on this machine",
+  },
+];
+
+function grantOf(user: User): AccessGrant {
+  return {
+    webWithAgent: user.proctorAllowWebWithAgent ?? false,
+    webOnly: user.proctorAllowWebOnly ?? false,
+  };
+}
+
+function isPerverse(grant: AccessGrant): boolean {
+  return grant.webOnly && !grant.webWithAgent;
+}
 
 export function AdminUsers({
   users,
@@ -97,8 +137,8 @@ export function AdminUsers({
     let reason = "";
     if (!isExempt) {
       const entered = window.prompt(
-        `Granting an exemption to ${user.displayName || user.username} allows them to submit from web browser without desktop proctor.\nReason:`,
-        "Backup web browser usage during competition",
+        `An exemption switches proctoring OFF for ${user.displayName || user.username} entirely, for 4 hours. To let them work in a browser while the proctor keeps running, use Submission Access instead.\n\nReason:`,
+        "Break-glass: proctor client unusable during competition",
       );
       if (entered === null || entered.trim() === "") return;
       reason = entered.trim();
@@ -120,6 +160,56 @@ export function AdminUsers({
       }
     } catch {
       user.proctorExempt = isExempt; // Rollback on error
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleFallbackToggle(
+    user: User,
+    key: keyof AccessGrant,
+    enabled: boolean,
+  ) {
+    const current = grantOf(user);
+    const next = { ...current, [key]: enabled };
+    const fallback = FALLBACKS.find((entry) => entry.key === key)!;
+
+    let reason = user.proctorAccessReason ?? "";
+    if (enabled) {
+      const entered = window.prompt(
+        `${fallback.cost}\n\nFor ${user.displayName || user.username}. Reason (recorded against every submission they make):`,
+        reason || fallback.reasonHint,
+      );
+      if (entered === null || entered.trim() === "") return;
+      reason = entered.trim();
+
+      // Asked, not silently corrected: this pair really does mean the contestant
+      // must stop proctoring to submit, and an organizer who meant it keeps it.
+      if (isPerverse(next)) {
+        const proceed = window.confirm(
+          `Careful: ${user.displayName || user.username} would be able to submit only while the proctor client is STOPPED — submissions from a browser with it running would still be refused.\n\nTick "Browser, proctor running" as well unless you specifically want that. Save anyway?`,
+        );
+        if (!proceed) return;
+      }
+    }
+
+    setPending(true);
+    setError(null);
+    user.proctorAllowWebWithAgent = next.webWithAgent;
+    user.proctorAllowWebOnly = next.webOnly;
+    try {
+      const res = await setProctorAccessAction(user.id, next, reason, 0);
+      if (res.error) {
+        user.proctorAllowWebWithAgent = current.webWithAgent; // Rollback on error
+        user.proctorAllowWebOnly = current.webOnly;
+        setError(res.error);
+      } else {
+        onRefresh();
+      }
+    } catch {
+      user.proctorAllowWebWithAgent = current.webWithAgent; // Rollback on error
+      user.proctorAllowWebOnly = current.webOnly;
+      setError("Failed to update submission access");
     } finally {
       setPending(false);
     }
@@ -412,6 +502,7 @@ export function AdminUsers({
               <TableHead>Assigned Team</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Proctoring</TableHead>
+              <TableHead>Submission Access</TableHead>
               <TableHead>Last Login</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -420,7 +511,7 @@ export function AdminUsers({
             {filteredUsers.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="p-8 text-center text-xs text-muted-foreground"
                 >
                   No{" "}
@@ -478,6 +569,55 @@ export function AdminUsers({
                       "-"
                     )}
                   </TableCell>
+                  <TableCell>
+                    {u.role === "competitor" ? (
+                      <div className="flex flex-col gap-1">
+                        {FALLBACKS.map((fallback) => {
+                          const on = grantOf(u)[fallback.key];
+                          return (
+                            <label
+                              key={fallback.key}
+                              className="flex items-center gap-1.5 text-[11px] cursor-pointer"
+                              title={fallback.cost}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={on}
+                                disabled={pending}
+                                onChange={(e) =>
+                                  handleFallbackToggle(
+                                    u,
+                                    fallback.key,
+                                    e.target.checked,
+                                  )
+                                }
+                                className="size-3 accent-primary"
+                              />
+                              <span
+                                className={
+                                  on
+                                    ? "font-medium text-foreground"
+                                    : "text-muted-foreground"
+                                }
+                              >
+                                {fallback.label}
+                              </span>
+                            </label>
+                          );
+                        })}
+                        {isPerverse(grantOf(u)) && (
+                          <span
+                            className="text-[10px] font-semibold text-rose-400"
+                            title="This competitor can submit only while the proctor client is stopped."
+                          >
+                            ⚠ ONLY WITH PROCTOR STOPPED
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      "-"
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {u.lastLoginAt
                       ? new Date(u.lastLoginAt).toLocaleString()
@@ -495,7 +635,7 @@ export function AdminUsers({
                             title={
                               u.proctorExempt
                                 ? "Revoke Proctor Exemption (Enforce)"
-                                : "Grant Proctor Exemption (Allow Web Backup)"
+                                : "Grant Proctor Exemption (Break-glass: proctoring off for 4h)"
                             }
                             className={`h-8 w-8 ${u.proctorExempt ? "text-emerald-500 hover:bg-emerald-500/10" : "text-muted-foreground hover:text-foreground"}`}
                           >

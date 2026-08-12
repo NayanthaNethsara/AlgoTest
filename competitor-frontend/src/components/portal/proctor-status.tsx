@@ -20,6 +20,8 @@ export function ProctorPill() {
     resolved,
     submissionsAllowed,
     exempt,
+    accessMode,
+    code,
     local,
     serverReachable,
     starting,
@@ -50,16 +52,28 @@ export function ProctorPill() {
 
   if (!submissionsAllowed) {
     const cutOff = Boolean(local && local.healthy === false);
+    // "PROCTOR INACTIVE" would be a lie when the agent is reporting normally and it
+    // is the window that is not permitted — and it would send the contestant off to
+    // restart a client that is already working.
+    const notAllowed = code === "CLIENT_NOT_ALLOWED";
     return (
       <Badge
         variant="destructive"
         className="gap-1.5 text-xs h-7 px-2.5 font-pixel-body"
         title={
-          local?.support_code ? `Support code ${local.support_code}` : undefined
+          notAllowed
+            ? "Scored submissions from this window are not enabled for your account."
+            : local?.support_code
+              ? `Support code ${local.support_code}`
+              : undefined
         }
       >
         <ShieldOff className="h-3.5 w-3.5" />
-        {cutOff ? "PROCTOR OFF-GRID" : "PROCTOR INACTIVE"}
+        {notAllowed
+          ? "WINDOW NOT ALLOWED"
+          : cutOff
+            ? "PROCTOR OFF-GRID"
+            : "PROCTOR INACTIVE"}
       </Badge>
     );
   }
@@ -74,6 +88,22 @@ export function ProctorPill() {
       >
         <AlertTriangle className="h-3.5 w-3.5" />
         NET UNSTABLE
+      </Badge>
+    );
+  }
+
+  // Submitting with no agent behind the page, by grant. Saying so plainly beats
+  // "PROCTOR UNVERIFIED", which reads as a fault when it is the arrangement an
+  // organizer set up for this account.
+  if (accessMode === "WEB_ONLY") {
+    return (
+      <Badge
+        variant="outline"
+        className="gap-1.5 text-xs h-7 px-2.5 font-pixel-body border-black"
+        title="An organizer allowed this account to submit from a browser without the proctor client."
+      >
+        <ShieldOff className="h-3.5 w-3.5" />
+        BROWSER ACCESS
       </Badge>
     );
   }
@@ -106,6 +136,7 @@ export function ProctorLockBanner() {
     resolved,
     submissionsAllowed,
     exempt,
+    code,
     remedy,
     secondsSincePing,
     local,
@@ -137,11 +168,17 @@ export function ProctorLockBanner() {
     >
       <AlertTriangle className="h-4 w-4 shrink-0" />
       <span className="font-bold uppercase tracking-wider">
-        SUBMISSIONS LOCKED — PROCTOR CLIENT IS NOT REPORTING
+        {/* The agent may be running perfectly — this window is simply not one this
+            account may submit from. Blaming the client would send the contestant to
+            restart something that is already working. */}
+        {code === "CLIENT_NOT_ALLOWED"
+          ? "SUBMISSIONS LOCKED — THIS WINDOW IS NOT ALLOWED FOR SCORED SUBMISSIONS"
+          : "SUBMISSIONS LOCKED — PROCTOR CLIENT IS NOT REPORTING"}
       </span>
       <span>
         {remedy ?? "Start the proctor client, then submit again."}
-        {secondsSincePing > 0 &&
+        {code !== "CLIENT_NOT_ALLOWED" &&
+          secondsSincePing > 0 &&
           ` Last report ${formatAgo(secondsSincePing)} ago.`}
       </span>
       <span className="ml-auto flex items-center gap-3">

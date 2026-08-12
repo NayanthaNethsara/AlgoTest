@@ -15,6 +15,20 @@ export const DESKTOP_CLIENT_COOKIE = "mini-algothon-client";
 
 export const DESKTOP_CLIENT_VALUE = "desktop";
 
+/**
+ * Header the portal's server side uses to pass the marker on to the API, which
+ * needs it to tell "working in the client" from "working in a browser while the
+ * client runs" — two access modes an organizer grants separately.
+ *
+ * The API treats it as a claim, not proof: the cookie above is readable, so a
+ * browser can be made to send it. It is believed only where the agent independently
+ * reports its shell process alive, which means forging it requires running the
+ * desktop client, and therefore being proctored, anyway.
+ */
+export const CLIENT_HEADER = "X-Algothon-Client";
+
+export const WEB_CLIENT_VALUE = "web";
+
 export function isDesktopClient(): boolean {
   if (typeof document === "undefined") {
     return false;

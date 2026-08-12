@@ -22,6 +22,8 @@ const POLL_DEGRADED_MS = 5_000;
 const INITIAL: ProctorState = {
   submissionsAllowed: true,
   exempt: false,
+  accessMode: null,
+  allowedModes: [],
   secondsSincePing: 0,
   local: null,
   attestNonce: null,
@@ -121,6 +123,10 @@ function resolve(
   const serverReachable = self !== null;
   const base = {
     exempt: self?.exempt ?? false,
+    // Only the server knows what this account was granted, so these stay empty while
+    // it is unreachable rather than being guessed at from what the agent can see.
+    accessMode: self?.access_mode ?? null,
+    allowedModes: self?.allowed_modes ?? [],
     secondsSincePing: self?.seconds_since_ping ?? local?.seconds_since_ack ?? 0,
     local,
     attestNonce: local?.attest_nonce ?? null,
@@ -129,6 +135,13 @@ function resolve(
   };
 
   if (self?.exempt) {
+    return { ...base, submissionsAllowed: true };
+  }
+
+  // An organizer has allowed this contestant to work with no live agent at all, so
+  // none of the agent-state checks below may lock the portal: every one of them
+  // would report a problem the server has already decided not to hold against them.
+  if (self?.allowed && self.allowed_modes?.includes("WEB_ONLY")) {
     return { ...base, submissionsAllowed: true };
   }
 

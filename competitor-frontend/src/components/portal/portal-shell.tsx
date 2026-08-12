@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { SubmissionsProvider, useSubmissions } from "@/components/providers/submissions-context";
 import { ProctorProvider } from "@/components/providers/proctor-provider";
 import { ProctorLockBanner } from "@/components/portal/proctor-status";
+import { AccessBlockScreen } from "@/components/portal/access-block";
 import { TopNav } from "@/components/portal/top-nav";
 import type { SessionUser } from "@/lib/auth/constants";
 
@@ -23,6 +24,8 @@ export function PortalShell({
           <div className="relative min-h-0 flex-1">
             {children}
             <ProctorLockBanner />
+            {/* Over the banner, and only for the lock an organizer has to clear. */}
+            <AccessBlockScreen />
             <ToastBanner />
           </div>
         </div>

@@ -1,9 +1,22 @@
+/**
+ * How a submission is reaching the server. All three are supported; only the first
+ * needs no organizer grant, because the other two each give up something the
+ * proctor would otherwise see.
+ */
+export type AccessMode = "DESKTOP" | "WEB_WITH_AGENT" | "WEB_ONLY";
+
+
 /** What the server knows about this contestant's proctor agent. */
 export type ProctorSelfStatus = {
   allowed: boolean;
   code?: string;
   exempt: boolean;
   active_client: "DESKTOP" | "WEB";
+  /** The mode this window resolves to right now, not the best one available. */
+  access_mode: AccessMode;
+  /** Every mode this account may submit from. The two browser fallbacks are
+   *  independent grants, so this is a set rather than a threshold. */
+  allowed_modes: AccessMode[];
   last_ping_at?: string | null;
   seconds_since_ping: number;
   remedy?: string;
@@ -38,6 +51,9 @@ export type ProctorState = {
   exempt: boolean;
   code?: string;
   remedy?: string;
+  /** Null until the first server answer lands; the agent cannot resolve it alone. */
+  accessMode: AccessMode | null;
+  allowedModes: AccessMode[];
   secondsSincePing: number;
   /** Present when the agent was reached over loopback on this machine. */
   local: AgentLocalStatus | null;
