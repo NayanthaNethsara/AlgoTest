@@ -277,26 +277,99 @@ Same portal, three additions:
 ## 8. Gate semantics (revision of plan-2 A6)
 
 Liveness is a property of the **agent**, not of whichever client submits. That single change makes
-the web backup safe.
+the web backup safe to *offer*; a second one decides who may take it.
 
-*As built:* "which client is submitting" is derived from the agent's own `shell_alive` report, not
-from anything the browser claims about itself. A client-declared `client_type` would be forgeable by
-the party it describes.
+### Three modes, one of them free
 
-| Agent | Submitting client | Submissions | Finding |
-| --- | --- | --- | --- |
-| Live (≤90s) | Desktop shell, attested | allowed | — |
-| Live (≤90s) | Browser, attested | allowed | `tel.web_client` (low) |
-| Live (≤90s) | Either, **no attestation** | allowed | `tel.no_attest` (medium) |
-| Stale (>90s) or never seen | any | **423 Locked** | `tel.no_agent_submit` |
-| Any | any, `proctor_exempt` | allowed | standing exemption finding |
+There are exactly three ways to sit the contest, and they are not equally observable
+([access.go](../backend/internal/agent/access.go)):
+
+| Mode | What it is | What is given up |
+| --- | --- | --- |
+| `DESKTOP` | portal inside the desktop client, agent live behind it | nothing |
+| `WEB_WITH_AGENT` | portal in the contestant's own browser, agent still reporting | nothing corroborates which window the code was typed in |
+| `WEB_ONLY` | browser with no live agent at all | every endpoint signal |
+
+`AccessGrant` is which modes an account may submit from: the two fallbacks are **independent
+switches**, either, both, or neither. `DESKTOP` has no field because it is never withheld — an
+account with no grants is not locked out of the contest, it is expected in the client. The effective
+grant is the **union** of two levers, so neither can silently narrow the other:
+
+- `contest_settings.access.allow_web_with_agent` / `access.allow_web_only` — the contest-wide floor,
+  both seeded `false`. The right lever when the desktop client itself is the problem, rather than
+  granting 300 people the same accommodation one at a time.
+- `users.proctor_allow_web_with_agent` / `proctor_allow_web_only` — one contestant's grant, with a
+  mandatory reason, the admin who granted it, and an optional expiry (`NULL` = the rest of the
+  contest). Two checkboxes in the admin console's users table, `PATCH /api/v1/admin/users/:id/access`
+  — which takes the whole grant rather than a delta, so two organizers on the same row cannot
+  interleave into a combination neither chose.
+
+Both are read per submission, so a grant takes effect on the contestant's next attempt.
+
+**One combination is perverse and is not normalised away:** `WEB_ONLY` without `WEB_WITH_AGENT`
+permits submissions with no agent while refusing them with one, so the contestant unlocks their own
+submissions by *stopping* proctoring. It is enforced exactly as configured — occasionally it is what
+someone means — but `AccessGrant.Perverse()` names it, the API returns a `warning`, the console
+confirms before saving, and the monitoring row flags it. Silent normalisation would have been the
+worse answer: an organizer would think they had refused something they had in fact granted.
+
+### Resolving the mode
+
+`DESKTOP` requires **two independent things**: the client's own claim, forwarded by the portal as
+`X-Algothon-Client: desktop` from the marker the client sets in the window it opens, *and* the
+agent's `shell_alive` report. Neither alone is enough:
+
+- The marker is a readable cookie, so a browser can be made to send it. Pairing it with
+  `shell_alive` means forging `DESKTOP` requires actually running the desktop client — and therefore
+  being proctored — so the worst case is a `WEB_WITH_AGENT` contestant posing as `DESKTOP`, never an
+  unproctored one. `WEB_ONLY` cannot be forged in either direction: it is the *absence* of agent
+  reports rather than any client's assertion.
+- `shell_alive` alone says the shell process is running, not that this submission came from it — a
+  contestant with the client open in the background and the contest in Chrome is `WEB_WITH_AGENT`,
+  and reading them as `DESKTOP` would make the browser grant unenforceable.
+
+The corroboration is a **sighting within `ShellGraceSeconds` (90s)**, stored as
+`telemetry_heartbeats.shell_alive_at`, not the newest heartbeat's boolean. The chain is lossy by
+construction — shell pings the agent every 10s, agent forgets after 30s, agent reports every 15s — so
+a resumed laptop or a stalled shell produces one `shell_alive: false` heartbeat while the contestant
+sits in front of the client. Refusing them there would be this gate's worst failure. The bounded cost:
+for 90s after genuinely closing the client, a hand-forged marker in a browser passes as `DESKTOP` —
+which requires having just run the proctored client, so it buys the weaker mode, never an unproctored
+one.
+
+A desktop claim the agent does not corroborate is recorded (`claims_shell` / `shell_alive` in the
+`tel.web_client` evidence) and downgraded, never upgraded.
+
+| Agent | Mode | Grant | Submissions | Finding |
+| --- | --- | --- | --- | --- |
+| Live (≤90s) | `DESKTOP`, attested | any | allowed | — |
+| Live (≤90s) | `WEB_WITH_AGENT`, attested | no `web_with_agent` | **423 Locked** `CLIENT_NOT_ALLOWED` | `tel.web_client` (low) |
+| Live (≤90s) | `WEB_WITH_AGENT`, attested | `web_with_agent` | allowed | `tel.web_client` (low) |
+| Live (≤90s) | either, **no attestation** | any | allowed | `tel.no_attest` (medium) |
+| Stale (>90s) or never seen | `WEB_ONLY` | no `web_only` | **423 Locked** | `tel.no_agent_submit` |
+| Stale (>90s) or never seen | `WEB_ONLY` | `web_only` | allowed | `tel.web_only_grant` (low) |
+| Any | any, `proctor_exempt` | any | allowed | standing exemption finding |
 
 - `/api/v1/run` stays **ungated** — contestants must be able to test through an agent hiccup.
-- `423` body: `{ code: "AGENT_STALE", last_ping_at, seconds_since_ping, remedy }`, plus the banner
-  polling `/telemetry/self` every 15s so they learn while coding, not with 90 seconds left.
-- `proctor_exempt` is no longer the web-user path. It is break-glass only: per user, admin-granted,
-  with a mandatory reason and an expiry. Under this design a browser user with a healthy agent needs
-  no exemption at all.
+- `423` body: `{ code, last_ping_at, seconds_since_ping, access_mode, allowed_modes, remedy }`, plus
+  the banner polling `/telemetry/self` every 15s so they learn while coding, not with 90 seconds
+  left. The poll forwards the same client marker, so it answers for the window the contestant is
+  actually looking at rather than the most permissive one they could open.
+- `CLIENT_NOT_ALLOWED` is deliberately not an `AGENT_*` code: the agent is reporting fine, and
+  telling someone to restart a working client sends them in circles.
+- It is also the one lock that gets a **full-screen notice** rather than the banner
+  ([access-block.tsx](../competitor-frontend/src/components/portal/access-block.tsx)): it never
+  clears on its own, so a contestant must not be able to code for an hour before discovering it. It
+  names the mode they are in, the modes they hold, and is dismissible to the editor — test runs work
+  in every mode, and stranding someone in front of a wall helps nobody. The other lock codes keep the
+  banner: taking the screen away mid-keystroke over a 15-second agent restart is worse than the
+  problem.
+- A fleet-wide `telemetry_incidents` row still overrides the stale rows. An outage is ours, not the
+  contestant's.
+- `proctor_exempt` remains break-glass and remains distinct from a grant: an exemption switches
+  proctoring **off**, while a `web_only` grant keeps every finding and records each submission against
+  the organizer's stated reason. Reviewers can tell "allowed to use a browser" from "not being
+  watched".
 - Optional `contest_settings.require_agent_attest` promotes the no-attestation row from finding to
   block. Ship it **off**; it is a lever for an organizer who sees abuse, not a default.
 
@@ -481,7 +554,7 @@ make proctorsim ARGS='-scenario fleet-outage -users competitors.csv -count 20'
 | `replay` | A captured heartbeat is refused with `409 SEQ_REPLAY`, so it cannot hold the gate open |
 | `rebind` | Second machine revokes the first and raises `tel.agent_rebound` |
 | `clock-jump` | Only a *change* in clock offset counts; a steadily wrong clock does not |
-| `browser` | Browser fallback stays allowed while the agent lives, and is flagged |
+| `browser` | The agent keeps reporting with `shell_alive: false`; the submission is `WEB_WITH_AGENT`, flagged, and refused unless that account has been granted browser access |
 | `stopped` / `crash` | A clean stop is neutral; a kill is recorded |
 | `fleet-outage` | >30% quiet at once opens an incident and suppresses every contestant gap |
 
