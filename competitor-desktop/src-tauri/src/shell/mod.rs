@@ -281,19 +281,30 @@ fn spawn_agent_watchdog() {
             }
             first = false;
 
-            let ports: Vec<u16> = known_port.map(|p| vec![p]).unwrap_or_else(|| LOOPBACK_PORTS.to_vec());
             let mut reached = false;
-
-            for port in ports {
-                let ok = client
+            if let Some(port) = known_port {
+                if client
                     .post(crate::loopback_url(port, "/shell"))
                     .send()
                     .map(|r| r.status().is_success())
-                    .unwrap_or(false);
-                if ok {
-                    known_port = Some(port);
+                    .unwrap_or(false)
+                {
                     reached = true;
-                    break;
+                }
+            }
+
+            if !reached {
+                for port in LOOPBACK_PORTS {
+                    if client
+                        .post(crate::loopback_url(port, "/shell"))
+                        .send()
+                        .map(|r| r.status().is_success())
+                        .unwrap_or(false)
+                    {
+                        known_port = Some(port);
+                        reached = true;
+                        break;
+                    }
                 }
             }
 

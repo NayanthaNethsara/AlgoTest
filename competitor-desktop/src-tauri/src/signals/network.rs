@@ -54,3 +54,20 @@ pub fn lan_ip() -> String {
         .map(|ip| ip.to_string())
         .unwrap_or_default()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reachability_probe_initial_state() {
+        let probe = ReachabilityProbe::new();
+        assert!(!probe.reachable());
+    }
+
+    #[test]
+    fn reachable_returns_false_on_invalid_socket_address() {
+        assert!(!reachable("invalid_address"));
+        assert!(!reachable("256.256.256.256:53"));
+    }
+}

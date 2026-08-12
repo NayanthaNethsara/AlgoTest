@@ -38,3 +38,28 @@ pub fn support_code(username: &str, machine_id: &str, boot_id: &str) -> String {
     let boot = boot_id.chars().take(4).collect::<String>();
     format!("{username}-{machine}-{boot}").to_uppercase()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn machine_id_returns_32_character_hex_hash() {
+        let id = machine_id();
+        assert_eq!(id.len(), 32);
+        assert!(id.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn platform_is_non_empty() {
+        let p = platform();
+        assert!(!p.trim().is_empty());
+        assert!(p.contains(std::env::consts::OS));
+    }
+
+    #[test]
+    fn formats_support_code_uppercase() {
+        let code = support_code("alice", "1234567890abcdef", "a1b2c3d4e5f6");
+        assert_eq!(code, "ALICE-123456-A1B2");
+    }
+}

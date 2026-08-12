@@ -191,3 +191,15 @@ impl Default for Transport {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn send_error_messages() {
+        assert_eq!(SendError::Revoked.message(), "enrollment revoked");
+        assert_eq!(SendError::Rejected("invalid seq".into()).message(), "rejected: invalid seq");
+        assert_eq!(SendError::Unreachable("timeout".into()).message(), "timeout");
+    }
+}

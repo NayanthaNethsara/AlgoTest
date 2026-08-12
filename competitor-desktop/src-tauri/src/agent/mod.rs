@@ -96,8 +96,10 @@ pub fn run() {
         .build(crate::context())
         .expect("failed to build the proctor agent")
         .run(move |_app, event| {
-            if let tauri::RunEvent::ExitRequested { .. } = event {
-                if !state.stopping.swap(true, Ordering::Relaxed) {
+            if let tauri::RunEvent::ExitRequested { api, .. } = event {
+                if state.is_enrolled() && !state.stopping.load(Ordering::Relaxed) {
+                    api.prevent_exit();
+                } else if !state.stopping.swap(true, Ordering::Relaxed) {
                     scheduler::report_shutdown(&state, "agent process exiting");
                 }
             }
