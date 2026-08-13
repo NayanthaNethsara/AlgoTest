@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Pixelify_Sans, Press_Start_2P } from "next/font/google";
+import { Geist_Mono, Inter, Pixelify_Sans, Press_Start_2P } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({
+  variable: "--font-sans",
+  subsets: ["latin"],
+});
 
 const pixelHeader = Press_Start_2P({
   weight: "400",
@@ -31,7 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${pixelHeader.variable} ${pixelBody.variable} ${geistMono.variable} h-full antialiased`}
+      className={`dark ${inter.variable} ${pixelHeader.variable} ${pixelBody.variable} ${geistMono.variable} h-full antialiased`}
       style={{ colorScheme: "dark" }}
     >
       <body className="min-h-full flex flex-col font-sans relative">

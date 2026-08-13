@@ -375,3 +375,130 @@
   opacity: 0.05;
   mix-blend-mode: overlay;
 }
+
+/* Hide pixel noise texture overlay completely when in dark or light challenge mode */
+body:has(.challenge-mode-dark) .pixel-noise-overlay,
+body:has(.challenge-mode-light) .pixel-noise-overlay {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* ==========================================================================
+   Challenge Workspace Mode Overrides (Dark & Light)
+   ========================================================================== */
+
+/* Clean Dark Mode (VS Code / LeetCode Dark Theme) */
+.challenge-mode-dark {
+  font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif !important;
+  background-color: #09090b !important;
+  color: #f4f4f5 !important;
+}
+
+.challenge-mode-dark *,
+.challenge-mode-dark h1,
+.challenge-mode-dark h2,
+.challenge-mode-dark h3,
+.challenge-mode-dark h4,
+.challenge-mode-dark .pixel-text-shadow,
+.challenge-mode-dark .pixel-label,
+.challenge-mode-dark .font-pixel-header,
+.challenge-mode-dark .font-pixel-body {
+  font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+}
+
+.challenge-mode-dark .pixel-prompt::before {
+  content: "" !important;
+}
+
+.challenge-mode-dark .bg-card,
+.challenge-mode-dark .bg-background,
+.challenge-mode-dark .bg-input,
+.challenge-mode-dark .bg-muted {
+  background-color: #18181b !important;
+  color: #f4f4f5 !important;
+  border-color: #27272a !important;
+  box-shadow: none !important;
+}
+
+.challenge-mode-dark .border-black,
+.challenge-mode-dark .border-2,
+.challenge-mode-dark .border-4 {
+  border-color: #27272a !important;
+}
+
+.challenge-mode-dark .text-muted-foreground {
+  color: #a1a1aa !important;
+}
+
+.challenge-mode-dark .text-foreground {
+  color: #f4f4f5 !important;
+}
+
+.challenge-mode-dark pre,
+.challenge-mode-dark code,
+.challenge-mode-dark .markdown :not(pre) > code {
+  font-family: var(--font-mono), monospace !important;
+  background-color: #09090b !important;
+  color: #f4f4f5 !important;
+  border-color: #27272a !important;
+}
+
+/* Clean Light Mode (VS Code / LeetCode Light Theme) */
+.challenge-mode-light {
+  font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif !important;
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.challenge-mode-light *,
+.challenge-mode-light h1,
+.challenge-mode-light h2,
+.challenge-mode-light h3,
+.challenge-mode-light h4,
+.challenge-mode-light .pixel-text-shadow,
+.challenge-mode-light .pixel-label,
+.challenge-mode-light .font-pixel-header,
+.challenge-mode-light .font-pixel-body {
+  font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+}
+
+.challenge-mode-light .pixel-prompt::before {
+  content: "" !important;
+}
+
+.challenge-mode-light .bg-card,
+.challenge-mode-light .bg-background,
+.challenge-mode-light .bg-input,
+.challenge-mode-light .bg-muted {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: none !important;
+}
+
+.challenge-mode-light .border-black,
+.challenge-mode-light .border-2,
+.challenge-mode-light .border-4 {
+  border-color: #e2e8f0 !important;
+}
+
+.challenge-mode-light .text-muted-foreground {
+  color: #64748b !important;
+}
+
+.challenge-mode-light .text-foreground {
+  color: #0f172a !important;
+}
+
+.challenge-mode-light pre,
+.challenge-mode-light code,
+.challenge-mode-light .markdown :not(pre) > code {
+  font-family: var(--font-mono), monospace !important;
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}

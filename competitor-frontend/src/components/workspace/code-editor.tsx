@@ -1,6 +1,7 @@
 "use client";
 
 import Editor, { type Monaco } from "@monaco-editor/react";
+import { useChallengeTheme } from "@/components/providers/challenge-theme-provider";
 
 type CodeEditorProps = {
   language: string;
@@ -96,6 +97,9 @@ function defineTheme(monaco: Monaco) {
 }
 
 export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
+  const { mode } = useChallengeTheme();
+  const editorTheme = mode === "light" ? "vs" : mode === "dark" ? "vs-dark" : "mini-pixel";
+
   return (
     <Editor
       height="100%"
@@ -103,14 +107,17 @@ export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
       value={value}
       onChange={(next) => onChange(next ?? "")}
       beforeMount={defineTheme}
-      theme="mini-pixel"
+      theme={editorTheme}
       loading={
         <div className="pixel-label animate-pulse p-4">Loading editor…</div>
       }
       options={{
         fontSize: 14,
-        fontFamily: "var(--font-mono), ui-monospace, monospace",
-        fontLigatures: false,
+        fontFamily:
+          mode === "pixel"
+            ? "var(--font-mono), ui-monospace, monospace"
+            : "Menlo, Monaco, Consolas, 'Fira Code', var(--font-mono), monospace",
+        fontLigatures: mode !== "pixel",
         lineNumbers: "on",
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
@@ -120,14 +127,11 @@ export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
         automaticLayout: true,
         scrollbar: { verticalScrollbarSize: 12, horizontalScrollbarSize: 12 },
 
-        // A block caret that does not fade, and square selection corners. Smooth
-        // caret animation and rounded selection are the two defaults that give away
-        // a pixel theme as a normal editor with the palette swapped.
-        cursorStyle: "block",
-        cursorBlinking: "blink",
-        cursorSmoothCaretAnimation: "off",
-        smoothScrolling: false,
-        roundedSelection: false,
+        cursorStyle: mode === "pixel" ? "block" : "line",
+        cursorBlinking: mode === "pixel" ? "blink" : "smooth",
+        cursorSmoothCaretAnimation: mode === "pixel" ? "off" : "on",
+        smoothScrolling: mode !== "pixel",
+        roundedSelection: mode !== "pixel",
       }}
     />
   );

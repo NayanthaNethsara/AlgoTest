@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ProblemPanel } from "@/components/problem/problem-panel";
 import { CodeWorkspace } from "@/components/workspace/code-workspace";
+import { ChallengeThemeProvider } from "@/components/providers/challenge-theme-provider";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -18,14 +19,16 @@ export default async function ChallengePage({
   if (!problem) notFound();
 
   return (
-    <ResizablePanelGroup orientation="horizontal" className="h-full">
-      <ResizablePanel defaultSize="42" minSize="25">
-        <ProblemPanel problem={problem} />
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize="58" minSize="35">
-        <CodeWorkspace problem={problem} />
-      </ResizablePanel>
-    </ResizablePanelGroup>
+    <ChallengeThemeProvider>
+      <ResizablePanelGroup orientation="horizontal" className="h-full">
+        <ResizablePanel defaultSize="42" minSize="25">
+          <ProblemPanel problem={problem} />
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize="58" minSize="35">
+          <CodeWorkspace problem={problem} />
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </ChallengeThemeProvider>
   );
 }

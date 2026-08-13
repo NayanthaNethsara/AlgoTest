@@ -3,25 +3,29 @@ import { Markdown } from "@/components/common/markdown";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { ChallengeThemeSwitcher } from "@/components/problem/theme-switcher";
 import type { Problem, Sample } from "@/types/problem";
 
 export function ProblemPanel({ problem }: { problem: Problem }) {
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-6 p-6">
-        <header className="flex flex-col gap-3">
-          <h1 className="pixel-text-shadow font-pixel-header text-base leading-relaxed tracking-wider text-primary uppercase">
-            {problem.title}
-          </h1>
-          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <Meta icon={<Trophy className="size-3.5" />}>{problem.points} points</Meta>
-            <Meta icon={<Clock className="size-3.5" />}>
-              {problem.timeLimitMs} ms
-            </Meta>
-            <Meta icon={<Cpu className="size-3.5" />}>
-              {problem.memoryLimitMb} MB
-            </Meta>
+        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-2.5">
+            <h1 className="pixel-text-shadow font-pixel-header text-base leading-relaxed tracking-wider text-primary uppercase">
+              {problem.title}
+            </h1>
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <Meta icon={<Trophy className="size-3.5" />}>{problem.points} points</Meta>
+              <Meta icon={<Clock className="size-3.5" />}>
+                {problem.timeLimitMs} ms
+              </Meta>
+              <Meta icon={<Cpu className="size-3.5" />}>
+                {problem.memoryLimitMb} MB
+              </Meta>
+            </div>
           </div>
+          <ChallengeThemeSwitcher />
         </header>
 
         <Separator />
