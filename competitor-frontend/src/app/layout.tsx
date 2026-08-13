@@ -34,7 +34,10 @@ export default function RootLayout({
       className={`dark ${pixelHeader.variable} ${pixelBody.variable} ${geistMono.variable} h-full antialiased`}
       style={{ colorScheme: "dark" }}
     >
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans relative">
+        {children}
+        <div className="pixel-noise-overlay" aria-hidden="true" />
+      </body>
     </html>
   );
 }

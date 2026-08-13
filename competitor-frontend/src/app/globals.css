@@ -144,18 +144,16 @@
     color: var(--foreground);
     font-family: var(--font-pixel-body), sans-serif;
 
-    /* A 4px grid at barely-there opacity. Minecraft surfaces are never flat
-       colour, and this gives the page a texture at the same scale as the borders
-       and bevels without costing an image request or reading as noise. */
+    /* Proper pixel grid background texture */
     background-image:
       repeating-linear-gradient(
         to right,
-        oklch(1 0 0 / 0.016) 0 1px,
+        oklch(1 0 0 / 0.02) 0 1px,
         transparent 1px 4px
       ),
       repeating-linear-gradient(
         to bottom,
-        oklch(1 0 0 / 0.016) 0 1px,
+        oklch(1 0 0 / 0.02) 0 1px,
         transparent 1px 4px
       );
   }
@@ -361,4 +359,19 @@
 }
 .markdown > :first-child {
   margin-top: 0;
+}
+
+/* Pixel noise texture overlay effect */
+.pixel-noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+  background-image: url("/pixel-noice.png");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
 }
