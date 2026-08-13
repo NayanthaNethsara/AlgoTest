@@ -51,11 +51,11 @@ pub fn sync_autostart(app: &AppHandle, enrolled: bool) {
 /// it carries is what distinguishes a deliberate stop from a kill, and clearing
 /// first would throw it away.
 pub fn sign_out_and_quit(app: &AppHandle, state: &Arc<AgentState>, reason: &str) -> Result<(), String> {
-    unenroll(app, state, reason)?;
     state.stopping.store(true, Ordering::Relaxed);
+    let result = unenroll(app, state, reason);
     quit_shell();
     app.exit(0);
-    Ok(())
+    result
 }
 
 /// Forgets the enrollment but keeps the agent running, for the diagnostics

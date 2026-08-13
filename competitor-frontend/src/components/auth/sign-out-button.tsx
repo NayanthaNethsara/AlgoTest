@@ -27,7 +27,11 @@ export function SignOutButton() {
     try {
       // Revoke the server session first. The desktop stop closes this very window,
       // so anything left until afterwards may never run.
-      await revokeUserSession();
+      try {
+        await revokeUserSession();
+      } catch {
+        // Ignore network errors during session revocation cleanup
+      }
 
       if (isDesktopClient()) {
         await stopLocalAgent(local?.loopback_port);

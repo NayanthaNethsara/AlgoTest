@@ -13,23 +13,25 @@ export function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith(prefix),
   );
   const sessionToken = request.cookies.get(SESSION_COOKIE)?.value;
+  const isDesktop =
+    request.nextUrl.searchParams.get("client") === DESKTOP_CLIENT_VALUE ||
+    request.cookies.get(DESKTOP_CLIENT_COOKIE)?.value === DESKTOP_CLIENT_VALUE;
 
   let response: NextResponse;
   if (requiresSession && !sessionToken) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
+    if (isDesktop) {
+      loginUrl.searchParams.set("client", DESKTOP_CLIENT_VALUE);
+    }
     response = NextResponse.redirect(loginUrl);
   } else {
     response = NextResponse.next();
   }
 
-  // The desktop client announces itself in the URL it opens, which survives
-  // exactly one request — the redirect to /login drops the query. Recording it
-  // here, on the way past, is what makes the answer available on every later page.
-  if (request.nextUrl.searchParams.get("client") === DESKTOP_CLIENT_VALUE) {
+  // Record or refresh the desktop client cookie so it survives every navigation.
+  if (isDesktop) {
     response.cookies.set(DESKTOP_CLIENT_COOKIE, DESKTOP_CLIENT_VALUE, {
-      // Read by the sign-out button to decide whether signing out should also stop
-      // proctoring. It identifies a window, not a user, and guards nothing.
       httpOnly: false,
       sameSite: "lax",
       path: "/",
