@@ -247,6 +247,13 @@ func Decide(in GateInput, now time.Time) Decision {
 		}
 	}
 
+	if d.SecondsSincePing > 30 {
+		d.findings = append(d.findings, finding{"tel.disconnect_gap", 10, map[string]any{
+			"seconds_since_ping": d.SecondsSincePing,
+			"access_mode":        d.AccessMode,
+		}})
+	}
+
 	d.Allowed = true
 	return d
 }
