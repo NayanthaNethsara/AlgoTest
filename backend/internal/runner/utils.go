@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +24,23 @@ func normalizeLanguage(lang string) string {
 	default:
 		return l
 	}
+}
+
+// makeWorkDir creates the per-run workspace that gets bind-mounted at
+// sandboxDir. isolate runs the program as its own box user (uid 60000+box_id),
+// not as us, so the directory must be world-writable or the sandbox cannot
+// create the redirect targets we pass to --stdout/--stderr, and isolate aborts
+// with an internal error before the program ever starts. MkdirAll's mode is
+// masked by the umask, so the permissions are set explicitly afterwards.
+func makeWorkDir(base string) (string, error) {
+	work := filepath.Join(base, "work")
+	if err := os.MkdirAll(work, 0777); err != nil {
+		return "", fmt.Errorf("creating work dir: %w", err)
+	}
+	if err := os.Chmod(work, 0777); err != nil {
+		return "", fmt.Errorf("opening work dir to the sandbox user: %w", err)
+	}
+	return work, nil
 }
 
 // readCapped returns at most outputLimit bytes of a sandbox output file.

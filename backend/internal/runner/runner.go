@@ -120,9 +120,9 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	}
 	defer os.RemoveAll(base)
 
-	work := filepath.Join(base, "work")
-	if err := os.MkdirAll(work, 0755); err != nil {
-		return Result{}, fmt.Errorf("creating work dir: %w", err)
+	work, err := makeWorkDir(base)
+	if err != nil {
+		return Result{}, err
 	}
 
 	_, err = r.initBox(execCtx, slot.BoxID)
@@ -299,9 +299,9 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 	}
 	defer os.RemoveAll(base)
 
-	work := filepath.Join(base, "work")
-	if err := os.MkdirAll(work, 0755); err != nil {
-		return BatchResult{}, fmt.Errorf("creating work dir: %w", err)
+	work, err := makeWorkDir(base)
+	if err != nil {
+		return BatchResult{}, err
 	}
 
 	_, err = r.initBox(execCtx, slot.BoxID)
