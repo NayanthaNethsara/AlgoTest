@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Code2, History, Loader2, Terminal, Trophy, Users } from "lucide-react";
+import { Code2, History, Loader2, Menu, Trophy, Users, X } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ProctorPill } from "@/components/portal/proctor-status";
 import { useSubmissions } from "@/components/providers/submissions-context";
@@ -18,81 +19,184 @@ const NAV_LINKS = [
 export function TopNav({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
   const { activeSubmission } = useSubmissions();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="flex items-center justify-between border-b-2 border-black bg-card px-6 py-2 shadow-[0px_4px_0px_#000000] z-20">
-      <div className="flex items-center gap-6">
-        <Link href="/challenges" className="flex items-center gap-2.5 font-pixel-header text-xs text-primary hover:opacity-90">
-          <div className="flex h-7 w-7 items-center justify-center border-2 border-black bg-primary text-primary-foreground shadow-[inset_2px_2px_0px_rgba(255,255,255,0.4),0px_2px_0px_#000000]">
-            <Terminal className="h-4 w-4" />
-          </div>
-          <span className="tracking-wide text-foreground pixel-text-shadow">MINIALGOTHON</span>
-        </Link>
+    <header className="relative z-20 border-b-2 border-black bg-card px-4 py-2.5 sm:px-6 lg:px-7 lg:py-3 shadow-[0px_4px_0px_#000000]">
+      <div className="flex items-center justify-between">
+        {/* Brand & Desktop Nav */}
+        <div className="flex items-center gap-4 md:gap-6 lg:gap-7">
+          <Link
+            href="/challenges"
+            className="flex items-center hover:opacity-90 transition-opacity"
+            onClick={() => setMobileOpen(false)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo/mini-algothon.svg"
+              alt="MiniAlgothon"
+              className="h-5.5 sm:h-6 lg:h-6 w-auto object-contain"
+            />
+          </Link>
 
-        <nav className="flex items-center gap-2 border-l-2 border-black pl-6">
-          {NAV_LINKS.map((link) => {
-            const active = pathname.startsWith(link.href);
-            const Icon = link.icon;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex items-center gap-1.5 border-2 px-3 py-1 text-xs font-pixel-body uppercase tracking-wider transition-all ${
-                  active
-                    ? "border-black bg-primary text-primary-foreground shadow-[inset_2px_2px_0px_rgba(255,255,255,0.4),inset_-2px_-2px_0px_rgba(0,0,0,0.4),0px_2px_0px_#000000]"
-                    : "border-transparent text-muted-foreground hover:border-black hover:bg-muted hover:text-foreground"
-                }`}
+          {/* Desktop Navigation Links */}
+          <nav className="hidden md:flex items-center gap-2 lg:gap-2.5 border-l-2 border-black pl-5 lg:pl-6">
+            {NAV_LINKS.map((link) => {
+              const active = pathname.startsWith(link.href);
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-1.5 border-2 px-3.5 py-1.5 text-xs font-pixel-body uppercase tracking-wider transition-all ${
+                    active
+                      ? "border-black bg-primary text-primary-foreground shadow-[inset_2px_2px_0px_rgba(255,255,255,0.4),inset_-2px_-2px_0px_rgba(0,0,0,0.4),0px_2px_0px_#000000]"
+                      : "border-transparent text-muted-foreground hover:border-black hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Desktop Right Section */}
+        {user && (
+          <div className="hidden md:flex items-center gap-3 lg:gap-3.5">
+            <ProctorPill />
+
+            {/* Active Submission Pill */}
+            {activeSubmission && (
+              <Badge
+                variant="outline"
+                className="gap-1.5 border-primary bg-primary/20 text-primary text-xs h-7.5 lg:h-8 px-2.5 animate-pulse font-pixel-body"
               >
-                <Icon className="h-3.5 w-3.5" />
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
+                <Loader2 className="h-3.5 w-3.5 pixel-spin" />
+                <span>
+                  {activeSubmission.status === "queued"
+                    ? `QUEUED #${activeSubmission.queuePosition ?? 1}`
+                    : "EVALUATING..."}
+                </span>
+              </Badge>
+            )}
+
+            {/* Team Name Badge */}
+            {user.teamName ? (
+              <Badge variant="secondary" className="gap-1.5 font-pixel-body text-xs h-7.5 lg:h-8 px-2.5 border-black bg-muted">
+                <Users className="h-3.5 w-3.5 text-primary" />
+                <span className="font-bold text-foreground uppercase">{user.teamName}</span>
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs text-muted-foreground h-7.5 lg:h-8 px-2.5 font-pixel-body">
+                NO TEAM
+              </Badge>
+            )}
+
+            {/* User Profile */}
+            <div className="flex items-center gap-2 border-l-2 border-black pl-3">
+              <div className="flex h-6.5 w-6.5 items-center justify-center border border-black bg-primary text-primary-foreground font-pixel-header text-[11px]">
+                {(user.displayName || user.username || "U")[0].toUpperCase()}
+              </div>
+              <span className="text-xs font-pixel-body uppercase font-bold text-foreground">
+                {user.displayName || user.username}
+              </span>
+            </div>
+
+            <SignOutButton />
+          </div>
+        )}
+
+        {/* Mobile Header Controls */}
+        <div className="flex md:hidden items-center gap-2">
+          {user && <ProctorPill />}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileOpen}
+            className="flex h-8.5 w-8.5 items-center justify-center border-2 border-black bg-card text-foreground shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark)] active:translate-y-0.5"
+          >
+            {mobileOpen ? <X className="h-4.5 w-4.5 text-destructive" /> : <Menu className="h-4.5 w-4.5" />}
+          </button>
+        </div>
       </div>
 
-      {user && (
-        <div className="flex items-center gap-3">
-          <ProctorPill />
+      {/* Mobile Drawer Menu */}
+      {mobileOpen && (
+        <div className="md:hidden mt-3 border-t-2 border-black pt-3 pb-2 flex flex-col gap-3 font-pixel-body animate-in slide-in-from-top-2 duration-150">
+          <nav className="flex flex-col gap-2">
+            {NAV_LINKS.map((link) => {
+              const active = pathname.startsWith(link.href);
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2 border-2 px-3 py-2 text-xs uppercase tracking-wider transition-all ${
+                    active
+                      ? "border-black bg-primary text-primary-foreground shadow-[inset_2px_2px_0px_rgba(255,255,255,0.4),0px_2px_0px_#000000]"
+                      : "border-black bg-muted text-foreground hover:bg-accent"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
 
-          {/* Active Submission Pill */}
-          {activeSubmission && (
-            <Badge
-              variant="outline"
-              className="gap-1.5 border-primary bg-primary/20 text-primary text-[11px] h-7 px-2.5 animate-pulse font-pixel-body"
-            >
-              <Loader2 className="h-3 w-3 pixel-spin" />
-              <span>
-                {activeSubmission.status === "queued"
-                  ? `QUEUED #${activeSubmission.queuePosition ?? 1}`
-                  : "EVALUATING..."}
-              </span>
-            </Badge>
-          )}
+          {user && (
+            <div className="flex flex-col gap-2.5 border-t-2 border-black pt-3">
+              {/* Active Submission Pill */}
+              {activeSubmission && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">SUBMISSION:</span>
+                  <Badge
+                    variant="outline"
+                    className="gap-1.5 border-primary bg-primary/20 text-primary text-[11px] h-7 px-2.5 animate-pulse font-pixel-body"
+                  >
+                    <Loader2 className="h-3 w-3 pixel-spin" />
+                    <span>
+                      {activeSubmission.status === "queued"
+                        ? `QUEUED #${activeSubmission.queuePosition ?? 1}`
+                        : "EVALUATING..."}
+                    </span>
+                  </Badge>
+                </div>
+              )}
 
-          {/* Team Name Badge */}
-          {user.teamName ? (
-            <Badge variant="secondary" className="gap-1.5 font-pixel-body text-xs h-7 px-2.5 border-black bg-muted">
-              <Users className="h-3.5 w-3.5 text-primary" />
-              <span className="font-bold text-foreground uppercase">{user.teamName}</span>
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-xs text-muted-foreground h-7 font-pixel-body">
-              NO TEAM
-            </Badge>
-          )}
+              {/* Team Name */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">TEAM:</span>
+                {user.teamName ? (
+                  <Badge variant="secondary" className="gap-1.5 font-pixel-body text-xs h-7 px-2.5 border-black bg-muted">
+                    <Users className="h-3.5 w-3.5 text-primary" />
+                    <span className="font-bold text-foreground uppercase">{user.teamName}</span>
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs text-muted-foreground h-7 px-2.5 font-pixel-body">
+                    NO TEAM
+                  </Badge>
+                )}
+              </div>
 
-          {/* User Profile */}
-          <div className="flex items-center gap-2 border-l-2 border-black pl-3">
-            <div className="flex h-6 w-6 items-center justify-center border border-black bg-primary text-primary-foreground font-pixel-header text-[10px]">
-              {(user.displayName || user.username || "U")[0].toUpperCase()}
+              {/* User Profile & Sign Out */}
+              <div className="flex items-center justify-between border-t border-border pt-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center border border-black bg-primary text-primary-foreground font-pixel-header text-[10px]">
+                    {(user.displayName || user.username || "U")[0].toUpperCase()}
+                  </div>
+                  <span className="text-xs uppercase text-foreground font-bold">
+                    {user.displayName || user.username}
+                  </span>
+                </div>
+                <SignOutButton />
+              </div>
             </div>
-            <span className="text-xs font-pixel-body uppercase text-foreground">
-              {user.displayName || user.username}
-            </span>
-          </div>
-
-          <SignOutButton />
+          )}
         </div>
       )}
     </header>
