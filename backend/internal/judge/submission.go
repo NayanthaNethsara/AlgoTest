@@ -9,6 +9,11 @@ var (
 	ErrActiveSubmissionExists = errors.New("active submission already in progress for this problem")
 	ErrProblemNotFound        = errors.New("problem not found")
 	ErrNoQueuedSubmission     = errors.New("no queued submission available")
+	ErrLeaseLost              = errors.New("lease no longer held by this worker")
+	// ErrNoTestCases means a problem is published but has no hidden tests, so
+	// there is nothing to grade against. Surfaced to the competitor rather than
+	// graded against public samples, which would score on the wrong scale.
+	ErrNoTestCases = errors.New("problem has no test cases configured")
 )
 
 type Status string
@@ -37,6 +42,10 @@ type Submission struct {
 	MaxTimeMS     int        `json:"maxTimeMs"`
 	MaxMemoryKB    int        `json:"maxMemoryKb"`
 	QueuePosition int        `json:"queuePosition,omitempty"`
+	// Limits copied from the problem at claim time, so judging uses the
+	// problem's own budget instead of the server-wide default.
+	TimeLimitMS   int        `json:"timeLimitMs,omitempty"`
+	MemoryLimitMB int        `json:"memoryLimitMb,omitempty"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	FinishedAt    *time.Time `json:"finishedAt,omitempty"`
 }

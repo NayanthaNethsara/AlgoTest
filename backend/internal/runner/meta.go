@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bufio"
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -26,8 +27,25 @@ type meta struct {
 	exitSig     int
 	timeCPU     float64 // CPU seconds
 	timeWall    float64 // Wall seconds
-	cgMemKB     int64   // Memory in KB
+	cgMemKB     int64   // Peak cgroup memory in KB
+	maxRSSKB    int64   // Peak resident set size in KB
 	cgOOMKilled bool
+}
+
+// memoryKB is the figure we report and judge MLE against.
+//
+// The two sources disagree in opposite directions, so we take the larger.
+// cg-mem is the cgroup's peak charge: it sums every process in the box (so it
+// catches a JVM's threads or a Python subprocess) but misses file-backed pages
+// that were charged to whoever first faulted them in -- typically the compile
+// step, leaving a small program reporting ~300 KB against a 3 MB RSS. max-rss
+// is the kernel's per-run peak for the process and its reaped children, which
+// includes those shared pages but does not sum across concurrent processes.
+func (m meta) memoryKB() int64 {
+	if m.maxRSSKB > m.cgMemKB {
+		return m.maxRSSKB
+	}
+	return m.cgMemKB
 }
 
 // exitCodeOrSignal reports the exit code the way `docker run` did, so callers
@@ -56,12 +74,24 @@ func (m meta) verdict(memLimitKB int64) Verdict {
 	if m.status == statusSignalled || m.status == statusRuntimeError {
 		// Memory threshold check catches unhandled OutOfMemory exceptions in languages like Java/Python
 		// that exit non-zero before triggering a hard cgroup kill.
-		if memLimitKB > 0 && m.cgMemKB >= int64(float64(memLimitKB)*0.95) {
+		if memLimitKB > 0 && m.memoryKB() >= int64(float64(memLimitKB)*0.95) {
 			return VerdictMLE
 		}
 		return VerdictRE
 	}
 	return VerdictAC
+}
+
+// errEmptyMeta means isolate left nothing usable behind: the file is missing
+// its content because isolate was killed before it could report. It must never
+// be read as a clean run -- a zero-valued meta has an empty status, which
+// verdict() treats as success, so a killed sandbox would score as accepted.
+var errEmptyMeta = errors.New("meta file has no fields")
+
+// metaWritten reports whether isolate got far enough to record an outcome.
+func metaWritten(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.Size() > 0
 }
 
 // parseMeta reads isolate's meta file, a flat "key:value" listing. Unknown keys
@@ -73,6 +103,7 @@ func parseMeta(path string) (meta, error) {
 	}
 	defer f.Close()
 
+	fields := 0
 	var m meta
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
@@ -80,6 +111,7 @@ func parseMeta(path string) (meta, error) {
 		if !ok {
 			continue
 		}
+		fields++
 		switch key {
 		case "status":
 			m.status = value
@@ -105,9 +137,19 @@ func parseMeta(path string) (meta, error) {
 			if val, err := strconv.ParseInt(value, 10, 64); err == nil {
 				m.cgMemKB = val
 			}
+		case "max-rss":
+			if val, err := strconv.ParseInt(value, 10, 64); err == nil {
+				m.maxRSSKB = val
+			}
 		case "cg-oom-killed":
 			m.cgOOMKilled = value == "1"
 		}
 	}
-	return m, sc.Err()
+	if err := sc.Err(); err != nil {
+		return meta{}, err
+	}
+	if fields == 0 {
+		return meta{}, errEmptyMeta
+	}
+	return m, nil
 }

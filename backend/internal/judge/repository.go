@@ -46,19 +46,35 @@ func (r *Repository) CreateSubmission(ctx context.Context, s Submission) (*Submi
 		return nil, ErrActiveSubmissionExists
 	}
 
-	// Fetch problem metadata (max_score and number of test cases)
-	var maxScore int
-	var testsTotal int
+	// The judge awards the sum of the test points, so that -- not the problem's
+	// declared max_score -- is what the submission can actually reach. Recording
+	// the declared figure instead makes the client show "0 / 100" on a problem
+	// whose tests only add up to 40, and puts a different scale on the
+	// leaderboard than the one being scored.
+	var declaredMax, pointsTotal, testsTotal int
 	err = r.pool.QueryRow(ctx, `
-		SELECT max_score, COALESCE(NULLIF((SELECT COUNT(*) FROM problem_tests WHERE problem_id = $1), 0), (SELECT COUNT(*) FROM problem_samples WHERE problem_id = $1), 0)
-		FROM problems
-		WHERE id = $1;
-	`, s.ProblemID).Scan(&maxScore, &testsTotal)
+		SELECT p.max_score,
+		       COALESCE((SELECT SUM(points) FROM problem_tests WHERE problem_id = p.id), 0)::INT,
+		       (SELECT COUNT(*) FROM problem_tests WHERE problem_id = p.id)::INT
+		FROM problems p
+		WHERE p.id = $1;
+	`, s.ProblemID).Scan(&declaredMax, &pointsTotal, &testsTotal)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrProblemNotFound
 		}
 		return nil, fmt.Errorf("fetch problem metadata: %w", err)
+	}
+
+	// Caught before the submission is recorded, so a competitor is not charged
+	// an attempt for an organiser's misconfiguration.
+	if testsTotal == 0 {
+		return nil, ErrNoTestCases
+	}
+
+	maxScore := pointsTotal
+	if maxScore <= 0 {
+		maxScore = declaredMax
 	}
 
 	s.State = StatusQueued
@@ -168,9 +184,11 @@ func (r *Repository) ClaimNextSubmission(ctx context.Context, workerID string) (
 			WHERE state IN ('queued', 'running')
 			GROUP BY team_id
 		)
-		SELECT s.id, s.team_id, s.user_id, s.problem_id, s.language, s.code, s.max_score, s.tests_total, s.created_at
+		SELECT s.id, s.team_id, s.user_id, s.problem_id, s.language, s.code, s.max_score, s.tests_total, s.created_at,
+		       p.time_limit_ms, p.memory_limit_mb
 		FROM submissions s
 		JOIN team_counts tc ON s.team_id = tc.team_id
+		JOIN problems p ON p.id = s.problem_id
 		WHERE s.state = 'queued'
 		ORDER BY (
 			(tc.pending_count - 1) * 10 - EXTRACT(EPOCH FROM (NOW() - s.created_at))
@@ -182,6 +200,7 @@ func (r *Repository) ClaimNextSubmission(ctx context.Context, workerID string) (
 	var s Submission
 	err = tx.QueryRow(ctx, query).Scan(
 		&s.ID, &s.TeamID, &s.UserID, &s.ProblemID, &s.Language, &s.Code, &s.MaxScore, &s.TestsTotal, &s.CreatedAt,
+		&s.TimeLimitMS, &s.MemoryLimitMB,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -190,7 +209,7 @@ func (r *Repository) ClaimNextSubmission(ctx context.Context, workerID string) (
 		return nil, fmt.Errorf("claim submission: %w", err)
 	}
 
-	leaseUntil := time.Now().Add(60 * time.Second)
+	leaseUntil := time.Now().Add(LeaseDuration)
 	_, err = tx.Exec(ctx, `
 		UPDATE submissions
 		SET state = 'running', claimed_at = NOW(), claimed_by = $1, lease_until = $2
@@ -208,6 +227,29 @@ func (r *Repository) ClaimNextSubmission(ctx context.Context, workerID string) (
 	return &s, nil
 }
 
+// LeaseDuration is how long a claim stays valid before the reaper treats the
+// worker as dead. A judging run longer than this must renew (see RenewLease):
+// a large test set can legitimately outlive it.
+const LeaseDuration = 60 * time.Second
+
+// RenewLease pushes out the deadline on a submission this worker still holds.
+// Scoped to claimed_by so a worker that already lost its claim to the reaper
+// cannot resurrect it and race the worker that picked the submission up.
+func (r *Repository) RenewLease(ctx context.Context, submissionID, workerID string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE submissions
+		SET lease_until = $1
+		WHERE id = $2 AND claimed_by = $3 AND state = 'running';
+	`, time.Now().Add(LeaseDuration), submissionID, workerID)
+	if err != nil {
+		return fmt.Errorf("renew lease: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrLeaseLost
+	}
+	return nil
+}
+
 // CompleteSubmission updates a submission with final status, score, tests, and updates team problem scores.
 func (r *Repository) CompleteSubmission(ctx context.Context, res Result) error {
 	tx, err := r.pool.Begin(ctx)
@@ -219,11 +261,15 @@ func (r *Repository) CompleteSubmission(ctx context.Context, res Result) error {
 	now := time.Now().UTC()
 	stateStr := string(res.Status)
 
+	// max_score is rewritten from what the judge actually totalled, so a test
+	// set edited between submit and judge cannot leave the row claiming a
+	// denominator the run never used.
 	_, err = tx.Exec(ctx, `
 		UPDATE submissions
-		SET state = $1, verdict = $2, score = $3, tests_done = $4, compile_error = $5, finished_at = $6
+		SET state = $1, verdict = $2, score = $3, tests_done = $4, compile_error = $5, finished_at = $6,
+		    max_score = CASE WHEN $8 > 0 THEN $8 ELSE max_score END
 		WHERE id = $7;
-	`, stateStr, res.Verdict, res.Score, res.TestsDone, res.CompileError, now, res.SubmissionID)
+	`, stateStr, res.Verdict, res.Score, res.TestsDone, res.CompileError, now, res.SubmissionID, res.MaxScore)
 	if err != nil {
 		return fmt.Errorf("update submission state: %w", err)
 	}
@@ -401,26 +447,19 @@ func (r *Repository) GetProblemTests(ctx context.Context, problemID string) ([]T
 		}
 		tests = append(tests, t)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read problem tests: %w", err)
+	}
+
+	// No silent fall back to problem_samples. Samples are published to
+	// competitors, so grading against them both leaks the grading set and
+	// scores on a different scale than the problem's max_score -- a 100-point
+	// problem quietly becomes a 2-point one, and that inconsistent figure is
+	// what reaches the leaderboard. A published problem always has hidden tests
+	// (publishProblem refuses otherwise), so an empty set here means the tests
+	// were removed afterwards, which is an operational fault worth surfacing.
 	if len(tests) == 0 {
-		sampleRows, err := r.pool.Query(ctx, `
-			SELECT id, ordinal, input, output
-			FROM problem_samples
-			WHERE problem_id = $1
-			ORDER BY ordinal ASC;
-		`, problemID)
-		if err == nil {
-			defer sampleRows.Close()
-			for sampleRows.Next() {
-				var t TestCase
-				var inStr, outStr string
-				if err := sampleRows.Scan(&t.ID, &t.Ordinal, &inStr, &outStr); err == nil {
-					t.Input = []byte(inStr)
-					t.Expected = []byte(outStr)
-					t.Points = 1
-					tests = append(tests, t)
-				}
-			}
-		}
+		return nil, ErrNoTestCases
 	}
 
 	return tests, nil

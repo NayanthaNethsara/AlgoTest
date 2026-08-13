@@ -44,6 +44,20 @@ apt-get install -y --no-install-recommends \
 update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
 update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
 
+# Nearly every C++ submission opens with <bits/stdc++.h>, and parsing it is the
+# bulk of a compile: measured 510ms without this, 110ms with. g++ picks the
+# .gch up automatically whenever the flags match, so submissions need no
+# special flags -- but the flags below must stay in step with runner's
+# compileCmd, or g++ silently falls back to parsing the header.
+echo "==> precompiling <bits/stdc++.h>"
+STDCXX_HEADER="$(find /usr/include -path '*/c++/*/bits/stdc++.h' | head -1)"
+if [[ -n "${STDCXX_HEADER}" ]]; then
+    g++ -O2 -std=c++17 -x c++-header "${STDCXX_HEADER}" -o "${STDCXX_HEADER}.gch"
+    echo "    $(du -h "${STDCXX_HEADER}.gch" | cut -f1) at ${STDCXX_HEADER}.gch"
+else
+    echo "    header not found, skipping (compiles will be ~400ms slower)" >&2
+fi
+
 echo "==> building isolate ${ISOLATE_REF}"
 BUILD_DIR="$(mktemp -d)"
 trap 'rm -rf "${BUILD_DIR}"' EXIT
@@ -67,6 +81,21 @@ first_uid = 60000
 first_gid = 60000
 num_boxes = ${NUM_BOXES}
 EOF
+
+# Per-run workspaces are bind-mounted into the sandbox, which puts them outside
+# isolate's --quota, and --fsize caps only one file at a time. A submission that
+# ignores SIGXFSZ and writes many files just under that limit wrote 301 MB in a
+# single run during testing, so the workspace root needs a ceiling of its own.
+# Run the server with RUN_WORK_ROOT=${WORK_ROOT} to use it.
+WORK_ROOT=/var/local/lib/algothon-work
+WORK_TMPFS_SIZE="${WORK_TMPFS_SIZE:-4G}"
+echo "==> provisioning ${WORK_ROOT} as a ${WORK_TMPFS_SIZE} tmpfs"
+mkdir -p "${WORK_ROOT}"
+chmod 0700 "${WORK_ROOT}"
+if ! grep -qs " ${WORK_ROOT} " /etc/fstab; then
+    echo "tmpfs ${WORK_ROOT} tmpfs size=${WORK_TMPFS_SIZE},mode=0700 0 0" >>/etc/fstab
+fi
+mountpoint -q "${WORK_ROOT}" || mount "${WORK_ROOT}"
 
 # isolate-cg-keeper holds the delegated cgroup subtree that --cg runs need.
 echo "==> enabling isolate.service"

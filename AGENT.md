@@ -6,7 +6,7 @@ General rules for working in this repo.
 
 - Keep proper folder structure;
 - Code should be self-explanatory (clear names, small functions).
-- Do not over-comment. Only comment when its must.
+- Do not comment. Only comment when its must.
 - No unused abstractions, no speculative/future-proofing code. Build only what's asked.
 - Use semantic color tokens (`bg-success`, `text-destructive`, etc.), not raw colors.
 - Keep one color language per visual signal. Don't reuse the same palette for two

@@ -2,6 +2,7 @@ package judge
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -125,7 +126,12 @@ func (j *Judge) processNext(ctx context.Context, workerID string) {
 		CreatedAt:    s.CreatedAt,
 	})
 
+	renewCtx, stopRenew := context.WithCancel(ctx)
+	defer stopRenew()
+	go j.renewLease(renewCtx, s.ID, workerID)
+
 	res := j.evaluate(ctx, *s)
+
 	if err := j.repo.CompleteSubmission(ctx, res); err != nil {
 		j.log.Error("failed to complete submission", "submission_id", s.ID, "error", err)
 	} else {
@@ -133,11 +139,62 @@ func (j *Judge) processNext(ctx context.Context, workerID string) {
 	}
 }
 
+func (j *Judge) renewLease(ctx context.Context, submissionID, workerID string) {
+	ticker := time.NewTicker(LeaseDuration / 3)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			renewCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			err := j.repo.RenewLease(renewCtx, submissionID, workerID)
+			cancel()
+
+			if errors.Is(err, ErrLeaseLost) {
+				j.log.Warn("lease lost while judging", "submission_id", submissionID, "worker", workerID)
+				return
+			}
+			if err != nil {
+				j.log.Error("failed to renew lease", "submission_id", submissionID, "error", err)
+			}
+		}
+	}
+}
+
+func submissionLimits(s Submission) runner.Limits {
+	var l runner.Limits
+
+	if s.TimeLimitMS > 0 {
+		cpu := time.Duration(s.TimeLimitMS) * time.Millisecond
+		l.CPUSeconds = cpu.Seconds()
+
+		wall := 3*cpu + 2*time.Second
+		if wall < 5*time.Second {
+			wall = 5 * time.Second
+		}
+		l.Wall = wall
+	}
+
+	if s.MemoryLimitMB > 0 {
+		l.MemoryKB = int64(s.MemoryLimitMB) * 1024
+	}
+
+	return l
+}
+
 func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 	tests, err := j.repo.GetProblemTests(ctx, s.ProblemID)
 	if err != nil {
 		j.log.Error("failed to fetch problem tests for evaluation", "problem_id", s.ProblemID, "error", err)
 		verdict := "IE"
+
+		msg := "Could not load this problem's test cases. This is a judge-side fault, not a problem with your code -- please notify an organizer."
+		if errors.Is(err, ErrNoTestCases) {
+			msg = "This problem has no test cases configured. Your submission was not graded -- please notify an organizer."
+		}
+
 		return Result{
 			SubmissionID: s.ID,
 			UserID:       s.UserID,
@@ -149,6 +206,7 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 			MaxScore:     s.MaxScore,
 			TestsTotal:   s.TestsTotal,
 			TestsDone:    0,
+			CompileError: &msg,
 		}
 	}
 
@@ -206,6 +264,40 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 			}
 		}
 
+		testMap := make(map[int]TestCase, len(tests))
+		for _, t := range tests {
+			testMap[t.Ordinal] = t
+		}
+
+		type gradedCase struct {
+			verdict string
+			points  int
+		}
+		graded := make(map[int]gradedCase, len(tests))
+
+		grade := func(cr runner.BatchCaseResult) gradedCase {
+			if cr.Verdict != runner.VerdictAC {
+				switch cr.Verdict {
+				case runner.VerdictTLE:
+					return gradedCase{verdict: "TLE"}
+				case runner.VerdictCE:
+					return gradedCase{verdict: "CE"}
+				case runner.VerdictMLE:
+					return gradedCase{verdict: "MLE"}
+				case runner.VerdictIE:
+					// A judge-side failure, not the submission's fault.
+					return gradedCase{verdict: "IE"}
+				default:
+					return gradedCase{verdict: "RTE"}
+				}
+			}
+			t, exists := testMap[cr.Ordinal]
+			if exists && normalizeOutput(cr.Stdout) == normalizeOutput(string(t.Expected)) {
+				return gradedCase{verdict: "AC", points: t.Points}
+			}
+			return gradedCase{verdict: "WA"}
+		}
+
 		completedCount := 0
 		currentScore := 0
 		var mu sync.Mutex
@@ -214,9 +306,14 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 			Language: s.Language,
 			Code:     s.Code,
 			Cases:    batchCases,
+			Limits:   submissionLimits(s),
 			OnCase: func(cr runner.BatchCaseResult) {
+				g := grade(cr)
+
 				mu.Lock()
+				graded[cr.Ordinal] = g
 				completedCount++
+				currentScore += g.points
 				cnt := completedCount
 				sc := currentScore
 				mu.Unlock()
@@ -255,41 +352,17 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 				CompileError: compileErrStr,
 			}
 		} else {
-			testMap := make(map[int]TestCase)
-			for _, t := range tests {
-				testMap[t.Ordinal] = t
-			}
-
 			for _, cr := range batchRes.Cases {
-				t, exists := testMap[cr.Ordinal]
-				testVerdict := "AC"
-				earnedPoints := 0
-
-				if cr.Verdict != runner.VerdictAC {
-					switch cr.Verdict {
-					case runner.VerdictTLE:
-						testVerdict = "TLE"
-					case runner.VerdictCE:
-						testVerdict = "CE"
-					case runner.VerdictMLE:
-						testVerdict = "MLE"
-					default:
-						testVerdict = "RTE"
-					}
-				} else {
-					actualOutput := normalizeOutput(cr.Stdout)
-					expectedOutput := normalizeOutput(string(t.Expected))
-					if exists && actualOutput == expectedOutput {
-						testVerdict = "AC"
-						earnedPoints = t.Points
-					} else {
-						testVerdict = "WA"
-					}
+				mu.Lock()
+				g, ok := graded[cr.Ordinal]
+				mu.Unlock()
+				if !ok {
+					g = grade(cr)
+					currentScore += g.points
 				}
 
-				mu.Lock()
-				currentScore += earnedPoints
-				mu.Unlock()
+				testVerdict := g.verdict
+				earnedPoints := g.points
 
 				if testVerdict != "AC" && overallVerdict == "AC" {
 					overallVerdict = testVerdict

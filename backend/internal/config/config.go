@@ -39,6 +39,7 @@ type Config struct {
 	RunCPUSeconds            int
 	RunMemory                string
 	RunIsolateBin            string
+	RunWorkRoot              string
 	// RunMaxConcurrent must not exceed the isolate host's provisioned
 	// num_boxes; the server checks this at startup and refuses to boot if the
 	// host can't supply that many sandboxes.
@@ -49,7 +50,7 @@ type Config struct {
 }
 
 func Load() Config {
-	return Config{
+	c := Config{
 		Port:           getenv("PORT", "8080"),
 		Env:            getenv("ENV", "development"),
 		AllowedOrigins: strings.Split(getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,tauri://localhost,http://tauri.localhost,https://tauri.localhost"), ","),
@@ -57,7 +58,7 @@ func Load() Config {
 		DatabaseURL:    getenv("DATABASE_URL", "postgres://algothon:algothon@localhost:5432/algothon?sslmode=disable"),
 		DBMaxConns:     int32(getenvInt("DB_MAX_CONNS", 25)),
 		DBMinConns:     int32(getenvInt("DB_MIN_CONNS", 5)),
-		JudgeWorkers:   getenvInt("JUDGE_WORKERS", 2),
+		JudgeWorkers:   getenvInt("JUDGE_WORKERS", 0),
 		QueueSize:      getenvInt("JUDGE_QUEUE_SIZE", 64),
 
 		SessionCookieName: getenv("SESSION_COOKIE_NAME", "session"),
@@ -70,11 +71,21 @@ func Load() Config {
 		RunCPUSeconds:            getenvInt("RUN_CPU_SECONDS", 5),
 		RunMemory:                getenv("RUN_MEMORY", "256m"),
 		RunIsolateBin:            getenv("RUN_ISOLATE_BIN", "isolate"),
+		RunWorkRoot:              getenv("RUN_WORK_ROOT", ""),
 		RunMaxConcurrent:         getenvInt("RUN_MAX_CONCURRENT", 4),
 		RunReserve:               getenvInt("RUN_RESERVE", 1),
 		RunMaxQueue:              getenvInt("RUN_MAX_QUEUE", 64),
 		RunMaxWaitSeconds:        getenvInt("RUN_MAX_WAIT_SECONDS", 15),
 	}
+
+	if c.JudgeWorkers <= 0 {
+		c.JudgeWorkers = c.RunMaxConcurrent - c.RunReserve
+	}
+	if c.JudgeWorkers < 1 {
+		c.JudgeWorkers = 1
+	}
+
+	return c
 }
 
 // SessionTTL is how long a login session stays valid.

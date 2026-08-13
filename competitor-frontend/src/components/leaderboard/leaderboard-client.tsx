@@ -1,15 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import type { LeaderboardEntry } from "@/actions/leaderboard";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getLeaderboardAction, type LeaderboardEntry } from "@/actions/leaderboard";
+import { useSubmissions } from "@/components/providers/submissions-context";
 import type { SessionUser } from "@/lib/auth/constants";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown, Search, Trophy, Users, Zap } from "lucide-react";
+import { ArrowUpDown, RefreshCw, Search, Trophy, Users, Zap } from "lucide-react";
 
 type SortOption = "RANK_ASC" | "SCORE_DESC" | "SCORE_ASC" | "SOLVED_DESC" | "NAME_ASC";
 
+// Standings move when *other* teams score, and the submissions stream only
+// carries this user's own events, so the board has to ask for itself. Ten
+// seconds keeps it close to live without turning every open tab into steady
+// load on the judge host.
+const POLL_INTERVAL_MS = 10_000;
+
 export function LeaderboardClient({
-  leaderboard,
+  leaderboard: initialLeaderboard,
   currentUser,
 }: {
   leaderboard: LeaderboardEntry[];
@@ -17,6 +24,51 @@ export function LeaderboardClient({
 }) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("RANK_ASC");
+  const [leaderboard, setLeaderboard] = useState(initialLeaderboard);
+  const [refreshing, setRefreshing] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+
+  // The page is a server component that fetched once, so without this the
+  // board is frozen at whatever it said when it was first rendered.
+  const inFlight = useRef(false);
+  const refresh = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setRefreshing(true);
+    try {
+      const next = await getLeaderboardAction();
+      // An empty array is also what a failed fetch returns, so keep the last
+      // good standings rather than blanking the board on a transient error.
+      if (next.length > 0) {
+        setLeaderboard(next);
+        setUpdatedAt(new Date());
+      }
+    } finally {
+      inFlight.current = false;
+      setRefreshing(false);
+    }
+  }, []);
+
+  // A background tab does not need fresh standings; resuming refreshes at once
+  // so it is never stale in front of someone actually looking at it.
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    const interval = setInterval(tick, POLL_INTERVAL_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [refresh]);
+
+  // Your own score landing should show up immediately rather than up to a
+  // poll later -- the judge has already committed it by the time this fires.
+  const { lastResult } = useSubmissions();
+  useEffect(() => {
+    if (lastResult?.submissionId) void refresh();
+  }, [lastResult?.submissionId, refresh]);
 
   const filteredLeaderboard = leaderboard.filter((entry) =>
     entry.teamName.toLowerCase().includes(search.toLowerCase().trim())
@@ -90,6 +142,20 @@ export function LeaderboardClient({
           <span className="text-muted-foreground text-xs">
             Teams: <strong className="text-foreground font-bold">{leaderboard.length}</strong>
           </span>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={refreshing}
+            title={
+              updatedAt
+                ? `Updated ${updatedAt.toLocaleTimeString()} - refreshes automatically`
+                : "Refreshes automatically"
+            }
+            className="flex items-center gap-1.5 border-2 border-black bg-card px-2 py-1 text-xs uppercase text-muted-foreground hover:text-foreground disabled:opacity-60"
+          >
+            <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+            <span>{refreshing ? "Syncing" : "Live"}</span>
+          </button>
         </div>
       </div>
 

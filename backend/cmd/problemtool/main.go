@@ -179,10 +179,12 @@ func importSingleProblem(ctx context.Context, repo *problem.Repository, dir stri
 			return fmt.Errorf("failed to load test cases: %w", err)
 		}
 		if len(tests) > 0 {
+			distributePoints(tests, int(meta.MaxScore))
 			if err := repo.ReplaceTests(ctx, detail.ID, tests); err != nil {
 				return fmt.Errorf("failed to replace test cases: %w", err)
 			}
-			fmt.Printf("  Loaded %d hidden test case(s)\n", len(tests))
+			fmt.Printf("  Loaded %d hidden test case(s) worth %d points total\n",
+				len(tests), totalPoints(tests))
 		}
 	}
 
@@ -260,6 +262,29 @@ func loadSamples(dir string) ([]problem.SampleInput, error) {
 		})
 	}
 	return samples, nil
+}
+
+func distributePoints(tests []problem.TestInput, maxScore int) {
+	if len(tests) == 0 || maxScore <= 0 {
+		return
+	}
+	base := maxScore / len(tests)
+	remainder := maxScore % len(tests)
+	for i := range tests {
+		points := base
+		if i < remainder {
+			points++
+		}
+		tests[i].Points = int32(points)
+	}
+}
+
+func totalPoints(tests []problem.TestInput) int {
+	sum := 0
+	for _, t := range tests {
+		sum += int(t.Points)
+	}
+	return sum
 }
 
 func loadTests(dir string) ([]problem.TestInput, error) {

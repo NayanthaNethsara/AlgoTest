@@ -54,8 +54,34 @@ func (r *Runner) CheckHost(ctx context.Context) error {
 }
 
 // OverallTimeout bounds the whole Run call (compile + run + sandbox overhead).
+// Both steps may use their limit plus sandboxGrace, so the ceiling has to clear
+// the sum of the two or it, not isolate, becomes the thing that stops the run.
 func (r *Runner) OverallTimeout() time.Duration {
-	return r.cfg.CompileTimeout + r.cfg.WallTimeout + 10*time.Second
+	return r.cfg.CompileTimeout + r.cfg.WallTimeout + 2*sandboxGrace + 10*time.Second
+}
+
+// batchTimeout bounds a whole RunBatch call. Each case gets its own wall-clock
+// budget, so the ceiling has to scale with the number of cases: a fixed
+// per-submission cap silently cancels the tail of a large test set and reports
+// those cases as runtime errors, which reads to a competitor as a wrong answer
+// on a solution that was merely slow.
+//
+// Callers that hold a lease on the submission must renew it against this same
+// figure -- see Judge.processNext.
+func batchTimeout(compile, wall time.Duration, cases int) time.Duration {
+	if cases < 1 {
+		cases = 1
+	}
+	// Each case may take its wall limit plus sandboxGrace, and a second more for
+	// isolate's own setup, teardown, and the box recycle between cases.
+	perCase := wall + sandboxGrace + time.Second
+	return compile + sandboxGrace + time.Duration(cases)*perCase + 10*time.Second
+}
+
+// BatchTimeout is batchTimeout resolved against this runner's configured
+// defaults, for callers sizing a lease or a request deadline.
+func (r *Runner) BatchTimeout(cases int) time.Duration {
+	return batchTimeout(r.cfg.CompileTimeout, r.cfg.WallTimeout, cases)
 }
 
 func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
@@ -89,6 +115,7 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	if effectiveWall <= 0 {
 		effectiveWall = 10 * time.Second
 	}
+	effectiveWall = wallFloor(effectiveWall, effectiveCPU)
 
 	reqMemKB := req.Limits.MemoryKB
 	if reqMemKB <= 0 {
@@ -114,7 +141,7 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 		compileMemKB = 1024 * 1024
 	}
 
-	base, err := os.MkdirTemp("", "algothon-run-*")
+	base, err := os.MkdirTemp(r.cfg.WorkRoot, "algothon-run-*")
 	if err != nil {
 		return Result{}, fmt.Errorf("creating workspace: %w", err)
 	}
@@ -132,19 +159,19 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	defer r.cleanupBox(slot.BoxID)
 
 	codePath := filepath.Join(work, sp.filename)
-	if err := os.WriteFile(codePath, []byte(req.Code), 0644); err != nil {
+	if err := writeSandboxFile(codePath, []byte(req.Code), 0644); err != nil {
 		return Result{}, fmt.Errorf("writing source: %w", err)
 	}
 
 	if req.Stdin != "" {
 		inPath := filepath.Join(work, "stdin.txt")
-		if err := os.WriteFile(inPath, []byte(req.Stdin), 0644); err != nil {
+		if err := writeSandboxFile(inPath, []byte(req.Stdin), 0644); err != nil {
 			return Result{}, fmt.Errorf("writing stdin: %w", err)
 		}
 	}
 
 	if len(sp.compileCmd) > 0 {
-		cCtx, cCancel := context.WithTimeout(execCtx, compileTimeout)
+		cCtx, cCancel := context.WithTimeout(execCtx, compileTimeout+sandboxGrace)
 		m, err := r.execBox(cCtx, slot.BoxID, base, work, "compile", sp.compileCmd, execOpts{
 			wall:       compileTimeout,
 			memoryKB:   compileMemKB,
@@ -163,7 +190,7 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 				ExitCode:     -1,
 				Verdict:      VerdictCE,
 				TimeMs:       int64(m.timeCPU * 1000),
-				MemoryKB:     m.cgMemKB,
+				MemoryKB:     m.memoryKB(),
 			}, nil
 		}
 		if code := m.exitCodeOrSignal(); code != 0 {
@@ -179,8 +206,13 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 				ExitCode:     code,
 				Verdict:      VerdictCE,
 				TimeMs:       int64(m.timeCPU * 1000),
-				MemoryKB:     m.cgMemKB,
+				MemoryKB:     m.memoryKB(),
 			}, nil
+		}
+
+		// Hand the program a box whose counters are not still carrying g++.
+		if err := r.resetBox(execCtx, slot.BoxID); err != nil {
+			return Result{}, err
 		}
 	}
 
@@ -206,7 +238,7 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 		runOpts.stdin = "stdin.txt"
 	}
 
-	rCtx, rCancel := context.WithTimeout(execCtx, effectiveWall)
+	rCtx, rCancel := context.WithTimeout(execCtx, effectiveWall+sandboxGrace)
 	m, err := r.execBox(rCtx, slot.BoxID, base, work, "run", runCmd, runOpts)
 	rCancel()
 
@@ -229,10 +261,10 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 
 	return Result{
 		Stdout:   stdout,
-		Stderr:   readCapped(filepath.Join(work, "run.err")),
+		Stderr:   explainedStderr(readCapped(filepath.Join(work, "run.err")), m),
 		ExitCode: m.exitCodeOrSignal(),
 		TimeMs:   cpuMs,
-		MemoryKB: m.cgMemKB,
+		MemoryKB: m.memoryKB(),
 		Verdict:  verdict,
 	}, nil
 }
@@ -248,9 +280,6 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		return BatchResult{}, err
 	}
 	defer release()
-
-	execCtx, execCancel := context.WithTimeout(context.Background(), r.OverallTimeout())
-	defer execCancel()
 
 	baseCPU := req.Limits.CPUSeconds
 	if baseCPU <= 0 {
@@ -268,6 +297,7 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 	if effectiveWall <= 0 {
 		effectiveWall = 10 * time.Second
 	}
+	effectiveWall = wallFloor(effectiveWall, effectiveCPU)
 
 	reqMemKB := req.Limits.MemoryKB
 	if reqMemKB <= 0 {
@@ -293,7 +323,13 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		compileMemKB = 1024 * 1024
 	}
 
-	base, err := os.MkdirTemp("", "algothon-batch-*")
+	// Built from the resolved limits rather than the runner defaults, so a
+	// problem with its own time limit gets a ceiling that matches it.
+	execCtx, execCancel := context.WithTimeout(context.Background(),
+		batchTimeout(compileTimeout, effectiveWall, len(req.Cases)))
+	defer execCancel()
+
+	base, err := os.MkdirTemp(r.cfg.WorkRoot, "algothon-batch-*")
 	if err != nil {
 		return BatchResult{}, fmt.Errorf("creating workspace: %w", err)
 	}
@@ -311,12 +347,25 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 	defer r.cleanupBox(slot.BoxID)
 
 	codePath := filepath.Join(work, sp.filename)
-	if err := os.WriteFile(codePath, []byte(req.Code), 0644); err != nil {
+	if err := writeSandboxFile(codePath, []byte(req.Code), 0644); err != nil {
 		return BatchResult{}, fmt.Errorf("writing source: %w", err)
 	}
 
+	// Every input is materialised before a single line of submitted code runs.
+	// Writing them inside the loop let case 1 plant a symlink at in_2.txt and
+	// steer the host's write anywhere on disk; there is no window for that if
+	// the files already exist when the program first executes.
+	inputPaths := make(map[int]string, len(req.Cases))
+	for _, c := range req.Cases {
+		name := fmt.Sprintf("in_%d.txt", c.Ordinal)
+		if err := writeSandboxFile(filepath.Join(work, name), []byte(c.Stdin), 0644); err != nil {
+			return BatchResult{}, fmt.Errorf("writing stdin for case %d: %w", c.Ordinal, err)
+		}
+		inputPaths[c.Ordinal] = name
+	}
+
 	if len(sp.compileCmd) > 0 {
-		cCtx, cCancel := context.WithTimeout(execCtx, compileTimeout)
+		cCtx, cCancel := context.WithTimeout(execCtx, compileTimeout+sandboxGrace)
 		m, err := r.execBox(cCtx, slot.BoxID, base, work, "compile", sp.compileCmd, execOpts{
 			wall:       compileTimeout,
 			memoryKB:   compileMemKB,
@@ -344,6 +393,17 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		}
 	}
 
+	// Snapshotted after the compile and before any submitted code runs, so the
+	// guard's idea of a clean workspace is the compiler's output alone.
+	inputNames := make(map[string]bool, len(inputPaths))
+	for _, name := range inputPaths {
+		inputNames[name] = true
+	}
+	guard, err := newWorkspaceGuard(base, work, inputNames)
+	if err != nil {
+		return BatchResult{}, err
+	}
+
 	var results []BatchCaseResult
 	heapMB := reqMemKB / 1024
 	if heapMB < 16 {
@@ -356,14 +416,23 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 
 	for _, c := range req.Cases {
 		stepName := fmt.Sprintf("run_%d", c.Ordinal)
-		inFilename := fmt.Sprintf("in_%d.txt", c.Ordinal)
-		inPath := filepath.Join(work, inFilename)
+		inFilename := inputPaths[c.Ordinal]
 
-		if err := os.WriteFile(inPath, []byte(c.Stdin), 0644); err != nil {
-			return BatchResult{}, fmt.Errorf("writing stdin for case %d: %w", c.Ordinal, err)
+		// Undo whatever the previous case left behind: files it stashed to
+		// carry work forward, symlinks aimed at this case's output names, and
+		// any tampering with its own binary.
+		if err := guard.restore(); err != nil {
+			return BatchResult{}, err
 		}
 
-		cCtx, cCancel := context.WithTimeout(execCtx, effectiveWall)
+		// Every case starts from clean counters, so its reported memory is its
+		// own rather than the running maximum of the compile and its
+		// predecessors.
+		if err := r.resetBox(execCtx, slot.BoxID); err != nil {
+			return BatchResult{}, err
+		}
+
+		cCtx, cCancel := context.WithTimeout(execCtx, effectiveWall+sandboxGrace)
 		m, err := r.execBox(cCtx, slot.BoxID, base, work, stepName, runCmd, execOpts{
 			stdin:      inFilename,
 			wall:       effectiveWall,
@@ -378,7 +447,10 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 
 		var verdict Verdict = VerdictAC
 		if err != nil {
-			verdict = VerdictRE
+			// The sandbox itself failed, which says nothing about the
+			// submission -- reporting it as a runtime error would blame the
+			// competitor's code for the judge's problem.
+			verdict = VerdictIE
 		} else {
 			verdict = m.verdict(reqMemKB + sp.memoryBonusKB)
 		}
@@ -389,7 +461,7 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 			Stderr:   stderr,
 			ExitCode: m.exitCodeOrSignal(),
 			TimeMs:   int64(m.timeCPU * 1000),
-			MemoryKB: m.cgMemKB,
+			MemoryKB: m.memoryKB(),
 			Verdict:  verdict,
 		}
 
@@ -479,7 +551,14 @@ func (r *Runner) execBox(
 	}
 
 	runErr := exec.CommandContext(ctx, execCmd, execArgs...).Run()
-	if runErr != nil && execCmd == "taskset" {
+
+	// isolate exits non-zero whenever the sandboxed program does, so runErr is
+	// the normal outcome for every TLE, crash, and non-zero exit -- not a sign
+	// that pinning failed. Retrying on it re-executes the program and
+	// overwrites the meta file that recorded the real verdict, which is how a
+	// timed-out run came back as accepted. Only a run that recorded nothing at
+	// all means taskset never managed to exec isolate.
+	if runErr != nil && execCmd == "taskset" && !metaWritten(metaPath) {
 		execCmd = r.cfg.IsolateBin
 		execArgs = args
 		runErr = exec.CommandContext(ctx, execCmd, execArgs...).Run()
@@ -487,7 +566,13 @@ func (r *Runner) execBox(
 
 	m, err := parseMeta(metaPath)
 	if err != nil {
-		return r.execDirectFallback(ctx, work, step, cmd, opts)
+		// isolate was found and executed, so its meta file is the only account
+		// of what happened. Re-running the program outside the sandbox to
+		// recover would execute untrusted code on the host with no memory,
+		// process, filesystem, or network confinement -- the fallback below is
+		// strictly for hosts where isolate is not installed at all, which the
+		// LookPath check above has already ruled out here.
+		return meta{}, fmt.Errorf("sandbox wrote no usable meta for step %q (isolate: %v): %w", step, runErr, err)
 	}
 	if m.status == statusInternal {
 		return meta{}, fmt.Errorf("sandbox failed: %s", m.message)
@@ -555,6 +640,23 @@ func (r *Runner) execDirectFallback(
 		timeCPU:  elapsed.Seconds(),
 		timeWall: elapsed.Seconds(),
 	}, nil
+}
+
+// resetBox recycles a box between steps that share it.
+//
+// isolate reports cg-mem as the box cgroup's high-water mark and never clears
+// it between --run invocations, so without this every test case inherits the
+// peak of the compile and of every case before it: a 3 MB program reports the
+// 50 MB g++ used, and one heavy case pins the figure for the rest of the
+// submission. Since the workspace is bind-mounted from the host, the compiled
+// binary and the inputs survive the recycle -- only the cgroup counters reset.
+// Measured at ~2-3ms, which is noise next to a compile.
+func (r *Runner) resetBox(ctx context.Context, boxID int) error {
+	r.cleanupBox(boxID)
+	if _, err := r.initBox(ctx, boxID); err != nil {
+		return fmt.Errorf("resetting box %d: %w", boxID, err)
+	}
+	return nil
 }
 
 func (r *Runner) initBox(ctx context.Context, boxID int) (string, error) {

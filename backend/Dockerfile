@@ -27,6 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 100
 
+RUN header="$(find /usr/include -path '*/c++/*/bits/stdc++.h' | head -1)" \
+    && g++ -O2 -std=c++17 -x c++-header "$header" -o "$header.gch"
+
 RUN git clone --depth 1 --branch ${ISOLATE_REF} https://github.com/ioi/isolate /tmp/isolate \
     && make -C /tmp/isolate isolate \
     && make -C /tmp/isolate install \

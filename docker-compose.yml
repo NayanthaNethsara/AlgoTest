@@ -37,10 +37,13 @@ services:
       TRUSTED_PROXIES: ""
       DB_MAX_CONNS: "25"
       DB_MIN_CONNS: "5"
-      RUN_MAX_CONCURRENT: "4"
+      RUN_MAX_CONCURRENT: "8"
+      RUN_WORK_ROOT: /judge-work
     volumes:
       - ./backend:/app
       - algothon-gocache:/go
+    tmpfs:
+      - /judge-work:size=2g,mode=0700
     depends_on:
       postgres:
         condition: service_healthy

@@ -98,7 +98,8 @@ int main(){int a,b;cin>>a>>b;cout<<a+b<<"\n";}`, "3 4")
 
 	// 2. CPU-bound infinite loop is killed by the CPU limit.
 	res, _, err = c.run("python", "x=0\nwhile True:\n  x+=1", "")
-	r.check("cpu loop: TLE via CPU limit", err == nil && res.Verdict == "TLE" && strings.Contains(res.Stderr, "time limit"),
+	r.check("cpu loop: TLE via CPU limit", err == nil && res.Verdict == "TLE" &&
+		strings.Contains(strings.ToLower(res.Stderr), "time limit"),
 		fmt.Sprintf("got %+v err=%v", res, err))
 
 	// 3. Sleeping burns no CPU (CPU time ~0ms), caught by wall-clock backstop.
@@ -151,7 +152,7 @@ except Exception:
 func runLoadTest(c *client, n int, r *report) {
 	fmt.Printf("\n== load test: %d concurrent runs ==\n", n)
 
-	var ok, busy, bad int64
+	var ok, busy, serialised, bad int64
 	var wg sync.WaitGroup
 	start := time.Now()
 	for i := 0; i < n; i++ {
@@ -164,6 +165,8 @@ func runLoadTest(c *client, n int, r *report) {
 				atomic.AddInt64(&ok, 1)
 			case status == 503:
 				atomic.AddInt64(&busy, 1) // controlled overflow -> client retries; not a drop
+			case status == 409:
+				atomic.AddInt64(&serialised, 1)
 			default:
 				atomic.AddInt64(&bad, 1)
 				fmt.Printf("  unexpected: status=%d res=%+v err=%v\n", status, res, err)
@@ -173,10 +176,12 @@ func runLoadTest(c *client, n int, r *report) {
 	wg.Wait()
 	elapsed := time.Since(start)
 
-	fmt.Printf("  ok=%d  busy/503=%d  bad=%d  in %s\n", ok, busy, bad, elapsed.Round(time.Millisecond))
-	// "No dropping" means every request got a definite answer: a correct 200 or
-	// a clean 503 to retry -- never a hang, crash, or malformed 5xx.
-	r.check("load: no unexpected failures (only 200 or 503)", bad == 0,
+	fmt.Printf("  ok=%d  busy/503=%d  per-user 409=%d  bad=%d  in %s\n",
+		ok, busy, serialised, bad, elapsed.Round(time.Millisecond))
+	// "No dropping" means every request got a definite answer: a correct 200, a
+	// clean 503 to retry, or a 409 from the per-user guard -- never a hang,
+	// crash, or malformed 5xx.
+	r.check("load: no unexpected failures (only 200, 503, or 409)", bad == 0,
 		fmt.Sprintf("%d requests neither succeeded nor got a clean 503", bad))
 	r.check("load: at least some requests succeeded", ok > 0, "zero successful runs under load")
 }

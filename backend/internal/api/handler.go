@@ -208,6 +208,15 @@ func (h *handler) createSubmission(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Problem not found"})
 			return
 		}
+		if errors.Is(err, judge.ErrNoTestCases) {
+			h.log.Error("submission rejected: problem has no test cases",
+				"problem_id", problemID, "user_id", u.ID)
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"error": "This problem has no test cases configured yet. Please notify an organizer -- your submission was not recorded.",
+				"code":  "PROBLEM_NOT_GRADABLE",
+			})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create submission: " + err.Error()})
 		return
 	}

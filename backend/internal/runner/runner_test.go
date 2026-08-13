@@ -2,8 +2,10 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -217,6 +219,339 @@ int main() { std::cout << "Hello C++" << std::endl; return 0; }`,
 			t.Errorf("Verdict = %v, want OK (stderr: %q)", res.Verdict, res.Stderr)
 		}
 	})
+}
+
+// The workspace is writable by the sandboxed program and read back by a judge
+// running as root, so any path the program controls is a potential
+// arbitrary-read primitive.
+func TestReadCappedRefusesSymlinks(t *testing.T) {
+	dir := t.TempDir()
+
+	secret := filepath.Join(dir, "secret")
+	if err := os.WriteFile(secret, []byte("host-only data"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	link := filepath.Join(dir, "run.out")
+	if err := os.Symlink(secret, link); err != nil {
+		t.Fatal(err)
+	}
+	if got := readCapped(link); got != "" {
+		t.Errorf("readCapped followed a symlink and returned %q", got)
+	}
+
+	// A regular file at the same name still reads normally.
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(link, []byte("program output"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := readCapped(link); got != "program output" {
+		t.Errorf("readCapped = %q, want %q", got, "program output")
+	}
+}
+
+// The judge writes test inputs as root, so a symlink left at an input's name
+// would redirect that write anywhere on the host filesystem.
+func TestWriteSandboxFileRefusesSymlinks(t *testing.T) {
+	dir := t.TempDir()
+
+	target := filepath.Join(dir, "victim")
+	if err := os.WriteFile(target, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	link := filepath.Join(dir, "in_2.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := writeSandboxFile(link, []byte("test case input"), 0o644); err != nil {
+		t.Fatalf("writeSandboxFile: %v", err)
+	}
+
+	victim, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(victim) != "original" {
+		t.Errorf("symlink target was overwritten with %q", victim)
+	}
+
+	written, err := os.ReadFile(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(written) != "test case input" {
+		t.Errorf("wrote %q to the intended path, want %q", written, "test case input")
+	}
+	if fi, err := os.Lstat(link); err != nil || fi.Mode()&os.ModeSymlink != 0 {
+		t.Error("path should have been replaced by a regular file")
+	}
+}
+
+// End to end: a submission that plants symlinks over the judge's own files
+// must not be able to read host state through them.
+func TestRunBatchResistsSymlinkPlanting(t *testing.T) {
+	if os.Getenv("RUN_TEST_ISOLATE") == "" {
+		t.Skip("skipping isolate integration test; set RUN_TEST_ISOLATE=1 to run")
+	}
+
+	r, err := New(Config{
+		CompileTimeout: 20 * time.Second,
+		WallTimeout:    5 * time.Second,
+		CPUSeconds:     2.0,
+		Memory:         "256m",
+		MaxConcurrent:  1,
+	})
+	if err != nil {
+		t.Fatalf("New runner: %v", err)
+	}
+
+	res, err := r.RunBatch(context.Background(), BatchRequest{
+		Language: "cpp",
+		// Case 1 attacks; case 2 behaves, so the run also proves the judge
+		// recovers the next case instead of inheriting the planted symlink.
+		Code: `#include <bits/stdc++.h>
+#include <unistd.h>
+int main() {
+    int n; std::cin >> n;
+    std::cout << n << std::endl;
+    std::cout.flush();
+    if (n == 1) {
+        // Aim the judge's own files at host state before exiting.
+        unlink("/sandbox/run_1.out");
+        if (symlink("/etc/shadow", "/sandbox/run_1.out")) { /* best effort */ }
+        unlink("/sandbox/run_2.out");
+        if (symlink("/etc/shadow", "/sandbox/run_2.out")) { /* best effort */ }
+    }
+    return 0;
+}`,
+		Cases: []BatchCase{{Ordinal: 1, Stdin: "1\n"}, {Ordinal: 2, Stdin: "2\n"}},
+	})
+	if err != nil {
+		t.Fatalf("RunBatch: %v", err)
+	}
+	if res.CompileError != "" {
+		t.Fatalf("compile error: %s", res.CompileError)
+	}
+
+	for _, c := range res.Cases {
+		if strings.Contains(c.Stdout, "root:") || strings.Contains(c.Stderr, "root:") {
+			t.Errorf("case %d leaked host file contents: stdout=%q stderr=%q",
+				c.Ordinal, c.Stdout, c.Stderr)
+		}
+	}
+	// The second case must still be judged on its own real output.
+	if len(res.Cases) == 2 && strings.TrimSpace(res.Cases[1].Stdout) != "2" {
+		t.Errorf("case 2 stdout = %q, want \"2\"", res.Cases[1].Stdout)
+	}
+}
+
+// A submission must not be able to carry state between test cases: stashing an
+// answer computed inside case 1's time limit and serving it in case 2 defeats
+// per-test limits, and the same persistence is what leaves symlinks lying
+// around for later steps.
+func TestRunBatchIsolatesCasesFromEachOther(t *testing.T) {
+	if os.Getenv("RUN_TEST_ISOLATE") == "" {
+		t.Skip("skipping isolate integration test; set RUN_TEST_ISOLATE=1 to run")
+	}
+
+	r, err := New(Config{
+		CompileTimeout: 20 * time.Second,
+		WallTimeout:    5 * time.Second,
+		CPUSeconds:     2.0,
+		Memory:         "256m",
+		MaxConcurrent:  1,
+	})
+	if err != nil {
+		t.Fatalf("New runner: %v", err)
+	}
+
+	// Each case reports whether the previous one's stash survived.
+	res, err := r.RunBatch(context.Background(), BatchRequest{
+		Language: "cpp",
+		Code: `#include <bits/stdc++.h>
+int main() {
+    std::ifstream in("carried.txt");
+    std::string carried;
+    std::cout << (in && std::getline(in, carried) ? "CARRIED" : "CLEAN") << std::endl;
+    std::ofstream out("carried.txt");
+    out << "state from an earlier case" << std::endl;
+}`,
+		Cases: []BatchCase{{Ordinal: 1, Stdin: "\n"}, {Ordinal: 2, Stdin: "\n"}, {Ordinal: 3, Stdin: "\n"}},
+	})
+	if err != nil {
+		t.Fatalf("RunBatch: %v", err)
+	}
+	if res.CompileError != "" {
+		t.Fatalf("compile error: %s", res.CompileError)
+	}
+
+	for _, c := range res.Cases {
+		if got := strings.TrimSpace(c.Stdout); got != "CLEAN" {
+			t.Errorf("case %d saw %q: state leaked from the previous case", c.Ordinal, got)
+		}
+	}
+}
+
+// A meta file with no fields means isolate was killed before it could report.
+// Parsing it into a zero-value meta would give an empty status, which reads as
+// a clean run -- so a sandbox that died must surface as an error instead.
+func TestParseMetaRejectsEmptyFile(t *testing.T) {
+	dir := t.TempDir()
+
+	empty := filepath.Join(dir, "empty.meta")
+	if err := os.WriteFile(empty, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseMeta(empty); !errors.Is(err, errEmptyMeta) {
+		t.Errorf("parseMeta(empty) error = %v, want errEmptyMeta", err)
+	}
+	if metaWritten(empty) {
+		t.Error("metaWritten must be false for a zero-length file")
+	}
+
+	// Truncated-but-present output is still a real report.
+	partial := filepath.Join(dir, "partial.meta")
+	if err := os.WriteFile(partial, []byte("status:TO\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, err := parseMeta(partial)
+	if err != nil {
+		t.Fatalf("parseMeta(partial): %v", err)
+	}
+	if m.status != statusTimedOut {
+		t.Errorf("status = %q, want %q", m.status, statusTimedOut)
+	}
+	if !metaWritten(partial) {
+		t.Error("metaWritten must be true for a file with content")
+	}
+}
+
+// Regression: isolate exits non-zero whenever the sandboxed program does, so
+// treating that as a taskset failure re-ran the program and overwrote the meta
+// file holding the real verdict. A timed-out run came back as accepted.
+func TestRunTimeoutIsNotReportedAsAccepted(t *testing.T) {
+	if os.Getenv("RUN_TEST_ISOLATE") == "" {
+		t.Skip("skipping isolate integration test; set RUN_TEST_ISOLATE=1 to run")
+	}
+
+	r, err := New(Config{
+		CompileTimeout: 10 * time.Second,
+		WallTimeout:    3 * time.Second,
+		CPUSeconds:     1.0,
+		Memory:         "256m",
+		MaxConcurrent:  1,
+	})
+	if err != nil {
+		t.Fatalf("New runner: %v", err)
+	}
+
+	for _, tc := range []struct{ name, lang, code string }{
+		{"cpu loop", "python", "x=0\nwhile True:\n  x+=1"},
+		{"sleeping", "python", "import time\ntime.sleep(60)"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := r.Run(context.Background(), Request{Language: tc.lang, Code: tc.code})
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if res.Verdict != VerdictTLE {
+				t.Errorf("Verdict = %v, want TLE (exit=%d timeMs=%d stderr=%q)",
+					res.Verdict, res.ExitCode, res.TimeMs, res.Stderr)
+			}
+		})
+	}
+}
+
+// isolate reports two memory figures that each miss something the other
+// catches, so the reported number is the larger of the pair.
+func TestMemoryKBTakesLargerSource(t *testing.T) {
+	// A small program: cg-mem misses binary pages charged to the compile.
+	if got := (meta{cgMemKB: 316, maxRSSKB: 3300}).memoryKB(); got != 3300 {
+		t.Errorf("memoryKB = %d, want 3300 (max-rss)", got)
+	}
+	// Several processes: the cgroup sums them, max-rss only sees the largest.
+	if got := (meta{cgMemKB: 200000, maxRSSKB: 105748}).memoryKB(); got != 200000 {
+		t.Errorf("memoryKB = %d, want 200000 (cg-mem)", got)
+	}
+	if got := (meta{}).memoryKB(); got != 0 {
+		t.Errorf("memoryKB = %d, want 0", got)
+	}
+}
+
+// A fixed per-submission ceiling cancels the tail of a large test set and
+// reports those cases as runtime errors, so the budget has to grow per case.
+func TestBatchTimeoutScalesWithCases(t *testing.T) {
+	compile, wall := 10*time.Second, 10*time.Second
+
+	one := batchTimeout(compile, wall, 1)
+	twenty := batchTimeout(compile, wall, 20)
+
+	if twenty <= one {
+		t.Fatalf("20 cases (%v) must allow more than 1 case (%v)", twenty, one)
+	}
+	// Every case must fit its full wall clock inside the overall budget.
+	if min := compile + 20*wall; twenty < min {
+		t.Errorf("20-case budget %v is below the %v its cases can use", twenty, min)
+	}
+	// Zero cases must not produce a zero (instantly-expired) deadline.
+	if batchTimeout(compile, wall, 0) < compile {
+		t.Error("empty batch budget must still cover a compile")
+	}
+}
+
+// Regression: isolate never clears a box's cgroup peak between runs, so
+// without recycling the box each case inherits the high-water mark of the
+// compile and of every earlier case -- a 3 MB program reporting 100 MB.
+func TestRunBatchMemoryIsPerCase(t *testing.T) {
+	if os.Getenv("RUN_TEST_ISOLATE") == "" {
+		t.Skip("skipping isolate integration test; set RUN_TEST_ISOLATE=1 to run")
+	}
+
+	r, err := New(Config{
+		CompileTimeout: 20 * time.Second,
+		WallTimeout:    10 * time.Second,
+		CPUSeconds:     5.0,
+		Memory:         "256m",
+		MaxConcurrent:  1,
+	})
+	if err != nil {
+		t.Fatalf("New runner: %v", err)
+	}
+
+	// Case 1 allocates 100 MB, case 2 allocates nothing.
+	res, err := r.RunBatch(context.Background(), BatchRequest{
+		Language: "cpp",
+		Code: `#include <bits/stdc++.h>
+int main() {
+    int n; if (!(std::cin >> n)) n = 0;
+    if (n) { size_t N = 100u<<20; char* p = (char*)malloc(N);
+             for (size_t i = 0; i < N; i += 4096) p[i] = 1; }
+    std::cout << n << std::endl;
+}`,
+		Cases: []BatchCase{{Ordinal: 1, Stdin: "1\n"}, {Ordinal: 2, Stdin: "0\n"}},
+	})
+	if err != nil {
+		t.Fatalf("RunBatch: %v", err)
+	}
+	if res.CompileError != "" {
+		t.Fatalf("compile error: %s", res.CompileError)
+	}
+	if len(res.Cases) != 2 {
+		t.Fatalf("got %d cases, want 2", len(res.Cases))
+	}
+
+	heavy, light := res.Cases[0].MemoryKB, res.Cases[1].MemoryKB
+	if heavy < 90*1024 {
+		t.Errorf("case allocating 100 MB reported %d KB, want >= 90 MB", heavy)
+	}
+	if light >= heavy/2 {
+		t.Errorf("case allocating nothing reported %d KB against the heavy case's %d KB: "+
+			"the box's peak is leaking across cases", light, heavy)
+	}
 }
 
 func TestCPUListParsing(t *testing.T) {

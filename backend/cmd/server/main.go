@@ -68,6 +68,7 @@ func main() {
 		CPUSeconds:     float64(cfg.RunCPUSeconds),
 		Memory:         cfg.RunMemory,
 		IsolateBin:     cfg.RunIsolateBin,
+		WorkRoot:       cfg.RunWorkRoot,
 		MaxConcurrent:  cfg.RunMaxConcurrent,
 		RunReserve:     cfg.RunReserve,
 		MaxQueue:       cfg.RunMaxQueue,
@@ -86,7 +87,7 @@ func main() {
 	j := judge.New(pool, cfg.JudgeWorkers, log)
 	j.SetRunner(rn)
 	go j.Start(ctx)
-	log.Info("sandbox ready", "boxes", cfg.RunMaxConcurrent)
+	log.Info("sandbox ready", "boxes", cfg.RunMaxConcurrent, "judge_workers", cfg.JudgeWorkers, "run_reserve", cfg.RunReserve)
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
