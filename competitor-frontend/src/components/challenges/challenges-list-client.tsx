@@ -4,7 +4,9 @@ import { useState } from "react";
 import { ChallengeCard } from "@/components/challenges/challenge-card";
 import { CHALLENGE_STATUS, type ChallengeProgress } from "@/types/challenge";
 import type { Problem } from "@/types/problem";
-import { Code2, Grid, List, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowUpDown, Code2, Grid, List, Search, SlidersHorizontal } from "lucide-react";
+
+type SortOption = "DEFAULT" | "POINTS_DESC" | "POINTS_ASC" | "DIFFICULTY_ASC" | "DIFFICULTY_DESC" | "TITLE_ASC";
 
 export function ChallengesListClient({
   problems,
@@ -16,6 +18,7 @@ export function ChallengesListClient({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [difficultyFilter, setDifficultyFilter] = useState<string>("ALL");
+  const [sortBy, setSortBy] = useState<SortOption>("DEFAULT");
   const [layout, setLayout] = useState<"grid" | "list">("grid");
 
   const filteredProblems = problems.filter((problem) => {
@@ -51,23 +54,42 @@ export function ChallengesListClient({
     return true;
   });
 
+  const difficultyRank: Record<string, number> = {
+    EASY: 1,
+    MEDIUM: 2,
+    HARD: 3,
+  };
+
+  const sortedProblems = [...filteredProblems].sort((a, b) => {
+    if (sortBy === "POINTS_DESC") return b.points - a.points;
+    if (sortBy === "POINTS_ASC") return a.points - b.points;
+    if (sortBy === "DIFFICULTY_ASC") {
+      return (difficultyRank[a.difficulty.toUpperCase()] || 0) - (difficultyRank[b.difficulty.toUpperCase()] || 0);
+    }
+    if (sortBy === "DIFFICULTY_DESC") {
+      return (difficultyRank[b.difficulty.toUpperCase()] || 0) - (difficultyRank[a.difficulty.toUpperCase()] || 0);
+    }
+    if (sortBy === "TITLE_ASC") return a.title.localeCompare(b.title);
+    return 0;
+  });
+
   return (
     <div className="space-y-6">
-      {/* Control Bar: Search, Filters, Layout Toggle */}
+      {/* Control Bar: Search, Filters, Sort, Layout Toggle */}
       <div className="flex flex-col gap-4 border-2 border-black bg-card p-4 shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_4px_0px_#000000] lg:flex-row lg:items-center lg:justify-between">
         {/* Search Input */}
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search challenges by title or keyword..."
+            placeholder="Search challenges..."
             className="w-full border-2 border-black bg-background pl-9 pr-4 py-2 font-pixel-body text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
 
-        {/* Filters & View Toggle */}
+        {/* Filters, Sort & View Toggle */}
         <div className="flex flex-wrap items-center gap-3 font-pixel-body text-xs">
           {/* Status Filter */}
           <div className="flex items-center gap-1 border-2 border-black bg-muted/50 p-1">
@@ -103,6 +125,23 @@ export function ChallengesListClient({
                 {diff}
               </button>
             ))}
+          </div>
+
+          {/* Sort Selection */}
+          <div className="flex items-center gap-1.5 border-2 border-black bg-card px-2 py-1">
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="bg-transparent font-pixel-body text-xs uppercase text-foreground focus:outline-none cursor-pointer"
+            >
+              <option value="DEFAULT">Default Order</option>
+              <option value="POINTS_DESC">XP: High to Low</option>
+              <option value="POINTS_ASC">XP: Low to High</option>
+              <option value="DIFFICULTY_ASC">Difficulty: Easy -&gt; Hard</option>
+              <option value="DIFFICULTY_DESC">Difficulty: Hard -&gt; Easy</option>
+              <option value="TITLE_ASC">Title: A to Z</option>
+            </select>
           </div>
 
           {/* Grid vs List Toggle */}
@@ -141,20 +180,20 @@ export function ChallengesListClient({
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
-              Challenges ({filteredProblems.length})
+              Challenges ({sortedProblems.length})
             </h2>
           </div>
           <span className="text-xs text-muted-foreground">
-            Showing {filteredProblems.length} of {problems.length} total
+            Showing {sortedProblems.length} of {problems.length} total
           </span>
         </div>
 
-        {filteredProblems.length === 0 ? (
+        {sortedProblems.length === 0 ? (
           <div className="border-2 border-black bg-card p-12 text-center shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_4px_0px_#000000] font-pixel-body">
             <Code2 className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
             <h3 className="font-bold text-sm uppercase text-foreground">No matching challenges found</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-              Try adjusting your search terms or status and difficulty filters above.
+              Try adjusting your search terms, status filters, or sort criteria above.
             </p>
           </div>
         ) : (
@@ -165,7 +204,7 @@ export function ChallengesListClient({
                 : "flex flex-col gap-3"
             }
           >
-            {filteredProblems.map((problem) => {
+            {sortedProblems.map((problem) => {
               const pProgress =
                 (problem.id ? progress[problem.id] : undefined) ||
                 (problem.slug ? progress[problem.slug] : undefined) || {
