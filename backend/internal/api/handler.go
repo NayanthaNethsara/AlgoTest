@@ -324,6 +324,36 @@ func (h *handler) listAdminSubmissions(c *gin.Context) {
 	})
 }
 
+func (h *handler) listUserSubmissions(c *gin.Context) {
+	val, exists := c.Get(contextUserKey)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	u := val.(user.User)
+
+	statusFilter := c.Query("status")
+	problemID := c.Query("problem_id")
+	limit := 50
+	offset := 0
+
+	teamID := ""
+	if u.TeamID != nil {
+		teamID = *u.TeamID
+	}
+
+	submissions, total, err := h.judge.Repo().ListAdminSubmissions(c.Request.Context(), statusFilter, problemID, teamID, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list submissions: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"submissions": submissions,
+		"total":       total,
+	})
+}
+
 func (h *handler) rejudgeSubmission(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.judge.Repo().RejudgeSubmission(c.Request.Context(), id); err != nil {

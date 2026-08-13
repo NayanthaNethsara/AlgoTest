@@ -205,6 +205,7 @@ func NewRouter(
 		v1.POST("/run", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), h.runCode)
 
 		v1.POST("/submissions", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(submissionLimiter, userIDKeyFunc), h.createSubmission)
+		v1.GET("/submissions", h.requireUser, h.listUserSubmissions)
 		v1.GET("/submissions/stream", h.requireUser, h.streamSubmissions)
 		v1.GET("/submissions/:id", h.requireUser, rateLimitMiddleware(submissionStatusLimiter, userIDKeyFunc), h.getSubmission)
 	}

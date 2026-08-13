@@ -113,3 +113,40 @@ export async function getSubmissionStatusAction(
   }
   return null;
 }
+
+export type SubmissionItemData = {
+  id: string;
+  problemTitle: string;
+  submittedBy: string;
+  teamName: string;
+  language: string;
+  execTime: string;
+  status: string;
+  submittedAt: string;
+  timestamp?: number;
+};
+
+export async function listSubmissionsAction(): Promise<SubmissionItemData[]> {
+  try {
+    const res = await backendFetch("/api/v1/submissions", { method: "GET" });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.submissions)) {
+        return data.submissions.map((s: any) => ({
+          id: s.id,
+          problemTitle: s.problem_title || s.problem_id || "Challenge",
+          submittedBy: s.user_name || s.user_id || "Competitor",
+          teamName: s.team_name || "Team",
+          language: s.language || "cpp",
+          execTime: s.time_ms ? `${s.time_ms} ms` : "N/A",
+          status: s.verdict || s.state || "Pending",
+          submittedAt: s.created_at ? new Date(s.created_at).toLocaleTimeString() : "Just now",
+          timestamp: s.created_at ? new Date(s.created_at).getTime() : Date.now(),
+        }));
+      }
+    }
+  } catch (err) {
+    console.error("Failed to fetch submissions from backend:", err);
+  }
+  return [];
+}
