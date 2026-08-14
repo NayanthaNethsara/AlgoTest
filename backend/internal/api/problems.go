@@ -313,6 +313,7 @@ func (h *handler) replaceTestCases(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	h.judge.InvalidateTests(id)
 
 	c.Status(http.StatusNoContent)
 }

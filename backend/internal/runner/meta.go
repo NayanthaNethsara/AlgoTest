@@ -32,15 +32,9 @@ type meta struct {
 	cgOOMKilled bool
 }
 
-// memoryKB is the figure we report and judge MLE against.
-//
-// The two sources disagree in opposite directions, so we take the larger.
-// cg-mem is the cgroup's peak charge: it sums every process in the box (so it
-// catches a JVM's threads or a Python subprocess) but misses file-backed pages
-// that were charged to whoever first faulted them in -- typically the compile
-// step, leaving a small program reporting ~300 KB against a 3 MB RSS. max-rss
-// is the kernel's per-run peak for the process and its reaped children, which
-// includes those shared pages but does not sum across concurrent processes.
+// memoryKB reports the larger of the two figures isolate gives: cg-mem sums
+// every process but misses pages charged to the compile, max-rss includes those
+// but does not sum across processes.
 func (m meta) memoryKB() int64 {
 	if m.maxRSSKB > m.cgMemKB {
 		return m.maxRSSKB
@@ -82,13 +76,10 @@ func (m meta) verdict(memLimitKB int64) Verdict {
 	return VerdictAC
 }
 
-// errEmptyMeta means isolate left nothing usable behind: the file is missing
-// its content because isolate was killed before it could report. It must never
-// be read as a clean run -- a zero-valued meta has an empty status, which
-// verdict() treats as success, so a killed sandbox would score as accepted.
+// errEmptyMeta means isolate was killed before it could report. A zero-valued
+// meta has an empty status, which verdict() would read as success.
 var errEmptyMeta = errors.New("meta file has no fields")
 
-// metaWritten reports whether isolate got far enough to record an outcome.
 func metaWritten(path string) bool {
 	fi, err := os.Stat(path)
 	return err == nil && fi.Size() > 0

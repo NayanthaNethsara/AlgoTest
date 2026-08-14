@@ -300,6 +300,12 @@ func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests [
 	defer tx.Rollback(ctx)
 	qtx := r.q.WithTx(tx)
 
+	var maxScore int32
+	if err := tx.QueryRow(ctx, `SELECT max_score FROM problems WHERE id = $1;`, problemID).Scan(&maxScore); err != nil {
+		return fmt.Errorf("failed to read problem max_score: %w", err)
+	}
+	DistributePoints(tests, maxScore)
+
 	if err := qtx.DeleteTestsForProblem(ctx, problemID); err != nil {
 		return err
 	}

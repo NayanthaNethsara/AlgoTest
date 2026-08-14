@@ -69,6 +69,7 @@ func main() {
 		Memory:         cfg.RunMemory,
 		IsolateBin:     cfg.RunIsolateBin,
 		WorkRoot:       cfg.RunWorkRoot,
+		CPUList:        cfg.RunCPUList,
 		MaxConcurrent:  cfg.RunMaxConcurrent,
 		RunReserve:     cfg.RunReserve,
 		MaxQueue:       cfg.RunMaxQueue,

@@ -46,11 +46,8 @@ func (r *Repository) CreateSubmission(ctx context.Context, s Submission) (*Submi
 		return nil, ErrActiveSubmissionExists
 	}
 
-	// The judge awards the sum of the test points, so that -- not the problem's
-	// declared max_score -- is what the submission can actually reach. Recording
-	// the declared figure instead makes the client show "0 / 100" on a problem
-	// whose tests only add up to 40, and puts a different scale on the
-	// leaderboard than the one being scored.
+	// The judge awards the sum of the test points, so that is the reachable
+	// max, not the problem's declared max_score.
 	var declaredMax, pointsTotal, testsTotal int
 	err = r.pool.QueryRow(ctx, `
 		SELECT p.max_score,
@@ -66,8 +63,7 @@ func (r *Repository) CreateSubmission(ctx context.Context, s Submission) (*Submi
 		return nil, fmt.Errorf("fetch problem metadata: %w", err)
 	}
 
-	// Caught before the submission is recorded, so a competitor is not charged
-	// an attempt for an organiser's misconfiguration.
+	// Rejected before recording, so no attempt is charged for a misconfiguration.
 	if testsTotal == 0 {
 		return nil, ErrNoTestCases
 	}
@@ -228,13 +224,11 @@ func (r *Repository) ClaimNextSubmission(ctx context.Context, workerID string) (
 }
 
 // LeaseDuration is how long a claim stays valid before the reaper treats the
-// worker as dead. A judging run longer than this must renew (see RenewLease):
-// a large test set can legitimately outlive it.
+// worker as dead. Longer runs must renew.
 const LeaseDuration = 60 * time.Second
 
-// RenewLease pushes out the deadline on a submission this worker still holds.
-// Scoped to claimed_by so a worker that already lost its claim to the reaper
-// cannot resurrect it and race the worker that picked the submission up.
+// RenewLease is scoped to claimed_by so a worker that lost its claim cannot
+// resurrect it and race the worker that picked the submission up.
 func (r *Repository) RenewLease(ctx context.Context, submissionID, workerID string) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE submissions
@@ -251,7 +245,7 @@ func (r *Repository) RenewLease(ctx context.Context, submissionID, workerID stri
 }
 
 // CompleteSubmission updates a submission with final status, score, tests, and updates team problem scores.
-func (r *Repository) CompleteSubmission(ctx context.Context, res Result) error {
+func (r *Repository) CompleteSubmission(ctx context.Context, res Result, workerID string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -261,17 +255,21 @@ func (r *Repository) CompleteSubmission(ctx context.Context, res Result) error {
 	now := time.Now().UTC()
 	stateStr := string(res.Status)
 
-	// max_score is rewritten from what the judge actually totalled, so a test
-	// set edited between submit and judge cannot leave the row claiming a
-	// denominator the run never used.
-	_, err = tx.Exec(ctx, `
+	// max_score is rewritten from what the judge totalled, so a test set edited
+	// between submit and judge cannot leave a denominator the run never used.
+	// Scoped to claimed_by: if the reaper reassigned this submission mid-run,
+	// the worker that lost it must not overwrite the winner's result.
+	tag, err := tx.Exec(ctx, `
 		UPDATE submissions
 		SET state = $1, verdict = $2, score = $3, tests_done = $4, compile_error = $5, finished_at = $6,
 		    max_score = CASE WHEN $8 > 0 THEN $8 ELSE max_score END
-		WHERE id = $7;
-	`, stateStr, res.Verdict, res.Score, res.TestsDone, res.CompileError, now, res.SubmissionID, res.MaxScore)
+		WHERE id = $7 AND ($9 = '' OR claimed_by = $9);
+	`, stateStr, res.Verdict, res.Score, res.TestsDone, res.CompileError, now, res.SubmissionID, res.MaxScore, workerID)
 	if err != nil {
 		return fmt.Errorf("update submission state: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrLeaseLost
 	}
 
 	// Insert individual test results if provided
@@ -451,13 +449,8 @@ func (r *Repository) GetProblemTests(ctx context.Context, problemID string) ([]T
 		return nil, fmt.Errorf("read problem tests: %w", err)
 	}
 
-	// No silent fall back to problem_samples. Samples are published to
-	// competitors, so grading against them both leaks the grading set and
-	// scores on a different scale than the problem's max_score -- a 100-point
-	// problem quietly becomes a 2-point one, and that inconsistent figure is
-	// what reaches the leaderboard. A published problem always has hidden tests
-	// (publishProblem refuses otherwise), so an empty set here means the tests
-	// were removed afterwards, which is an operational fault worth surfacing.
+	// No fall back to problem_samples: they are published to competitors and
+	// score on a different scale than the problem's max_score.
 	if len(tests) == 0 {
 		return nil, ErrNoTestCases
 	}
@@ -497,4 +490,3 @@ func (r *Repository) GetTeamProgress(ctx context.Context, teamID string, userID 
 	}
 	return result, nil
 }
-

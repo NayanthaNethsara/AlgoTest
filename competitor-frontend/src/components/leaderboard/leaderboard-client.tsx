@@ -9,10 +9,8 @@ import { ArrowUpDown, RefreshCw, Search, Trophy, Users, Zap } from "lucide-react
 
 type SortOption = "RANK_ASC" | "SCORE_DESC" | "SCORE_ASC" | "SOLVED_DESC" | "NAME_ASC";
 
-// Standings move when *other* teams score, and the submissions stream only
-// carries this user's own events, so the board has to ask for itself. Ten
-// seconds keeps it close to live without turning every open tab into steady
-// load on the judge host.
+// Standings move when other teams score, and the submissions stream only
+// carries this user's own events, so the board has to ask for itself.
 const POLL_INTERVAL_MS = 10_000;
 
 export function LeaderboardClient({
@@ -28,8 +26,6 @@ export function LeaderboardClient({
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-  // The page is a server component that fetched once, so without this the
-  // board is frozen at whatever it said when it was first rendered.
   const inFlight = useRef(false);
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
@@ -37,8 +33,7 @@ export function LeaderboardClient({
     setRefreshing(true);
     try {
       const next = await getLeaderboardAction();
-      // An empty array is also what a failed fetch returns, so keep the last
-      // good standings rather than blanking the board on a transient error.
+      // An empty array is also what a failed fetch returns.
       if (next.length > 0) {
         setLeaderboard(next);
         setUpdatedAt(new Date());
@@ -49,8 +44,6 @@ export function LeaderboardClient({
     }
   }, []);
 
-  // A background tab does not need fresh standings; resuming refreshes at once
-  // so it is never stale in front of someone actually looking at it.
   useEffect(() => {
     const tick = () => {
       if (document.visibilityState === "visible") void refresh();
@@ -63,8 +56,6 @@ export function LeaderboardClient({
     };
   }, [refresh]);
 
-  // Your own score landing should show up immediately rather than up to a
-  // poll later -- the judge has already committed it by the time this fires.
   const { lastResult } = useSubmissions();
   useEffect(() => {
     if (lastResult?.submissionId) void refresh();

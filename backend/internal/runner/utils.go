@@ -12,15 +12,8 @@ import (
 	"time"
 )
 
-// writeSandboxFile writes a file into the workspace without ever following a
-// symlink the sandboxed program may have planted there.
-//
-// The judge writes as root, so plain os.WriteFile against a path the program
-// controls is an arbitrary-write primitive: a submission that leaves
-// /sandbox/in_2.txt pointing at /etc/passwd gets the host to overwrite it with
-// the next test case's input. Unlinking first removes the symlink itself
-// rather than its target, and O_EXCL|O_NOFOLLOW refuses to reopen anything
-// that reappears in between.
+// The judge writes as root, so a symlink the sandbox plants at this path would
+// redirect the write anywhere on the host.
 func writeSandboxFile(path string, data []byte, perm os.FileMode) error {
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("clearing %s: %w", filepath.Base(path), err)
@@ -37,9 +30,6 @@ func writeSandboxFile(path string, data []byte, perm os.FileMode) error {
 	return f.Close()
 }
 
-// clearSandboxFile removes a path the sandboxed program may have replaced with
-// a symlink, so the next step starts from a clean name. os.Remove unlinks a
-// symlink itself and never touches its target.
 func clearSandboxFile(path string) error {
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("clearing %s: %w", filepath.Base(path), err)
@@ -62,18 +52,9 @@ func normalizeLanguage(lang string) string {
 	}
 }
 
-// makeWorkDir creates the per-run workspace that gets bind-mounted at
-// sandboxDir. isolate runs the program as its own box user (uid 60000+box_id),
-// not as us, so the directory must be world-writable or the sandbox cannot
-// create the redirect targets we pass to --stdout/--stderr, and isolate aborts
-// with an internal error before the program ever starts. MkdirAll's mode is
-// masked by the umask, so the permissions are set explicitly afterwards.
-//
-// The sticky bit matters as much as the write bit: without it, write access to
-// the directory lets the sandbox unlink or rename files it does not own --
-// including the source we compiled and the test inputs we staged, whatever
-// their own modes say. With it, as on /tmp, a submission may only remove what
-// it created itself.
+// isolate runs the program as its own box user, so the workspace must be
+// writable by it. The sticky bit stops that user unlinking files it does not
+// own; Chmod is explicit because MkdirAll's mode is masked by the umask.
 func makeWorkDir(base string) (string, error) {
 	const mode = 0777 | os.ModeSticky
 
@@ -87,17 +68,9 @@ func makeWorkDir(base string) (string, error) {
 	return work, nil
 }
 
-// readCapped returns at most outputLimit bytes of a sandbox output file.
-//
-// The workspace is writable by the sandboxed program, and we read it back as
-// root. A submission whose last act is
-//
-//	unlink("/sandbox/run_1.out"); symlink("/etc/shadow", "/sandbox/run_1.out");
-//
-// would otherwise have the host read that file and hand the contents back as
-// the program's own output. O_NOFOLLOW refuses the open when the final path
-// component is a symlink, and the regular-file check rejects the rest (a fifo
-// would block the judge forever, a device would read host state).
+// readCapped returns at most outputLimit bytes of a sandbox output file. It
+// reads as root, so a symlink the sandbox plants here would otherwise leak any
+// host file back as the program's own output.
 func readCapped(path string) string {
 	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
 	if err != nil {
@@ -134,10 +107,9 @@ type workspaceGuard struct {
 	expected map[string]bool // names legitimately present after the compile
 }
 
-// newWorkspaceGuard snapshots the workspace once the compile has finished.
-// Compile artifacts are copied somewhere the sandbox cannot reach, because they
-// belong to the box user and a submission is free to overwrite its own binary
-// with one that has answers baked in.
+// newWorkspaceGuard snapshots the workspace after the compile. Artifacts are
+// copied out of the sandbox's reach because they belong to the box user, which
+// is free to overwrite its own binary between cases.
 func newWorkspaceGuard(base, work string, keepInPlace map[string]bool) (*workspaceGuard, error) {
 	entries, err := os.ReadDir(work)
 	if err != nil {
@@ -156,9 +128,7 @@ func newWorkspaceGuard(base, work string, keepInPlace map[string]bool) (*workspa
 	for _, e := range entries {
 		name := e.Name()
 		g.expected[name] = true
-		// Test inputs can be large and are not worth duplicating per case: the
-		// sticky bit stops the sandbox unlinking them, and a submission that
-		// corrupts its own input only earns itself a wrong answer.
+		// Inputs stay put: they can be large, and the sticky bit protects them.
 		if keepInPlace[name] || !e.Type().IsRegular() {
 			continue
 		}
@@ -170,7 +140,7 @@ func newWorkspaceGuard(base, work string, keepInPlace map[string]bool) (*workspa
 }
 
 // restore deletes anything the submission created and puts the compile output
-// back exactly as it was.
+// back.
 func (g *workspaceGuard) restore() error {
 	entries, err := os.ReadDir(g.work)
 	if err != nil {
@@ -178,7 +148,6 @@ func (g *workspaceGuard) restore() error {
 	}
 	for _, e := range entries {
 		if !g.expected[e.Name()] {
-			// RemoveAll unlinks a symlink itself rather than following it.
 			if err := os.RemoveAll(filepath.Join(g.work, e.Name())); err != nil {
 				return fmt.Errorf("clearing %s: %w", e.Name(), err)
 			}
@@ -202,8 +171,6 @@ func (g *workspaceGuard) restore() error {
 	return nil
 }
 
-// copyRegularFile copies src to dst, refusing to follow a symlink at either
-// end and preserving the source's permission bits.
 func copyRegularFile(src, dst string) error {
 	in, err := os.OpenFile(src, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
 	if err != nil {
@@ -227,15 +194,9 @@ func copyRegularFile(src, dst string) error {
 	return out.Close()
 }
 
-// wallFloor keeps the wall-clock backstop above the CPU budget it is backing.
-//
-// The CPU limit is the one a problem's time limit is expressed in, and it is
-// scaled per language -- Python gets 3x. The wall limit is not scaled, so with
-// the stock 5s CPU limit an interpreted solution is allowed 15s of CPU but only
-// 10s of wall, and every slow Python program is judged on the wall clock
-// instead: the language factor silently does nothing, and time spent blocked on
-// input counts against the limit. The backstop only does its job -- catching a
-// program that sleeps without burning CPU -- when it sits above the CPU budget.
+// wallFloor keeps the wall backstop above the CPU budget. The CPU limit is
+// scaled per language and the wall limit is not, so without this an
+// interpreted solution is judged on the wall clock instead of its real limit.
 func wallFloor(wall time.Duration, cpuSeconds float64) time.Duration {
 	min := time.Duration(cpuSeconds*float64(time.Second)) + 2*time.Second
 	if wall < min {
@@ -244,10 +205,8 @@ func wallFloor(wall time.Duration, cpuSeconds float64) time.Duration {
 	return wall
 }
 
-// explainedStderr falls back to isolate's own account of how a run ended when
-// the program itself said nothing. A program killed on the time limit is
-// killed mid-execution and never gets to print, so without this the competitor
-// sees a blank error alongside a TLE and no indication of why.
+// explainedStderr reports how isolate ended a run when the program was killed
+// before it could print anything itself.
 func explainedStderr(stderr string, m meta) string {
 	if strings.TrimSpace(stderr) != "" || m.message == "" {
 		return stderr

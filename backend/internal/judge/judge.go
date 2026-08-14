@@ -16,6 +16,7 @@ import (
 
 type Judge struct {
 	repo        *Repository
+	tests       *testCache
 	broadcaster *Broadcaster
 	runner      *runner.Runner
 	workers     int
@@ -24,8 +25,10 @@ type Judge struct {
 }
 
 func New(pool *pgxpool.Pool, workers int, log *slog.Logger) *Judge {
+	repo := NewRepository(pool)
 	return &Judge{
-		repo:        NewRepository(pool),
+		repo:        repo,
+		tests:       newTestCache(repo.GetProblemTests),
 		broadcaster: NewBroadcaster(),
 		workers:     workers,
 		notify:      make(chan struct{}, 100),
@@ -43,6 +46,11 @@ func (j *Judge) Broadcaster() *Broadcaster {
 
 func (j *Judge) Repo() *Repository {
 	return j.repo
+}
+
+// InvalidateTests drops cached tests for a problem whose test set was edited.
+func (j *Judge) InvalidateTests(problemID string) {
+	j.tests.invalidate(problemID)
 }
 
 func (j *Judge) Submit(ctx context.Context, s Submission) (*Submission, error) {
@@ -132,7 +140,11 @@ func (j *Judge) processNext(ctx context.Context, workerID string) {
 
 	res := j.evaluate(ctx, *s)
 
-	if err := j.repo.CompleteSubmission(ctx, res); err != nil {
+	if err := j.repo.CompleteSubmission(ctx, res, workerID); err != nil {
+		if errors.Is(err, ErrLeaseLost) {
+			j.log.Warn("discarded result for a reassigned submission", "submission_id", s.ID, "worker", workerID)
+			return
+		}
 		j.log.Error("failed to complete submission", "submission_id", s.ID, "error", err)
 	} else {
 		j.broadcaster.Broadcast(res)
@@ -185,7 +197,7 @@ func submissionLimits(s Submission) runner.Limits {
 }
 
 func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
-	tests, err := j.repo.GetProblemTests(ctx, s.ProblemID)
+	tests, err := j.tests.get(ctx, s.ProblemID)
 	if err != nil {
 		j.log.Error("failed to fetch problem tests for evaluation", "problem_id", s.ProblemID, "error", err)
 		verdict := "IE"

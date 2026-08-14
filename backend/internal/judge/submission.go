@@ -26,22 +26,22 @@ const (
 )
 
 type Submission struct {
-	ID            string     `json:"id"`
-	TeamID        string     `json:"teamId"`
-	UserID        string     `json:"userId"`
-	ProblemID     string     `json:"problemId"`
-	Language      string     `json:"language"`
-	Code          string     `json:"code"`
-	State         Status     `json:"state"`
-	Verdict       *string    `json:"verdict,omitempty"`
-	Score         int        `json:"score"`
-	MaxScore      int        `json:"maxScore"`
-	TestsTotal    int        `json:"testsTotal"`
-	TestsDone     int        `json:"testsDone"`
-	CompileError  *string    `json:"compileError,omitempty"`
-	MaxTimeMS     int        `json:"maxTimeMs"`
-	MaxMemoryKB    int        `json:"maxMemoryKb"`
-	QueuePosition int        `json:"queuePosition,omitempty"`
+	ID            string  `json:"id"`
+	TeamID        string  `json:"teamId"`
+	UserID        string  `json:"userId"`
+	ProblemID     string  `json:"problemId"`
+	Language      string  `json:"language"`
+	Code          string  `json:"code"`
+	State         Status  `json:"state"`
+	Verdict       *string `json:"verdict,omitempty"`
+	Score         int     `json:"score"`
+	MaxScore      int     `json:"maxScore"`
+	TestsTotal    int     `json:"testsTotal"`
+	TestsDone     int     `json:"testsDone"`
+	CompileError  *string `json:"compileError,omitempty"`
+	MaxTimeMS     int     `json:"maxTimeMs"`
+	MaxMemoryKB   int     `json:"maxMemoryKb"`
+	QueuePosition int     `json:"queuePosition,omitempty"`
 	// Limits copied from the problem at claim time, so judging uses the
 	// problem's own budget instead of the server-wide default.
 	TimeLimitMS   int        `json:"timeLimitMs,omitempty"`

@@ -74,3 +74,26 @@ type TestInput struct {
 	Expected []byte `json:"expected"`
 	Points   int32  `json:"points"`
 }
+
+// DistributePoints shares maxScore across tests that carry no points of their
+// own. The judge scores the sum of passed tests, so leaving them at 1 each
+// would make the problem worth len(tests) rather than its advertised maxScore.
+func DistributePoints(tests []TestInput, maxScore int32) {
+	if len(tests) == 0 || maxScore <= 0 {
+		return
+	}
+	for _, t := range tests {
+		if t.Points > 0 {
+			return
+		}
+	}
+
+	base := maxScore / int32(len(tests))
+	remainder := int(maxScore % int32(len(tests)))
+	for i := range tests {
+		tests[i].Points = base
+		if i < remainder {
+			tests[i].Points++
+		}
+	}
+}

@@ -40,6 +40,9 @@ type Config struct {
 	RunMemory                string
 	RunIsolateBin            string
 	RunWorkRoot              string
+	// RunCPUList pins sandboxes to specific cores, e.g. "2-13" to keep them off
+	// the cores running the server. Empty pins to 0..RunMaxConcurrent-1.
+	RunCPUList string
 	// RunMaxConcurrent must not exceed the isolate host's provisioned
 	// num_boxes; the server checks this at startup and refuses to boot if the
 	// host can't supply that many sandboxes.
@@ -72,6 +75,7 @@ func Load() Config {
 		RunMemory:                getenv("RUN_MEMORY", "256m"),
 		RunIsolateBin:            getenv("RUN_ISOLATE_BIN", "isolate"),
 		RunWorkRoot:              getenv("RUN_WORK_ROOT", ""),
+		RunCPUList:               getenv("RUN_CPU_LIST", ""),
 		RunMaxConcurrent:         getenvInt("RUN_MAX_CONCURRENT", 4),
 		RunReserve:               getenvInt("RUN_RESERVE", 1),
 		RunMaxQueue:              getenvInt("RUN_MAX_QUEUE", 64),

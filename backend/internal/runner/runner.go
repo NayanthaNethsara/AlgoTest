@@ -50,36 +50,41 @@ func (r *Runner) CheckHost(ctx context.Context) error {
 			highest, r.cfg.MaxConcurrent, err)
 	}
 	r.cleanupBox(highest)
+
+	return r.checkWorkRoot()
+}
+
+// checkWorkRoot fails at boot rather than letting a misconfigured host discover
+// mid-contest that nothing bounds what submissions write.
+func (r *Runner) checkWorkRoot() error {
+	if r.cfg.WorkRoot == "" {
+		return fmt.Errorf("RUN_WORK_ROOT is unset: workspaces would land on the system temp dir with no size cap, " +
+			"where a submission can fill the host disk (see deploy/provision-isolate.sh)")
+	}
+
+	probe, err := os.MkdirTemp(r.cfg.WorkRoot, "algothon-probe-*")
+	if err != nil {
+		return fmt.Errorf("work root %s unusable: %w", r.cfg.WorkRoot, err)
+	}
+	os.RemoveAll(probe)
 	return nil
 }
 
 // OverallTimeout bounds the whole Run call (compile + run + sandbox overhead).
-// Both steps may use their limit plus sandboxGrace, so the ceiling has to clear
-// the sum of the two or it, not isolate, becomes the thing that stops the run.
 func (r *Runner) OverallTimeout() time.Duration {
 	return r.cfg.CompileTimeout + r.cfg.WallTimeout + 2*sandboxGrace + 10*time.Second
 }
 
-// batchTimeout bounds a whole RunBatch call. Each case gets its own wall-clock
-// budget, so the ceiling has to scale with the number of cases: a fixed
-// per-submission cap silently cancels the tail of a large test set and reports
-// those cases as runtime errors, which reads to a competitor as a wrong answer
-// on a solution that was merely slow.
-//
-// Callers that hold a lease on the submission must renew it against this same
-// figure -- see Judge.processNext.
+// batchTimeout scales with the case count. A fixed per-submission cap cancels
+// the tail of a large test set and reports those cases as runtime errors.
 func batchTimeout(compile, wall time.Duration, cases int) time.Duration {
 	if cases < 1 {
 		cases = 1
 	}
-	// Each case may take its wall limit plus sandboxGrace, and a second more for
-	// isolate's own setup, teardown, and the box recycle between cases.
 	perCase := wall + sandboxGrace + time.Second
 	return compile + sandboxGrace + time.Duration(cases)*perCase + 10*time.Second
 }
 
-// BatchTimeout is batchTimeout resolved against this runner's configured
-// defaults, for callers sizing a lease or a request deadline.
 func (r *Runner) BatchTimeout(cases int) time.Duration {
 	return batchTimeout(r.cfg.CompileTimeout, r.cfg.WallTimeout, cases)
 }
@@ -210,7 +215,6 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 			}, nil
 		}
 
-		// Hand the program a box whose counters are not still carrying g++.
 		if err := r.resetBox(execCtx, slot.BoxID); err != nil {
 			return Result{}, err
 		}
@@ -351,10 +355,8 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		return BatchResult{}, fmt.Errorf("writing source: %w", err)
 	}
 
-	// Every input is materialised before a single line of submitted code runs.
-	// Writing them inside the loop let case 1 plant a symlink at in_2.txt and
-	// steer the host's write anywhere on disk; there is no window for that if
-	// the files already exist when the program first executes.
+	// Written before any submitted code runs, so a case cannot plant a symlink
+	// at a later case's input path and steer the host's write.
 	inputPaths := make(map[int]string, len(req.Cases))
 	for _, c := range req.Cases {
 		name := fmt.Sprintf("in_%d.txt", c.Ordinal)
@@ -393,8 +395,6 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		}
 	}
 
-	// Snapshotted after the compile and before any submitted code runs, so the
-	// guard's idea of a clean workspace is the compiler's output alone.
 	inputNames := make(map[string]bool, len(inputPaths))
 	for _, name := range inputPaths {
 		inputNames[name] = true
@@ -418,16 +418,12 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		stepName := fmt.Sprintf("run_%d", c.Ordinal)
 		inFilename := inputPaths[c.Ordinal]
 
-		// Undo whatever the previous case left behind: files it stashed to
-		// carry work forward, symlinks aimed at this case's output names, and
-		// any tampering with its own binary.
+		// Undo anything the previous case left behind: stashed state, symlinks
+		// aimed at this case's output names, or a tampered binary.
 		if err := guard.restore(); err != nil {
 			return BatchResult{}, err
 		}
 
-		// Every case starts from clean counters, so its reported memory is its
-		// own rather than the running maximum of the compile and its
-		// predecessors.
 		if err := r.resetBox(execCtx, slot.BoxID); err != nil {
 			return BatchResult{}, err
 		}
@@ -447,9 +443,7 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 
 		var verdict Verdict = VerdictAC
 		if err != nil {
-			// The sandbox itself failed, which says nothing about the
-			// submission -- reporting it as a runtime error would blame the
-			// competitor's code for the judge's problem.
+			// A judge-side failure, not the submission's fault.
 			verdict = VerdictIE
 		} else {
 			verdict = m.verdict(reqMemKB + sp.memoryBonusKB)
@@ -553,11 +547,9 @@ func (r *Runner) execBox(
 	runErr := exec.CommandContext(ctx, execCmd, execArgs...).Run()
 
 	// isolate exits non-zero whenever the sandboxed program does, so runErr is
-	// the normal outcome for every TLE, crash, and non-zero exit -- not a sign
-	// that pinning failed. Retrying on it re-executes the program and
-	// overwrites the meta file that recorded the real verdict, which is how a
-	// timed-out run came back as accepted. Only a run that recorded nothing at
-	// all means taskset never managed to exec isolate.
+	// normal for every TLE and crash. Retrying on it re-runs the program and
+	// overwrites the meta file holding the real verdict; only a run that
+	// recorded nothing means taskset never managed to exec isolate.
 	if runErr != nil && execCmd == "taskset" && !metaWritten(metaPath) {
 		execCmd = r.cfg.IsolateBin
 		execArgs = args
@@ -566,12 +558,9 @@ func (r *Runner) execBox(
 
 	m, err := parseMeta(metaPath)
 	if err != nil {
-		// isolate was found and executed, so its meta file is the only account
-		// of what happened. Re-running the program outside the sandbox to
-		// recover would execute untrusted code on the host with no memory,
-		// process, filesystem, or network confinement -- the fallback below is
-		// strictly for hosts where isolate is not installed at all, which the
-		// LookPath check above has already ruled out here.
+		// isolate ran, so its meta is the only account of what happened. Falling
+		// back here would execute untrusted code outside the sandbox; that path
+		// is only for hosts without isolate, ruled out by LookPath above.
 		return meta{}, fmt.Errorf("sandbox wrote no usable meta for step %q (isolate: %v): %w", step, runErr, err)
 	}
 	if m.status == statusInternal {
@@ -642,15 +631,9 @@ func (r *Runner) execDirectFallback(
 	}, nil
 }
 
-// resetBox recycles a box between steps that share it.
-//
-// isolate reports cg-mem as the box cgroup's high-water mark and never clears
-// it between --run invocations, so without this every test case inherits the
-// peak of the compile and of every case before it: a 3 MB program reports the
-// 50 MB g++ used, and one heavy case pins the figure for the rest of the
-// submission. Since the workspace is bind-mounted from the host, the compiled
-// binary and the inputs survive the recycle -- only the cgroup counters reset.
-// Measured at ~2-3ms, which is noise next to a compile.
+// resetBox recycles a box between steps. isolate never clears the cgroup's
+// peak memory between runs, so without this every case inherits the high-water
+// mark of the compile and of every case before it.
 func (r *Runner) resetBox(ctx context.Context, boxID int) error {
 	r.cleanupBox(boxID)
 	if _, err := r.initBox(ctx, boxID); err != nil {
