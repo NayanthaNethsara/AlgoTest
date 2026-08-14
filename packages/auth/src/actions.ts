@@ -1,8 +1,9 @@
 "use server";
 
 import { cache } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers as incomingHeaders } from "next/headers";
 import { API_URL, COOKIE_SECURE, SESSION_COOKIE } from "./constants";
+import { clientAddress } from "./client-ip";
 import type { AuthActionResult, LoginCredentials, SessionUser, UserRole } from "./types";
 
 export async function authenticateUser(
@@ -16,9 +17,19 @@ export async function authenticateUser(
   }
 
   try {
+    const headers = new Headers({ "Content-Type": "application/json" });
+
+    // Forward who is actually logging in. The API rate-limits login per IP, and
+    // the direct peer here is this server -- so without this every contestant in
+    // the hall shares one bucket and the tenth login of the minute is rejected.
+    const forwardedFor = clientAddress(await incomingHeaders());
+    if (forwardedFor) {
+      headers.set("X-Forwarded-For", forwardedFor);
+    }
+
     const response = await fetch(`${API_URL}/api/v1/auth/login`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ username, password }),
       cache: "no-store",
     });

@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies, headers as incomingHeaders } from "next/headers";
+import { clientAddress } from "@mini-algothon/auth";
 import { API_URL, SESSION_COOKIE } from "@/lib/auth/constants";
 import {
   CLIENT_HEADER,
@@ -38,6 +39,7 @@ export async function backendFetch(
   if (forwardedFor) {
     headers.set("X-Forwarded-For", forwardedFor);
   }
+
   const userAgent = requestHeaders.get("user-agent");
   if (userAgent) {
     headers.set("User-Agent", userAgent);
@@ -46,11 +48,3 @@ export async function backendFetch(
   return fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
 }
 
-function clientAddress(requestHeaders: Headers): string {
-  const forwarded = requestHeaders.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  return requestHeaders.get("x-real-ip")?.trim() ?? "";
-}

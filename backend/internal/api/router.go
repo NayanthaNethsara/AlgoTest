@@ -160,7 +160,8 @@ func NewRouter(
 		v1.GET("/telemetry/self", h.requireUser,
 			rateLimitMiddleware(proctorSelfLimiter, userIDKeyFunc), h.getProctorSelfStatus)
 
-		admin := v1.Group("/admin", h.requireUser, h.requireAdmin)
+		admin := v1.Group("/admin", h.requireUser, h.requireAdmin,
+			rateLimitMiddleware(adminLimiter, userIDKeyFunc))
 		{
 			admin.GET("/users", h.listUsers)
 			admin.POST("/users", h.createUser)

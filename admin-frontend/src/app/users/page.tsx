@@ -23,7 +23,7 @@ export default function UsersPage() {
     setError(null);
     try {
       const user = await getSessionUserAction();
-      if (!user) {
+      if (!user || user.role !== "admin") {
         router.push("/login");
         return;
       }
