@@ -1,0 +1,19 @@
+# TLS overlay for docker-compose.venue.yml. Needs fullchain.pem and privkey.pem in
+# ./certs and server_name set in backend/deploy/venue-tls.conf.
+#
+#   make venue-tls
+#
+# Without this the session token travels in cleartext, which on WiFi with one
+# shared password means any contestant who captures a handshake can read it.
+
+services:
+  frontend:
+    environment:
+      COOKIE_SECURE: "true"
+
+  nginx:
+    ports:
+      - "443:443"
+    volumes:
+      - ./backend/deploy/venue-tls.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro

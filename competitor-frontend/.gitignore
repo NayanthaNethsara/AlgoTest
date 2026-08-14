@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# monaco bundle, copied out of node_modules by scripts/sync-monaco.mjs
+/public/monaco/
+
 # production
 /build
 

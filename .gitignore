@@ -10,3 +10,8 @@ backend/bin/
 node_modules/
 .next/
 next-env.d.ts
+
+# TLS material for docker-compose.venue.yml
+certs/
+letsencrypt/
+secrets/

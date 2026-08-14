@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate admin backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test
+.PHONY: install db-up db-down db-logs db-reset migrate admin backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test venue venue-tls venue-down venue-logs
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -80,6 +80,36 @@ desktop-reset:
 	cd competitor-desktop/src-tauri && cargo run --quiet --bin app -- --reset
 
 frontend: competitor-frontend
+
+# --- Contest LAN ---
+
+# Portal in Docker on this machine, backend wherever API_URL points, served to the
+# network on port 80. Builds the image on first run and after any code change.
+#   make venue API_URL=http://35.192.22.76
+VENUE = docker compose -f docker-compose.venue.yml
+VENUE_TLS = $(VENUE) -f docker-compose.venue-tls.yml
+
+# Only when set: exporting an unset variable passes it as empty, and compose gives
+# the shell precedence over .env, so a blanket export would shadow the .env file.
+ifdef API_URL
+export API_URL
+endif
+
+LAN_IP = $$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $$1}')
+
+venue:
+	@echo "Contestants: http://$(LAN_IP)"
+	$(VENUE) up --build
+
+# Needs ./certs and server_name in backend/deploy/venue-tls.conf.
+venue-tls:
+	$(VENUE_TLS) up --build
+
+venue-down:
+	$(VENUE) down
+
+venue-logs:
+	$(VENUE) logs -f
 
 # Runs backend + competitor-frontend together in one terminal (Ctrl-C stops both).
 dev:

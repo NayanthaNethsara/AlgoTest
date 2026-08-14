@@ -1,0 +1,46 @@
+# Portal on this machine, backend wherever API_URL points, served to the contest
+# LAN on port 80. Settings come from .env -- see .env.example. `make venue` wraps
+# this; `make venue-tls` adds docker-compose.venue-tls.yml on top.
+#
+# nginx is not optional: the portal opens the live submission feed at the relative
+# path /api/v1/submissions/stream, so publishing the Next container alone gives a
+# working portal whose results never arrive.
+
+# Its own project, so `down` here never touches the dev stack in docker-compose.yml.
+name: algothon-venue
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: competitor-frontend/Dockerfile
+    container_name: algothon-frontend
+    restart: unless-stopped
+    environment:
+      API_URL: ${API_URL:?set it in .env (see .env.example) or pass it to make venue}
+      # Browsers do not store a Secure cookie from an insecure origin, so over
+      # plain HTTP this must stay false or nobody can log in.
+      COOKIE_SECURE: "false"
+    expose:
+      - "3000"
+    # nginx resolves `frontend` once, at startup, and refuses to boot if the name
+    # is not there yet.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: algothon-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./backend/deploy/venue.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./backend/deploy/venue-locations.conf:/etc/nginx/venue-locations.conf:ro
+    depends_on:
+      frontend:
+        condition: service_healthy

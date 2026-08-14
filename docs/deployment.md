@@ -285,6 +285,117 @@ deploy.
 
 ---
 
+## Variant: portal on the contest LAN, backend on GCP
+
+For a hall where only one machine has internet. Contestants reach a local box;
+it reaches GCP. Everything above still applies to the VM, minus the frontend
+container in Step 9.
+
+```
+   contestant LAN (no internet)        venue uplink        GCP VM
+     browser --> nginx :80 --+-- /api/ ------------------> backend :8080
+                             `-- /     --> Next :3000
+                                          (local, SSR)
+```
+
+This works because every backend call the portal makes runs on the server
+(`lib/api/server.ts` and the `"use server"` actions), so the browser never needs
+to route to GCP. The two exceptions are handled by the shared origin: the live
+submission feed, which the browser opens at the relative path
+`/api/v1/submissions/stream`, and the desktop agent's `/api/v1/agent/*` calls.
+
+On the venue machine, `docker-compose.venue.yml` runs the portal and the proxy
+together. Set the `contest_api` upstream in `backend/deploy/venue.conf` first,
+then:
+
+```sh
+cp .env.example .env        # set API_URL to the same address as the upstream
+make venue                  # builds the image, then serves on :80
+make venue-logs
+make venue-down
+```
+
+Compose reads `.env` on its own. Anything in the shell or on the make command
+line overrides it, so `make venue API_URL=http://other-host` works for a one-off
+without editing the file.
+
+Only nginx publishes a port; the portal is reachable through it and nowhere else.
+`make venue` prints the LAN address to hand to contestants.
+
+The first build installs dependencies and runs `next build` inside the image, so
+expect a few minutes; later runs reuse the layer cache unless the frontend
+changed.
+
+### TLS on the LAN
+
+Without it `COOKIE_SECURE` has to stay `false`, and the session token — good for
+`SESSION_TTL_HOURS` and accepted as a bearer token, with no IP binding — travels
+in cleartext. On WiFi with one shared password that is readable by any contestant
+who captures a handshake. Worth avoiding, especially for admin logins.
+
+A private-IP A record is fine: the DNS-01 challenge proves the name over a TXT
+record and needs no inbound reachability. Do this while you still have internet.
+
+```sh
+mkdir -p secrets certs
+printf 'dns_cloudflare_api_token = %s\n' "$CF_TOKEN" > secrets/cloudflare.ini
+chmod 600 secrets/cloudflare.ini
+
+docker run --rm -it \
+  -v "$PWD/letsencrypt:/etc/letsencrypt" -v "$PWD/secrets:/secrets:ro" \
+  certbot/dns-cloudflare certonly \
+    --dns-cloudflare --dns-cloudflare-credentials /secrets/cloudflare.ini \
+    -d contest.example.com --agree-tos -m you@example.com --no-eff-email
+
+cp letsencrypt/live/contest.example.com/{fullchain,privkey}.pem certs/
+```
+
+Point `contest.example.com` at the venue machine's LAN IP — either a public A
+record (Cloudflare needs proxying off; some registrars reject RFC1918) or a
+mapping on the router handed out over DHCP. The router is the more reliable of
+the two in a hall with no internet.
+
+Set `server_name` in `backend/deploy/venue-tls.conf`, then:
+
+```sh
+make venue-tls
+```
+
+That overlays `docker-compose.venue-tls.yml`, which mounts `./certs`, publishes
+443, and sets `COOKIE_SECURE=true`.
+
+This secures the contestant-to-venue hop. Venue-to-backend is separate and still
+plain HTTP — it is governed by the `contest_api` upstream and the `proxy_pass`
+scheme in `venue-locations.conf`, plus `API_URL` for the portal's own server-side
+calls. Do Step 8 on the VM, then switch all three together; the header comment in
+`venue-locations.conf` has the exact directives.
+
+Certificates last 90 days and renewing needs internet plus DNS access, so reissue
+before the event rather than during it. Avoid self-signed certificates and
+mkcert: they mean installing a CA on every contestant machine, and teaching
+contestants to click through certificate warnings costs more than it saves.
+
+Build the desktop client against the local box, not GCP, or the loopback agent
+answers an Origin no contestant is browsing and attestation fails on every
+machine. Scheme and host must match what contestants actually type:
+
+```sh
+MINIALGOTHON_SERVER_URL=https://contest.example.com \
+MINIALGOTHON_API_URL=https://contest.example.com \
+  cargo tauri build
+```
+
+On the VM, add the venue's egress IP to `TRUSTED_PROXIES` (otherwise every
+contestant's IP reads as that one address) and `http://contest.local` to
+`ALLOWED_ORIGINS`. Restrict the firewall from Step 2 to that egress IP.
+
+The uplink is now a contest-wide single point of failure, and every page
+navigation is an SSR round trip across it. The whole stack runs under
+`docker compose` locally, so keep it staged on the venue machine as a fallback:
+recovery is `API_URL` plus the nginx upstream.
+
+---
+
 ## Upgrading
 
 ```sh

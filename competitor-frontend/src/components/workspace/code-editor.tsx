@@ -1,7 +1,9 @@
 "use client";
 
-import Editor, { type Monaco } from "@monaco-editor/react";
+import Editor, { loader, type Monaco } from "@monaco-editor/react";
 import { useChallengeTheme } from "@/components/providers/challenge-theme-provider";
+
+loader.config({ paths: { vs: "/monaco/vs" } });
 
 type CodeEditorProps = {
   language: string;
@@ -98,7 +100,8 @@ function defineTheme(monaco: Monaco) {
 
 export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
   const { mode } = useChallengeTheme();
-  const editorTheme = mode === "light" ? "vs" : mode === "dark" ? "vs-dark" : "mini-pixel";
+  const editorTheme =
+    mode === "light" ? "vs" : mode === "dark" ? "vs-dark" : "mini-pixel";
 
   return (
     <Editor
