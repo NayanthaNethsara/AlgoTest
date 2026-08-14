@@ -3,7 +3,7 @@
 # server. From the host, use the root Makefile -- it wraps each of these in
 # `docker compose run`.
 
-.PHONY: run build test tidy fmt vet generate db-up db-down db-logs db-reset migrate user
+.PHONY: run build test tidy fmt vet generate db-up db-down db-logs db-reset migrate admin
 
 # Regenerate type-safe query code from internal/db/queries/*.sql.
 # Requires sqlc (https://sqlc.dev): brew install sqlc  OR  go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
@@ -26,9 +26,6 @@ db-reset:
 
 # --- App ---
 
-migrate:
-	go run ./cmd/migrate
-
 run:
 	go run ./cmd/server
 
@@ -42,10 +39,13 @@ build:
 	go build -o bin/usertool ./cmd/usertool
 	go build -o bin/migrate ./cmd/migrate
 
-# Create/import users, e.g.:
-#   make user ARGS='-username alice -role admin'
-#   make user ARGS='-file competitors.csv'
-user:
+# The server applies migrations on boot; this applies them without starting it.
+migrate:
+	go run ./cmd/migrate
+
+# Bootstraps the first admin. Everything else is managed through the admin UI.
+#   make admin ARGS='-username alice -name "Alice"'
+admin:
 	go run ./cmd/usertool $(ARGS)
 
 test:

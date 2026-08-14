@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+bin/
+tmp/
+*_test.go
+deploy/
+Dockerfile*

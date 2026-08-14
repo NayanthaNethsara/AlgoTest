@@ -8,7 +8,7 @@ Algorithm challenge platform. Go (Gin) API with an in-process judge worker and i
 
 ```
 backend/             Go API + judge worker + isolate sandbox execution
-  cmd/               CLI tools (server, migrate, usertool, problemtool, judgetest)
+  cmd/               server, migrate, usertool (first admin), judgetest + proctorsim (harnesses)
   internal/api/      HTTP routes and handlers (Gin framework)
   internal/auth/     Password hashing and authentication logic
   internal/config/   Environment configuration
@@ -20,7 +20,6 @@ backend/             Go API + judge worker + isolate sandbox execution
 competitor-frontend/ Next.js web application for competitors (port 3000)
 admin-frontend/      Next.js web application for administrators (port 3001)
 docs/                Documentation and system architecture guides
-problems/            Problem definitions and testcase directories
 ```
 
 ---
@@ -52,14 +51,18 @@ cp competitor-frontend/.env.example competitor-frontend/.env.local
 ```sh
 make install
 make db-up
-make migrate
 ```
 
-### 3. Seed Accounts
+The server applies migrations on boot. To apply them without starting it, run
+`make migrate`.
+
+### 3. Seed the First Admin
 
 ```sh
-make user ARGS='-username admin -role admin -password adminpass'
+make admin ARGS='-username admin -password adminpass'
 ```
+
+Everyone else is created from the admin frontend.
 
 ### 4. Run Services
 

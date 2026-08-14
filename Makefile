@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate user backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test
+.PHONY: install db-up db-down db-logs db-reset migrate admin backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -32,13 +32,13 @@ db-reset:
 	docker compose down -v
 	docker compose up -d postgres
 
+# The server applies migrations on boot; this applies them without starting it.
 migrate:
 	$(GO) go run ./cmd/migrate
 
-# Create/import users, e.g.:
-#   make user ARGS='-username alice -role admin'
-#   make user ARGS='-file competitors.csv'
-user:
+# Bootstraps the first admin. Everything else is managed through the admin UI.
+#   make admin ARGS='-username alice -name "Alice"'
+admin:
 	$(GO) go run ./cmd/usertool $(ARGS)
 
 # --- App (run each in its own terminal) ---

@@ -59,29 +59,21 @@ Start the PostgreSQL database service:
 make db-up
 ```
 
-### Step 3: Run Database Migrations
+### Step 3: Seed the First Administrator
 
-Apply database schema migrations:
+The server applies migrations on boot, so there is no separate step; `make
+migrate` applies them without starting it (deploys, CI, after a restore).
 
-```sh
-make migrate
-```
-
-### Step 4: Seed Administrator Account
-
-Create an initial administrator user account:
+The admin API requires an admin to authenticate, so the first one is created
+directly:
 
 ```sh
-make user ARGS='-username admin -name "System Admin" -role admin -password adminpass'
+make admin ARGS='-username admin -name "System Admin" -password adminpass'
 ```
 
-Create a competitor user account:
+Competitors, teams and further admins are created from the admin frontend.
 
-```sh
-make user ARGS='-username competitor1 -name "Competitor One" -role competitor -password userpass'
-```
-
-### Step 5: Start Applications
+### Step 4: Start Applications
 
 #### Option A: Start All Services Together
 To launch both the backend container and competitor frontend concurrently:
@@ -127,7 +119,7 @@ Verify that the system services are functioning correctly:
    make test
    ```
 
-3. **Run Judge Load & Sandbox Test:**
+3. **Run Judge Load & Sandbox Test** (any account, created in the admin console):
    ```sh
    make judgetest ARGS='-username competitor1 -password userpass -burst 10'
    ```
@@ -191,34 +183,23 @@ and their personal grant, so opening one for everyone never narrows someone who 
 
 ## Helper CLI Tools
 
-### User Management (`usertool`)
+### First Admin (`usertool`)
 
-Create single users or bulk import accounts from a CSV file:
+The admin API requires an admin to authenticate, so the first one is created
+directly:
 
-- **Create single user:**
-  ```sh
-  make user ARGS='-username alice -name "Alice" -role competitor'
-  ```
+```sh
+make admin ARGS='-username alice -name "Alice"'
+```
 
-- **Bulk import users from CSV:**
-  ```sh
-  make user ARGS='-file competitors.csv'
-  ```
-  *(CSV format: `username,display_name,password`)*
+The generated password is printed once. Every other account -- competitors,
+teams, bulk imports, further admins -- is managed in the admin frontend.
 
-### Problem Management (`problemtool`)
+### Problems
 
-Import or manage problems stored in directory structures:
-
-- **List problems in database:**
-  ```sh
-  docker compose run --rm backend go run ./cmd/problemtool -list
-  ```
-
-- **Import problem directory:**
-  ```sh
-  docker compose run --rm backend go run ./cmd/problemtool -dir ./problems/two-sum -publish
-  ```
+Problems and their test cases are managed in the admin frontend. Test points
+default to an even split of the problem's max score, so a 100-point problem with
+four tests is worth 25 each; set points explicitly for weighted subtasks.
 
 ---
 
@@ -230,3 +211,4 @@ Import or manage problems stored in directory structures:
 | `make db-down` | Stops PostgreSQL container |
 | `make db-logs` | Streams live logs from PostgreSQL |
 | `make db-reset` | Wipes database volume data and re-initializes clean schema |
+| `make migrate` | Applies pending migrations without starting the server |

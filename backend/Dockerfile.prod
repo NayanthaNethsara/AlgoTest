@@ -1,0 +1,53 @@
+# Production image for the backend: the server binary plus the isolate sandbox
+# and the language toolchains submissions run against.
+#
+# Unlike the dev Dockerfile this carries no Go toolchain and no source. It still
+# needs --privileged to run: isolate creates cgroups and switches UIDs, which a
+# container manager will not delegate otherwise. See docs/deployment.md.
+
+FROM golang:1.25-bookworm AS build
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/algothon-server ./cmd/server \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/algothon-usertool ./cmd/usertool
+
+FROM ubuntu:24.04
+
+ARG ISOLATE_REF=v2.1
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Toolchains must match what runner's specs invoke: g++ for cpp, python3 for
+# python, node for js. Java is not a supported language, so no JDK.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates git make pkg-config \
+        libcap-dev libseccomp-dev libsystemd-dev \
+        g++-13 python3.12 nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 \
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 100
+
+RUN git clone --depth 1 --branch ${ISOLATE_REF} https://github.com/ioi/isolate /tmp/isolate \
+    && make -C /tmp/isolate isolate \
+    && make -C /tmp/isolate install \
+    && rm -rf /tmp/isolate
+
+# Parsing <bits/stdc++.h> is the bulk of a C++ compile: 510ms without this, 110ms
+# with. Flags must match runner's compileCmd or g++ ignores the .gch.
+RUN find /usr/include -path '*/c++/*/bits/stdc++.h' | while read -r header; do \
+        g++ -O2 -std=c++17 -x c++-header "${header}" -o "${header}.gch"; \
+    done
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+COPY --from=build /out/algothon-server /usr/local/bin/algothon-server
+COPY --from=build /out/algothon-usertool /usr/local/bin/algothon-usertool
+
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["algothon-server"]

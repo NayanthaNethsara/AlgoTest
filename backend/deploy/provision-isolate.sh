@@ -4,8 +4,8 @@
 #
 # The runner executes untrusted code with isolate (https://github.com/ioi/isolate)
 # rather than one Docker container per request, so the language toolchains live
-# on the host instead of in per-language images. Toolchain versions here match
-# what the retired judge images pinned: g++ 13, JDK 21, Python 3.12.
+# on the host instead of in per-language images. These must match what runner's
+# specs invoke: g++ for cpp, python3 for python, node for js.
 #
 # Target: Ubuntu 24.04 with cgroup v2. Run as root.
 #
@@ -36,8 +36,8 @@ apt-get update
 apt-get install -y --no-install-recommends \
     git make pkg-config libcap-dev libseccomp-dev libsystemd-dev asciidoc-base \
     g++-13 \
-    openjdk-21-jdk-headless \
-    python3.12
+    python3.12 \
+    nodejs
 
 # The sandbox resolves bare command names against its own PATH, so the
 # versioned binaries need stable names.
