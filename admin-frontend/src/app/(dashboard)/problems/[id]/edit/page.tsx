@@ -2,15 +2,20 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { getProblemDetailAction, updateProblemAction } from "@/lib/actions/problems";
+import {
+  getProblemDetailAction,
+  getProblemTestsAction,
+  updateProblemAction,
+} from "@/lib/actions/problems";
 import { ProblemEditor } from "@/components/problem-editor";
-import type { ProblemDetail, ProblemInput } from "@/types/problem";
+import type { ProblemDetail, ProblemInput, TestCaseInput } from "@/types/problem";
 
 export default function EditProblemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
 
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
+  const [tests, setTests] = useState<TestCaseInput[]>([]);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +24,12 @@ export default function EditProblemPage({ params }: { params: Promise<{ id: stri
     async function load() {
       setLoading(true);
       try {
-        const data = await getProblemDetailAction(id);
-        setProblem(data);
+        const [problemData, testsData] = await Promise.all([
+          getProblemDetailAction(id),
+          getProblemTestsAction(id).catch(() => []),
+        ]);
+        setProblem(problemData);
+        setTests(testsData || []);
       } catch (err: unknown) {
         if (err instanceof Error) setError(err.message);
         else setError("Failed to load problem.");
@@ -63,5 +72,12 @@ export default function EditProblemPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  return <ProblemEditor initialData={problem} onSave={handleSave} pending={pending} />;
+  return (
+    <ProblemEditor
+      initialData={problem}
+      initialTests={tests}
+      onSave={handleSave}
+      pending={pending}
+    />
+  );
 }

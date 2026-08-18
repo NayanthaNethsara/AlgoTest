@@ -2,13 +2,32 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 )
+
+const minEvaluationTestCases = 5
+
+func validateTestsAgainstSamples(samples []problem.SampleInput, tests []testCaseDTO) error {
+	for _, t := range tests {
+		tInput := strings.TrimSpace(t.Input)
+		tExpected := strings.TrimSpace(t.Expected)
+		for _, s := range samples {
+			sInput := strings.TrimSpace(s.Input)
+			sOutput := strings.TrimSpace(s.Output)
+			if tInput == sInput && tExpected == sOutput {
+				return fmt.Errorf("evaluation test case %d is identical to sample %d; evaluation test cases must be distinct from public samples", t.Ordinal, s.Ordinal)
+			}
+		}
+	}
+	return nil
+}
 
 // @Summary List Published Problems
 // @Description Fetch list of published contest problems for competitors.
@@ -120,10 +139,11 @@ type problemPayload struct {
 	MaxScore      int32                 `json:"maxScore"`
 	Published     bool                  `json:"published"`
 	Samples       []problem.SampleInput `json:"samples"`
+	Tests         []testCaseDTO         `json:"tests"`
 }
 
 // @Summary Admin Create Problem
-// @Description Create a new contest problem with metadata and sample test cases.
+// @Description Create a new contest problem with metadata, sample test cases, and optional evaluation test cases.
 // @Tags Admin
 // @Accept json
 // @Produce json
@@ -138,6 +158,18 @@ func (h *handler) createProblem(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	if req.Published && len(req.Tests) < minEvaluationTestCases {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "published problems require at least 5 evaluation test cases"})
+		return
+	}
+
+	if len(req.Tests) > 0 {
+		if err := validateTestsAgainstSamples(req.Samples, req.Tests); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	created, err := h.problems.Create(c.Request.Context(), problem.CreateProblemInput{
@@ -161,11 +193,28 @@ func (h *handler) createProblem(c *gin.Context) {
 		return
 	}
 
+	if len(req.Tests) > 0 {
+		inputs := make([]problem.TestInput, len(req.Tests))
+		for i, t := range req.Tests {
+			inputs[i] = problem.TestInput{
+				Ordinal:  t.Ordinal,
+				Input:    []byte(t.Input),
+				Expected: []byte(t.Expected),
+				Points:   t.Points,
+			}
+		}
+		if err := h.problems.ReplaceTests(c.Request.Context(), created.ID, inputs); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save evaluation test cases"})
+			return
+		}
+		h.judge.InvalidateTests(created.ID)
+	}
+
 	c.JSON(http.StatusCreated, gin.H{"problem": created})
 }
 
 // @Summary Admin Update Problem
-// @Description Update existing problem statement, limits, and sample testcases.
+// @Description Update existing problem statement, limits, sample testcases, and optional evaluation test cases.
 // @Tags Admin
 // @Accept json
 // @Produce json
@@ -181,6 +230,17 @@ func (h *handler) updateProblem(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	if req.Tests != nil {
+		if req.Published && len(req.Tests) < minEvaluationTestCases {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "published problems require at least 5 evaluation test cases"})
+			return
+		}
+		if err := validateTestsAgainstSamples(req.Samples, req.Tests); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	updated, err := h.problems.Update(c.Request.Context(), id, problem.CreateProblemInput{
@@ -202,6 +262,23 @@ func (h *handler) updateProblem(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update problem"})
 		return
+	}
+
+	if req.Tests != nil {
+		inputs := make([]problem.TestInput, len(req.Tests))
+		for i, t := range req.Tests {
+			inputs[i] = problem.TestInput{
+				Ordinal:  t.Ordinal,
+				Input:    []byte(t.Input),
+				Expected: []byte(t.Expected),
+				Points:   t.Points,
+			}
+		}
+		if err := h.problems.ReplaceTests(c.Request.Context(), id, inputs); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save evaluation test cases"})
+			return
+		}
+		h.judge.InvalidateTests(id)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"problem": updated})
@@ -231,8 +308,8 @@ func (h *handler) setProblemPublished(c *gin.Context) {
 
 	if req.Published {
 		tests, err := h.judge.Repo().GetProblemTests(c.Request.Context(), id)
-		if err != nil || len(tests) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "cannot publish problem with zero test cases"})
+		if err != nil || len(tests) < minEvaluationTestCases {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("cannot publish problem with fewer than %d evaluation test cases", minEvaluationTestCases)})
 			return
 		}
 	}
@@ -297,6 +374,22 @@ func (h *handler) replaceTestCases(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	detail, err := h.problems.GetByID(c.Request.Context(), id, false)
+	if err == nil {
+		sampleInputs := make([]problem.SampleInput, len(detail.Samples))
+		for i, s := range detail.Samples {
+			sampleInputs[i] = problem.SampleInput{
+				Ordinal: s.Ordinal,
+				Input:   s.Input,
+				Output:  s.Output,
+			}
+		}
+		if valErr := validateTestsAgainstSamples(sampleInputs, req.Tests); valErr != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": valErr.Error()})
+			return
+		}
 	}
 
 	inputs := make([]problem.TestInput, len(req.Tests))

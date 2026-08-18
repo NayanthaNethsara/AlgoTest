@@ -47,6 +47,7 @@ export type ProblemInput = {
   maxScore: number;
   published: boolean;
   samples: Sample[];
+  tests?: TestCaseInput[];
 };
 
 export type TestCaseInput = {
