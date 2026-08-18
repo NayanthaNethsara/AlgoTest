@@ -24,22 +24,27 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
   const isMonitoringActive = pathname.startsWith("/monitoring");
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-card px-6 py-3 shadow-sm">
+    <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-card/90 backdrop-blur-md px-6 py-2.5 shadow-xs">
       <div className="flex items-center gap-6">
-        <div>
-          <h1 className="text-base font-bold tracking-tight">MiniAlgothon Console</h1>
-          <p className="text-[11px] text-muted-foreground">
-            <span className="font-semibold text-foreground">{user.displayName || user.username}</span> ({user.role})
+        <Link href="/" className="flex flex-col transition-opacity hover:opacity-90">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold tracking-tight">MiniAlgothon</span>
+            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-wider">
+              Admin
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-tight">
+            <span className="font-medium text-foreground">{user.displayName || user.username}</span>
           </p>
-        </div>
+        </Link>
 
-        <nav className="flex items-center gap-1 border-l pl-6">
+        <nav className="flex items-center gap-1 border-l pl-5">
           <Link
             href="/"
             className={buttonVariants({
               variant: isProblemsActive ? "default" : "ghost",
               size: "sm",
-              className: "gap-1.5 text-xs h-8",
+              className: "gap-1.5 text-xs h-8 font-medium transition-all",
             })}
           >
             <FileCode2 className="h-3.5 w-3.5" /> Problems
@@ -50,10 +55,10 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
             className={buttonVariants({
               variant: isUsersActive ? "default" : "ghost",
               size: "sm",
-              className: "gap-1.5 text-xs h-8",
+              className: "gap-1.5 text-xs h-8 font-medium transition-all",
             })}
           >
-            <Users className="h-3.5 w-3.5" /> User Management
+            <Users className="h-3.5 w-3.5" /> Users
           </Link>
 
           <Link
@@ -61,7 +66,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
             className={buttonVariants({
               variant: isTeamsActive ? "default" : "ghost",
               size: "sm",
-              className: "gap-1.5 text-xs h-8",
+              className: "gap-1.5 text-xs h-8 font-medium transition-all",
             })}
           >
             <Users2 className="h-3.5 w-3.5" /> Teams
@@ -72,7 +77,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
             className={buttonVariants({
               variant: isSubmissionsActive ? "default" : "ghost",
               size: "sm",
-              className: "gap-1.5 text-xs h-8",
+              className: "gap-1.5 text-xs h-8 font-medium transition-all",
             })}
           >
             <History className="h-3.5 w-3.5" /> Submissions & Judge
@@ -83,7 +88,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
             className={buttonVariants({
               variant: isMonitoringActive ? "default" : "ghost",
               size: "sm",
-              className: "gap-1.5 text-xs h-8",
+              className: "gap-1.5 text-xs h-8 font-medium transition-all",
             })}
           >
             <Activity className="h-3.5 w-3.5" /> Onsite Monitoring
@@ -91,7 +96,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
         </nav>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         {onRefresh && (
           <Button variant="outline" size="sm" onClick={onRefresh} className="h-8 gap-1.5 text-xs">
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
@@ -102,7 +107,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
           variant="outline"
           size="sm"
           onClick={handleLogout}
-          className="h-8 gap-1.5 text-xs text-destructive hover:bg-destructive/10"
+          className="h-8 gap-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-border"
         >
           <LogOut className="h-3.5 w-3.5" /> Logout
         </Button>
