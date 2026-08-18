@@ -1,24 +1,6 @@
 name: algothon-prod
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: algothon-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-algothon}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-algothon_secure_password}
-      POSTGRES_DB: ${POSTGRES_DB:-algothon}
-    volumes:
-      - algothon-pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-algothon} -d ${POSTGRES_DB:-algothon}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - algothon-net
-
   backend:
     image: ghcr.io/nayanthanethsara/algotest/backend:latest
     container_name: algothon-backend
@@ -28,9 +10,6 @@ services:
       - ./backend/.env
     volumes:
       - /var/local/lib/algothon-work:/var/local/lib/algothon-work
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
       - algothon-net
 
@@ -53,7 +32,3 @@ services:
 networks:
   algothon-net:
     driver: bridge
-
-volumes:
-  algothon-pgdata:
-    name: algothon-pgdata
