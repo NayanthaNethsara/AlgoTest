@@ -20,7 +20,7 @@ services:
       - algothon-net
 
   backend:
-    image: ghcr.io/${GHCR_IMAGE:-nayanthanethsara/mini-algothon/backend}:latest
+    image: ghcr.io/nayanthanethsara/algotest/backend:latest
     container_name: algothon-backend
     privileged: true
     restart: unless-stopped

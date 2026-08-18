@@ -10,7 +10,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/backend
 
 jobs:
   build-and-push:
@@ -44,6 +43,12 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Lowercase Image Name
+        id: image
+        run: |
+          IMAGE_LOWER=$(echo "${{ github.repository }}/backend" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=$IMAGE_LOWER" >> $GITHUB_ENV
 
       - name: Derive Docker Metadata
         id: meta
@@ -87,14 +92,21 @@ jobs:
             git checkout ${{ github.event.inputs.git_ref }}
             git pull origin ${{ github.event.inputs.git_ref }}
 
+            echo "==> Deriving lowercase image name"
+            RAW_IMAGE="${{ github.repository }}/backend"
+            export GHCR_IMAGE=$(echo "$RAW_IMAGE" | tr '[:upper:]' '[:lower:]')
+
             echo "==> Logging into GHCR"
             echo "${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin 2>/dev/null || true
 
             echo "==> Pulling latest backend image"
-            GHCR_IMAGE="${{ env.IMAGE_NAME }}" docker compose -f docker-compose.prod.yml pull backend
+            docker compose -f docker-compose.prod.yml pull backend
 
             echo "==> Starting / Updating services with Docker Compose"
-            GHCR_IMAGE="${{ env.IMAGE_NAME }}" docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "==> Cleaning up dangling old images"
+            docker image prune -f
 
             echo "==> Service Status:"
             docker compose -f docker-compose.prod.yml ps
