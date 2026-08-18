@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Trash2, Edit2, UserPlus, UserMinus, ShieldAlert, Users } from "lucide-react";
+import { Plus, Search, Trash2, Edit2, UserPlus, UserMinus } from "lucide-react";
 import {
   createTeamAction,
   updateTeamAction,
@@ -147,7 +147,14 @@ export function AdminTeams({
           password: newMemberPassword.trim() || undefined,
         });
         if (res.password && res.user) {
-          setCreds((prev) => [{ username: res.user!.username, password: res.password! }, ...prev]);
+          setCreds((prev) => [
+            {
+              username: res.user!.username,
+              password: res.password!,
+              teamName: addMemberTarget.name,
+            },
+            ...prev,
+          ]);
         }
       }
       setAddMemberTarget(null);

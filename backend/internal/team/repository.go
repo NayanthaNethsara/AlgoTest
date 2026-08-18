@@ -6,14 +6,16 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
 var (
-	ErrTeamNotFound = errors.New("team not found")
-	ErrTeamFull     = errors.New("team capacity reached (max 3 members)")
+	ErrTeamNotFound      = errors.New("team not found")
+	ErrTeamFull          = errors.New("team capacity reached (max 3 members)")
+	ErrUserAlreadyInTeam = errors.New("user is already assigned to a team")
 )
 
 type Repository struct {
@@ -76,6 +78,10 @@ func (r *Repository) CreateTeamWithMembers(ctx context.Context, name string, mem
 			&u.TeamID,
 		)
 		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				return nil, nil, user.ErrDuplicateUsername
+			}
 			return nil, nil, fmt.Errorf("create team member %s: %w", m.Username, err)
 		}
 		u.TeamName = &t.Name
@@ -141,6 +147,34 @@ func (r *Repository) AddMember(ctx context.Context, teamID string, userID string
 	}
 	defer tx.Rollback(ctx)
 
+	var teamExists bool
+	checkTeamQuery := `SELECT EXISTS(SELECT 1 FROM teams WHERE id = $1)`
+	if err := tx.QueryRow(ctx, checkTeamQuery, teamID).Scan(&teamExists); err != nil {
+		return fmt.Errorf("check team exists: %w", err)
+	}
+	if !teamExists {
+		return ErrTeamNotFound
+	}
+
+	var currentTeamID *string
+	var role string
+	userQuery := `SELECT role, team_id FROM users WHERE id = $1`
+	if err := tx.QueryRow(ctx, userQuery, userID).Scan(&role, &currentTeamID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return user.ErrNotFound
+		}
+		return fmt.Errorf("check user: %w", err)
+	}
+	if role != user.RoleCompetitor {
+		return errors.New("only competitors can be added to teams")
+	}
+	if currentTeamID != nil {
+		if *currentTeamID == teamID {
+			return nil
+		}
+		return ErrUserAlreadyInTeam
+	}
+
 	var count int
 	countQuery := `SELECT COUNT(*) FROM users WHERE team_id = $1`
 	if err := tx.QueryRow(ctx, countQuery, teamID).Scan(&count); err != nil {
@@ -202,6 +236,10 @@ func (r *Repository) CreateAndAddMember(ctx context.Context, teamID string, m Cr
 		&u.TeamID,
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, user.ErrDuplicateUsername
+		}
 		return nil, fmt.Errorf("create user in team: %w", err)
 	}
 	u.TeamName = &teamName

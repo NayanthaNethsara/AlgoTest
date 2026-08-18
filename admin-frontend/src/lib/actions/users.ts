@@ -36,13 +36,18 @@ export async function createUserAction(
 }
 
 export async function bulkCreateUsersAction(
-  role: string,
-  users: CreateUserInput[]
+  users: CreateUserInput[],
+  defaultTeamId?: string,
+  defaultTeamName?: string
 ): Promise<{ results: BulkResult[] }> {
   try {
     const res = await backendFetch("/api/v1/admin/users/bulk", {
       method: "POST",
-      body: JSON.stringify({ role, users }),
+      body: JSON.stringify({
+        users,
+        teamId: defaultTeamId || undefined,
+        teamName: defaultTeamName || undefined,
+      }),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
