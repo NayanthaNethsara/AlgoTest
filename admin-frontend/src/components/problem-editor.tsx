@@ -2,9 +2,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, Eye, Edit3, Save, Globe } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Eye,
+  Edit3,
+  Save,
+  Globe,
+  Upload,
+  AlertCircle,
+  Cpu,
+  CheckCircle2,
+  HelpCircle,
+  ShieldAlert,
+} from "lucide-react";
 import { Markdown } from "./markdown";
-import type { Difficulty, ProblemDetail, ProblemInput, Sample } from "@/types/problem";
+import type { Difficulty, ProblemDetail, ProblemInput, Sample, TestCaseInput } from "@/types/problem";
 import { STARTER_PROBLEM_TEMPLATE } from "@/lib/templates";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +27,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+const MIN_EVALUATION_TEST_CASES = 5;
+
 type ProblemEditorProps = {
   initialData?: ProblemDetail | null;
+  initialTests?: TestCaseInput[];
   onSave: (input: ProblemInput) => Promise<void>;
   pending: boolean;
 };
 
-export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorProps) {
+export function ProblemEditor({ initialData, initialTests, onSave, pending }: ProblemEditorProps) {
   const isEditing = Boolean(initialData);
 
   const [slug, setSlug] = useState(initialData?.slug ?? STARTER_PROBLEM_TEMPLATE.slug);
@@ -51,6 +68,21 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
   const [samples, setSamples] = useState<Sample[]>(
     initialData?.samples ?? STARTER_PROBLEM_TEMPLATE.samples
   );
+
+  // Official Evaluation / Judging Test Cases (Hidden from contestants)
+  const [tests, setTests] = useState<TestCaseInput[]>(() => initialTests ?? []);
+  const [lastInitialTests, setLastInitialTests] = useState(initialTests);
+
+  if (initialTests !== lastInitialTests) {
+    setLastInitialTests(initialTests);
+    if (initialTests && initialTests.length > 0) {
+      setTests(initialTests);
+    }
+  }
+
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState("");
+  const [bulkImportError, setBulkImportError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<"edit" | "preview" | "split">("split");
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +118,83 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
     setSamples((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   }
 
+  // Test cases helpers
+  function handleAddTest() {
+    setTests((prev) => [
+      ...prev,
+      { ordinal: prev.length + 1, input: "", expected: "", points: 0 },
+    ]);
+  }
+
+  function handleRemoveTest(index: number) {
+    setTests((prev) =>
+      prev.filter((_, i) => i !== index).map((t, idx) => ({ ...t, ordinal: idx + 1 }))
+    );
+  }
+
+  function handleTestChange(index: number, field: keyof TestCaseInput, value: string | number) {
+    setTests((prev) => prev.map((t, i) => (i === index ? { ...t, [field]: value } : t)));
+  }
+
+  function getMatchingSample(t: TestCaseInput): Sample | undefined {
+    const tIn = t.input.trim();
+    const tOut = t.expected.trim();
+    if (!tIn || !tOut) return undefined;
+    return samples.find(
+      (s) => s.input.trim() === tIn && s.output.trim() === tOut
+    );
+  }
+
+  function handleBulkImportTests() {
+    setBulkImportError(null);
+    if (!bulkImportText.trim()) return;
+
+    try {
+      const parsed = JSON.parse(bulkImportText.trim());
+      if (Array.isArray(parsed)) {
+        const newTests: TestCaseInput[] = parsed.map((item, idx) => ({
+          ordinal: tests.length + idx + 1,
+          input: String(item.input ?? item.in ?? ""),
+          expected: String(item.expected ?? item.output ?? item.out ?? ""),
+          points: Number(item.points) || 0,
+        }));
+        setTests((prev) => [...prev, ...newTests]);
+        setBulkImportText("");
+        setShowBulkImport(false);
+        return;
+      }
+    } catch {
+      const rawSegments = bulkImportText.split(/(?:^|\n)===\s*(?:INPUT|OUTPUT|EXPECTED)\s*===/i);
+      const cleaned = rawSegments.map((s) => s.trim()).filter(Boolean);
+      if (cleaned.length >= 2) {
+        const pairs: TestCaseInput[] = [];
+        for (let i = 0; i < cleaned.length; i += 2) {
+          if (cleaned[i] && cleaned[i + 1]) {
+            pairs.push({
+              ordinal: tests.length + pairs.length + 1,
+              input: cleaned[i],
+              expected: cleaned[i + 1],
+              points: 0,
+            });
+          }
+        }
+        if (pairs.length > 0) {
+          setTests((prev) => [...prev, ...pairs]);
+          setBulkImportText("");
+          setShowBulkImport(false);
+          return;
+        }
+      }
+      setBulkImportError(
+        "Could not parse test cases. Please supply a valid JSON array (e.g. [{\"input\":\"5\",\"expected\":\"15\"}]) or use delimiter blocks."
+      );
+    }
+  }
+
+  // Calculate assigned points vs maxScore
+  const customPointsSum = tests.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
+  const hasCustomPoints = tests.some((t) => Number(t.points) > 0);
+
   async function handleSaveInternal(shouldPublish?: boolean) {
     setError(null);
 
@@ -95,6 +204,30 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
     }
 
     const finalPublished = shouldPublish !== undefined ? shouldPublish : published;
+
+    if (finalPublished && tests.length < MIN_EVALUATION_TEST_CASES) {
+      setError(
+        `A problem cannot be published with fewer than ${MIN_EVALUATION_TEST_CASES} evaluation test cases. Currently ${tests.length} provided.`
+      );
+      return;
+    }
+
+    // Validate distinctness from public samples
+    const duplicateTest = tests.find((t) => getMatchingSample(t));
+    if (duplicateTest) {
+      const matched = getMatchingSample(duplicateTest)!;
+      setError(
+        `Evaluation test case #${duplicateTest.ordinal} is identical to public Sample #${matched.ordinal}. Evaluation test cases must be distinct from public samples.`
+      );
+      return;
+    }
+
+    // Validate non-empty test cases
+    if (tests.some((t) => !t.input.trim() || !t.expected.trim())) {
+      setError("All evaluation test cases must have non-empty standard input and expected output.");
+      return;
+    }
+
     setPublished(finalPublished);
 
     try {
@@ -113,6 +246,12 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
           input: s.input,
           output: s.output,
           explanation: s.explanation || undefined,
+        })),
+        tests: tests.map((t, idx) => ({
+          ordinal: idx + 1,
+          input: t.input,
+          expected: t.expected,
+          points: Number(t.points) || 0,
         })),
       });
     } catch (err: unknown) {
@@ -147,6 +286,12 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
             <Badge variant={published ? "default" : "secondary"} className="text-xs">
               {published ? "Published" : "Draft"}
             </Badge>
+            <Badge
+              variant={tests.length >= MIN_EVALUATION_TEST_CASES ? "default" : "destructive"}
+              className="text-[11px] font-mono"
+            >
+              {tests.length}/{MIN_EVALUATION_TEST_CASES} Judging Cases
+            </Badge>
           </div>
         </div>
 
@@ -175,9 +320,10 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
       {/* Main Workspace Body */}
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-6">
         {error && (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm font-medium text-destructive">
-            {error}
-          </p>
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-xs font-medium text-destructive flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -207,7 +353,7 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                 placeholder="e.g. range-sum"
                 disabled={isEditing}
                 required
-                className="font-mono"
+                className="font-mono text-xs"
               />
             </div>
 
@@ -276,6 +422,11 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                 />
                 Published to Contestants
               </label>
+              {published && tests.length < MIN_EVALUATION_TEST_CASES && (
+                <p className="text-[11px] text-destructive mt-1 font-medium flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" /> Requires at least {MIN_EVALUATION_TEST_CASES} evaluation test cases before publishing ({tests.length}/{MIN_EVALUATION_TEST_CASES} added).
+                </p>
+              )}
             </div>
           </Card>
 
@@ -353,7 +504,7 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
               />
             </Card>
 
-            {/* Sample Test Cases */}
+            {/* Public Sample Test Cases */}
             <Card className="p-5 flex flex-col gap-4 shadow-sm border border-border">
               <div className="flex items-center justify-between">
                 <div>
@@ -361,7 +512,7 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                     Public Sample Test Cases
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    These sample inputs and outputs are visible to contestants.
+                    These sample inputs and outputs are visible to contestants on the problem page.
                   </p>
                 </div>
                 <Button
@@ -375,62 +526,301 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
               </div>
 
               <div className="flex flex-col gap-4">
-                {samples.map((s, idx) => (
-                  <div key={idx} className="rounded-lg border p-4 bg-muted/10 relative">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Sample #{idx + 1}
-                      </span>
-                      {samples.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveSample(idx)}
-                          className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
+                {samples.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic py-2">
+                    No sample test cases added yet.
+                  </p>
+                ) : (
+                  samples.map((s, idx) => (
+                    <div key={idx} className="rounded-lg border p-4 bg-muted/10 relative">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Sample #{idx + 1}
+                        </span>
+                        {samples.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveSample(idx)}
+                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs text-muted-foreground block">
+                            Standard Input
+                          </label>
+                          <Textarea
+                            value={s.input}
+                            onChange={(e) => handleSampleChange(idx, "input", e.target.value)}
+                            rows={3}
+                            placeholder="e.g. 5&#10;1 2 3 4 5"
+                            className="font-mono text-xs"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs text-muted-foreground block">
+                            Standard Output
+                          </label>
+                          <Textarea
+                            value={s.output}
+                            onChange={(e) => handleSampleChange(idx, "output", e.target.value)}
+                            rows={3}
+                            placeholder="e.g. 15"
+                            className="font-mono text-xs"
+                          />
+                        </div>
+                      </div>
+
                       <div className="flex flex-col gap-1">
                         <label className="text-xs text-muted-foreground block">
-                          Standard Input
+                          Explanation (Optional)
                         </label>
-                        <Textarea
-                          value={s.input}
-                          onChange={(e) => handleSampleChange(idx, "input", e.target.value)}
-                          rows={3}
-                          className="font-mono text-xs"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground block">
-                          Standard Output
-                        </label>
-                        <Textarea
-                          value={s.output}
-                          onChange={(e) => handleSampleChange(idx, "output", e.target.value)}
-                          rows={3}
-                          className="font-mono text-xs"
+                        <Input
+                          value={s.explanation || ""}
+                          onChange={(e) => handleSampleChange(idx, "explanation", e.target.value)}
+                          placeholder="e.g. 1 + 2 + 3 + 4 + 5 = 15"
+                          className="text-xs"
                         />
                       </div>
                     </div>
+                  ))
+                )}
+              </div>
+            </Card>
 
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs text-muted-foreground block">
-                        Explanation (Optional)
-                      </label>
-                      <Input
-                        value={s.explanation || ""}
-                        onChange={(e) => handleSampleChange(idx, "explanation", e.target.value)}
-                        placeholder="e.g. 1 + 2 + 3 = 6"
-                        className="text-xs"
-                      />
+            {/* Official Evaluation / Judging Test Cases (Hidden) */}
+            <Card className="p-5 flex flex-col gap-4 shadow-sm border border-border">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Cpu className="h-4 w-4 text-primary" />
+                    <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                      Evaluation & Judging Test Cases (Hidden)
+                    </h2>
+                    <Badge
+                      variant={tests.length >= MIN_EVALUATION_TEST_CASES ? "default" : "destructive"}
+                      className="text-[11px] font-mono"
+                    >
+                      {tests.length}/{MIN_EVALUATION_TEST_CASES} Minimum Cases
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Hidden from competitors. These test cases are executed in isolated sandboxes to grade submissions. <strong>Must be distinct from public samples</strong>.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBulkImport(!showBulkImport)}
+                    className="h-8 text-xs gap-1.5"
+                  >
+                    <Upload className="h-3.5 w-3.5" /> Bulk JSON Import
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddTest}
+                    className="h-8 text-xs gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Test Case
+                  </Button>
+                </div>
+              </div>
+
+              {/* Scoring distribution & requirements banner */}
+              <div className="rounded-md border bg-muted/20 px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  {tests.length >= MIN_EVALUATION_TEST_CASES ? (
+                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  ) : (
+                    <ShieldAlert className="h-4 w-4 text-destructive shrink-0" />
+                  )}
+                  <span>
+                    {tests.length < MIN_EVALUATION_TEST_CASES
+                      ? `Minimum requirement: at least ${MIN_EVALUATION_TEST_CASES} distinct evaluation test cases required (currently ${tests.length}).`
+                      : hasCustomPoints
+                      ? `Custom scoring: ${customPointsSum} / ${maxScore} points assigned across ${tests.length} cases.`
+                      : `Auto-distribution: ${maxScore} total points will be divided evenly across ${tests.length} cases (~${Math.floor(maxScore / tests.length)} pts each).`}
+                  </span>
+                </div>
+                <div className="text-[11px] text-muted-foreground font-mono">
+                  Problem Max Score: {maxScore} pts
+                </div>
+              </div>
+
+              {/* Bulk import panel */}
+              {showBulkImport && (
+                <div className="rounded-lg border bg-background/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-foreground">
+                      Paste Test Cases JSON Array
+                    </label>
+                    <span className="text-[11px] text-muted-foreground font-mono">
+                      Format: [{`{"input": "...", "expected": "...", "points": 10}`}]
+                    </span>
+                  </div>
+
+                  <Textarea
+                    value={bulkImportText}
+                    onChange={(e) => setBulkImportText(e.target.value)}
+                    rows={5}
+                    placeholder={`[\n  {\n    "input": "100\\n...",\n    "expected": "4950",\n    "points": 20\n  }\n]`}
+                    className="font-mono text-xs"
+                  />
+
+                  {bulkImportError && (
+                    <p className="text-xs text-destructive font-medium">
+                      {bulkImportError}
+                    </p>
+                  )}
+
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowBulkImport(false);
+                        setBulkImportText("");
+                        setBulkImportError(null);
+                      }}
+                      className="h-8 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleBulkImportTests}
+                      className="h-8 text-xs"
+                    >
+                      Apply Import
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Test cases list */}
+              <div className="flex flex-col gap-4">
+                {tests.length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-6 text-center space-y-2">
+                    <HelpCircle className="h-8 w-8 text-muted-foreground/60 mx-auto" />
+                    <p className="text-xs font-medium text-foreground">No Evaluation Test Cases</p>
+                    <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                      Every problem requires at least {MIN_EVALUATION_TEST_CASES} evaluation test cases to be judged. Evaluation test cases must be distinct from public samples.
+                    </p>
+                    <div className="pt-2 flex justify-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleAddTest}
+                        className="h-8 text-xs gap-1.5"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add First Test Case
+                      </Button>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  tests.map((t, idx) => {
+                    const matchedSample = getMatchingSample(t);
+                    const isDuplicate = Boolean(matchedSample);
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`rounded-lg border p-4 bg-muted/10 relative space-y-3 ${
+                          isDuplicate ? "border-destructive/60 bg-destructive/5" : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                              Evaluation Case #{idx + 1}
+                            </span>
+                            <Badge variant="outline" className="text-[10px] font-mono">
+                              {Number(t.points) > 0 ? `${t.points} pts` : "Auto-pts"}
+                            </Badge>
+                            {isDuplicate && (
+                              <Badge variant="destructive" className="text-[10px] gap-1">
+                                <AlertCircle className="h-3 w-3" /> Duplicate of Public Sample #{matchedSample?.ordinal}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <label className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                Points:
+                              </label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={t.points || 0}
+                                onChange={(e) =>
+                                  handleTestChange(idx, "points", Number(e.target.value))
+                                }
+                                placeholder="0 (auto)"
+                                className="h-7 w-20 text-xs font-mono"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveTest(idx)}
+                              className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {isDuplicate && (
+                          <div className="rounded border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive">
+                            Evaluation test cases cannot be identical to public sample test cases. Please provide a distinct test case for judging.
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              Input (stdin) *
+                            </label>
+                            <Textarea
+                              value={t.input}
+                              onChange={(e) => handleTestChange(idx, "input", e.target.value)}
+                              rows={4}
+                              placeholder="Input provided to student program..."
+                              className="font-mono text-xs leading-relaxed"
+                              required
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              Expected Output (stdout) *
+                            </label>
+                            <Textarea
+                              value={t.expected}
+                              onChange={(e) => handleTestChange(idx, "expected", e.target.value)}
+                              rows={4}
+                              placeholder="Exact output expected from program..."
+                              className="font-mono text-xs leading-relaxed"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </Card>
           </div>
