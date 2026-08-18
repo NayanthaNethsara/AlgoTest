@@ -115,7 +115,6 @@ export function AdminUsers({
   const [showAddForm, setShowAddForm] = useState(false);
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [role, setRole] = useState<"competitor" | "admin">("competitor");
   const [password, setPassword] = useState("");
   const [teamSelectionMode, setTeamSelectionMode] = useState<"existing" | "new">("existing");
   const [selectedAddTeamId, setSelectedAddTeamId] = useState("");
@@ -154,7 +153,6 @@ export function AdminUsers({
   }, [csvText, bulkMode, bulkDefaultTeamId, bulkDefaultNewTeamName, bulkDefaultTeamType, teams]);
 
   function openAddCompetitorForm() {
-    setRole("competitor");
     setUsername("");
     setDisplayName("");
     setPassword("");
@@ -267,15 +265,13 @@ export function AdminUsers({
     e.preventDefault();
     setError(null);
 
-    if (role === "competitor") {
-      if (teamSelectionMode === "existing" && !selectedAddTeamId) {
-        setError("Please select an existing team for this competitor.");
-        return;
-      }
-      if (teamSelectionMode === "new" && !newAddTeamName.trim()) {
-        setError("Please enter a new team name for this competitor.");
-        return;
-      }
+    if (teamSelectionMode === "existing" && !selectedAddTeamId) {
+      setError("Please select an existing team for this competitor.");
+      return;
+    }
+    if (teamSelectionMode === "new" && !newAddTeamName.trim()) {
+      setError("Please enter a new team name for this competitor.");
+      return;
     }
 
     setPending(true);
@@ -283,10 +279,9 @@ export function AdminUsers({
       const payload: CreateUserInput = {
         username: username.trim(),
         displayName: displayName.trim() || undefined,
-        role,
         password: password.trim() || undefined,
-        teamId: role === "competitor" && teamSelectionMode === "existing" ? selectedAddTeamId : undefined,
-        teamName: role === "competitor" && teamSelectionMode === "new" ? newAddTeamName.trim() : undefined,
+        teamId: teamSelectionMode === "existing" ? selectedAddTeamId : undefined,
+        teamName: teamSelectionMode === "new" ? newAddTeamName.trim() : undefined,
       };
 
       const data = await createUserAction(payload);
@@ -531,80 +526,78 @@ export function AdminUsers({
             </div>
           </div>
 
-          {role === "competitor" && (
-            <div className="rounded-md border bg-background/50 p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-foreground">
-                  Team Assignment (Mandatory)
-                </label>
-                <div className="flex gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setTeamSelectionMode("existing")}
-                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                      teamSelectionMode === "existing"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Select Existing Team
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTeamSelectionMode("new")}
-                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                      teamSelectionMode === "new"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Create New Team
-                  </button>
-                </div>
+          <div className="rounded-md border bg-background/50 p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-foreground">
+                Team Assignment (Mandatory)
+              </label>
+              <div className="flex gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setTeamSelectionMode("existing")}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                    teamSelectionMode === "existing"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Select Existing Team
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTeamSelectionMode("new")}
+                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                    teamSelectionMode === "new"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Create New Team
+                </button>
               </div>
-
-              {teamSelectionMode === "existing" ? (
-                <div>
-                  {teams.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">
-                      No existing teams found. Switch to &quot;Create New Team&quot; above to create one.
-                    </p>
-                  ) : (
-                    <select
-                      value={selectedAddTeamId}
-                      onChange={(e) => setSelectedAddTeamId(e.target.value)}
-                      required
-                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    >
-                      <option value="">-- Choose Existing Team --</option>
-                      {teams.map((t) => {
-                        const count = t.members?.length || 0;
-                        const isFull = count >= 3;
-                        return (
-                          <option key={t.id} value={t.id} disabled={isFull}>
-                            {t.name} ({count}/3 members){isFull ? " - FULL" : ""}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <Input
-                    value={newAddTeamName}
-                    onChange={(e) => setNewAddTeamName(e.target.value)}
-                    placeholder="Enter new team name (e.g. AlgoTitans)"
-                    required
-                    className="h-9 text-xs"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    A new team will be created and this user will be assigned as its first member.
-                  </p>
-                </div>
-              )}
             </div>
-          )}
+
+            {teamSelectionMode === "existing" ? (
+              <div>
+                {teams.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    No existing teams found. Switch to &quot;Create New Team&quot; above to create one.
+                  </p>
+                ) : (
+                  <select
+                    value={selectedAddTeamId}
+                    onChange={(e) => setSelectedAddTeamId(e.target.value)}
+                    required
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">-- Choose Existing Team --</option>
+                    {teams.map((t) => {
+                      const count = t.members?.length || 0;
+                      const isFull = count >= 3;
+                      return (
+                        <option key={t.id} value={t.id} disabled={isFull}>
+                          {t.name} ({count}/3 members){isFull ? " - FULL" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Input
+                  value={newAddTeamName}
+                  onChange={(e) => setNewAddTeamName(e.target.value)}
+                  placeholder="Enter new team name (e.g. AlgoTitans)"
+                  required
+                  className="h-9 text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  A new team will be created and this user will be assigned as its first member.
+                </p>
+              </div>
+            )}
+          </div>
 
           <div className="flex justify-end gap-2 pt-1 border-t">
             <Button type="button" variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
