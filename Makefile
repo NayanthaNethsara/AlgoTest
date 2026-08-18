@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate admin backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test venue venue-tls venue-down venue-logs
+.PHONY: install db-up db-down db-logs db-reset migrate admin backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test venue venue-tls venue-down venue-logs monitoring-up monitoring-down monitoring-logs monitoring-restart
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -124,4 +124,22 @@ test:
 
 swagger:
 	cd backend && go run github.com/swaggo/swag/cmd/swag@latest init -g cmd/server/main.go -o docs
+
+# --- Observability Stack (Prometheus, Loki, Promtail, Node Exporter, Grafana) ---
+
+MONITORING = docker compose -f monitoring/docker-compose.monitoring.yml
+
+monitoring-up:
+	$(MONITORING) up -d
+	@echo "Grafana running on http://localhost:3002 (credentials: admin / admin)"
+
+monitoring-down:
+	$(MONITORING) down
+
+monitoring-logs:
+	$(MONITORING) logs -f
+
+monitoring-restart:
+	$(MONITORING) restart
+
 

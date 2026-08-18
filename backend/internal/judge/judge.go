@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/metrics"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 )
 
@@ -59,6 +60,8 @@ func (j *Judge) Submit(ctx context.Context, s Submission) (*Submission, error) {
 		return nil, err
 	}
 
+	metrics.RecordSubmissionQueued()
+
 	j.broadcaster.Broadcast(Result{
 		SubmissionID:  created.ID,
 		UserID:        created.UserID,
@@ -82,6 +85,8 @@ func (j *Judge) Result(ctx context.Context, id string) (*Result, bool, error) {
 
 // Start spawns worker goroutines that pull queued submissions from DB.
 func (j *Judge) Start(ctx context.Context) {
+	metrics.JudgeWorkersActive.Set(float64(j.workers))
+
 	var wg sync.WaitGroup
 
 	wg.Add(1)
@@ -122,6 +127,10 @@ func (j *Judge) processNext(ctx context.Context, workerID string) {
 		return
 	}
 
+	metrics.JudgeSubmissionsActive.Inc()
+	defer metrics.JudgeSubmissionsActive.Dec()
+	start := time.Now()
+
 	j.log.Info("judging submission", "worker", workerID, "submission_id", s.ID, "problem_id", s.ProblemID)
 
 	j.broadcaster.Broadcast(Result{
@@ -139,6 +148,13 @@ func (j *Judge) processNext(ctx context.Context, workerID string) {
 	go j.renewLease(renewCtx, s.ID, workerID)
 
 	res := j.evaluate(ctx, *s)
+
+	duration := time.Since(start)
+	verdictStr := "UNKNOWN"
+	if res.Verdict != nil {
+		verdictStr = *res.Verdict
+	}
+	metrics.RecordSubmissionCompleted(s.Language, verdictStr, duration)
 
 	if err := j.repo.CompleteSubmission(ctx, res, workerID); err != nil {
 		if errors.Is(err, ErrLeaseLost) {

@@ -266,7 +266,21 @@ over an SSH tunnel rather than publishing it:
 gcloud compute ssh algothon-judge --zone=us-central1-a -- -L 3001:localhost:3001
 ```
 
-## Step 10: Verify
+## Step 10: Observability (Grafana, Loki, Prometheus)
+
+To monitor VM resource usage, judge worker throughput, error rates, and live logs without SSH:
+
+```sh
+make monitoring-up
+```
+
+- **Grafana UI**: `http://<vm-ip>:3002` (credentials `admin` / `admin` by default).
+- Pre-provisioned dashboards:
+  - **MiniAlgothon - Platform & System Overview**: Live HTTP throughput, P95 latencies, judge workers, runner boxes, database connection pool, and host CPU/RAM.
+  - **MiniAlgothon - Logs & Live Diagnostics**: Real-time log streaming with level filtering and error search.
+- See [docs/monitoring.md](docs/monitoring.md) for LogQL/PromQL queries and alert configurations.
+
+## Step 11: Verify
 
 ```sh
 curl -s https://contest.example.com/api/v1/../healthz    # {"status":"ok"}

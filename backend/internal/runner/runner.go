@@ -665,3 +665,12 @@ func (r *Runner) cleanupBox(boxID int) {
 		log.Printf("failed to cleanup isolate box %d: %v", boxID, err)
 	}
 }
+
+// Stats returns current capacity and active usage of the isolate boxes.
+func (r *Runner) Stats() LimiterStats {
+	if r == nil || r.limiter == nil {
+		return LimiterStats{}
+	}
+	return r.limiter.stats()
+}
+

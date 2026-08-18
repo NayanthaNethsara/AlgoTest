@@ -179,3 +179,34 @@ func (l *limiter) createWaitContext(ctx context.Context) (context.Context, conte
 	}
 	return context.WithCancel(ctx)
 }
+
+type LimiterStats struct {
+	ActiveBoxes   int
+	TotalCapacity int
+	InFlight      int
+	WaitingQueue  int
+}
+
+func (l *limiter) stats() LimiterStats {
+	if l == nil {
+		return LimiterStats{}
+	}
+	capBoxes := cap(l.free)
+	freeBoxes := len(l.free)
+	activeBoxes := capBoxes - freeBoxes
+	if activeBoxes < 0 {
+		activeBoxes = 0
+	}
+	inFlight := len(l.admit)
+	waiting := inFlight - activeBoxes
+	if waiting < 0 {
+		waiting = 0
+	}
+	return LimiterStats{
+		ActiveBoxes:   activeBoxes,
+		TotalCapacity: capBoxes,
+		InFlight:      inFlight,
+		WaitingQueue:  waiting,
+	}
+}
+

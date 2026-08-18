@@ -1,0 +1,65 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker-containers
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: containerlogs
+          __path__: /var/lib/docker/containers/*/*-json.log
+
+    pipeline_stages:
+      # Extract Docker's native wrapper fields (log, stream, time)
+      - json:
+          expressions:
+            output: log
+            stream: stream
+            timestamp: time
+            attrs: attrs
+            tag: tag
+
+      # Set timestamp from Docker log time
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+
+      # Attempt to parse inner structured JSON logs emitted by MiniAlgothon backend
+      - json:
+          source: output
+          expressions:
+            level: level
+            msg: msg
+            request_id: request_id
+            status: status
+            path: path
+            route: route
+            method: method
+            duration_ms: duration_ms
+            client_ip: client_ip
+            user_id: user_id
+            error: error
+
+      # Map extracted fields into searchable labels
+      - labels:
+          stream:
+          level:
+          status:
+          method:
+          route:
+
+      # Default level to info if not specified
+      - template:
+          source: level
+          template: '{{ if not .level }}info{{ else }}{{ .level }}{{ end }}'
+
+      - output:
+          source: output
