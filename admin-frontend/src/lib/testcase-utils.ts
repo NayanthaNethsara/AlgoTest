@@ -1,0 +1,91 @@
+import type { Sample, TestCaseInput } from "@/types/problem";
+
+export const MIN_EVALUATION_TEST_CASES = 5;
+
+/**
+ * Finds a public sample that exactly matches the input and expected output of an evaluation test case.
+ */
+export function findMatchingSample(
+  testCase: TestCaseInput,
+  samples: Sample[]
+): Sample | undefined {
+  const testInput = testCase.input.trim();
+  const testExpected = testCase.expected.trim();
+  if (!testInput || !testExpected) return undefined;
+
+  return samples.find(
+    (sample) => sample.input.trim() === testInput && sample.output.trim() === testExpected
+  );
+}
+
+/**
+ * Parses raw JSON array or delimiter blocks into TestCaseInput array.
+ */
+export function parseBulkTestCases(
+  rawText: string,
+  existingCount: number = 0
+): { testCases: TestCaseInput[]; error?: string } {
+  const trimmed = rawText.trim();
+  if (!trimmed) {
+    return { testCases: [] };
+  }
+
+  // 1. Try parsing standard JSON array
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      const testCases: TestCaseInput[] = parsed.map((item, idx) => ({
+        ordinal: existingCount + idx + 1,
+        input: String(item.input ?? item.in ?? ""),
+        expected: String(item.expected ?? item.output ?? item.out ?? ""),
+        points: Number(item.points) || 0,
+      }));
+      return { testCases };
+    }
+  } catch {
+    // 2. Fallback to delimiter block parser (=== INPUT === ... === OUTPUT ===)
+    const rawSegments = trimmed.split(/(?:^|\n)===\s*(?:INPUT|OUTPUT|EXPECTED)\s*===/i);
+    const cleaned = rawSegments.map((s) => s.trim()).filter(Boolean);
+    if (cleaned.length >= 2) {
+      const pairs: TestCaseInput[] = [];
+      for (let i = 0; i < cleaned.length; i += 2) {
+        if (cleaned[i] && cleaned[i + 1]) {
+          pairs.push({
+            ordinal: existingCount + pairs.length + 1,
+            input: cleaned[i],
+            expected: cleaned[i + 1],
+            points: 0,
+          });
+        }
+      }
+      if (pairs.length > 0) {
+        return { testCases: pairs };
+      }
+    }
+  }
+
+  return {
+    testCases: [],
+    error:
+      "Could not parse test cases. Please provide a valid JSON array (e.g. [{\"input\":\"5\",\"expected\":\"15\"}]) or use delimiter blocks.",
+  };
+}
+
+/**
+ * Summary calculations for points and distribution.
+ */
+export function calculateScoringSummary(
+  tests: TestCaseInput[],
+  maxScore: number
+) {
+  const customPointsSum = tests.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
+  const hasCustomPoints = tests.some((t) => Number(t.points) > 0);
+  const autoPointPerTest = tests.length > 0 ? Math.floor(maxScore / tests.length) : 0;
+
+  return {
+    customPointsSum,
+    hasCustomPoints,
+    autoPointPerTest,
+    hasMinimumCases: tests.length >= MIN_EVALUATION_TEST_CASES,
+  };
+}

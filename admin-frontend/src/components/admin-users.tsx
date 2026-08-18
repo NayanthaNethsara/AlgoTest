@@ -1,19 +1,7 @@
-import { useState, useMemo } from "react";
-import {
-  KeyRound,
-  Trash2,
-  ShieldCheck,
-  ShieldOff,
-  Users2,
-  Users,
-  Shield,
-  Plus,
-  Upload,
-  Search,
-  AlertCircle,
-  CheckCircle2,
-  FileSpreadsheet,
-} from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { Plus, Upload, Shield, AlertCircle } from "lucide-react";
 import {
   createUserAction,
   bulkCreateUsersAction,
@@ -27,66 +15,19 @@ import type { Team } from "@/types/team";
 import { ConfirmDialog } from "./confirm-dialog";
 import { CredentialsAlert } from "./credentials-alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { UserTable } from "./users/user-table";
+import { UserCreateDialog } from "./users/user-create-dialog";
+import { UserBulkDialog } from "./users/user-bulk-dialog";
+import { UserTeamDialog } from "./users/user-team-dialog";
 import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-type Credential = { username: string; password: string; teamName?: string };
-type AccessGrant = { webWithAgent: boolean; webOnly: boolean };
-const FALLBACKS: {
-  key: keyof AccessGrant;
-  label: string;
-  badge: string;
-  className: string;
-  cost: string;
-  reasonHint: string;
-}[] = [
-  {
-    key: "webWithAgent",
-    label: "Browser, proctor running",
-    badge: "BROWSER +AGENT",
-    className: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-    cost: "Allows scored submissions from an ordinary browser, as long as the proctor client keeps reporting from the same machine. Endpoint signals still land; nothing corroborates which window the code was typed in.",
-    reasonHint: "Desktop shell will not open on this machine",
-  },
-  {
-    key: "webOnly",
-    label: "Browser, no proctor",
-    badge: "BROWSER ONLY",
-    className: "bg-rose-500/10 text-rose-400 border-rose-500/30",
-    cost: "Allows scored submissions from a browser with no proctor client at all. No endpoint signals will exist for this contestant.",
-    reasonHint: "Proctor client cannot be installed on this machine",
-  },
-];
-
-function grantOf(user: User): AccessGrant {
-  return {
-    webWithAgent: user.proctorAllowWebWithAgent ?? false,
-    webOnly: user.proctorAllowWebOnly ?? false,
-  };
-}
-
-function isPerverse(grant: AccessGrant): boolean {
-  return grant.webOnly && !grant.webWithAgent;
-}
-
-interface ParsedCsvRow {
-  username: string;
-  displayName?: string;
-  teamName?: string;
-  password?: string;
-  isValid: boolean;
-  validationError?: string;
-}
+  type Credential,
+  type AccessGrant,
+  type ParsedCsvRow,
+  FALLBACKS,
+  grantOf,
+  isPerverse,
+} from "./users/types";
 
 export function AdminUsers({
   users,
@@ -99,87 +40,105 @@ export function AdminUsers({
   currentUserId?: string;
   onRefresh: () => void;
 }) {
-  const [subTab, setSubTab] = useState<"competitors" | "admins">("competitors");
-  const [searchQuery, setSearchQuery] = useState("");
-
   const [creds, setCreds] = useState<Credential[]>([]);
   const [resetTarget, setResetTarget] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const [assignTeamTarget, setAssignTeamTarget] = useState<User | null>(null);
-  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  // Single Add User Form state
   const [showAddForm, setShowAddForm] = useState(false);
-  const [username, setUsername] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [password, setPassword] = useState("");
-  const [teamSelectionMode, setTeamSelectionMode] = useState<"existing" | "new">("existing");
-  const [selectedAddTeamId, setSelectedAddTeamId] = useState("");
-  const [newAddTeamName, setNewAddTeamName] = useState("");
-
-  // Bulk Import Form state
   const [showBulkForm, setShowBulkForm] = useState(false);
-  const [bulkMode, setBulkMode] = useState<"csv_with_teams" | "single_team">("csv_with_teams");
-  const [bulkDefaultTeamId, setBulkDefaultTeamId] = useState("");
-  const [bulkDefaultNewTeamName, setBulkDefaultNewTeamName] = useState("");
-  const [bulkDefaultTeamType, setBulkDefaultTeamType] = useState<"existing" | "new">("existing");
-  const [csvText, setCsvText] = useState("");
   const [bulkErrors, setBulkErrors] = useState<{ username: string; error: string }[]>([]);
 
-  const competitorUsers = users.filter((u) => u.role === "competitor");
-  const adminUsers = users.filter((u) => u.role === "admin");
-
-  const currentList = subTab === "competitors" ? competitorUsers : adminUsers;
-  const filteredUsers = currentList.filter(
-    (u) =>
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.displayName && u.displayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (u.teamName && u.teamName.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  // Parse and preview CSV entries dynamically
-  const parsedRows: ParsedCsvRow[] = useMemo(() => {
-    if (!csvText.trim()) return [];
-    return parseCsvInput(
-      csvText,
-      bulkMode === "single_team",
-      bulkDefaultTeamType === "existing"
-        ? teams.find((t) => t.id === bulkDefaultTeamId)?.name
-        : bulkDefaultNewTeamName.trim()
-    );
-  }, [csvText, bulkMode, bulkDefaultTeamId, bulkDefaultNewTeamName, bulkDefaultTeamType, teams]);
-
-  function openAddCompetitorForm() {
-    setUsername("");
-    setDisplayName("");
-    setPassword("");
-    setSelectedAddTeamId("");
-    setNewAddTeamName("");
-    setTeamSelectionMode("existing");
-    setShowAddForm(true);
-    setShowBulkForm(false);
+  // Single User Create Handler
+  async function handleCreateUser(payload: CreateUserInput) {
     setError(null);
+    setPending(true);
+    try {
+      const data = await createUserAction(payload);
+      if (data.password) {
+        setCreds((prev) => [
+          {
+            username: data.user.username,
+            password: data.password!,
+            teamName: data.user.teamName,
+          },
+          ...prev,
+        ]);
+      }
+      setShowAddForm(false);
+      onRefresh();
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError("Failed to create competitor.");
+    } finally {
+      setPending(false);
+    }
   }
 
-  async function handleAssignTeam(e: React.FormEvent) {
-    e.preventDefault();
+  // Bulk Users Create Handler
+  async function handleBulkCreate(parsedRows: ParsedCsvRow[]) {
+    setError(null);
+    setBulkErrors([]);
+    setPending(true);
+
+    const rows = parsedRows.map((r) => ({
+      username: r.username,
+      displayName: r.displayName,
+      teamName: r.teamName,
+      password: r.password,
+    }));
+
+    try {
+      const { results } = await bulkCreateUsersAction(rows);
+
+      const createdCredentials = results
+        .filter((r) => r.status === "created" && r.password)
+        .map((r) => ({
+          username: r.username,
+          password: r.password!,
+          teamName: r.teamName || r.user?.teamName,
+        }));
+
+      if (createdCredentials.length > 0) {
+        setCreds((prev) => [...createdCredentials, ...prev]);
+      }
+
+      const failedResults = results
+        .filter((r) => r.status === "error")
+        .map((r) => ({ username: r.username, error: r.error || "Creation failed" }));
+
+      if (failedResults.length > 0) {
+        setBulkErrors(failedResults);
+        setError(`${failedResults.length} user(s) could not be created.`);
+      } else {
+        setShowBulkForm(false);
+      }
+
+      onRefresh();
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError("Failed to import bulk users.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  // Team Assignment Handler
+  async function handleAssignTeam(userId: string, targetTeamId: string) {
     if (!assignTeamTarget) return;
     setError(null);
     setPending(true);
     try {
-      if (assignTeamTarget.teamId && assignTeamTarget.teamId !== selectedTeamId) {
-        await removeTeamMemberAction(assignTeamTarget.teamId, assignTeamTarget.id);
+      if (assignTeamTarget.teamId && assignTeamTarget.teamId !== targetTeamId) {
+        await removeTeamMemberAction(assignTeamTarget.teamId, userId);
       }
-      if (selectedTeamId && assignTeamTarget.teamId !== selectedTeamId) {
-        await addTeamMemberAction(selectedTeamId, {
-          userId: assignTeamTarget.id,
-        });
+      if (targetTeamId && assignTeamTarget.teamId !== targetTeamId) {
+        await addTeamMemberAction(targetTeamId, { userId });
       }
       setAssignTeamTarget(null);
-      setSelectedTeamId("");
       onRefresh();
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
@@ -188,12 +147,15 @@ export function AdminUsers({
     }
   }
 
+  // Proctor Exemption Toggle
   async function handleToggleExemption(user: User) {
     const isExempt = user.proctorExempt ?? false;
     let reason = "";
     if (!isExempt) {
       const entered = window.prompt(
-        `An exemption switches proctoring OFF for ${user.displayName || user.username} entirely, for 4 hours. To let them work in a browser while the proctor keeps running, use Submission Access instead.\n\nReason:`,
+        `An exemption switches proctoring OFF for ${
+          user.displayName || user.username
+        } entirely, for 4 hours.\n\nReason:`,
         "Break-glass: proctor client unusable during competition"
       );
       if (entered === null || entered.trim() === "") return;
@@ -217,6 +179,7 @@ export function AdminUsers({
     }
   }
 
+  // Proctor Fallback Access Toggle
   async function handleFallbackToggle(user: User, key: keyof AccessGrant, enabled: boolean) {
     const current = grantOf(user);
     const next = { ...current, [key]: enabled };
@@ -225,7 +188,9 @@ export function AdminUsers({
     let reason = user.proctorAccessReason ?? "";
     if (enabled) {
       const entered = window.prompt(
-        `${fallback.cost}\n\nFor ${user.displayName || user.username}. Reason (recorded against every submission they make):`,
+        `${fallback.cost}\n\nFor ${
+          user.displayName || user.username
+        }. Reason (recorded against every submission):`,
         reason || fallback.reasonHint
       );
       if (entered === null || entered.trim() === "") return;
@@ -233,7 +198,9 @@ export function AdminUsers({
 
       if (isPerverse(next)) {
         const proceed = window.confirm(
-          `Careful: ${user.displayName || user.username} would be able to submit only while the proctor client is STOPPED — submissions from a browser with it running would still be refused.\n\nTick "Browser, proctor running" as well unless you specifically want that. Save anyway?`
+          `Careful: ${
+            user.displayName || user.username
+          } would be able to submit only while the proctor client is STOPPED. Save anyway?`
         );
         if (!proceed) return;
       }
@@ -261,127 +228,7 @@ export function AdminUsers({
     }
   }
 
-  async function handleCreateUser(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-
-    if (teamSelectionMode === "existing" && !selectedAddTeamId) {
-      setError("Please select an existing team for this competitor.");
-      return;
-    }
-    if (teamSelectionMode === "new" && !newAddTeamName.trim()) {
-      setError("Please enter a new team name for this competitor.");
-      return;
-    }
-
-    setPending(true);
-    try {
-      const payload: CreateUserInput = {
-        username: username.trim(),
-        displayName: displayName.trim() || undefined,
-        password: password.trim() || undefined,
-        teamId: teamSelectionMode === "existing" ? selectedAddTeamId : undefined,
-        teamName: teamSelectionMode === "new" ? newAddTeamName.trim() : undefined,
-      };
-
-      const data = await createUserAction(payload);
-      if (data.password) {
-        setCreds((prev) => [
-          {
-            username: data.user.username,
-            password: data.password!,
-            teamName: data.user.teamName,
-          },
-          ...prev,
-        ]);
-      }
-      setUsername("");
-      setDisplayName("");
-      setPassword("");
-      setSelectedAddTeamId("");
-      setNewAddTeamName("");
-      setShowAddForm(false);
-      onRefresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function handleBulkImport(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setBulkErrors([]);
-
-    const validRows = parsedRows.filter((r) => r.isValid);
-    if (validRows.length === 0) {
-      setError("No valid user rows found in CSV data. Ensure each competitor has a username and team specified.");
-      return;
-    }
-
-    setPending(true);
-    try {
-      const payloadUsers: CreateUserInput[] = validRows.map((r) => ({
-        username: r.username,
-        displayName: r.displayName,
-        teamName: r.teamName,
-        password: r.password,
-      }));
-
-      const defaultTeamIdParam =
-        bulkMode === "single_team" && bulkDefaultTeamType === "existing"
-          ? bulkDefaultTeamId
-          : undefined;
-      const defaultTeamNameParam =
-        bulkMode === "single_team" && bulkDefaultTeamType === "new"
-          ? bulkDefaultNewTeamName.trim()
-          : undefined;
-
-      const data = await bulkCreateUsersAction(
-        payloadUsers,
-        defaultTeamIdParam,
-        defaultTeamNameParam
-      );
-
-      const createdCreds: Credential[] = [];
-      const failedRows: { username: string; error: string }[] = [];
-
-      for (const res of data.results as BulkResult[]) {
-        if (res.status === "created" && res.password) {
-          createdCreds.push({
-            username: res.username,
-            password: res.password,
-            teamName: res.user?.teamName || res.teamName,
-          });
-        } else if (res.status === "error") {
-          failedRows.push({
-            username: res.username,
-            error: res.error || "Creation failed",
-          });
-        }
-      }
-
-      if (createdCreds.length > 0) {
-        setCreds((prev) => [...createdCreds, ...prev]);
-      }
-
-      if (failedRows.length > 0) {
-        setBulkErrors(failedRows);
-        setError(`Bulk import finished with ${failedRows.length} error(s). Review failed rows below.`);
-      } else {
-        setCsvText("");
-        setShowBulkForm(false);
-      }
-
-      onRefresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
-    } finally {
-      setPending(false);
-    }
-  }
-
+  // Reset Password Handler
   async function confirmResetPassword() {
     if (!resetTarget) return;
     const target = resetTarget;
@@ -405,14 +252,15 @@ export function AdminUsers({
     }
   }
 
+  // Delete User Handler
   async function confirmDeleteUser() {
     if (!deleteTarget) return;
-    const id = deleteTarget.id;
+    const target = deleteTarget;
     setDeleteTarget(null);
     setError(null);
     setPending(true);
     try {
-      await deleteUserAction(id);
+      await deleteUserAction(target.id);
       onRefresh();
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
@@ -423,692 +271,135 @@ export function AdminUsers({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Sub-Tab Navigation Bar & Action Buttons */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
-        <Tabs value={subTab} onValueChange={(v) => setSubTab(v as "competitors" | "admins")}>
-          <TabsList className="h-8">
-            <TabsTrigger value="competitors" className="gap-1.5 text-xs h-7">
-              <Users className="h-3.5 w-3.5" /> Contestants & Competitors ({competitorUsers.length})
-            </TabsTrigger>
-            <TabsTrigger value="admins" className="gap-1.5 text-xs h-7">
-              <Shield className="h-3.5 w-3.5" /> Organizers & Admins ({adminUsers.length})
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Users & Competitors</h2>
+          <p className="text-xs text-muted-foreground">
+            Manage competitors, team memberships, and proctoring exemptions.
+          </p>
+        </div>
 
         <div className="flex items-center gap-2">
-          {subTab === "competitors" ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setShowBulkForm(!showBulkForm);
-                  setShowAddForm(false);
-                  setError(null);
-                  setBulkErrors([]);
-                }}
-                className="h-8 text-xs gap-1.5"
-              >
-                <Upload className="h-3.5 w-3.5" /> Bulk CSV Import
-              </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setShowBulkForm(!showBulkForm);
+              setShowAddForm(false);
+            }}
+            className="gap-1.5 text-xs"
+          >
+            <Upload className="h-4 w-4" /> Bulk Import
+          </Button>
 
-              <Button
-                size="sm"
-                onClick={openAddCompetitorForm}
-                className="h-8 text-xs gap-1.5"
-              >
-                <Plus className="h-3.5 w-3.5" /> Add Competitor
-              </Button>
-            </>
-          ) : (
-            <Badge variant="outline" className="text-[11px] font-mono text-muted-foreground py-1 px-2.5">
-              Admin accounts provisioned via server CLI (usertool)
-            </Badge>
-          )}
+          <Button
+            size="sm"
+            onClick={() => {
+              setShowAddForm(!showAddForm);
+              setShowBulkForm(false);
+            }}
+            className="gap-1.5 text-xs"
+          >
+            <Plus className="h-4 w-4" /> Add Competitor
+          </Button>
         </div>
       </div>
 
+      <CredentialsAlert credentials={creds} onClear={() => setCreds([])} />
+
       {error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Generated Credentials Alert Component */}
-      <CredentialsAlert credentials={creds} onClear={() => setCreds([])} />
-
-      {/* Single Add User Form */}
-      {showAddForm && (
-        <form
-          onSubmit={handleCreateUser}
-          className="rounded-lg border p-4 bg-muted/10 flex flex-col gap-4"
-        >
-          <div className="flex items-center justify-between border-b pb-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Create New Competitor (Team Assignment Mandatory)
-            </h3>
-            <span className="text-[11px] text-muted-foreground">
-              Competitors must belong to a team with max 3 members
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Username *</label>
-              <Input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. alice_01"
-                required
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Display Name</label>
-              <Input
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. Alice Smith"
-                className="h-9 text-xs"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground">Password (Optional)</label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Auto-generated if empty"
-                className="h-9 text-xs"
-              />
-            </div>
-          </div>
-
-          <div className="rounded-md border bg-background/50 p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-foreground">
-                Team Assignment (Mandatory)
-              </label>
-              <div className="flex gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setTeamSelectionMode("existing")}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                    teamSelectionMode === "existing"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Select Existing Team
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTeamSelectionMode("new")}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                    teamSelectionMode === "new"
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Create New Team
-                </button>
-              </div>
-            </div>
-
-            {teamSelectionMode === "existing" ? (
-              <div>
-                {teams.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">
-                    No existing teams found. Switch to &quot;Create New Team&quot; above to create one.
-                  </p>
-                ) : (
-                  <select
-                    value={selectedAddTeamId}
-                    onChange={(e) => setSelectedAddTeamId(e.target.value)}
-                    required
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="">-- Choose Existing Team --</option>
-                    {teams.map((t) => {
-                      const count = t.members?.length || 0;
-                      const isFull = count >= 3;
-                      return (
-                        <option key={t.id} value={t.id} disabled={isFull}>
-                          {t.name} ({count}/3 members){isFull ? " - FULL" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <Input
-                  value={newAddTeamName}
-                  onChange={(e) => setNewAddTeamName(e.target.value)}
-                  placeholder="Enter new team name (e.g. AlgoTitans)"
-                  required
-                  className="h-9 text-xs"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  A new team will be created and this user will be assigned as its first member.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2 pt-1 border-t">
-            <Button type="button" variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending} size="sm">
-              {pending ? "Saving..." : "Save Account"}
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {/* Bulk CSV Import Form */}
-      {showBulkForm && (
-        <form
-          onSubmit={handleBulkImport}
-          className="rounded-lg border p-4 bg-muted/10 flex flex-col gap-4"
-        >
-          <div className="flex items-center justify-between border-b pb-2">
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Bulk Import Competitors with Teams
-              </h3>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setBulkMode("csv_with_teams")}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  bulkMode === "csv_with_teams"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Multi-Team CSV
-              </button>
-              <button
-                type="button"
-                onClick={() => setBulkMode("single_team")}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                  bulkMode === "single_team"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Single-Team Batch
-              </button>
-            </div>
-          </div>
-
-          {bulkMode === "single_team" && (
-            <div className="rounded-md border bg-background/50 p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-foreground">
-                  Target Team for Entire Batch
-                </label>
-                <div className="flex gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setBulkDefaultTeamType("existing")}
-                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                      bulkDefaultTeamType === "existing"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Existing Team
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBulkDefaultTeamType("new")}
-                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                      bulkDefaultTeamType === "new"
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    New Team
-                  </button>
-                </div>
-              </div>
-
-              {bulkDefaultTeamType === "existing" ? (
-                <select
-                  value={bulkDefaultTeamId}
-                  onChange={(e) => setBulkDefaultTeamId(e.target.value)}
-                  required
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <option value="">-- Select Target Team --</option>
-                  {teams.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.members?.length || 0}/3 members)
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <Input
-                  value={bulkDefaultNewTeamName}
-                  onChange={(e) => setBulkDefaultNewTeamName(e.target.value)}
-                  placeholder="Enter team name for all users in this batch"
-                  required
-                  className="h-9 text-xs"
-                />
-              )}
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted-foreground">
-                {bulkMode === "csv_with_teams"
-                  ? "CSV Format: username, display_name, team_name, password"
-                  : "CSV Format: username, display_name, password"}
-              </label>
-              <span className="text-[10px] text-muted-foreground">
-                Headers optional. Passwords generated if omitted. Teams created if non-existent.
-              </span>
-            </div>
-            <Textarea
-              value={csvText}
-              onChange={(e) => setCsvText(e.target.value)}
-              rows={5}
-              placeholder={
-                bulkMode === "csv_with_teams"
-                  ? "alice, Alice Smith, Team Alpha, secret123\nbob, Bob Jones, Team Alpha\ncharlie, Charlie Brown, Team Beta\ndavid, David Miller, Team Beta"
-                  : "alice, Alice Smith, secret123\nbob, Bob Jones\ncharlie, Charlie Brown"
-              }
-              className="font-mono text-xs"
-              required
-            />
-          </div>
-
-          {/* Live Preview Table */}
-          {parsedRows.length > 0 && (
-            <div className="rounded-md border bg-background p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  CSV Preview ({parsedRows.filter((r) => r.isValid).length} valid / {parsedRows.length} parsed)
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  Max 3 members per team enforced on import
-                </span>
-              </div>
-              <div className="max-h-40 overflow-y-auto border rounded">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="h-7 text-[11px]">
-                      <TableHead className="py-1">Username</TableHead>
-                      <TableHead className="py-1">Display Name</TableHead>
-                      <TableHead className="py-1">Team Name</TableHead>
-                      <TableHead className="py-1">Password</TableHead>
-                      <TableHead className="py-1 text-right">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {parsedRows.map((r, i) => (
-                      <TableRow key={i} className="h-7 text-xs">
-                        <TableCell className="font-mono py-1">{r.username || "-"}</TableCell>
-                        <TableCell className="py-1">{r.displayName || "-"}</TableCell>
-                        <TableCell className="py-1 font-mono">
-                          {r.teamName ? (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              {r.teamName}
-                            </Badge>
-                          ) : (
-                            <span className="text-destructive text-[10px]">Missing Team</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="py-1 text-muted-foreground text-[10px]">
-                          {r.password ? "Provided" : "Auto-generate"}
-                        </TableCell>
-                        <TableCell className="py-1 text-right">
-                          {r.isValid ? (
-                            <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">
-                              Valid
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">
-                              {r.validationError || "Invalid"}
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-
-          {/* Failed rows report from previous run */}
-          {bulkErrors.length > 0 && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1.5">
-              <span className="text-xs font-semibold text-destructive">
-                Failed Rows ({bulkErrors.length})
-              </span>
-              <div className="max-h-28 overflow-y-auto space-y-1 text-xs font-mono">
-                {bulkErrors.map((errRow, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-[11px] text-destructive">
-                    <span>{errRow.username}</span>
-                    <span>{errRow.error}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2 border-t pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowBulkForm(false);
-                setBulkErrors([]);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={pending || parsedRows.filter((r) => r.isValid).length === 0}
-              size="sm"
-            >
-              {pending ? "Importing..." : `Import ${parsedRows.filter((r) => r.isValid).length} Users`}
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {/* Search & Filter Bar */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-        <Input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={`Search ${subTab === "competitors" ? "competitors or teams" : "admins"}...`}
-          className="pl-8 text-xs"
-        />
-      </div>
-
-      {/* Users Table */}
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Username</TableHead>
-              <TableHead>Display Name</TableHead>
-              <TableHead>Assigned Team</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Proctoring</TableHead>
-              <TableHead>Submission Access</TableHead>
-              <TableHead>Last Login</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredUsers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="p-8 text-center text-xs text-muted-foreground">
-                  No {subTab === "competitors" ? "competitors" : "administrators"} found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredUsers.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-mono text-xs font-medium">{u.username}</TableCell>
-                  <TableCell className="text-xs">{u.displayName || "-"}</TableCell>
-                  <TableCell className="text-xs font-mono">
-                    {u.teamName ? (
-                      <Badge variant="secondary" className="font-mono text-[11px]">
-                        {u.teamName}
-                      </Badge>
-                    ) : u.role === "competitor" ? (
-                      <Badge variant="outline" className="text-amber-500 border-amber-500/30 text-[10px]">
-                        UNASSIGNED
-                      </Badge>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="font-mono text-[11px] capitalize">
-                      {u.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {u.role === "competitor" ? (
-                      u.proctorExempt ? (
-                        <Badge
-                          variant="outline"
-                          className="font-mono text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                        >
-                          EXEMPT
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="font-mono text-[10px] text-muted-foreground"
-                        >
-                          ENFORCED
-                        </Badge>
-                      )
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {u.role === "competitor" ? (
-                      <div className="flex flex-col gap-1">
-                        {FALLBACKS.map((fallback) => {
-                          const on = grantOf(u)[fallback.key];
-                          return (
-                            <label
-                              key={fallback.key}
-                              className="flex items-center gap-1.5 text-[11px] cursor-pointer"
-                              title={fallback.cost}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={on}
-                                disabled={pending}
-                                onChange={(e) =>
-                                  handleFallbackToggle(u, fallback.key, e.target.checked)
-                                }
-                                className="size-3 accent-primary"
-                              />
-                              <span
-                                className={
-                                  on ? "font-medium text-foreground" : "text-muted-foreground"
-                                }
-                              >
-                                {fallback.label}
-                              </span>
-                            </label>
-                          );
-                        })}
-                        {isPerverse(grantOf(u)) && (
-                          <span
-                            className="text-[10px] font-semibold text-rose-400"
-                            title="This competitor can submit only while the proctor client is stopped."
-                          >
-                            ! ONLY WITH PROCTOR STOPPED
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      "-"
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {u.role === "competitor" && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleToggleExemption(u)}
-                            disabled={pending}
-                            title={
-                              u.proctorExempt
-                                ? "Revoke Proctor Exemption (Enforce)"
-                                : "Grant Proctor Exemption (Break-glass: proctoring off for 4h)"
-                            }
-                            className={`h-8 w-8 ${u.proctorExempt ? "text-emerald-500 hover:bg-emerald-500/10" : "text-muted-foreground hover:text-foreground"}`}
-                          >
-                            {u.proctorExempt ? (
-                              <ShieldOff className="h-4 w-4 text-emerald-400" />
-                            ) : (
-                              <ShieldCheck className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setAssignTeamTarget(u);
-                              setSelectedTeamId(u.teamId || "");
-                            }}
-                            disabled={pending}
-                            title={u.teamId ? "Change / Reassign Team" : "Assign to Team"}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          >
-                            <Users2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setResetTarget(u)}
-                        disabled={pending}
-                        title="Reset Password"
-                        className="h-8 w-8"
-                      >
-                        <KeyRound className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteTarget(u)}
-                        disabled={pending || u.id === currentUserId}
-                        title="Delete User"
-                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Assign Team Modal */}
-      {assignTeamTarget && (
-        <div className="rounded-lg border bg-card p-4 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <h3 className="text-sm font-semibold">
-              Assign Team for {assignTeamTarget.displayName || assignTeamTarget.username}
-            </h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setAssignTeamTarget(null)}
-              className="h-7 text-xs text-muted-foreground"
-            >
-              Cancel
-            </Button>
-          </div>
-          <form onSubmit={handleAssignTeam} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">Select Team</label>
-              <select
-                value={selectedTeamId}
-                onChange={(e) => setSelectedTeamId(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="">-- No Team (Unassigned) --</option>
-                {teams.map((t) => {
-                  const isCurrent = t.id === assignTeamTarget.teamId;
-                  const isFull = (t.members?.length || 0) >= 3 && !isCurrent;
-                  return (
-                    <option key={t.id} value={t.id} disabled={isFull}>
-                      {t.name} ({t.members?.length || 0}/3 members)
-                      {isCurrent ? " - CURRENT" : isFull ? " - FULL" : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setAssignTeamTarget(null)}
-                className="h-8 text-xs"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={pending}
-                className="h-8 text-xs font-medium"
-              >
-                {pending ? "Saving..." : "Save Assignment"}
-              </Button>
-            </div>
-          </form>
+      {/* Info Badge on Admin Provisioning */}
+      <div className="rounded-md border bg-muted/20 px-3.5 py-2.5 flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <Shield className="h-4 w-4 text-primary shrink-0" />
+          <span>
+            Admin accounts are provisioned exclusively via the server command line (
+            <code className="text-[11px] font-mono text-foreground font-semibold">
+              cmd/usertool
+            </code>
+            ) for infrastructure security.
+          </span>
         </div>
+        <Badge variant="outline" className="text-[10px] font-mono">
+          CLI Guarded
+        </Badge>
+      </div>
+
+      {/* Conditional Forms */}
+      {showAddForm && (
+        <UserCreateDialog
+          teams={teams}
+          pending={pending}
+          onSubmit={handleCreateUser}
+          onCancel={() => setShowAddForm(false)}
+        />
       )}
 
-      {/* Reset Password Confirmation Dialog */}
+      {showBulkForm && (
+        <UserBulkDialog
+          teams={teams}
+          pending={pending}
+          bulkErrors={bulkErrors}
+          onSubmit={handleBulkCreate}
+          onCancel={() => setShowBulkForm(false)}
+        />
+      )}
+
+      {/* Main Users Table */}
+      <UserTable
+        users={users}
+        currentUserId={currentUserId}
+        pending={pending}
+        onResetPassword={(u) => setResetTarget(u)}
+        onDeleteUser={(u) => setDeleteTarget(u)}
+        onAssignTeam={(u) => setAssignTeamTarget(u)}
+        onToggleExemption={handleToggleExemption}
+        onToggleFallback={handleFallbackToggle}
+      />
+
+      {/* Team Assignment Modal */}
+      {assignTeamTarget && (
+        <UserTeamDialog
+          user={assignTeamTarget}
+          teams={teams}
+          pending={pending}
+          onSave={handleAssignTeam}
+          onClose={() => setAssignTeamTarget(null)}
+        />
+      )}
+
+      {/* Confirmation Dialogs */}
       <ConfirmDialog
         open={Boolean(resetTarget)}
         onOpenChange={(open) => !open && setResetTarget(null)}
         title="Reset User Password"
         description={
           <>
-            Are you sure you want to generate a new password for{" "}
-            <strong className="text-foreground">
-              {resetTarget?.displayName || resetTarget?.username}
-            </strong>
-            ?
+            Are you sure you want to reset the password for{" "}
+            <strong className="text-foreground">{resetTarget?.username}</strong>? A new secure
+            password will be generated and shown on screen.
           </>
         }
         actionLabel="Reset Password"
         onConfirm={confirmResetPassword}
       />
 
-      {/* Delete User Confirmation Dialog */}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete User Account"
+        title="Delete User"
         description={
           <>
-            Are you sure you want to delete user account{" "}
-            <strong className="text-foreground">{deleteTarget?.username}</strong>? All submission
-            history associated with this user will be removed.
+            Are you sure you want to permanently delete{" "}
+            <strong className="text-foreground">{deleteTarget?.username}</strong>? All associated
+            contest submissions and proctoring telemetry will remain recorded.
           </>
         }
         actionLabel="Delete User"
@@ -1117,77 +408,4 @@ export function AdminUsers({
       />
     </div>
   );
-}
-
-function parseCsvInput(
-  text: string,
-  isSingleTeamMode: boolean,
-  singleTeamName?: string
-): ParsedCsvRow[] {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length === 0) return [];
-
-  // Check if first line is a header
-  const firstLine = lines[0].toLowerCase();
-  const hasHeader =
-    firstLine.includes("username") ||
-    firstLine.includes("team") ||
-    firstLine.includes("display_name") ||
-    firstLine.includes("name");
-
-  const dataLines = hasHeader ? lines.slice(1) : lines;
-
-  return dataLines.map((line) => {
-    const parts = line.split(",").map((s) => s.trim());
-
-    let username = "";
-    let displayName: string | undefined;
-    let teamName: string | undefined;
-    let password: string | undefined;
-
-    if (isSingleTeamMode) {
-      // Columns: username, displayName, password
-      username = parts[0] || "";
-      displayName = parts[1] || undefined;
-      password = parts[2] || undefined;
-      teamName = singleTeamName || undefined;
-    } else {
-      // Multi-team mode
-      if (parts.length >= 4) {
-        // username, displayName, teamName, password
-        username = parts[0] || "";
-        displayName = parts[1] || undefined;
-        teamName = parts[2] || undefined;
-        password = parts[3] || undefined;
-      } else if (parts.length === 3) {
-        // username, displayName, teamName
-        username = parts[0] || "";
-        displayName = parts[1] || undefined;
-        teamName = parts[2] || undefined;
-      } else if (parts.length === 2) {
-        // username, teamName
-        username = parts[0] || "";
-        teamName = parts[1] || undefined;
-      } else {
-        username = parts[0] || "";
-      }
-    }
-
-    const isValid = Boolean(username && teamName);
-    let validationError: string | undefined;
-    if (!username) {
-      validationError = "Missing username";
-    } else if (!teamName) {
-      validationError = "Missing team name";
-    }
-
-    return {
-      username,
-      displayName: displayName || undefined,
-      teamName: teamName || undefined,
-      password: password || undefined,
-      isValid,
-      validationError,
-    };
-  });
 }
