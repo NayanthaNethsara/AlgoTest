@@ -105,8 +105,14 @@ jobs:
             echo "==> Starting / Updating services with Docker Compose"
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
+            echo "==> Starting / Updating Monitoring stack (Prometheus, Loki, Promtail, Grafana)"
+            docker compose -f monitoring/docker-compose.monitoring.yml up -d
+
             echo "==> Cleaning up dangling old images"
             docker image prune -f
 
-            echo "==> Service Status:"
+            echo "==> Production Services Status:"
             docker compose -f docker-compose.prod.yml ps
+
+            echo "==> Monitoring Services Status:"
+            docker compose -f monitoring/docker-compose.monitoring.yml ps

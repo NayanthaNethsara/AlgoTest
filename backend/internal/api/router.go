@@ -9,6 +9,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/metrics"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/proctor"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
@@ -74,7 +76,9 @@ func NewRouter(
 	log *slog.Logger,
 ) *gin.Engine {
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
+	r.Use(metrics.GinRequestIDMiddleware(), metrics.GinMetricsMiddleware(), metrics.GinStructuredLoggingMiddleware(log), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
+
+	metrics.RegisterDBPoolCollector(pool)
 
 	// Gin trusts every proxy by default, which would let any caller that can reach
 	// the API set the IP recorded against a submission with a forged header. An
@@ -107,6 +111,13 @@ func NewRouter(
 	go proctorEval.StartRulesRefresher(ctx, 30*time.Second)
 	go agentService.StartSweeper(ctx, 30*time.Second)
 
+	if rn != nil {
+		metrics.StartRunnerMetricsReporter(ctx, func() (int, int, int) {
+			st := rn.Stats()
+			return st.ActiveBoxes, st.TotalCapacity, st.WaitingQueue
+		}, 5*time.Second)
+	}
+
 	h := &handler{
 		cfg:              cfg,
 		judge:            j,
@@ -126,6 +137,7 @@ func NewRouter(
 	}
 
 	r.GET("/healthz", h.health)
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	v1 := r.Group("/api/v1")
