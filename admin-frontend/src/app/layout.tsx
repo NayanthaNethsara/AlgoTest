@@ -44,7 +44,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={cn("font-sans", geistSans.variable, geistMono.variable)}>
+    <html
+      lang="en"
+      className={cn("dark font-sans", geistSans.variable, geistMono.variable)}
+      style={{ colorScheme: "dark" }}
+    >
       <head>
         <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
         <meta name="googlebot" content="noindex, nofollow" />
@@ -52,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/icon.png" />
       </head>
-      <body className="antialiased min-h-screen bg-background text-foreground selection:bg-primary/20 selection:text-primary">
+      <body className="antialiased min-h-screen bg-background text-foreground selection:bg-cyan-500/20 selection:text-cyan-300">
         {children}
       </body>
     </html>
