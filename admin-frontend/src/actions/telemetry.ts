@@ -2,11 +2,7 @@
 
 import { backendFetch } from "@/lib/api/server";
 import type { CompetitorHeartbeat } from "@/types/telemetry";
-import type {
-  EnrolledAgent,
-  ProctorOverview,
-  ProctorTimeline,
-} from "@/types/proctor";
+import type { EnrolledAgent, ProctorOverview, ProctorTimeline } from "@/types/proctor";
 
 export async function getAdminTelemetryAction(): Promise<{
   telemetry: CompetitorHeartbeat[];
@@ -79,10 +75,9 @@ export async function getAdminProctorTimelineAction(userId: string): Promise<{
   error?: string;
 }> {
   try {
-    const response = await backendFetch(
-      `/api/v1/admin/proctor/timeline/${userId}`,
-      { method: "GET" },
-    );
+    const response = await backendFetch(`/api/v1/admin/proctor/timeline/${userId}`, {
+      method: "GET",
+    });
     if (!response.ok) {
       return { timeline: null, error: "Failed to fetch contestant timeline" };
     }
@@ -95,20 +90,17 @@ export async function getAdminProctorTimelineAction(userId: string): Promise<{
 
 export async function revokeAgentAction(
   agentId: string,
-  reason: string,
+  reason: string
 ): Promise<{
   status?: string;
   error?: string;
 }> {
   try {
-    const response = await backendFetch(
-      `/api/v1/admin/proctor/agents/${agentId}/revoke`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
-      },
-    );
+    const response = await backendFetch(`/api/v1/admin/proctor/agents/${agentId}/revoke`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
     if (!response.ok) {
       return { error: "Failed to revoke agent enrolment" };
     }
@@ -143,12 +135,9 @@ export async function getAdminProctorFindingsAction(userId: string): Promise<{
   error?: string;
 }> {
   try {
-    const response = await backendFetch(
-      `/api/v1/admin/proctor/findings/${userId}`,
-      {
-        method: "GET",
-      },
-    );
+    const response = await backendFetch(`/api/v1/admin/proctor/findings/${userId}`, {
+      method: "GET",
+    });
     if (!response.ok) {
       return { findings: [], error: "Failed to fetch findings" };
     }
@@ -164,7 +153,7 @@ export async function setProctorAccessAction(
   userId: string,
   grant: { webWithAgent: boolean; webOnly: boolean },
   reason: string,
-  hoursValid = 0,
+  hoursValid = 0
 ): Promise<{
   status?: string;
   /** Set when the saved combination works against the organizer who set it. */
@@ -172,14 +161,11 @@ export async function setProctorAccessAction(
   error?: string;
 }> {
   try {
-    const response = await backendFetch(
-      `/api/v1/admin/users/${userId}/access`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...grant, reason, hoursValid }),
-      },
-    );
+    const response = await backendFetch(`/api/v1/admin/users/${userId}/access`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...grant, reason, hoursValid }),
+    });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       return { error: body.error ?? "Failed to update submission access" };
@@ -195,20 +181,17 @@ export async function toggleProctorExemptionAction(
   userId: string,
   exempt: boolean,
   reason: string,
-  hoursValid = 4,
+  hoursValid = 4
 ): Promise<{
   status?: string;
   error?: string;
 }> {
   try {
-    const response = await backendFetch(
-      `/api/v1/admin/users/${userId}/exemption`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exempt, reason, hoursValid }),
-      },
-    );
+    const response = await backendFetch(`/api/v1/admin/users/${userId}/exemption`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ exempt, reason, hoursValid }),
+    });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       return { error: body.error ?? "Failed to update exemption" };

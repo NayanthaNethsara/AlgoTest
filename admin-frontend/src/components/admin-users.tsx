@@ -17,14 +17,8 @@ import {
   resetPasswordAction,
   deleteUserAction,
 } from "@/lib/actions/users";
-import {
-  setProctorAccessAction,
-  toggleProctorExemptionAction,
-} from "@/actions/telemetry";
-import {
-  addTeamMemberAction,
-  removeTeamMemberAction,
-} from "@/lib/actions/teams";
+import { setProctorAccessAction, toggleProctorExemptionAction } from "@/actions/telemetry";
+import { addTeamMemberAction, removeTeamMemberAction } from "@/lib/actions/teams";
 import type { User, CreateUserInput, BulkResult } from "@/types/user";
 import type { Team } from "@/types/team";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -112,10 +106,7 @@ export function AdminUsers({
     setPending(true);
     try {
       if (assignTeamTarget.teamId) {
-        await removeTeamMemberAction(
-          assignTeamTarget.teamId,
-          assignTeamTarget.id,
-        );
+        await removeTeamMemberAction(assignTeamTarget.teamId, assignTeamTarget.id);
       }
       if (selectedTeamId) {
         await addTeamMemberAction(selectedTeamId, {
@@ -138,7 +129,7 @@ export function AdminUsers({
     if (!isExempt) {
       const entered = window.prompt(
         `An exemption switches proctoring OFF for ${user.displayName || user.username} entirely, for 4 hours. To let them work in a browser while the proctor keeps running, use Submission Access instead.\n\nReason:`,
-        "Break-glass: proctor client unusable during competition",
+        "Break-glass: proctor client unusable during competition"
       );
       if (entered === null || entered.trim() === "") return;
       reason = entered.trim();
@@ -147,11 +138,7 @@ export function AdminUsers({
     setPending(true);
     user.proctorExempt = !isExempt;
     try {
-      const res = await toggleProctorExemptionAction(
-        user.id,
-        !isExempt,
-        reason,
-      );
+      const res = await toggleProctorExemptionAction(user.id, !isExempt, reason);
       if (res.error) {
         user.proctorExempt = isExempt; // Rollback on error
         setError(res.error);
@@ -165,11 +152,7 @@ export function AdminUsers({
     }
   }
 
-  async function handleFallbackToggle(
-    user: User,
-    key: keyof AccessGrant,
-    enabled: boolean,
-  ) {
+  async function handleFallbackToggle(user: User, key: keyof AccessGrant, enabled: boolean) {
     const current = grantOf(user);
     const next = { ...current, [key]: enabled };
     const fallback = FALLBACKS.find((entry) => entry.key === key)!;
@@ -178,7 +161,7 @@ export function AdminUsers({
     if (enabled) {
       const entered = window.prompt(
         `${fallback.cost}\n\nFor ${user.displayName || user.username}. Reason (recorded against every submission they make):`,
-        reason || fallback.reasonHint,
+        reason || fallback.reasonHint
       );
       if (entered === null || entered.trim() === "") return;
       reason = entered.trim();
@@ -187,7 +170,7 @@ export function AdminUsers({
       // must stop proctoring to submit, and an organizer who meant it keeps it.
       if (isPerverse(next)) {
         const proceed = window.confirm(
-          `Careful: ${user.displayName || user.username} would be able to submit only while the proctor client is STOPPED — submissions from a browser with it running would still be refused.\n\nTick "Browser, proctor running" as well unless you specifically want that. Save anyway?`,
+          `Careful: ${user.displayName || user.username} would be able to submit only while the proctor client is STOPPED — submissions from a browser with it running would still be refused.\n\nTick "Browser, proctor running" as well unless you specifically want that. Save anyway?`
         );
         if (!proceed) return;
       }
@@ -232,8 +215,7 @@ export function AdminUsers({
   const filteredUsers = currentList.filter(
     (u) =>
       u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.displayName &&
-        u.displayName.toLowerCase().includes(searchQuery.toLowerCase())),
+      (u.displayName && u.displayName.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   function openAddFormFor(targetRole: "competitor" | "admin") {
@@ -254,10 +236,7 @@ export function AdminUsers({
         password,
       });
       if (data.password) {
-        setCreds((prev) => [
-          { username: data.user.username, password: data.password! },
-          ...prev,
-        ]);
+        setCreds((prev) => [{ username: data.user.username, password: data.password! }, ...prev]);
       }
       setUsername("");
       setDisplayName("");
@@ -303,10 +282,7 @@ export function AdminUsers({
     setPending(true);
     try {
       const data = await resetPasswordAction(target.id);
-      setCreds((prev) => [
-        { username: target.username, password: data.password },
-        ...prev,
-      ]);
+      setCreds((prev) => [{ username: target.username, password: data.password }, ...prev]);
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
     } finally {
@@ -334,18 +310,13 @@ export function AdminUsers({
     <div className="flex flex-col gap-6">
       {/* Sub-Tab Navigation Bar & Action Buttons */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
-        <Tabs
-          value={subTab}
-          onValueChange={(v) => setSubTab(v as "competitors" | "admins")}
-        >
+        <Tabs value={subTab} onValueChange={(v) => setSubTab(v as "competitors" | "admins")}>
           <TabsList className="h-8">
             <TabsTrigger value="competitors" className="gap-1.5 text-xs h-7">
-              <Users className="h-3.5 w-3.5" /> Contestants & Competitors (
-              {competitorUsers.length})
+              <Users className="h-3.5 w-3.5" /> Contestants & Competitors ({competitorUsers.length})
             </TabsTrigger>
             <TabsTrigger value="admins" className="gap-1.5 text-xs h-7">
-              <Shield className="h-3.5 w-3.5" /> Organizers & Admins (
-              {adminUsers.length})
+              <Shield className="h-3.5 w-3.5" /> Organizers & Admins ({adminUsers.length})
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -367,13 +338,10 @@ export function AdminUsers({
 
           <Button
             size="sm"
-            onClick={() =>
-              openAddFormFor(subTab === "competitors" ? "competitor" : "admin")
-            }
+            onClick={() => openAddFormFor(subTab === "competitors" ? "competitor" : "admin")}
             className="h-8 text-xs gap-1.5"
           >
-            <Plus className="h-3.5 w-3.5" /> Add{" "}
-            {subTab === "competitors" ? "Competitor" : "Admin"}
+            <Plus className="h-3.5 w-3.5" /> Add {subTab === "competitors" ? "Competitor" : "Admin"}
           </Button>
         </div>
       </div>
@@ -394,9 +362,7 @@ export function AdminUsers({
           className="rounded-lg border p-4 bg-muted/10 grid grid-cols-1 md:grid-cols-4 gap-3 items-end"
         >
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">
-              Username
-            </label>
+            <label className="text-xs font-medium text-muted-foreground">Username</label>
             <Input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -405,9 +371,7 @@ export function AdminUsers({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">
-              Display Name
-            </label>
+            <label className="text-xs font-medium text-muted-foreground">Display Name</label>
             <Input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -415,9 +379,7 @@ export function AdminUsers({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">
-              Assigned Role
-            </label>
+            <label className="text-xs font-medium text-muted-foreground">Assigned Role</label>
             <Input
               value={role}
               readOnly
@@ -428,12 +390,7 @@ export function AdminUsers({
             <Button type="submit" disabled={pending} size="sm">
               Save Account
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddForm(false)}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
               Cancel
             </Button>
           </div>
@@ -458,9 +415,7 @@ export function AdminUsers({
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
             rows={4}
-            placeholder={
-              "alice, Alice Smith, secret123\nbob, Bob Jones\ncharlie, Charlie Brown"
-            }
+            placeholder={"alice, Alice Smith, secret123\nbob, Bob Jones\ncharlie, Charlie Brown"}
             className="font-mono text-xs"
             required
           />
@@ -510,30 +465,18 @@ export function AdminUsers({
           <TableBody>
             {filteredUsers.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={8}
-                  className="p-8 text-center text-xs text-muted-foreground"
-                >
-                  No{" "}
-                  {subTab === "competitors" ? "competitors" : "administrators"}{" "}
-                  found.
+                <TableCell colSpan={8} className="p-8 text-center text-xs text-muted-foreground">
+                  No {subTab === "competitors" ? "competitors" : "administrators"} found.
                 </TableCell>
               </TableRow>
             ) : (
               filteredUsers.map((u) => (
                 <TableRow key={u.id}>
-                  <TableCell className="font-mono text-xs font-medium">
-                    {u.username}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {u.displayName || "-"}
-                  </TableCell>
+                  <TableCell className="font-mono text-xs font-medium">{u.username}</TableCell>
+                  <TableCell className="text-xs">{u.displayName || "-"}</TableCell>
                   <TableCell className="text-xs font-mono">
                     {u.teamName ? (
-                      <Badge
-                        variant="secondary"
-                        className="font-mono text-[11px]"
-                      >
+                      <Badge variant="secondary" className="font-mono text-[11px]">
                         {u.teamName}
                       </Badge>
                     ) : (
@@ -541,10 +484,7 @@ export function AdminUsers({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className="font-mono text-[11px] capitalize"
-                    >
+                    <Badge variant="outline" className="font-mono text-[11px] capitalize">
                       {u.role}
                     </Badge>
                   </TableCell>
@@ -585,19 +525,13 @@ export function AdminUsers({
                                 checked={on}
                                 disabled={pending}
                                 onChange={(e) =>
-                                  handleFallbackToggle(
-                                    u,
-                                    fallback.key,
-                                    e.target.checked,
-                                  )
+                                  handleFallbackToggle(u, fallback.key, e.target.checked)
                                 }
                                 className="size-3 accent-primary"
                               />
                               <span
                                 className={
-                                  on
-                                    ? "font-medium text-foreground"
-                                    : "text-muted-foreground"
+                                  on ? "font-medium text-foreground" : "text-muted-foreground"
                                 }
                               >
                                 {fallback.label}
@@ -619,9 +553,7 @@ export function AdminUsers({
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {u.lastLoginAt
-                      ? new Date(u.lastLoginAt).toLocaleString()
-                      : "Never"}
+                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : "Never"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -653,11 +585,7 @@ export function AdminUsers({
                               setSelectedTeamId(u.teamId || "");
                             }}
                             disabled={pending}
-                            title={
-                              u.teamId
-                                ? "Change / Remove Team"
-                                : "Assign to Team"
-                            }
+                            title={u.teamId ? "Change / Remove Team" : "Assign to Team"}
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           >
                             <Users2 className="h-4 w-4" />
@@ -698,8 +626,7 @@ export function AdminUsers({
         <div className="rounded-lg border bg-card p-4 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b pb-3">
             <h3 className="text-sm font-semibold">
-              Assign Team for{" "}
-              {assignTeamTarget.displayName || assignTeamTarget.username}
+              Assign Team for {assignTeamTarget.displayName || assignTeamTarget.username}
             </h3>
             <Button
               variant="ghost"
@@ -775,10 +702,8 @@ export function AdminUsers({
         description={
           <>
             Are you sure you want to delete user account{" "}
-            <strong className="text-foreground">
-              {deleteTarget?.username}
-            </strong>
-            ? All submission history associated with this user will be removed.
+            <strong className="text-foreground">{deleteTarget?.username}</strong>? All submission
+            history associated with this user will be removed.
           </>
         }
         actionLabel="Delete User"
@@ -795,9 +720,7 @@ function parseCsv(text: string): CreateUserInput[] {
     .map((line) => line.trim())
     .filter((line) => line && !/^username\b/i.test(line))
     .map((line) => {
-      const [username, displayName, password] = line
-        .split(",")
-        .map((s) => s?.trim());
+      const [username, displayName, password] = line.split(",").map((s) => s?.trim());
       return {
         username,
         displayName: displayName || undefined,

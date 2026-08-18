@@ -226,7 +226,9 @@ function signalSummary(payload?: Record<string, unknown>): { text: string; alarm
   const ports = Array.isArray(payload.ports) ? payload.ports : [];
   const confirmed = ports.filter(
     (port): port is { product?: string; port?: number } =>
-      typeof port === "object" && port !== null && (port as { confirmed?: boolean }).confirmed === true,
+      typeof port === "object" &&
+      port !== null &&
+      (port as { confirmed?: boolean }).confirmed === true
   );
   if (confirmed.length > 0) {
     parts.push(confirmed.map((p) => `${p.product ?? "LLM"} on ${p.port}`).join(", "));

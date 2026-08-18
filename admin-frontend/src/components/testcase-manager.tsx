@@ -2,13 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, ShieldAlert } from "lucide-react";
-import { getProblemDetailAction, getProblemTestsAction, replaceTestCasesAction } from "@/lib/actions/problems";
+import {
+  getProblemDetailAction,
+  getProblemTestsAction,
+  replaceTestCasesAction,
+} from "@/lib/actions/problems";
 import type { ProblemDetail, TestCaseInput } from "@/types/problem";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 type TestCaseManagerProps = {
   problemId: string;
@@ -60,9 +70,7 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
   }
 
   function handleChangeTest(index: number, field: keyof TestCaseInput, value: string | number) {
-    setTestCases((prev) =>
-      prev.map((t, i) => (i === index ? { ...t, [field]: value } : t))
-    );
+    setTestCases((prev) => prev.map((t, i) => (i === index ? { ...t, [field]: value } : t)));
   }
 
   function promptSaveConfirmation() {
@@ -112,20 +120,29 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
             )}
 
             {loading ? (
-              <div className="p-8 text-center text-xs text-muted-foreground font-medium">Loading test cases...</div>
+              <div className="p-8 text-center text-xs text-muted-foreground font-medium">
+                Loading test cases...
+              </div>
             ) : (
               <>
                 {problemDetail?.tests && problemDetail.tests.length > 0 && (
                   <div className="rounded-lg border bg-muted/20 p-4">
                     <div className="flex items-center gap-2 mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      <ShieldAlert className="h-4 w-4 text-primary" /> Stored Test Hashes ({problemDetail.tests.length})
+                      <ShieldAlert className="h-4 w-4 text-primary" /> Stored Test Hashes (
+                      {problemDetail.tests.length})
                     </div>
                     <div className="grid grid-cols-1 gap-1 max-h-36 overflow-y-auto text-xs font-mono">
                       {problemDetail.tests.map((t) => (
-                        <div key={t.id} className="flex items-center justify-between border-b border-border/40 py-1">
-                          <span>Test #{t.ordinal} ({t.points} pts)</span>
+                        <div
+                          key={t.id}
+                          className="flex items-center justify-between border-b border-border/40 py-1"
+                        >
+                          <span>
+                            Test #{t.ordinal} ({t.points} pts)
+                          </span>
                           <span className="text-muted-foreground text-[10px]">
-                            In: {t.inputSha.substring(0, 10)}... | Exp: {t.expectedSha.substring(0, 10)}...
+                            In: {t.inputSha.substring(0, 10)}... | Exp:{" "}
+                            {t.expectedSha.substring(0, 10)}...
                           </span>
                         </div>
                       ))}
@@ -137,7 +154,12 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Replace / Upload New Test Cases
                   </span>
-                  <Button variant="outline" size="sm" onClick={handleAddTest} className="h-8 text-xs gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddTest}
+                    className="h-8 text-xs gap-1"
+                  >
                     <Plus className="h-3.5 w-3.5" /> Add Test Case
                   </Button>
                 </div>
@@ -155,7 +177,9 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                             <Input
                               type="number"
                               value={t.points}
-                              onChange={(e) => handleChangeTest(idx, "points", Number(e.target.value))}
+                              onChange={(e) =>
+                                handleChangeTest(idx, "points", Number(e.target.value))
+                              }
                               min={1}
                               className="w-16 h-7 text-xs"
                             />
@@ -219,7 +243,9 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
         title="Replace Test Cases"
         description={
           <>
-            Are you sure you want to replace all test cases for <strong className="text-foreground">{problemTitle}</strong>? All existing test case inputs and expected outputs will be overwritten.
+            Are you sure you want to replace all test cases for{" "}
+            <strong className="text-foreground">{problemTitle}</strong>? All existing test case
+            inputs and expected outputs will be overwritten.
           </>
         }
         actionLabel="Replace Test Cases"

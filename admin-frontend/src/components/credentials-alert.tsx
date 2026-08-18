@@ -31,7 +31,12 @@ export function CredentialsAlert({
           Generated Credentials ({credentials.length})
         </span>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleCopyAll} className="h-6 text-[11px] gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyAll}
+            className="h-6 text-[11px] gap-1"
+          >
             {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
             {copied ? "Copied!" : "Copy All"}
           </Button>

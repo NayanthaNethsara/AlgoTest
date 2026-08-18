@@ -17,7 +17,9 @@ export async function listUsersAction(): Promise<User[]> {
   }
 }
 
-export async function createUserAction(input: CreateUserInput): Promise<{ user: User; password?: string }> {
+export async function createUserAction(
+  input: CreateUserInput
+): Promise<{ user: User; password?: string }> {
   try {
     const res = await backendFetch("/api/v1/admin/users", {
       method: "POST",

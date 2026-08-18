@@ -46,7 +46,9 @@ export default function LoginPage() {
               <ShieldCheck className="h-7 w-7" />
             </div>
             <div>
-              <CardTitle className="text-xl font-bold tracking-tight">MiniAlgothon Console</CardTitle>
+              <CardTitle className="text-xl font-bold tracking-tight">
+                MiniAlgothon Console
+              </CardTitle>
               <CardDescription className="text-xs text-muted-foreground mt-1">
                 Sign in with your organizer credentials to access the admin portal.
               </CardDescription>
@@ -90,7 +92,11 @@ export default function LoginPage() {
                 />
               </div>
 
-              <Button type="submit" disabled={loading} className="mt-2 w-full h-9 text-xs font-medium gap-2">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="mt-2 w-full h-9 text-xs font-medium gap-2"
+              >
                 {loading ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" /> Authenticating...

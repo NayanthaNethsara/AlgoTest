@@ -29,10 +29,7 @@ export default function UsersPage() {
       }
       setCurrentUser(user);
 
-      const [usersData, teamsData] = await Promise.all([
-        listUsersAction(),
-        listTeamsAction(),
-      ]);
+      const [usersData, teamsData] = await Promise.all([listUsersAction(), listTeamsAction()]);
       setUsers(usersData);
       setTeams(teamsData);
     } catch (err: unknown) {
@@ -58,7 +55,9 @@ export default function UsersPage() {
   if (error || !currentUser) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-4">
-        <p className="text-xs text-destructive mb-4 font-medium">{error || "Authentication required."}</p>
+        <p className="text-xs text-destructive mb-4 font-medium">
+          {error || "Authentication required."}
+        </p>
         <button
           onClick={() => router.push("/login")}
           className="px-4 py-2 text-xs rounded bg-primary text-primary-foreground font-medium"
@@ -73,7 +72,12 @@ export default function UsersPage() {
     <div className="flex min-h-screen flex-col bg-background">
       <AdminNavbar user={currentUser} onRefresh={loadData} />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
-        <AdminUsers users={users} teams={teams} currentUserId={currentUser.id} onRefresh={loadData} />
+        <AdminUsers
+          users={users}
+          teams={teams}
+          currentUserId={currentUser.id}
+          onRefresh={loadData}
+        />
       </main>
     </div>
   );

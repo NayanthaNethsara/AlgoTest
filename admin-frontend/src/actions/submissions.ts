@@ -6,7 +6,7 @@ import type { AdminSubmission } from "@/types/submission";
 export async function listAdminSubmissionsAction(
   statusFilter = "",
   problemId = "",
-  teamId = "",
+  teamId = ""
 ): Promise<{ submissions: AdminSubmission[]; total: number }> {
   try {
     const params = new URLSearchParams();
@@ -30,7 +30,7 @@ export async function listAdminSubmissionsAction(
 }
 
 export async function rejudgeSubmissionAction(
-  submissionId: string,
+  submissionId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await backendFetch(`/api/v1/admin/submissions/${submissionId}/rejudge`, {
@@ -47,7 +47,7 @@ export async function rejudgeSubmissionAction(
 }
 
 export async function cancelSubmissionAction(
-  submissionId: string,
+  submissionId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await backendFetch(`/api/v1/admin/submissions/${submissionId}/cancel`, {
@@ -64,7 +64,7 @@ export async function cancelSubmissionAction(
 }
 
 export async function unstickTeamAction(
-  teamId: string,
+  teamId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await backendFetch(`/api/v1/admin/teams/${teamId}/unstick`, {

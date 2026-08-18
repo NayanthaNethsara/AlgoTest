@@ -82,7 +82,8 @@ function IncidentBanner({ incident }: { incident: NonNullable<ProctorOverview["i
         as ours, not theirs.
       </span>
       <span className="ml-auto font-mono">
-        {formatClock(incident.startedAt)} → {incident.endedAt ? formatClock(incident.endedAt) : "now"}
+        {formatClock(incident.startedAt)} →{" "}
+        {incident.endedAt ? formatClock(incident.endedAt) : "now"}
       </span>
     </div>
   );

@@ -29,13 +29,25 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
   const [difficulty, setDifficulty] = useState<Difficulty>(
     (initialData?.difficulty as Difficulty) ?? STARTER_PROBLEM_TEMPLATE.difficulty
   );
-  const [maxScore, setMaxScore] = useState(initialData?.maxScore ?? STARTER_PROBLEM_TEMPLATE.maxScore);
-  const [timeLimitMs, setTimeLimitMs] = useState(initialData?.timeLimitMs ?? STARTER_PROBLEM_TEMPLATE.timeLimitMs);
-  const [memoryLimitMb, setMemoryLimitMb] = useState(initialData?.memoryLimitMb ?? STARTER_PROBLEM_TEMPLATE.memoryLimitMb);
-  const [published, setPublished] = useState(initialData?.published ?? STARTER_PROBLEM_TEMPLATE.published);
+  const [maxScore, setMaxScore] = useState(
+    initialData?.maxScore ?? STARTER_PROBLEM_TEMPLATE.maxScore
+  );
+  const [timeLimitMs, setTimeLimitMs] = useState(
+    initialData?.timeLimitMs ?? STARTER_PROBLEM_TEMPLATE.timeLimitMs
+  );
+  const [memoryLimitMb, setMemoryLimitMb] = useState(
+    initialData?.memoryLimitMb ?? STARTER_PROBLEM_TEMPLATE.memoryLimitMb
+  );
+  const [published, setPublished] = useState(
+    initialData?.published ?? STARTER_PROBLEM_TEMPLATE.published
+  );
 
-  const [statement, setStatement] = useState(initialData?.statement ?? STARTER_PROBLEM_TEMPLATE.statement);
-  const [constraints, setConstraints] = useState(initialData?.constraints ?? STARTER_PROBLEM_TEMPLATE.constraints);
+  const [statement, setStatement] = useState(
+    initialData?.statement ?? STARTER_PROBLEM_TEMPLATE.statement
+  );
+  const [constraints, setConstraints] = useState(
+    initialData?.constraints ?? STARTER_PROBLEM_TEMPLATE.constraints
+  );
   const [samples, setSamples] = useState<Sample[]>(
     initialData?.samples ?? STARTER_PROBLEM_TEMPLATE.samples
   );
@@ -71,9 +83,7 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
   }
 
   function handleSampleChange(index: number, field: keyof Sample, value: string) {
-    setSamples((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
-    );
+    setSamples((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   }
 
   async function handleSaveInternal(shouldPublish?: boolean) {
@@ -119,7 +129,14 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-card px-6 py-3 shadow-sm">
         <div className="flex items-center gap-4">
-          <Link href="/" className={buttonVariants({ variant: "ghost", size: "sm", className: "gap-1.5 text-xs text-muted-foreground" })}>
+          <Link
+            href="/"
+            className={buttonVariants({
+              variant: "ghost",
+              size: "sm",
+              className: "gap-1.5 text-xs text-muted-foreground",
+            })}
+          >
             <ArrowLeft className="h-4 w-4" /> Back to Console
           </Link>
           <div className="h-4 w-px bg-border" />
@@ -134,11 +151,22 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => handleSaveInternal(false)} disabled={pending} className="gap-1.5 text-xs">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSaveInternal(false)}
+            disabled={pending}
+            className="gap-1.5 text-xs"
+          >
             <Save className="h-3.5 w-3.5" /> Save Draft
           </Button>
 
-          <Button size="sm" onClick={() => handleSaveInternal(true)} disabled={pending} className="gap-1.5 text-xs">
+          <Button
+            size="sm"
+            onClick={() => handleSaveInternal(true)}
+            disabled={pending}
+            className="gap-1.5 text-xs"
+          >
             <Globe className="h-3.5 w-3.5" /> {pending ? "Saving..." : "Save & Publish"}
           </Button>
         </div>
@@ -160,7 +188,9 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
             </h2>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground block">Problem Title</label>
+              <label className="text-xs font-medium text-muted-foreground block">
+                Problem Title
+              </label>
               <Input
                 value={title}
                 onChange={(e) => handleTitleChange(e.target.value)}
@@ -183,7 +213,9 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-muted-foreground block">Difficulty</label>
+                <label className="text-xs font-medium text-muted-foreground block">
+                  Difficulty
+                </label>
                 <select
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value as Difficulty)}
@@ -208,7 +240,9 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-muted-foreground block">Time Limit (ms)</label>
+                <label className="text-xs font-medium text-muted-foreground block">
+                  Time Limit (ms)
+                </label>
                 <Input
                   type="number"
                   value={timeLimitMs}
@@ -219,7 +253,9 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-muted-foreground block">Memory Limit (MB)</label>
+                <label className="text-xs font-medium text-muted-foreground block">
+                  Memory Limit (MB)
+                </label>
                 <Input
                   type="number"
                   value={memoryLimitMb}
@@ -251,7 +287,10 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                   Statement & Markdown Editor
                 </h2>
 
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "edit" | "preview" | "split")}>
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(v) => setActiveTab(v as "edit" | "preview" | "split")}
+                >
                   <TabsList className="h-8">
                     <TabsTrigger value="edit" className="gap-1 text-xs h-7">
                       <Edit3 className="h-3 w-3" /> Edit
@@ -321,9 +360,16 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Public Sample Test Cases
                   </h2>
-                  <p className="text-xs text-muted-foreground">These sample inputs and outputs are visible to contestants.</p>
+                  <p className="text-xs text-muted-foreground">
+                    These sample inputs and outputs are visible to contestants.
+                  </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleAddSample} className="h-8 text-xs gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddSample}
+                  className="h-8 text-xs gap-1"
+                >
                   <Plus className="h-3.5 w-3.5" /> Add Sample Case
                 </Button>
               </div>
@@ -349,7 +395,9 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                       <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground block">Standard Input</label>
+                        <label className="text-xs text-muted-foreground block">
+                          Standard Input
+                        </label>
                         <Textarea
                           value={s.input}
                           onChange={(e) => handleSampleChange(idx, "input", e.target.value)}
@@ -358,7 +406,9 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground block">Standard Output</label>
+                        <label className="text-xs text-muted-foreground block">
+                          Standard Output
+                        </label>
                         <Textarea
                           value={s.output}
                           onChange={(e) => handleSampleChange(idx, "output", e.target.value)}
@@ -369,7 +419,9 @@ export function ProblemEditor({ initialData, onSave, pending }: ProblemEditorPro
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-xs text-muted-foreground block">Explanation (Optional)</label>
+                      <label className="text-xs text-muted-foreground block">
+                        Explanation (Optional)
+                      </label>
                       <Input
                         value={s.explanation || ""}
                         onChange={(e) => handleSampleChange(idx, "explanation", e.target.value)}

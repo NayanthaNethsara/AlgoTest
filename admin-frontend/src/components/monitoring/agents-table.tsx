@@ -30,7 +30,7 @@ export function AgentsTable({
   const revoke = (agent: EnrolledAgent) => {
     const reason = window.prompt(
       `Revoke the proctor enrolment for ${agent.displayName}?\n\nThey will have to enrol again before they can submit. Reason:`,
-      "",
+      ""
     );
     if (reason === null) return;
 

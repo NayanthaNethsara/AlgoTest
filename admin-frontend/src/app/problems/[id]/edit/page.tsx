@@ -6,11 +6,7 @@ import { getProblemDetailAction, updateProblemAction } from "@/lib/actions/probl
 import { ProblemEditor } from "@/components/problem-editor";
 import type { ProblemDetail, ProblemInput } from "@/types/problem";
 
-export default function EditProblemPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function EditProblemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
 

@@ -18,7 +18,9 @@ export async function listTeamsAction(): Promise<Team[]> {
   }
 }
 
-export async function createTeamAction(input: CreateTeamInput): Promise<{ team: Team; members?: Array<{ user: User; password?: string }> }> {
+export async function createTeamAction(
+  input: CreateTeamInput
+): Promise<{ team: Team; members?: Array<{ user: User; password?: string }> }> {
   try {
     const res = await backendFetch("/api/v1/admin/teams", {
       method: "POST",
@@ -66,8 +68,7 @@ export async function deleteTeamAction(id: string): Promise<void> {
 }
 
 export type AddTeamMemberPayload =
-  | { userId: string }
-  | { username: string; displayName?: string; password?: string };
+  { userId: string } | { username: string; displayName?: string; password?: string };
 
 export async function addTeamMemberAction(
   teamId: string,

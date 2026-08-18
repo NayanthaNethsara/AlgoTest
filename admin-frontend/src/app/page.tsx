@@ -52,7 +52,9 @@ export default function ProblemsPage() {
   if (error || !currentUser) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-4">
-        <p className="text-xs text-destructive mb-4 font-medium">{error || "Authentication required."}</p>
+        <p className="text-xs text-destructive mb-4 font-medium">
+          {error || "Authentication required."}
+        </p>
         <button
           onClick={() => router.push("/login")}
           className="px-4 py-2 text-xs rounded bg-primary text-primary-foreground font-medium"

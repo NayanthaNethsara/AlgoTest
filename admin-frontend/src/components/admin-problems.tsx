@@ -9,7 +9,14 @@ import { TestCaseManager } from "./testcase-manager";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
 
 export function AdminProblems({
   problems,
@@ -18,7 +25,10 @@ export function AdminProblems({
   problems: ProblemDetail[];
   onRefresh: () => void;
 }) {
-  const [testManagerProblem, setTestManagerProblem] = useState<{ id: string; title: string } | null>(null);
+  const [testManagerProblem, setTestManagerProblem] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
   const [deletingProblem, setDeletingProblem] = useState<ProblemDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -86,7 +96,8 @@ export function AdminProblems({
             {problems.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="p-8 text-center text-xs text-muted-foreground">
-                  No problems found. Click &quot;Create Problem&quot; or import problems using problemtool CLI.
+                  No problems found. Click &quot;Create Problem&quot; or import problems using
+                  problemtool CLI.
                 </TableCell>
               </TableRow>
             ) : (
@@ -103,8 +114,8 @@ export function AdminProblems({
                         p.difficulty === "Easy"
                           ? "border-green-500/30 text-green-600 bg-green-500/10"
                           : p.difficulty === "Medium"
-                          ? "border-yellow-500/30 text-yellow-600 bg-yellow-500/10"
-                          : "border-red-500/30 text-red-600 bg-red-500/10"
+                            ? "border-yellow-500/30 text-yellow-600 bg-yellow-500/10"
+                            : "border-red-500/30 text-red-600 bg-red-500/10"
                       }`}
                     >
                       {p.difficulty}
@@ -129,7 +140,11 @@ export function AdminProblems({
                         title={p.published ? "Unpublish" : "Publish"}
                         className="h-8 w-8"
                       >
-                        {p.published ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4 text-primary" />}
+                        {p.published ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-primary" />
+                        )}
                       </Button>
                       <Button
                         variant="ghost"
@@ -143,7 +158,11 @@ export function AdminProblems({
                       <Link
                         href={`/problems/${p.id}/edit`}
                         title="Edit Problem"
-                        className={buttonVariants({ variant: "ghost", size: "icon", className: "h-8 w-8 text-foreground" })}
+                        className={buttonVariants({
+                          variant: "ghost",
+                          size: "icon",
+                          className: "h-8 w-8 text-foreground",
+                        })}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Link>
@@ -172,7 +191,10 @@ export function AdminProblems({
         title="Delete Problem"
         description={
           <>
-            Are you sure you want to permanently delete <strong className="text-foreground">{deletingProblem?.title}</strong> ({deletingProblem?.slug})? This will erase the statement, samples, and all test case files.
+            Are you sure you want to permanently delete{" "}
+            <strong className="text-foreground">{deletingProblem?.title}</strong> (
+            {deletingProblem?.slug})? This will erase the statement, samples, and all test case
+            files.
           </>
         }
         actionLabel="Delete Problem"

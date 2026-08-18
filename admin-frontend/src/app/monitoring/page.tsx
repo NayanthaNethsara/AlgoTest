@@ -27,11 +27,7 @@ import {
 import { AgentsTable } from "@/components/monitoring/agents-table";
 import { FleetHeader } from "@/components/monitoring/fleet-header";
 import { formatDuration } from "@/lib/monitoring";
-import type {
-  CompetitorHeartbeat,
-  TelemetryClientType,
-  TelemetryStatus,
-} from "@/types/telemetry";
+import type { CompetitorHeartbeat, TelemetryClientType, TelemetryStatus } from "@/types/telemetry";
 import type { EnrolledAgent, ProctorOverview } from "@/types/proctor";
 
 interface CompetitorRisk {
@@ -58,15 +54,12 @@ interface EvidenceFinding {
 }
 
 export default function OnsiteMonitoringPage() {
-  const [activeTab, setActiveTab] = useState<
-    "TELEMETRY" | "PROCTOR_RISK" | "AGENTS"
-  >("TELEMETRY");
+  const [activeTab, setActiveTab] = useState<"TELEMETRY" | "PROCTOR_RISK" | "AGENTS">("TELEMETRY");
   const [overview, setOverview] = useState<ProctorOverview | null>(null);
   const [agents, setAgents] = useState<EnrolledAgent[]>([]);
   const [telemetryList, setTelemetryList] = useState<CompetitorHeartbeat[]>([]);
   const [riskList, setRiskList] = useState<CompetitorRisk[]>([]);
-  const [selectedUserRisk, setSelectedUserRisk] =
-    useState<CompetitorRisk | null>(null);
+  const [selectedUserRisk, setSelectedUserRisk] = useState<CompetitorRisk | null>(null);
   const [userFindings, setUserFindings] = useState<EvidenceFinding[]>([]);
   const [loadingFindings, setLoadingFindings] = useState(false);
 
@@ -108,33 +101,24 @@ export default function OnsiteMonitoringPage() {
     setLoadingFindings(false);
   };
 
-  const handleToggleExemption = async (
-    userId: string,
-    currentExempt: boolean,
-  ) => {
+  const handleToggleExemption = async (userId: string, currentExempt: boolean) => {
     let reason = "";
     if (!currentExempt) {
       // An exemption switches proctoring off for one person, so it has to say why
       // and it lapses on its own. The API rejects a blank reason.
       const entered = window.prompt(
         "Granting an exemption lets this contestant submit without a reporting agent.\nIt expires in 4 hours. Reason:",
-        "",
+        ""
       );
       if (entered === null || entered.trim() === "") return;
       reason = entered.trim();
     }
 
-    const res = await toggleProctorExemptionAction(
-      userId,
-      !currentExempt,
-      reason,
-    );
+    const res = await toggleProctorExemptionAction(userId, !currentExempt, reason);
     if (!res.error) {
       fetchData();
       if (selectedUserRisk?.userId === userId) {
-        setSelectedUserRisk((prev) =>
-          prev ? { ...prev, proctorExempt: !currentExempt } : null,
-        );
+        setSelectedUserRisk((prev) => (prev ? { ...prev, proctorExempt: !currentExempt } : null));
       }
     }
   };
@@ -150,14 +134,12 @@ export default function OnsiteMonitoringPage() {
   }, [isAutoRefreshActive]);
 
   const filteredTelemetry = telemetryList.filter((item) => {
-    const matchesStatus =
-      statusFilter === "ALL" || item.status === statusFilter;
+    const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
     const matchesQuery =
       searchQuery.trim() === "" ||
       item.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.team_name &&
-        item.team_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.team_name && item.team_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       item.ip_address.includes(searchQuery);
     return matchesStatus && matchesQuery;
   });
@@ -167,8 +149,7 @@ export default function OnsiteMonitoringPage() {
       searchQuery.trim() === "" ||
       item.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.displayName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSeverity =
-      statusFilter === "ALL" || item.severity === statusFilter;
+    const matchesSeverity = statusFilter === "ALL" || item.severity === statusFilter;
     return matchesQuery && matchesSeverity;
   });
 
@@ -185,8 +166,8 @@ export default function OnsiteMonitoringPage() {
             Onsite Proctoring & Risk Control Center
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Real-time monitoring of contestant desktop heartbeats, LLM port
-            probes, and non-intrusive risk scoring.
+            Real-time monitoring of contestant desktop heartbeats, LLM port probes, and
+            non-intrusive risk scoring.
           </p>
         </div>
 
@@ -200,9 +181,7 @@ export default function OnsiteMonitoringPage() {
             }`}
           >
             <Clock className="size-3.5" />
-            {isAutoRefreshActive
-              ? "Auto-refreshing (10s)"
-              : "Auto-refresh paused"}
+            {isAutoRefreshActive ? "Auto-refreshing (10s)" : "Auto-refresh paused"}
           </button>
 
           <button
@@ -210,9 +189,7 @@ export default function OnsiteMonitoringPage() {
             disabled={isPending}
             className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
-            <RefreshCw
-              className={`size-3.5 ${isPending ? "animate-spin" : ""}`}
-            />
+            <RefreshCw className={`size-3.5 ${isPending ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
@@ -306,10 +283,7 @@ export default function OnsiteMonitoringPage() {
               <tbody className="divide-y">
                 {filteredRisk.length === 0 ? (
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="px-4 py-8 text-center text-muted-foreground"
-                    >
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                       No contestant risk entries found matching filter criteria.
                     </td>
                   </tr>
@@ -319,15 +293,11 @@ export default function OnsiteMonitoringPage() {
                       key={item.userId}
                       onClick={() => handleFetchUserFindings(item)}
                       className={`hover:bg-muted/20 transition-colors cursor-pointer ${
-                        selectedUserRisk?.userId === item.userId
-                          ? "bg-muted/40"
-                          : ""
+                        selectedUserRisk?.userId === item.userId ? "bg-muted/40" : ""
                       }`}
                     >
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-foreground">
-                          {item.displayName}
-                        </div>
+                        <div className="font-semibold text-foreground">{item.displayName}</div>
                         <div className="text-[11px] text-muted-foreground font-mono">
                           @{item.username}
                         </div>
@@ -345,9 +315,7 @@ export default function OnsiteMonitoringPage() {
                           {item.score} pts ({item.severity})
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono">
-                        {item.findingCount} evidence rules
-                      </td>
+                      <td className="px-4 py-3 font-mono">{item.findingCount} evidence rules</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
                           {item.proctorExempt ? (
@@ -378,10 +346,7 @@ export default function OnsiteMonitoringPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleToggleExemption(
-                              item.userId,
-                              item.proctorExempt,
-                            );
+                            handleToggleExemption(item.userId, item.proctorExempt);
                           }}
                           className="text-[11px] font-medium text-primary hover:underline"
                         >
@@ -427,22 +392,15 @@ export default function OnsiteMonitoringPage() {
               ) : (
                 <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
                   {userFindings.map((f) => (
-                    <div
-                      key={f.id}
-                      className="p-3 bg-muted/40 border rounded-md text-xs space-y-1"
-                    >
+                    <div key={f.id} className="p-3 bg-muted/40 border rounded-md text-xs space-y-1">
                       <div className="flex items-center justify-between font-bold">
                         <span className="text-amber-500 flex items-center gap-1">
                           <AlertTriangle className="size-3.5" />
                           {f.title}
                         </span>
-                        <span className="text-destructive font-mono">
-                          +{f.weight} pts
-                        </span>
+                        <span className="text-destructive font-mono">+{f.weight} pts</span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        {f.category}
-                      </p>
+                      <p className="text-[10px] text-muted-foreground">{f.category}</p>
                       {f.evidence && (
                         <pre className="text-[10px] font-mono bg-background p-2 rounded text-foreground overflow-x-auto">
                           {JSON.stringify(f.evidence, null, 2)}
@@ -458,9 +416,7 @@ export default function OnsiteMonitoringPage() {
       )}
 
       {/* TELEMETRY TAB CONTENT */}
-      {activeTab === "AGENTS" && (
-        <AgentsTable agents={agents} onChanged={fetchData} />
-      )}
+      {activeTab === "AGENTS" && <AgentsTable agents={agents} onChanged={fetchData} />}
 
       {activeTab === "TELEMETRY" && (
         <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
@@ -482,10 +438,7 @@ export default function OnsiteMonitoringPage() {
               </thead>
               <tbody className="divide-y">
                 {filteredTelemetry.map((item) => (
-                  <tr
-                    key={item.user_id}
-                    className="hover:bg-muted/20 transition-colors"
-                  >
+                  <tr key={item.user_id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3">
                       <StatusBadge status={item.status} />
                     </td>
@@ -504,9 +457,7 @@ export default function OnsiteMonitoringPage() {
                       {item.team_name ? (
                         item.team_name
                       ) : (
-                        <span className="text-muted-foreground italic">
-                          No Team
-                        </span>
+                        <span className="text-muted-foreground italic">No Team</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -522,12 +473,8 @@ export default function OnsiteMonitoringPage() {
                       <SignalsCell item={item} />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-mono text-[11px]">
-                        {item.ip_address || "N/A"}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {item.os_info}
-                      </div>
+                      <div className="font-mono text-[11px]">{item.ip_address || "N/A"}</div>
+                      <div className="text-[10px] text-muted-foreground">{item.os_info}</div>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
                       {formatTimeAgo(item.last_ping_at)}
@@ -535,10 +482,7 @@ export default function OnsiteMonitoringPage() {
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() =>
-                          handleToggleExemption(
-                            item.user_id,
-                            Boolean(item.proctor_exempt),
-                          )
+                          handleToggleExemption(item.user_id, Boolean(item.proctor_exempt))
                         }
                         className={`text-[11px] font-semibold ${
                           item.proctor_exempt
@@ -546,9 +490,7 @@ export default function OnsiteMonitoringPage() {
                             : "text-primary hover:underline"
                         }`}
                       >
-                        {item.proctor_exempt
-                          ? "Exempt (Revoke)"
-                          : "Grant Exempt"}
+                        {item.proctor_exempt ? "Exempt (Revoke)" : "Grant Exempt"}
                       </button>
                     </td>
                   </tr>
@@ -620,11 +562,7 @@ function DarkForCell({ item }: { item: CompetitorHeartbeat }) {
 
   return (
     <div className="text-[11px]">
-      <span
-        className={
-          item.in_gap ? "font-semibold text-destructive" : "text-warning"
-        }
-      >
+      <span className={item.in_gap ? "font-semibold text-destructive" : "text-warning"}>
         {formatDuration(item.offline_seconds)}
       </span>
       <div className="text-[10px] text-muted-foreground">
@@ -641,16 +579,13 @@ function DarkForCell({ item }: { item: CompetitorHeartbeat }) {
 function SignalsCell({ item }: { item: CompetitorHeartbeat }) {
   const flags: string[] = [];
   if (item.internet_reachable) flags.push("internet reachable");
-  if (item.process_matches.length > 0)
-    flags.push(item.process_matches.join(", "));
+  if (item.process_matches.length > 0) flags.push(item.process_matches.join(", "));
 
   if (flags.length === 0) {
     return <span className="text-[10px] text-muted-foreground">clean</span>;
   }
 
-  return (
-    <span className="text-[11px] text-destructive">{flags.join(" · ")}</span>
-  );
+  return <span className="text-[11px] text-destructive">{flags.join(" · ")}</span>;
 }
 
 function formatTimeAgo(isoString: string): string {
@@ -658,9 +593,7 @@ function formatTimeAgo(isoString: string): string {
   const date = new Date(isoString);
   if (isNaN(date.getTime())) return "Never";
 
-  const diffSeconds = Math.floor(
-    (new Date().getTime() - date.getTime()) / 1000,
-  );
+  const diffSeconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
   if (diffSeconds < 10) return "Just now";
   if (diffSeconds < 60) return `${diffSeconds}s ago`;
   if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`;

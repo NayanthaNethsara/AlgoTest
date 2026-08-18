@@ -16,7 +16,14 @@ import { CredentialsAlert } from "./credentials-alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
 
 type Credential = { username: string; password: string };
 
@@ -46,7 +53,9 @@ export function AdminTeams({
   const [addMemberTarget, setAddMemberTarget] = useState<Team | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
 
-  const [removeMemberTarget, setRemoveMemberTarget] = useState<{ team: Team; user: User } | null>(null);
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<{ team: Team; user: User } | null>(
+    null
+  );
 
   // Available competitor users who are not assigned to any team
   const unassignedCompetitors = competitors.filter((c) => !c.teamId);
@@ -314,7 +323,8 @@ export function AdminTeams({
                 <label className="text-xs font-medium">Select Unassigned Competitor User</label>
                 {unassignedCompetitors.length === 0 ? (
                   <p className="text-xs text-muted-foreground py-2 font-mono">
-                    No unassigned competitor users available. Switch to &quot;Create New User&quot; tab to create one directly.
+                    No unassigned competitor users available. Switch to &quot;Create New User&quot;
+                    tab to create one directly.
                   </p>
                 ) : (
                   <select
@@ -381,11 +391,18 @@ export function AdminTeams({
               <Button
                 type="submit"
                 size="sm"
-                disabled={pending || (addMemberMode === "existing" ? !selectedUserId : !newMemberUsername.trim())}
+                disabled={
+                  pending ||
+                  (addMemberMode === "existing" ? !selectedUserId : !newMemberUsername.trim())
+                }
                 className="h-8 text-xs font-medium gap-1.5"
               >
                 <UserPlus className="h-3.5 w-3.5" />
-                {pending ? "Adding..." : addMemberMode === "existing" ? "Add to Team" : "Create & Add to Team"}
+                {pending
+                  ? "Adding..."
+                  : addMemberMode === "existing"
+                    ? "Add to Team"
+                    : "Create & Add to Team"}
               </Button>
             </div>
           </form>

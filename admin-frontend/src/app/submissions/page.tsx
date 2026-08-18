@@ -52,7 +52,10 @@ export default function AdminSubmissionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const [selectedSubmission, setSelectedSubmission] = useState<AdminSubmission | null>(null);
-  const [actionMessage, setActionMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [actionMessage, setActionMessage] = useState<{
+    text: string;
+    type: "success" | "error";
+  } | null>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -103,7 +106,9 @@ export default function AdminSubmissionsPage() {
   }
 
   async function handleUnstick(teamId: string, teamName: string) {
-    if (!confirm(`Are you sure you want to clear active submission locks for team "${teamName}"?`)) {
+    if (
+      !confirm(`Are you sure you want to clear active submission locks for team "${teamName}"?`)
+    ) {
       return;
     }
     setActionMessage(null);
@@ -155,7 +160,12 @@ export default function AdminSubmissionsPage() {
               <option value="failed">Failed</option>
             </select>
 
-            <Button size="sm" variant="outline" onClick={fetchSubmissions} className="h-9 gap-1.5 text-xs">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={fetchSubmissions}
+              className="h-9 gap-1.5 text-xs"
+            >
               <RefreshCw className="h-3.5 w-3.5" /> Refresh
             </Button>
           </div>
@@ -182,7 +192,9 @@ export default function AdminSubmissionsPage() {
         <div className="grid gap-4 md:grid-cols-4">
           <Card className="shadow-sm">
             <CardHeader className="py-3 px-4 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-xs font-medium text-muted-foreground">Queued Jobs</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground">
+                Queued Jobs
+              </CardTitle>
               <Clock className="h-4 w-4 text-warning" />
             </CardHeader>
             <CardContent className="py-2 px-4">
@@ -192,7 +204,9 @@ export default function AdminSubmissionsPage() {
 
           <Card className="shadow-sm">
             <CardHeader className="py-3 px-4 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-xs font-medium text-muted-foreground">Running Jobs</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground">
+                Running Jobs
+              </CardTitle>
               <Play className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent className="py-2 px-4">
@@ -212,7 +226,9 @@ export default function AdminSubmissionsPage() {
 
           <Card className="shadow-sm">
             <CardHeader className="py-3 px-4 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-xs font-medium text-muted-foreground">Failed / Errors</CardTitle>
+              <CardTitle className="text-xs font-medium text-muted-foreground">
+                Failed / Errors
+              </CardTitle>
               <XCircle className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent className="py-2 px-4">
@@ -254,11 +270,15 @@ export default function AdminSubmissionsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col text-xs">
-                          <span className="font-medium text-foreground">{sub.teamName || sub.userName}</span>
+                          <span className="font-medium text-foreground">
+                            {sub.teamName || sub.userName}
+                          </span>
                           <span className="text-[11px] text-muted-foreground">{sub.userName}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs font-medium">{sub.problemTitle || sub.problemId}</TableCell>
+                      <TableCell className="text-xs font-medium">
+                        {sub.problemTitle || sub.problemId}
+                      </TableCell>
                       <TableCell className="font-mono text-xs uppercase">{sub.language}</TableCell>
                       <TableCell>
                         <StatusBadge status={sub.status} verdict={sub.verdict} />
@@ -295,7 +315,9 @@ export default function AdminSubmissionsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleUnstick(sub.teamId, sub.teamName || sub.userName)}
+                              onClick={() =>
+                                handleUnstick(sub.teamId, sub.teamName || sub.userName)
+                              }
                               className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive/10 gap-1"
                               title="Clear Team Submission Lock"
                             >
@@ -320,10 +342,14 @@ export default function AdminSubmissionsPage() {
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between text-base">
                 <span>Submission Detail ({selectedSubmission.submissionId.slice(0, 8)})</span>
-                <StatusBadge status={selectedSubmission.status} verdict={selectedSubmission.verdict} />
+                <StatusBadge
+                  status={selectedSubmission.status}
+                  verdict={selectedSubmission.verdict}
+                />
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Team: {selectedSubmission.teamName || "N/A"} · User: {selectedSubmission.userName} · Language: {selectedSubmission.language}
+                Team: {selectedSubmission.teamName || "N/A"} · User: {selectedSubmission.userName} ·
+                Language: {selectedSubmission.language}
               </DialogDescription>
             </DialogHeader>
 
@@ -351,13 +377,25 @@ export default function AdminSubmissionsPage() {
 
 function StatusBadge({ status, verdict }: { status: string; verdict?: string }) {
   if (status === "queued") {
-    return <Badge variant="outline" className="text-warning border-warning/40 text-[10px]">Queued</Badge>;
+    return (
+      <Badge variant="outline" className="text-warning border-warning/40 text-[10px]">
+        Queued
+      </Badge>
+    );
   }
   if (status === "running") {
-    return <Badge variant="outline" className="text-primary border-primary/40 text-[10px]">Evaluating...</Badge>;
+    return (
+      <Badge variant="outline" className="text-primary border-primary/40 text-[10px]">
+        Evaluating...
+      </Badge>
+    );
   }
   if (status === "passed") {
     return <Badge className="bg-success/15 text-success text-[10px]">{verdict || "AC"}</Badge>;
   }
-  return <Badge variant="destructive" className="text-[10px]">{verdict || "Failed"}</Badge>;
+  return (
+    <Badge variant="destructive" className="text-[10px]">
+      {verdict || "Failed"}
+    </Badge>
+  );
 }
