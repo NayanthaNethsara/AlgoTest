@@ -58,7 +58,7 @@ func (h *handler) health(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "database": "up"})
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "database": "up", "ci/cd": "ok"})
 }
 
 // @Summary List Teams
