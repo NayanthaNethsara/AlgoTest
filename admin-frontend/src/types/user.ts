@@ -6,7 +6,6 @@ export type User = SessionUser;
 export type CreateUserInput = {
   username: string;
   displayName?: string;
-  role?: string;
   password?: string;
   teamId?: string;
   teamName?: string;
