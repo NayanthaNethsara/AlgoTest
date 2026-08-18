@@ -2,8 +2,10 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -17,7 +19,12 @@ const (
 	minPasswordLength       = 8
 )
 
-var errPasswordTooShort = errors.New("password too short")
+var (
+	errPasswordTooShort        = errors.New("password too short")
+	errInvalidRole             = errors.New("invalid role")
+	errTeamRequired            = errors.New("team is required for competitor users")
+	errAdminCreationNotAllowed = errors.New("admin accounts cannot be created via API; use server CLI")
+)
 
 func checkPasswordLength(password string) error {
 	if password != "" && len(password) < minPasswordLength {
@@ -61,6 +68,8 @@ type createUserRequest struct {
 	DisplayName string `json:"displayName"`
 	Role        string `json:"role"`
 	Password    string `json:"password"`
+	TeamID      string `json:"teamId"`
+	TeamName    string `json:"teamName"`
 }
 
 // @Summary Admin Create User
@@ -90,8 +99,9 @@ func (h *handler) createUser(c *gin.Context) {
 }
 
 type bulkCreateRequest struct {
-	Role  string              `json:"role"`
-	Users []createUserRequest `json:"users" binding:"required"`
+	TeamID   string              `json:"teamId"`
+	TeamName string              `json:"teamName"`
+	Users    []createUserRequest `json:"users" binding:"required"`
 }
 
 type bulkResult struct {
@@ -103,7 +113,7 @@ type bulkResult struct {
 }
 
 // @Summary Admin Bulk Create Users
-// @Description Bulk create user accounts.
+// @Description Bulk create competitor user accounts.
 // @Tags Admin
 // @Accept json
 // @Produce json
@@ -120,8 +130,10 @@ func (h *handler) bulkCreateUsers(c *gin.Context) {
 
 	results := make([]bulkResult, 0, len(req.Users))
 	for _, row := range req.Users {
-		if row.Role == "" {
-			row.Role = req.Role
+		row.Role = user.RoleCompetitor
+		if row.TeamID == "" && row.TeamName == "" {
+			row.TeamID = req.TeamID
+			row.TeamName = req.TeamName
 		}
 		created, password, err := h.createOne(c, row)
 		if err != nil {
@@ -249,8 +261,8 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 	if role == "" {
 		role = user.RoleCompetitor
 	}
-	if !user.ValidRole(role) {
-		return user.User{}, "", errInvalidRole
+	if role != user.RoleCompetitor {
+		return user.User{}, "", errAdminCreationNotAllowed
 	}
 	if err := checkPasswordLength(req.Password); err != nil {
 		return user.User{}, "", err
@@ -269,34 +281,96 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 		return user.User{}, "", err
 	}
 
-	created, err := h.users.Create(c.Request.Context(), req.Username, name, hash, role)
+	ctx := c.Request.Context()
+
+	var targetTeamID string
+	var targetTeamName string
+
+	if req.TeamID != "" {
+		t, err := h.teams.GetByID(ctx, req.TeamID)
+		if err != nil {
+			if errors.Is(err, team.ErrTeamNotFound) {
+				return user.User{}, "", team.ErrTeamNotFound
+			}
+			return user.User{}, "", fmt.Errorf("lookup team: %w", err)
+		}
+		if len(t.Members) >= team.MaxTeamMembers {
+			return user.User{}, "", team.ErrTeamFull
+		}
+		targetTeamID = t.ID
+		targetTeamName = t.Name
+	} else if req.TeamName != "" {
+		trimmedName := strings.TrimSpace(req.TeamName)
+		if trimmedName == "" {
+			return user.User{}, "", errTeamRequired
+		}
+		t, err := h.teams.GetByName(ctx, trimmedName)
+		if err != nil {
+			if errors.Is(err, team.ErrTeamNotFound) {
+				newTeam, createErr := h.teams.CreateTeam(ctx, trimmedName)
+				if createErr != nil {
+					return user.User{}, "", fmt.Errorf("create team: %w", createErr)
+				}
+				targetTeamID = newTeam.ID
+				targetTeamName = newTeam.Name
+			} else {
+				return user.User{}, "", fmt.Errorf("lookup team: %w", err)
+			}
+		} else {
+			if len(t.Members) >= team.MaxTeamMembers {
+				return user.User{}, "", team.ErrTeamFull
+			}
+			targetTeamID = t.ID
+			targetTeamName = t.Name
+		}
+	} else {
+		return user.User{}, "", errTeamRequired
+	}
+
+	created, err := h.users.CreateWithTeam(ctx, req.Username, name, hash, role, &targetTeamID)
 	if err != nil {
 		return user.User{}, "", err
 	}
+	created.TeamName = &targetTeamName
 	return created, password, nil
 }
-
-var errInvalidRole = errors.New("invalid role")
 
 func writeCreateError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, user.ErrDuplicateUsername):
 		c.JSON(http.StatusConflict, gin.H{"error": "username already exists"})
+	case errors.Is(err, errAdminCreationNotAllowed):
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin accounts cannot be created via API; use server CLI"})
 	case errors.Is(err, errInvalidRole):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
 	case errors.Is(err, errPasswordTooShort):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "password too short (min 8 characters)"})
+	case errors.Is(err, errTeamRequired):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "team is required for competitor users"})
+	case errors.Is(err, team.ErrTeamNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
+	case errors.Is(err, team.ErrTeamFull):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "team capacity reached (max 3 members)"})
+	case errors.Is(err, team.ErrUserAlreadyInTeam):
+		c.JSON(http.StatusConflict, gin.H{"error": "user is already assigned to a team"})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 	}
 }
 
 func writeUpdateError(c *gin.Context, err error) {
-	if errors.Is(err, user.ErrNotFound) {
+	switch {
+	case errors.Is(err, user.ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
-		return
+	case errors.Is(err, team.ErrTeamNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
+	case errors.Is(err, team.ErrTeamFull):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "team capacity reached (max 3 members)"})
+	case errors.Is(err, team.ErrUserAlreadyInTeam):
+		c.JSON(http.StatusConflict, gin.H{"error": "user is already assigned to a team"})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "operation failed"})
 	}
-	c.JSON(http.StatusInternalServerError, gin.H{"error": "operation failed"})
 }
 
 type teamMemberRequest struct {
@@ -456,8 +530,16 @@ func (h *handler) addTeamMember(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "team capacity reached (max 3 members)"})
 				return
 			}
+			if errors.Is(err, team.ErrUserAlreadyInTeam) {
+				c.JSON(http.StatusConflict, gin.H{"error": "user is already assigned to a team"})
+				return
+			}
 			if errors.Is(err, user.ErrNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "competitor user not found"})
+				return
+			}
+			if errors.Is(err, team.ErrTeamNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
 				return
 			}
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -501,6 +583,10 @@ func (h *handler) addTeamMember(c *gin.Context) {
 			Role:         user.RoleCompetitor,
 		})
 		if err != nil {
+			if errors.Is(err, user.ErrDuplicateUsername) {
+				c.JSON(http.StatusConflict, gin.H{"error": "username already exists"})
+				return
+			}
 			if errors.Is(err, team.ErrTeamFull) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "team capacity reached (max 3 members)"})
 				return
@@ -547,41 +633,4 @@ func (h *handler) removeTeamMember(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"team": t})
-}
-
-type createAdminRequest struct {
-	Username    string `json:"username" binding:"required"`
-	DisplayName string `json:"displayName"`
-	Password    string `json:"password"`
-}
-
-// @Summary Admin Create Administrator Account
-// @Description Create an administrator account without a team assignment.
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param payload body createAdminRequest true "Admin account payload"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]string
-// @Failure 409 {object} map[string]string
-// @Router /api/v1/admin/admins [post]
-func (h *handler) createAdminUser(c *gin.Context) {
-	var req createAdminRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	created, password, err := h.createOne(c, createUserRequest{
-		Username:    req.Username,
-		DisplayName: req.DisplayName,
-		Password:    req.Password,
-		Role:        user.RoleAdmin,
-	})
-	if err != nil {
-		writeCreateError(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, gin.H{"admin": created, "password": password})
 }

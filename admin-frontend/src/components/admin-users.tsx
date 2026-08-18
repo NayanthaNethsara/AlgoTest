@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   KeyRound,
   Trash2,
@@ -10,6 +10,9 @@ import {
   Plus,
   Upload,
   Search,
+  AlertCircle,
+  CheckCircle2,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   createUserAction,
@@ -37,7 +40,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-type Credential = { username: string; password: string };
+type Credential = { username: string; password: string; teamName?: string };
 type AccessGrant = { webWithAgent: boolean; webOnly: boolean };
 const FALLBACKS: {
   key: keyof AccessGrant;
@@ -76,6 +79,15 @@ function isPerverse(grant: AccessGrant): boolean {
   return grant.webOnly && !grant.webWithAgent;
 }
 
+interface ParsedCsvRow {
+  username: string;
+  displayName?: string;
+  teamName?: string;
+  password?: string;
+  isValid: boolean;
+  validationError?: string;
+}
+
 export function AdminUsers({
   users,
   teams = [],
@@ -99,16 +111,71 @@ export function AdminUsers({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  // Single Add User Form state
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [role, setRole] = useState<"competitor" | "admin">("competitor");
+  const [password, setPassword] = useState("");
+  const [teamSelectionMode, setTeamSelectionMode] = useState<"existing" | "new">("existing");
+  const [selectedAddTeamId, setSelectedAddTeamId] = useState("");
+  const [newAddTeamName, setNewAddTeamName] = useState("");
+
+  // Bulk Import Form state
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [bulkMode, setBulkMode] = useState<"csv_with_teams" | "single_team">("csv_with_teams");
+  const [bulkDefaultTeamId, setBulkDefaultTeamId] = useState("");
+  const [bulkDefaultNewTeamName, setBulkDefaultNewTeamName] = useState("");
+  const [bulkDefaultTeamType, setBulkDefaultTeamType] = useState<"existing" | "new">("existing");
+  const [csvText, setCsvText] = useState("");
+  const [bulkErrors, setBulkErrors] = useState<{ username: string; error: string }[]>([]);
+
+  const competitorUsers = users.filter((u) => u.role === "competitor");
+  const adminUsers = users.filter((u) => u.role === "admin");
+
+  const currentList = subTab === "competitors" ? competitorUsers : adminUsers;
+  const filteredUsers = currentList.filter(
+    (u) =>
+      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.displayName && u.displayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (u.teamName && u.teamName.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  // Parse and preview CSV entries dynamically
+  const parsedRows: ParsedCsvRow[] = useMemo(() => {
+    if (!csvText.trim()) return [];
+    return parseCsvInput(
+      csvText,
+      bulkMode === "single_team",
+      bulkDefaultTeamType === "existing"
+        ? teams.find((t) => t.id === bulkDefaultTeamId)?.name
+        : bulkDefaultNewTeamName.trim()
+    );
+  }, [csvText, bulkMode, bulkDefaultTeamId, bulkDefaultNewTeamName, bulkDefaultTeamType, teams]);
+
+  function openAddCompetitorForm() {
+    setRole("competitor");
+    setUsername("");
+    setDisplayName("");
+    setPassword("");
+    setSelectedAddTeamId("");
+    setNewAddTeamName("");
+    setTeamSelectionMode("existing");
+    setShowAddForm(true);
+    setShowBulkForm(false);
+    setError(null);
+  }
+
   async function handleAssignTeam(e: React.FormEvent) {
     e.preventDefault();
     if (!assignTeamTarget) return;
     setError(null);
     setPending(true);
     try {
-      if (assignTeamTarget.teamId) {
+      if (assignTeamTarget.teamId && assignTeamTarget.teamId !== selectedTeamId) {
         await removeTeamMemberAction(assignTeamTarget.teamId, assignTeamTarget.id);
       }
-      if (selectedTeamId) {
+      if (selectedTeamId && assignTeamTarget.teamId !== selectedTeamId) {
         await addTeamMemberAction(selectedTeamId, {
           userId: assignTeamTarget.id,
         });
@@ -140,13 +207,13 @@ export function AdminUsers({
     try {
       const res = await toggleProctorExemptionAction(user.id, !isExempt, reason);
       if (res.error) {
-        user.proctorExempt = isExempt; // Rollback on error
+        user.proctorExempt = isExempt;
         setError(res.error);
       } else {
         onRefresh();
       }
     } catch {
-      user.proctorExempt = isExempt; // Rollback on error
+      user.proctorExempt = isExempt;
     } finally {
       setPending(false);
     }
@@ -166,8 +233,6 @@ export function AdminUsers({
       if (entered === null || entered.trim() === "") return;
       reason = entered.trim();
 
-      // Asked, not silently corrected: this pair really does mean the contestant
-      // must stop proctoring to submit, and an organizer who meant it keeps it.
       if (isPerverse(next)) {
         const proceed = window.confirm(
           `Careful: ${user.displayName || user.username} would be able to submit only while the proctor client is STOPPED — submissions from a browser with it running would still be refused.\n\nTick "Browser, proctor running" as well unless you specifically want that. Save anyway?`
@@ -183,14 +248,14 @@ export function AdminUsers({
     try {
       const res = await setProctorAccessAction(user.id, next, reason, 0);
       if (res.error) {
-        user.proctorAllowWebWithAgent = current.webWithAgent; // Rollback on error
+        user.proctorAllowWebWithAgent = current.webWithAgent;
         user.proctorAllowWebOnly = current.webOnly;
         setError(res.error);
       } else {
         onRefresh();
       }
     } catch {
-      user.proctorAllowWebWithAgent = current.webWithAgent; // Rollback on error
+      user.proctorAllowWebWithAgent = current.webWithAgent;
       user.proctorAllowWebOnly = current.webOnly;
       setError("Failed to update submission access");
     } finally {
@@ -198,49 +263,48 @@ export function AdminUsers({
     }
   }
 
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [showBulkForm, setShowBulkForm] = useState(false);
-
-  const [username, setUsername] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [role, setRole] = useState<"competitor" | "admin">("competitor");
-  const [password, setPassword] = useState("");
-
-  const [csvText, setCsvText] = useState("");
-
-  const competitorUsers = users.filter((u) => u.role === "competitor");
-  const adminUsers = users.filter((u) => u.role === "admin");
-
-  const currentList = subTab === "competitors" ? competitorUsers : adminUsers;
-  const filteredUsers = currentList.filter(
-    (u) =>
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.displayName && u.displayName.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
-  function openAddFormFor(targetRole: "competitor" | "admin") {
-    setRole(targetRole);
-    setShowAddForm(true);
-    setShowBulkForm(false);
-  }
-
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (role === "competitor") {
+      if (teamSelectionMode === "existing" && !selectedAddTeamId) {
+        setError("Please select an existing team for this competitor.");
+        return;
+      }
+      if (teamSelectionMode === "new" && !newAddTeamName.trim()) {
+        setError("Please enter a new team name for this competitor.");
+        return;
+      }
+    }
+
     setPending(true);
     try {
-      const data = await createUserAction({
-        username,
-        displayName,
+      const payload: CreateUserInput = {
+        username: username.trim(),
+        displayName: displayName.trim() || undefined,
         role,
-        password,
-      });
+        password: password.trim() || undefined,
+        teamId: role === "competitor" && teamSelectionMode === "existing" ? selectedAddTeamId : undefined,
+        teamName: role === "competitor" && teamSelectionMode === "new" ? newAddTeamName.trim() : undefined,
+      };
+
+      const data = await createUserAction(payload);
       if (data.password) {
-        setCreds((prev) => [{ username: data.user.username, password: data.password! }, ...prev]);
+        setCreds((prev) => [
+          {
+            username: data.user.username,
+            password: data.password!,
+            teamName: data.user.teamName,
+          },
+          ...prev,
+        ]);
       }
       setUsername("");
       setDisplayName("");
       setPassword("");
+      setSelectedAddTeamId("");
+      setNewAddTeamName("");
       setShowAddForm(false);
       onRefresh();
     } catch (err: unknown) {
@@ -253,19 +317,68 @@ export function AdminUsers({
   async function handleBulkImport(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setBulkErrors([]);
+
+    const validRows = parsedRows.filter((r) => r.isValid);
+    if (validRows.length === 0) {
+      setError("No valid user rows found in CSV data. Ensure each competitor has a username and team specified.");
+      return;
+    }
+
     setPending(true);
     try {
-      const rows = parseCsv(csvText);
-      if (rows.length === 0) throw new Error("No valid rows found");
+      const payloadUsers: CreateUserInput[] = validRows.map((r) => ({
+        username: r.username,
+        displayName: r.displayName,
+        teamName: r.teamName,
+        password: r.password,
+      }));
 
-      const data = await bulkCreateUsersAction("competitor", rows);
-      const createdCreds = (data.results as BulkResult[])
-        .filter((r) => r.status === "created" && r.password)
-        .map((r) => ({ username: r.username, password: r.password! }));
+      const defaultTeamIdParam =
+        bulkMode === "single_team" && bulkDefaultTeamType === "existing"
+          ? bulkDefaultTeamId
+          : undefined;
+      const defaultTeamNameParam =
+        bulkMode === "single_team" && bulkDefaultTeamType === "new"
+          ? bulkDefaultNewTeamName.trim()
+          : undefined;
 
-      setCreds((prev) => [...createdCreds, ...prev]);
-      setCsvText("");
-      setShowBulkForm(false);
+      const data = await bulkCreateUsersAction(
+        payloadUsers,
+        defaultTeamIdParam,
+        defaultTeamNameParam
+      );
+
+      const createdCreds: Credential[] = [];
+      const failedRows: { username: string; error: string }[] = [];
+
+      for (const res of data.results as BulkResult[]) {
+        if (res.status === "created" && res.password) {
+          createdCreds.push({
+            username: res.username,
+            password: res.password,
+            teamName: res.user?.teamName || res.teamName,
+          });
+        } else if (res.status === "error") {
+          failedRows.push({
+            username: res.username,
+            error: res.error || "Creation failed",
+          });
+        }
+      }
+
+      if (createdCreds.length > 0) {
+        setCreds((prev) => [...createdCreds, ...prev]);
+      }
+
+      if (failedRows.length > 0) {
+        setBulkErrors(failedRows);
+        setError(`Bulk import finished with ${failedRows.length} error(s). Review failed rows below.`);
+      } else {
+        setCsvText("");
+        setShowBulkForm(false);
+      }
+
       onRefresh();
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
@@ -282,7 +395,14 @@ export function AdminUsers({
     setPending(true);
     try {
       const data = await resetPasswordAction(target.id);
-      setCreds((prev) => [{ username: target.username, password: data.password }, ...prev]);
+      setCreds((prev) => [
+        {
+          username: target.username,
+          password: data.password,
+          teamName: target.teamName,
+        },
+        ...prev,
+      ]);
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
     } finally {
@@ -322,34 +442,43 @@ export function AdminUsers({
         </Tabs>
 
         <div className="flex items-center gap-2">
-          {subTab === "competitors" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowBulkForm(!showBulkForm);
-                setShowAddForm(false);
-              }}
-              className="h-8 text-xs gap-1.5"
-            >
-              <Upload className="h-3.5 w-3.5" /> Bulk CSV Import
-            </Button>
-          )}
+          {subTab === "competitors" ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowBulkForm(!showBulkForm);
+                  setShowAddForm(false);
+                  setError(null);
+                  setBulkErrors([]);
+                }}
+                className="h-8 text-xs gap-1.5"
+              >
+                <Upload className="h-3.5 w-3.5" /> Bulk CSV Import
+              </Button>
 
-          <Button
-            size="sm"
-            onClick={() => openAddFormFor(subTab === "competitors" ? "competitor" : "admin")}
-            className="h-8 text-xs gap-1.5"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add {subTab === "competitors" ? "Competitor" : "Admin"}
-          </Button>
+              <Button
+                size="sm"
+                onClick={openAddCompetitorForm}
+                className="h-8 text-xs gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add Competitor
+              </Button>
+            </>
+          ) : (
+            <Badge variant="outline" className="text-[11px] font-mono text-muted-foreground py-1 px-2.5">
+              Admin accounts provisioned via server CLI (usertool)
+            </Badge>
+          )}
         </div>
       </div>
 
       {error && (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
-          {error}
-        </p>
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
       )}
 
       {/* Generated Credentials Alert Component */}
@@ -359,39 +488,130 @@ export function AdminUsers({
       {showAddForm && (
         <form
           onSubmit={handleCreateUser}
-          className="rounded-lg border p-4 bg-muted/10 grid grid-cols-1 md:grid-cols-4 gap-3 items-end"
+          className="rounded-lg border p-4 bg-muted/10 flex flex-col gap-4"
         >
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Username</label>
-            <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. competitor_01"
-              required
-            />
+          <div className="flex items-center justify-between border-b pb-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Create New Competitor (Team Assignment Mandatory)
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              Competitors must belong to a team with max 3 members
+            </span>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Display Name</label>
-            <Input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="e.g. John Doe"
-            />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Username *</label>
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="e.g. alice_01"
+                required
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Display Name</label>
+              <Input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Alice Smith"
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground">Password (Optional)</label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Auto-generated if empty"
+                className="h-9 text-xs"
+              />
+            </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Assigned Role</label>
-            <Input
-              value={role}
-              readOnly
-              className="h-9 w-full bg-muted/20 font-mono text-xs cursor-not-allowed"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button type="submit" disabled={pending} size="sm">
-              Save Account
-            </Button>
+
+          {role === "competitor" && (
+            <div className="rounded-md border bg-background/50 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground">
+                  Team Assignment (Mandatory)
+                </label>
+                <div className="flex gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setTeamSelectionMode("existing")}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                      teamSelectionMode === "existing"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Select Existing Team
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTeamSelectionMode("new")}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                      teamSelectionMode === "new"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Create New Team
+                  </button>
+                </div>
+              </div>
+
+              {teamSelectionMode === "existing" ? (
+                <div>
+                  {teams.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      No existing teams found. Switch to &quot;Create New Team&quot; above to create one.
+                    </p>
+                  ) : (
+                    <select
+                      value={selectedAddTeamId}
+                      onChange={(e) => setSelectedAddTeamId(e.target.value)}
+                      required
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="">-- Choose Existing Team --</option>
+                      {teams.map((t) => {
+                        const count = t.members?.length || 0;
+                        const isFull = count >= 3;
+                        return (
+                          <option key={t.id} value={t.id} disabled={isFull}>
+                            {t.name} ({count}/3 members){isFull ? " - FULL" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Input
+                    value={newAddTeamName}
+                    onChange={(e) => setNewAddTeamName(e.target.value)}
+                    placeholder="Enter new team name (e.g. AlgoTitans)"
+                    required
+                    className="h-9 text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    A new team will be created and this user will be assigned as its first member.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-1 border-t">
             <Button type="button" variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
               Cancel
+            </Button>
+            <Button type="submit" disabled={pending} size="sm">
+              {pending ? "Saving..." : "Save Account"}
             </Button>
           </div>
         </form>
@@ -401,35 +621,218 @@ export function AdminUsers({
       {showBulkForm && (
         <form
           onSubmit={handleBulkImport}
-          className="rounded-lg border p-4 bg-muted/10 flex flex-col gap-3"
+          className="rounded-lg border p-4 bg-muted/10 flex flex-col gap-4"
         >
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-muted-foreground">
-              CSV Competitors List (Format: username, display_name, password)
-            </label>
-            <span className="text-[10px] text-muted-foreground">
-              Passwords auto-generated if omitted
-            </span>
+          <div className="flex items-center justify-between border-b pb-2">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4 text-primary" />
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Bulk Import Competitors with Teams
+              </h3>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkMode("csv_with_teams")}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  bulkMode === "csv_with_teams"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Multi-Team CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkMode("single_team")}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                  bulkMode === "single_team"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Single-Team Batch
+              </button>
+            </div>
           </div>
-          <Textarea
-            value={csvText}
-            onChange={(e) => setCsvText(e.target.value)}
-            rows={4}
-            placeholder={"alice, Alice Smith, secret123\nbob, Bob Jones\ncharlie, Charlie Brown"}
-            className="font-mono text-xs"
-            required
-          />
-          <div className="flex justify-end gap-2">
+
+          {bulkMode === "single_team" && (
+            <div className="rounded-md border bg-background/50 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground">
+                  Target Team for Entire Batch
+                </label>
+                <div className="flex gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setBulkDefaultTeamType("existing")}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                      bulkDefaultTeamType === "existing"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Existing Team
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBulkDefaultTeamType("new")}
+                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                      bulkDefaultTeamType === "new"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    New Team
+                  </button>
+                </div>
+              </div>
+
+              {bulkDefaultTeamType === "existing" ? (
+                <select
+                  value={bulkDefaultTeamId}
+                  onChange={(e) => setBulkDefaultTeamId(e.target.value)}
+                  required
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">-- Select Target Team --</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.members?.length || 0}/3 members)
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  value={bulkDefaultNewTeamName}
+                  onChange={(e) => setBulkDefaultNewTeamName(e.target.value)}
+                  placeholder="Enter team name for all users in this batch"
+                  required
+                  className="h-9 text-xs"
+                />
+              )}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">
+                {bulkMode === "csv_with_teams"
+                  ? "CSV Format: username, display_name, team_name, password"
+                  : "CSV Format: username, display_name, password"}
+              </label>
+              <span className="text-[10px] text-muted-foreground">
+                Headers optional. Passwords generated if omitted. Teams created if non-existent.
+              </span>
+            </div>
+            <Textarea
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+              rows={5}
+              placeholder={
+                bulkMode === "csv_with_teams"
+                  ? "alice, Alice Smith, Team Alpha, secret123\nbob, Bob Jones, Team Alpha\ncharlie, Charlie Brown, Team Beta\ndavid, David Miller, Team Beta"
+                  : "alice, Alice Smith, secret123\nbob, Bob Jones\ncharlie, Charlie Brown"
+              }
+              className="font-mono text-xs"
+              required
+            />
+          </div>
+
+          {/* Live Preview Table */}
+          {parsedRows.length > 0 && (
+            <div className="rounded-md border bg-background p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                  CSV Preview ({parsedRows.filter((r) => r.isValid).length} valid / {parsedRows.length} parsed)
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  Max 3 members per team enforced on import
+                </span>
+              </div>
+              <div className="max-h-40 overflow-y-auto border rounded">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="h-7 text-[11px]">
+                      <TableHead className="py-1">Username</TableHead>
+                      <TableHead className="py-1">Display Name</TableHead>
+                      <TableHead className="py-1">Team Name</TableHead>
+                      <TableHead className="py-1">Password</TableHead>
+                      <TableHead className="py-1 text-right">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedRows.map((r, i) => (
+                      <TableRow key={i} className="h-7 text-xs">
+                        <TableCell className="font-mono py-1">{r.username || "-"}</TableCell>
+                        <TableCell className="py-1">{r.displayName || "-"}</TableCell>
+                        <TableCell className="py-1 font-mono">
+                          {r.teamName ? (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {r.teamName}
+                            </Badge>
+                          ) : (
+                            <span className="text-destructive text-[10px]">Missing Team</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-1 text-muted-foreground text-[10px]">
+                          {r.password ? "Provided" : "Auto-generate"}
+                        </TableCell>
+                        <TableCell className="py-1 text-right">
+                          {r.isValid ? (
+                            <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">
+                              Valid
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">
+                              {r.validationError || "Invalid"}
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          {/* Failed rows report from previous run */}
+          {bulkErrors.length > 0 && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 space-y-1.5">
+              <span className="text-xs font-semibold text-destructive">
+                Failed Rows ({bulkErrors.length})
+              </span>
+              <div className="max-h-28 overflow-y-auto space-y-1 text-xs font-mono">
+                {bulkErrors.map((errRow, idx) => (
+                  <div key={idx} className="flex items-center justify-between text-[11px] text-destructive">
+                    <span>{errRow.username}</span>
+                    <span>{errRow.error}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 border-t pt-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setShowBulkForm(false)}
+              onClick={() => {
+                setShowBulkForm(false);
+                setBulkErrors([]);
+              }}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={pending} size="sm">
-              Run Bulk Import
+            <Button
+              type="submit"
+              disabled={pending || parsedRows.filter((r) => r.isValid).length === 0}
+              size="sm"
+            >
+              {pending ? "Importing..." : `Import ${parsedRows.filter((r) => r.isValid).length} Users`}
             </Button>
           </div>
         </form>
@@ -442,7 +845,7 @@ export function AdminUsers({
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={`Search ${subTab === "competitors" ? "competitors" : "admins"} by username or name...`}
+          placeholder={`Search ${subTab === "competitors" ? "competitors or teams" : "admins"}...`}
           className="pl-8 text-xs"
         />
       </div>
@@ -478,6 +881,10 @@ export function AdminUsers({
                     {u.teamName ? (
                       <Badge variant="secondary" className="font-mono text-[11px]">
                         {u.teamName}
+                      </Badge>
+                    ) : u.role === "competitor" ? (
+                      <Badge variant="outline" className="text-amber-500 border-amber-500/30 text-[10px]">
+                        UNASSIGNED
                       </Badge>
                     ) : (
                       "-"
@@ -544,7 +951,7 @@ export function AdminUsers({
                             className="text-[10px] font-semibold text-rose-400"
                             title="This competitor can submit only while the proctor client is stopped."
                           >
-                            ⚠ ONLY WITH PROCTOR STOPPED
+                            ! ONLY WITH PROCTOR STOPPED
                           </span>
                         )}
                       </div>
@@ -585,7 +992,7 @@ export function AdminUsers({
                               setSelectedTeamId(u.teamId || "");
                             }}
                             disabled={pending}
-                            title={u.teamId ? "Change / Remove Team" : "Assign to Team"}
+                            title={u.teamId ? "Change / Reassign Team" : "Assign to Team"}
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           >
                             <Users2 className="h-4 w-4" />
@@ -646,11 +1053,16 @@ export function AdminUsers({
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">-- No Team (Unassigned) --</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} (Members: {t.members?.length || 0}/3)
-                  </option>
-                ))}
+                {teams.map((t) => {
+                  const isCurrent = t.id === assignTeamTarget.teamId;
+                  const isFull = (t.members?.length || 0) >= 3 && !isCurrent;
+                  return (
+                    <option key={t.id} value={t.id} disabled={isFull}>
+                      {t.name} ({t.members?.length || 0}/3 members)
+                      {isCurrent ? " - CURRENT" : isFull ? " - FULL" : ""}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <div className="flex justify-end gap-2">
@@ -714,18 +1126,75 @@ export function AdminUsers({
   );
 }
 
-function parseCsv(text: string): CreateUserInput[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !/^username\b/i.test(line))
-    .map((line) => {
-      const [username, displayName, password] = line.split(",").map((s) => s?.trim());
-      return {
-        username,
-        displayName: displayName || undefined,
-        password: password || undefined,
-      };
-    })
-    .filter((u) => u.username);
+function parseCsvInput(
+  text: string,
+  isSingleTeamMode: boolean,
+  singleTeamName?: string
+): ParsedCsvRow[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return [];
+
+  // Check if first line is a header
+  const firstLine = lines[0].toLowerCase();
+  const hasHeader =
+    firstLine.includes("username") ||
+    firstLine.includes("team") ||
+    firstLine.includes("display_name") ||
+    firstLine.includes("name");
+
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  return dataLines.map((line) => {
+    const parts = line.split(",").map((s) => s.trim());
+
+    let username = "";
+    let displayName: string | undefined;
+    let teamName: string | undefined;
+    let password: string | undefined;
+
+    if (isSingleTeamMode) {
+      // Columns: username, displayName, password
+      username = parts[0] || "";
+      displayName = parts[1] || undefined;
+      password = parts[2] || undefined;
+      teamName = singleTeamName || undefined;
+    } else {
+      // Multi-team mode
+      if (parts.length >= 4) {
+        // username, displayName, teamName, password
+        username = parts[0] || "";
+        displayName = parts[1] || undefined;
+        teamName = parts[2] || undefined;
+        password = parts[3] || undefined;
+      } else if (parts.length === 3) {
+        // username, displayName, teamName
+        username = parts[0] || "";
+        displayName = parts[1] || undefined;
+        teamName = parts[2] || undefined;
+      } else if (parts.length === 2) {
+        // username, teamName
+        username = parts[0] || "";
+        teamName = parts[1] || undefined;
+      } else {
+        username = parts[0] || "";
+      }
+    }
+
+    const isValid = Boolean(username && teamName);
+    let validationError: string | undefined;
+    if (!username) {
+      validationError = "Missing username";
+    } else if (!teamName) {
+      validationError = "Missing team name";
+    }
+
+    return {
+      username,
+      displayName: displayName || undefined,
+      teamName: teamName || undefined,
+      password: password || undefined,
+      isValid,
+      validationError,
+    };
+  });
 }

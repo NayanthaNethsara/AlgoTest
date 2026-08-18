@@ -178,7 +178,6 @@ func NewRouter(
 			admin.DELETE("/teams/:id", h.deleteTeam)
 			admin.POST("/teams/:id/members", h.addTeamMember)
 			admin.DELETE("/teams/:id/members/:userId", h.removeTeamMember)
-			admin.POST("/admins", h.createAdminUser)
 
 			admin.GET("/problems", h.listAllProblems)
 			admin.POST("/problems", h.createProblem)

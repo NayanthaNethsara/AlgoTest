@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-type Credential = { username: string; password: string };
+type Credential = { username: string; password: string; teamName?: string };
 
 export function CredentialsAlert({
   credentials,
@@ -18,7 +19,9 @@ export function CredentialsAlert({
   if (credentials.length === 0) return null;
 
   function handleCopyAll() {
-    const formatted = credentials.map((c) => `${c.username}\t${c.password}`).join("\n");
+    const formatted = credentials
+      .map((c) => (c.teamName ? `${c.username}\t${c.teamName}\t${c.password}` : `${c.username}\t${c.password}`))
+      .join("\n");
     navigator.clipboard.writeText(formatted);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -47,9 +50,14 @@ export function CredentialsAlert({
       </div>
       <div className="font-mono text-xs max-h-36 overflow-y-auto space-y-1">
         {credentials.map((c, i) => (
-          <div key={i} className="flex justify-between border-b border-green-500/20 py-1">
-            <span>{c.username}</span>
-            <span className="font-bold select-all">{c.password}</span>
+          <div key={i} className="flex items-center justify-between border-b border-green-500/20 py-1 gap-2">
+            <span className="font-medium">{c.username}</span>
+            {c.teamName && (
+              <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0">
+                {c.teamName}
+              </Badge>
+            )}
+            <span className="font-bold select-all ml-auto">{c.password}</span>
           </div>
         ))}
       </div>

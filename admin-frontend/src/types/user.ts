@@ -8,6 +8,8 @@ export type CreateUserInput = {
   displayName?: string;
   role?: string;
   password?: string;
+  teamId?: string;
+  teamName?: string;
 };
 
 export type BulkResult = {
@@ -15,4 +17,6 @@ export type BulkResult = {
   status: "created" | "error";
   error?: string;
   password?: string;
+  teamName?: string;
+  user?: User;
 };
