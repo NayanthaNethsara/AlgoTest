@@ -35,13 +35,13 @@ function ResizableHandle({
     <ResizablePrimitive.Separator
       data-slot="resizable-handle"
       className={cn(
-        "relative flex w-1 items-center justify-center bg-black transition-colors after:absolute after:inset-y-0 after:left-1/2 after:w-2 after:-translate-x-1/2 hover:bg-primary focus-visible:outline-hidden data-[resize-handle-state=drag]:bg-primary aria-[orientation=horizontal]:h-1 aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:after:left-0 aria-[orientation=horizontal]:after:h-2 aria-[orientation=horizontal]:after:w-full aria-[orientation=horizontal]:after:translate-x-0 aria-[orientation=horizontal]:after:-translate-y-1/2 [&[aria-orientation=horizontal]>div]:rotate-90",
+        "relative flex w-1 items-center justify-center bg-border transition-colors after:absolute after:inset-y-0 after:left-1/2 after:w-2 after:-translate-x-1/2 hover:bg-primary focus-visible:outline-hidden data-[resize-handle-state=drag]:bg-primary aria-[orientation=horizontal]:h-1 aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:after:left-0 aria-[orientation=horizontal]:after:h-2 aria-[orientation=horizontal]:after:w-full aria-[orientation=horizontal]:after:translate-x-0 aria-[orientation=horizontal]:after:-translate-y-1/2 [&[aria-orientation=horizontal]>div]:rotate-90",
         className
       )}
       {...props}
     >
       {withHandle && (
-        <div className="z-10 flex h-6 w-1.5 shrink-0 border border-black bg-secondary shadow-[inset_1px_1px_0_var(--bevel-light),inset_-1px_-1px_0_var(--bevel-dark)]" />
+        <div className="z-10 flex h-6 w-1.5 shrink-0 pixel-flat bg-secondary" />
       )}
     </ResizablePrimitive.Separator>
   )

@@ -76,7 +76,7 @@ export function ChallengesListClient({
   return (
     <div className="space-y-6">
       {/* Control Bar: Search, Filters, Sort, Layout Toggle */}
-      <div className="flex flex-col gap-4 border-2 border-black bg-card p-4 shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_4px_0px_#000000] lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-4 pixel-raised bg-card p-4 lg:flex-row lg:items-center lg:justify-between">
         {/* Search Input */}
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -85,23 +85,23 @@ export function ChallengesListClient({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search challenges..."
-            className="w-full border-2 border-black bg-background pl-9 pr-4 py-2 font-pixel-body text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full pixel-inset bg-background pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
 
         {/* Filters, Sort & View Toggle */}
-        <div className="flex flex-wrap items-center gap-3 font-pixel-body text-xs">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
           {/* Status Filter */}
-          <div className="flex items-center gap-1 border-2 border-black bg-muted/50 p-1">
+          <div className="flex items-center gap-1 pixel-flat bg-muted/50 p-1">
             {["ALL", "SOLVED", "IN_PROGRESS", "UNSOLVED"].map((st) => (
               <button
                 key={st}
                 type="button"
                 onClick={() => setStatusFilter(st)}
-                className={`border px-2.5 py-1 text-[11px] uppercase transition-all ${
+                className={`border border-transparent px-2.5 py-1 text-[11px] uppercase font-medium transition-colors ${
                   statusFilter === st
-                    ? "border-black bg-primary font-bold text-primary-foreground shadow-[inset_1.5px_1.5px_0px_rgba(255,255,255,0.4)]"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "bg-primary font-bold text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {st.replace("_", " ")}
@@ -110,16 +110,16 @@ export function ChallengesListClient({
           </div>
 
           {/* Difficulty Filter */}
-          <div className="flex items-center gap-1 border-2 border-black bg-muted/50 p-1">
+          <div className="flex items-center gap-1 pixel-flat bg-muted/50 p-1">
             {["ALL", "EASY", "MEDIUM", "HARD"].map((diff) => (
               <button
                 key={diff}
                 type="button"
                 onClick={() => setDifficultyFilter(diff)}
-                className={`border px-2 py-1 text-[11px] uppercase transition-all ${
+                className={`border border-transparent px-2 py-1 text-[11px] uppercase font-medium transition-colors ${
                   difficultyFilter === diff
-                    ? "border-black bg-secondary font-bold text-secondary-foreground shadow-[inset_1.5px_1.5px_0px_rgba(255,255,255,0.4)]"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "bg-secondary font-bold text-secondary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {diff}
@@ -128,32 +128,32 @@ export function ChallengesListClient({
           </div>
 
           {/* Sort Selection */}
-          <div className="flex items-center gap-1.5 border-2 border-black bg-card px-2 py-1">
+          <div className="flex items-center gap-1.5 pixel-flat bg-card px-2 py-1">
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="bg-transparent font-pixel-body text-xs uppercase text-foreground focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
             >
-              <option value="DEFAULT">Default Order</option>
-              <option value="POINTS_DESC">XP: High to Low</option>
-              <option value="POINTS_ASC">XP: Low to High</option>
-              <option value="DIFFICULTY_ASC">Difficulty: Easy -&gt; Hard</option>
-              <option value="DIFFICULTY_DESC">Difficulty: Hard -&gt; Easy</option>
+              <option value="DEFAULT">Default order</option>
+              <option value="POINTS_DESC">XP: high to low</option>
+              <option value="POINTS_ASC">XP: low to high</option>
+              <option value="DIFFICULTY_ASC">Difficulty: easy to hard</option>
+              <option value="DIFFICULTY_DESC">Difficulty: hard to easy</option>
               <option value="TITLE_ASC">Title: A to Z</option>
             </select>
           </div>
 
           {/* Grid vs List Toggle */}
-          <div className="flex items-center gap-1 border-2 border-black bg-card p-1 shrink-0">
+          <div className="flex items-center gap-1 pixel-flat bg-card p-1 shrink-0">
             <button
               type="button"
               onClick={() => setLayout("grid")}
               aria-label="Grid view"
-              className={`p-1.5 border transition-all ${
+              className={`p-1.5 border border-transparent transition-colors ${
                 layout === "grid"
-                  ? "border-black bg-primary text-primary-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Grid className="h-4 w-4" />
@@ -162,10 +162,10 @@ export function ChallengesListClient({
               type="button"
               onClick={() => setLayout("list")}
               aria-label="List view"
-              className={`p-1.5 border transition-all ${
+              className={`p-1.5 border border-transparent transition-colors ${
                 layout === "list"
-                  ? "border-black bg-primary text-primary-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <List className="h-4 w-4" />
@@ -176,10 +176,10 @@ export function ChallengesListClient({
 
       {/* Challenge List / Grid */}
       <div>
-        <div className="flex items-center justify-between mb-3 font-pixel-body">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
+            <h2 className="text-sm font-semibold text-foreground">
               Challenges ({sortedProblems.length})
             </h2>
           </div>
@@ -189,9 +189,9 @@ export function ChallengesListClient({
         </div>
 
         {sortedProblems.length === 0 ? (
-          <div className="border-2 border-black bg-card p-12 text-center shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_4px_0px_#000000] font-pixel-body">
+          <div className="pixel-raised bg-card p-12 text-center">
             <Code2 className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-            <h3 className="font-bold text-sm uppercase text-foreground">No matching challenges found</h3>
+            <h3 className="font-semibold text-sm text-foreground">No matching challenges found</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
               Try adjusting your search terms, status filters, or sort criteria above.
             </p>

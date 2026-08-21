@@ -12,13 +12,13 @@ export default async function LeaderboardPage() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="w-full max-w-6xl mx-auto flex flex-col gap-5 p-4 sm:p-6 lg:p-8 font-pixel-body">
+      <div className="w-full max-w-6xl mx-auto flex flex-col gap-5 p-4 sm:p-6 lg:p-8">
         {/* Sleek Page Header */}
-        <div className="flex flex-col gap-1 border-b-2 border-black/40 pb-3">
+        <div className="flex flex-col gap-1 border-b border-border pb-3">
           <div className="flex items-center gap-2.5">
             <Trophy className="h-5 w-5 text-amber-400" />
-            <h1 className="font-pixel-header text-sm sm:text-base uppercase tracking-wider text-amber-400 pixel-text-shadow">
-              LEADERBOARD
+            <h1 className="text-lg font-semibold text-foreground">
+              Leaderboard
             </h1>
           </div>
           <p className="text-xs text-muted-foreground">

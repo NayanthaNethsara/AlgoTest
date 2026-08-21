@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpDown, CheckCircle2, Clock, History, Search, XCircle } from "lucide-react";
+import { Mascot } from "@/components/common/mascot";
 
 export type SubmissionItem = {
   id: string;
@@ -65,9 +66,9 @@ export function SubmissionsClient({
   });
 
   return (
-    <div className="space-y-5 font-pixel-body">
+    <div className="space-y-5">
       {/* Control Bar: Search, Status Filter, Sort */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-2 border-black bg-card p-3 shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_3px_0px_#000000]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pixel-raised bg-card p-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -75,22 +76,22 @@ export function SubmissionsClient({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by challenge, team, or lang..."
-            className="w-full border-2 border-black bg-background pl-8 pr-3 py-1.5 font-pixel-body text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full pixel-inset bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-xs">
           {/* Status Filter Tabs */}
-          <div className="flex items-center gap-1 border-2 border-black bg-muted/50 p-1">
+          <div className="flex items-center gap-1 pixel-flat bg-muted/50 p-1">
             {["ALL", "ACCEPTED", "WRONG_ANSWER"].map((st) => (
               <button
                 key={st}
                 type="button"
                 onClick={() => setStatusFilter(st)}
-                className={`border px-2.5 py-1 text-[11px] uppercase transition-all ${
+                className={`border border-transparent px-2.5 py-1 text-[11px] uppercase font-medium transition-colors ${
                   statusFilter === st
-                    ? "border-black bg-primary font-bold text-primary-foreground shadow-[inset_1.5px_1.5px_0px_rgba(255,255,255,0.4)]"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                    ? "bg-primary font-bold text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {st.replace("_", " ")}
@@ -99,17 +100,17 @@ export function SubmissionsClient({
           </div>
 
           {/* Sort Dropdown */}
-          <div className="flex items-center gap-1.5 border-2 border-black bg-card px-2.5 py-1.5">
+          <div className="flex items-center gap-1.5 pixel-flat bg-card px-2.5 py-1.5">
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="bg-transparent font-pixel-body text-xs uppercase text-foreground focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
             >
-              <option value="NEWEST">Newest First</option>
-              <option value="OLDEST">Oldest First</option>
-              <option value="TIME_ASC">Exec Time: Fastest</option>
-              <option value="STATUS_ASC">Status: Verdict A-Z</option>
+              <option value="NEWEST">Newest first</option>
+              <option value="OLDEST">Oldest first</option>
+              <option value="TIME_ASC">Exec time: fastest</option>
+              <option value="STATUS_ASC">Status: verdict A-Z</option>
               <option value="TITLE_ASC">Challenge: A to Z</option>
             </select>
           </div>
@@ -117,10 +118,22 @@ export function SubmissionsClient({
       </div>
 
       {/* Submissions Table */}
-      <div className="border-2 border-black bg-card shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_4px_0px_#000000] overflow-hidden">
+      <div className="pixel-raised bg-card overflow-hidden">
         {sortedSubmissions.length === 0 ? (
-          <div className="p-10 text-center text-xs text-muted-foreground uppercase">
-            {search ? "No matching submissions found." : "No submission history recorded yet."}
+          <div className="p-12 text-center">
+            {search ? (
+              <History className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+            ) : (
+              <Mascot variant="muted" size={56} className="mx-auto mb-3" />
+            )}
+            <h3 className="font-semibold text-sm text-foreground">
+              {search ? "No matching submissions found" : "No submissions yet"}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+              {search
+                ? "Try a different challenge, team, or language."
+                : "Submit a solution to a challenge and it'll show up here."}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -137,7 +150,7 @@ export function SubmissionsClient({
                     </div>
                   </th>
                   <th className="py-3 px-4">TEAM / CONTESTANT</th>
-                  <th className="py-3 px-4">LANG</th>
+                  <th className="py-3 px-4">LANGUAGE</th>
                   <th
                     onClick={() => setSortBy(sortBy === "TIME_ASC" ? "NEWEST" : "TIME_ASC")}
                     className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
@@ -167,24 +180,24 @@ export function SubmissionsClient({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y border-black/40">
+              <tbody className="divide-y divide-border">
                 {sortedSubmissions.map((sub) => {
                   const isAc = sub.status.toLowerCase().includes("accepted") || sub.status.toLowerCase() === "ac";
                   const isPending = sub.status.toLowerCase().includes("queued") || sub.status.toLowerCase().includes("evaluating");
 
                   return (
                     <tr key={sub.id} className="hover:bg-muted/40 transition-colors">
-                      <td className="py-3 px-4 font-bold text-xs text-foreground uppercase">
+                      <td className="py-3 px-4 font-semibold text-xs text-foreground">
                         {sub.problemTitle}
                       </td>
-                      <td className="py-3 px-4 text-xs text-muted-foreground uppercase">
+                      <td className="py-3 px-4 text-xs text-muted-foreground">
                         <span className="font-semibold text-foreground">{sub.teamName}</span>
                         {sub.submittedBy && (
                           <span className="text-[11px] text-muted-foreground ml-1.5">({sub.submittedBy})</span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-xs">
-                        <Badge variant="outline" className="font-mono text-[10px] uppercase border-black bg-muted">
+                        <Badge variant="outline" className="font-mono text-[10px] uppercase bg-muted">
                           {sub.language}
                         </Badge>
                       </td>
@@ -193,14 +206,8 @@ export function SubmissionsClient({
                       </td>
                       <td className="py-3 px-4">
                         <Badge
-                          variant="secondary"
-                          className={`gap-1.5 text-[10px] uppercase border font-pixel-body font-bold ${
-                            isAc
-                              ? "bg-emerald-950 text-emerald-300 border-emerald-500"
-                              : isPending
-                              ? "bg-amber-950 text-amber-300 border-amber-500 animate-pulse"
-                              : "bg-rose-950 text-rose-300 border-rose-500"
-                          }`}
+                          variant={isAc ? "success" : isPending ? "warning" : "destructive"}
+                          className={`gap-1.5 text-[10px] uppercase font-bold ${isPending ? "animate-pulse" : ""}`}
                         >
                           {isAc ? (
                             <CheckCircle2 className="h-3 w-3" />
@@ -212,7 +219,7 @@ export function SubmissionsClient({
                           {sub.status}
                         </Badge>
                       </td>
-                      <td className="py-3 px-4 text-right text-xs text-muted-foreground uppercase">
+                      <td className="py-3 px-4 text-right text-xs text-muted-foreground">
                         {sub.submittedAt}
                       </td>
                     </tr>

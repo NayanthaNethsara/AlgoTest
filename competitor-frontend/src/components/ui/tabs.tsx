@@ -24,11 +24,11 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-none p-1 text-muted-foreground border-2 border-black bg-muted group-data-horizontal/tabs:h-9 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
+  "group/tabs-list inline-flex w-fit items-center justify-center rounded-none p-1 text-muted-foreground pixel-flat bg-muted group-data-horizontal/tabs:h-9 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
   {
     variants: {
       variant: {
-        default: "bg-muted shadow-[inset_1px_1px_0px_#000000]",
+        default: "bg-muted",
         line: "gap-1 bg-transparent border-none shadow-none",
       },
     },
@@ -58,8 +58,8 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        "relative inline-flex h-full items-center justify-center gap-1.5 rounded-none border border-transparent px-2.5 py-1 text-xs font-medium uppercase font-pixel-body whitespace-nowrap text-muted-foreground transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
-        "data-active:border-black data-active:bg-card data-active:text-primary data-active:shadow-[inset_2px_2px_0px_oklch(0.76_0.17_200),0px_2px_0px_#000000] data-active:font-bold",
+        "relative inline-flex h-full items-center justify-center gap-1.5 rounded-none border border-transparent px-2.5 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        "data-active:pixel-raised data-active:bg-card data-active:text-primary data-active:font-semibold",
         className
       )}
       {...props}
@@ -71,7 +71,7 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
       data-slot="tabs-content"
-      className={cn("flex-1 text-sm outline-none font-pixel-body", className)}
+      className={cn("flex-1 text-sm outline-none", className)}
       {...props}
     />
   )

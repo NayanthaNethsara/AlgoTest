@@ -53,114 +53,122 @@
   --color-edge: var(--edge);
   --color-bevel-light: var(--bevel-light);
   --color-bevel-dark: var(--bevel-dark);
+  --color-teal: var(--teal);
+  --color-teal-deep: var(--teal-deep);
 }
 
 :root {
-  --background: oklch(0.11 0.015 175);
-  --foreground: oklch(0.95 0.01 175);
-  --card: oklch(0.18 0.025 175);
-  --card-foreground: oklch(0.95 0.01 175);
-  --popover: oklch(0.16 0.02 175);
-  --popover-foreground: oklch(0.95 0.01 175);
-  --primary: oklch(0.74 0.18 172);
-  --primary-foreground: oklch(0.08 0.02 175);
-  --secondary: oklch(0.24 0.03 175);
-  --secondary-foreground: oklch(0.95 0.01 175);
-  --muted: oklch(0.20 0.02 175);
-  --muted-foreground: oklch(0.72 0.02 175);
-  --accent: oklch(0.28 0.04 172);
-  --accent-foreground: oklch(0.98 0.01 172);
-  --destructive: oklch(0.65 0.22 25);
-  --success: oklch(0.74 0.18 172);
-  --warning: oklch(0.82 0.18 85);
-  --border: oklch(0.30 0.03 175);
-  --input: oklch(0.15 0.02 175);
-  --ring: oklch(0.74 0.18 172);
-  --chart-1: oklch(0.74 0.18 172);
-  --chart-2: oklch(0.78 0.15 190);
-  --chart-3: oklch(0.82 0.18 85);
-  --chart-4: oklch(0.65 0.22 25);
-  --chart-5: oklch(0.70 0.18 300);
+  --background: oklch(0.11 0.015 158);
+  --foreground: oklch(0.95 0.015 160);
+  --card: oklch(0.15 0.02 158);
+  --card-foreground: oklch(0.95 0.015 160);
+  --popover: oklch(0.15 0.02 158);
+  --popover-foreground: oklch(0.95 0.015 160);
+  --primary: oklch(0.6 0.15 155);
+  --primary-foreground: oklch(0.08 0.02 155);
+  --secondary: oklch(0.2 0.02 160);
+  --secondary-foreground: oklch(0.95 0.015 160);
+  --muted: oklch(0.17 0.015 160);
+  --muted-foreground: oklch(0.65 0.03 160);
+  --accent: oklch(0.22 0.03 158);
+  --accent-foreground: oklch(0.95 0.015 160);
+  --destructive: oklch(0.6 0.16 25);
+  --success: oklch(0.6 0.15 155);
+  --warning: oklch(0.72 0.12 85);
+  --border: oklch(0.27 0.02 160);
+  --input: oklch(0.12 0.015 160);
+  --ring: oklch(0.6 0.15 155);
+  --chart-1: oklch(0.6 0.15 155);
+  --chart-2: oklch(0.62 0.12 185);
+  --chart-3: oklch(0.72 0.12 85);
+  --chart-4: oklch(0.6 0.16 25);
+  --chart-5: oklch(0.62 0.13 300);
   --radius: 0px;
+
+  /* The app's second brand hue, alongside --primary (emerald). Two tones, not a
+     rainbow: teal for secondary accents, teal-deep as the one place a UI needs a
+     third depth (the Hard difficulty tag) without reaching for a new hue. */
+  --teal: oklch(0.62 0.12 185);
+  --teal-deep: oklch(0.34 0.09 185);
+
+  /* Muted background/foreground/border triples for status chips (verdicts,
+     difficulty tags). Same hue families as --success/--warning/--destructive,
+     but dialed back so a badge reads as a label, not a klaxon. */
+  --success-bg: oklch(0.22 0.06 155);
+  --success-fg: oklch(0.8 0.14 155);
+  --success-border: oklch(0.5 0.13 155);
+  --warning-bg: oklch(0.25 0.06 85);
+  --warning-fg: oklch(0.82 0.14 85);
+  --warning-border: oklch(0.6 0.13 85);
+  --destructive-bg: oklch(0.25 0.08 25);
+  --destructive-fg: oklch(0.78 0.16 25);
+  --destructive-border: oklch(0.55 0.16 25);
 
   /* Minecraft blocks read as blocks because every face is outlined in near-black
      and lit from the top-left. These three tokens are that lighting model, and
-     every raised or recessed surface in the app derives from them — which is what
-     stops the bevels drifting apart the way the card and markdown ones had (they
-     were mixing a hue-260 purple into a hue-175 teal palette). */
+     every raised or recessed surface in the app derives from them. */
   --edge: #000000;
-  --bevel-light: oklch(0.45 0.03 175);
-  --bevel-dark: oklch(0.12 0.015 175);
+  --bevel-light: oklch(0.42 0.08 160);
+  --bevel-dark: oklch(0.07 0.015 155);
 
-  --sidebar: oklch(0.15 0.02 175);
-  --sidebar-foreground: oklch(0.95 0.01 175);
-  --sidebar-primary: oklch(0.74 0.18 172);
-  --sidebar-primary-foreground: oklch(0.08 0.02 175);
-  --sidebar-accent: oklch(0.24 0.03 175);
-  --sidebar-accent-foreground: oklch(0.95 0.01 175);
-  --sidebar-border: oklch(0.30 0.03 175);
-  --sidebar-ring: oklch(0.74 0.18 172);
+  --sidebar: oklch(0.12 0.02 158);
+  --sidebar-foreground: oklch(0.95 0.015 160);
+  --sidebar-primary: oklch(0.6 0.15 155);
+  --sidebar-primary-foreground: oklch(0.08 0.02 155);
+  --sidebar-accent: oklch(0.2 0.02 160);
+  --sidebar-accent-foreground: oklch(0.95 0.015 160);
+  --sidebar-border: oklch(0.27 0.02 160);
+  --sidebar-ring: oklch(0.6 0.15 155);
 }
 
 .dark {
-  --background: oklch(0.11 0.015 175);
-  --foreground: oklch(0.95 0.01 175);
-  --card: oklch(0.18 0.025 175);
-  --card-foreground: oklch(0.95 0.01 175);
-  --popover: oklch(0.16 0.02 175);
-  --popover-foreground: oklch(0.95 0.01 175);
-  --primary: oklch(0.74 0.18 172);
-  --primary-foreground: oklch(0.08 0.02 175);
-  --secondary: oklch(0.24 0.03 175);
-  --secondary-foreground: oklch(0.95 0.01 175);
-  --muted: oklch(0.20 0.02 175);
-  --muted-foreground: oklch(0.72 0.02 175);
-  --accent: oklch(0.28 0.04 172);
-  --accent-foreground: oklch(0.98 0.01 172);
-  --destructive: oklch(0.65 0.22 25);
-  --success: oklch(0.74 0.18 172);
-  --warning: oklch(0.82 0.18 85);
-  --border: oklch(0.30 0.03 175);
-  --input: oklch(0.15 0.02 175);
-  --ring: oklch(0.74 0.18 172);
-  --sidebar: oklch(0.15 0.02 175);
-  --sidebar-foreground: oklch(0.95 0.01 175);
-  --sidebar-primary: oklch(0.74 0.18 172);
-  --sidebar-primary-foreground: oklch(0.08 0.02 175);
-  --sidebar-accent: oklch(0.24 0.03 175);
-  --sidebar-accent-foreground: oklch(0.95 0.01 175);
-  --sidebar-border: oklch(0.30 0.03 175);
-  --sidebar-ring: oklch(0.74 0.18 172);
+  --background: oklch(0.11 0.015 158);
+  --foreground: oklch(0.95 0.015 160);
+  --card: oklch(0.15 0.02 158);
+  --card-foreground: oklch(0.95 0.015 160);
+  --popover: oklch(0.15 0.02 158);
+  --popover-foreground: oklch(0.95 0.015 160);
+  --primary: oklch(0.6 0.15 155);
+  --primary-foreground: oklch(0.08 0.02 155);
+  --secondary: oklch(0.2 0.02 160);
+  --secondary-foreground: oklch(0.95 0.015 160);
+  --muted: oklch(0.17 0.015 160);
+  --muted-foreground: oklch(0.65 0.03 160);
+  --accent: oklch(0.22 0.03 158);
+  --accent-foreground: oklch(0.95 0.015 160);
+  --destructive: oklch(0.6 0.16 25);
+  --success: oklch(0.6 0.15 155);
+  --warning: oklch(0.72 0.12 85);
+  --border: oklch(0.27 0.02 160);
+  --input: oklch(0.12 0.015 160);
+  --ring: oklch(0.6 0.15 155);
+  --sidebar: oklch(0.12 0.02 158);
+  --sidebar-foreground: oklch(0.95 0.015 160);
+  --sidebar-primary: oklch(0.6 0.15 155);
+  --sidebar-primary-foreground: oklch(0.08 0.02 155);
+  --sidebar-accent: oklch(0.2 0.02 160);
+  --sidebar-accent-foreground: oklch(0.95 0.015 160);
+  --sidebar-border: oklch(0.27 0.02 160);
+  --sidebar-ring: oklch(0.6 0.15 155);
 }
 
 @layer base {
   * {
     border-radius: 0px !important;
-    image-rendering: pixelated;
   }
 
+  /* Inter carries the app — legible at small sizes, reads as a dev tool. The
+     pixel display font is reserved for a few deliberate accents (opt in with
+     .font-pixel-header) instead of every heading, so it stays a flourish
+     rather than the wallpaper. */
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: var(--font-pixel-body), sans-serif;
-
-    /* Proper pixel grid background texture */
-    background-image:
-      repeating-linear-gradient(
-        to right,
-        oklch(1 0 0 / 0.02) 0 1px,
-        transparent 1px 4px
-      ),
-      repeating-linear-gradient(
-        to bottom,
-        oklch(1 0 0 / 0.02) 0 1px,
-        transparent 1px 4px
-      );
+    font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-pixel-header), sans-serif;
-    letter-spacing: 0.02em;
+    font-family: inherit;
   }
 
   /* One hard focus ring for the whole app. A blurred halo is the one thing that
@@ -182,7 +190,8 @@
 }
 
 @layer components {
-  /* A block lit from the top-left and sitting above the page. */
+  /* A block lit from the top-left and sitting above the page — the signature
+     "chunky" surface: cards, panels, the nav bar, primary buttons. */
   .pixel-raised {
     border: 2px solid var(--edge);
     box-shadow:
@@ -200,8 +209,8 @@
       inset -2px -2px 0 var(--bevel-light);
   }
 
-  /* Interactive blocks physically depress. 2px is one "pixel" at this scale, so the
-     motion lands on the grid instead of blurring across it. */
+  /* Interactive blocks physically depress. 2px is one "pixel" at this scale, so
+     the motion lands on the grid instead of blurring across it. */
   .pixel-press {
     transition: transform 0.05s ease, box-shadow 0.05s ease;
   }
@@ -212,6 +221,48 @@
       inset -2px -2px 0 var(--bevel-light),
       inset 2px 2px 0 var(--bevel-dark),
       0 1px 0 var(--edge);
+  }
+
+  /* The chip tier: a solid dark-edged border with a flat fill, no bevel or drop
+     shadow. For badges, tags, filter pills, table header rows — chunky-bordered
+     like everything else, but flat, so the .pixel-raised block treatment stays
+     reserved for things that are genuinely elevated. */
+  .pixel-flat {
+    border: 2px solid var(--edge);
+    box-shadow: none;
+  }
+
+  /* Status-chip color triples, sharing the same lighting model as everything
+     else but muted enough to sit inside a small badge instead of shouting. */
+  .badge-success {
+    background: var(--success-bg);
+    color: var(--success-fg);
+    border-color: var(--success-border);
+  }
+
+  .badge-warning {
+    background: var(--warning-bg);
+    color: var(--warning-fg);
+    border-color: var(--warning-border);
+  }
+
+  .badge-destructive {
+    background: var(--destructive-bg);
+    color: var(--destructive-fg);
+    border-color: var(--destructive-border);
+  }
+
+  /* Difficulty tags read from the brand's two hues, not the semantic verdict
+     colors — "Hard" is a deeper teal, not an error red. Amber/red stay reserved
+     for actual warnings and failures (TLE, wrong answer). */
+  .badge-teal {
+    background: var(--teal);
+    color: var(--primary-foreground);
+  }
+
+  .badge-teal-deep {
+    background: var(--teal-deep);
+    color: var(--foreground);
   }
 
   /* Chunky rule. A 1px hairline is the giveaway that a "pixel" UI is really a
@@ -270,7 +321,7 @@
 }
 
 .pixel-text-shadow {
-  text-shadow: 2px 2px 0px #000000;
+  text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.45);
 }
 
 .pixel-box {
@@ -303,23 +354,21 @@
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: oklch(0.11 0.015 175);
-  border: 1px solid oklch(0.24 0.02 175);
+  background: var(--background);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.28 0.03 175);
-  border: 2px solid oklch(0.38 0.03 175);
-  box-shadow: inset 1px 1px 0px oklch(0.50 0.03 175), inset -1px -1px 0px #000000;
+  background: var(--border);
+  border: 2px solid var(--background);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.35 0.03 175);
+  background: var(--muted-foreground);
 }
 
 .markdown p {
@@ -362,6 +411,8 @@
 }
 
 /* Pixel noise texture overlay effect */
+/* A faint grain, not visible static — dialed back from a blocky 8-bit overlay
+   to something closer to film grain, so it reads as texture, not noise. */
 .pixel-noise-overlay {
   position: fixed;
   inset: 0;
@@ -369,10 +420,8 @@
   z-index: 99999;
   background-image: url("/pixel-noice.png");
   background-repeat: repeat;
-  background-size: 256px 256px;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  opacity: 0.05;
+  background-size: 128px 128px;
+  opacity: 0.03;
   mix-blend-mode: overlay;
 }
 
@@ -484,6 +533,26 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 .challenge-mode-light .border-2,
 .challenge-mode-light .border-4 {
   border-color: #e2e8f0 !important;
+}
+
+/* The pixel scrollbar is chunky and teal-tinted by design — a deliberate
+   accent in pixel mode, but a leak into the clean dark/light editor themes. */
+body:has(.challenge-mode-dark) ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-color: #18181b;
+}
+
+body:has(.challenge-mode-dark) ::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+body:has(.challenge-mode-light) ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-color: #f8fafc;
+}
+
+body:has(.challenge-mode-light) ::-webkit-scrollbar-track {
+  background: #f1f5f9;
 }
 
 .challenge-mode-light .text-muted-foreground {

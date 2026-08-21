@@ -12,7 +12,7 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
       <div className="flex flex-col gap-6 p-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-2.5">
-            <h1 className="pixel-text-shadow font-pixel-header text-base leading-relaxed tracking-wider text-primary uppercase">
+            <h1 className="text-lg font-semibold leading-snug text-foreground">
               {problem.title}
             </h1>
             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -74,7 +74,7 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
 
 function Meta({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 border border-black bg-muted px-2 py-1 tracking-wide uppercase shadow-[inset_1px_1px_0_var(--bevel-light),inset_-1px_-1px_0_var(--bevel-dark)]">
+    <span className="inline-flex items-center gap-1.5 pixel-flat bg-muted px-2 py-1">
       {icon}
       {children}
     </span>
@@ -92,7 +92,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function SampleBlock({ index, sample }: { index: number; sample: Sample }) {
   return (
     <div className="pixel-raised overflow-hidden">
-      <div className="border-b-2 border-black bg-secondary px-3 py-1.5 font-pixel-header text-[10px] tracking-wider text-muted-foreground uppercase">
+      <div className="border-b-2 border-black bg-secondary px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
         Sample {index}
       </div>
       <div className="grid gap-0.5 bg-black sm:grid-cols-2">
@@ -100,7 +100,7 @@ function SampleBlock({ index, sample }: { index: number; sample: Sample }) {
         <IoCell label="Output" value={sample.output} />
       </div>
       {sample.explanation && (
-        <div className="border-t-2 border-black px-3 py-2 text-xs text-muted-foreground">
+        <div className="border-t-2 border-border px-3 py-2 text-xs text-muted-foreground">
           <Markdown>{sample.explanation}</Markdown>
         </div>
       )}

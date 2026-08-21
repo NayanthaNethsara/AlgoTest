@@ -109,12 +109,8 @@ export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: Histo
                           <Badge variant="secondary">{TRIGGER_LABELS[snapshot.trigger]}</Badge>
                           {snapshot.verdict && (
                             <Badge
-                              variant="outline"
-                              className={`text-[10px] py-0 px-1 font-semibold ${
-                                snapshot.verdict === "AC"
-                                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                                  : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
-                              }`}
+                              variant={snapshot.verdict === "AC" ? "success" : "destructive"}
+                              className="text-[10px] py-0 px-1 font-semibold"
                             >
                               {snapshot.verdict}
                             </Badge>

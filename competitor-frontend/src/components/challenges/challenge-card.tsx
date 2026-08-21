@@ -1,19 +1,22 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock, HelpCircle, Trophy } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { CHALLENGE_STATUS, type ChallengeProgress, type ChallengeStatus } from "@/types/challenge";
 import { DIFFICULTY, type Difficulty, type Problem } from "@/types/problem";
+import type { VariantProps } from "class-variance-authority";
 
 const STATUS_LABELS: Record<ChallengeStatus, string> = {
-  [CHALLENGE_STATUS.SOLVED]: "SOLVED",
-  [CHALLENGE_STATUS.ATTEMPTED]: "IN PROGRESS",
-  [CHALLENGE_STATUS.NOT_ATTEMPTED]: "UNOPENED",
+  [CHALLENGE_STATUS.SOLVED]: "Solved",
+  [CHALLENGE_STATUS.ATTEMPTED]: "In progress",
+  [CHALLENGE_STATUS.NOT_ATTEMPTED]: "Unopened",
 };
 
-const DIFFICULTY_STYLES: Record<Difficulty, string> = {
-  [DIFFICULTY.EASY]: "bg-emerald-950/90 text-emerald-300 border-emerald-500/60",
-  [DIFFICULTY.MEDIUM]: "bg-amber-950/90 text-amber-300 border-amber-500/60",
-  [DIFFICULTY.HARD]: "bg-rose-950/90 text-rose-300 border-rose-500/60",
+type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
+
+const DIFFICULTY_VARIANTS: Record<Difficulty, BadgeVariant> = {
+  [DIFFICULTY.EASY]: "success",
+  [DIFFICULTY.MEDIUM]: "teal",
+  [DIFFICULTY.HARD]: "tealDeep",
 };
 
 export function ChallengeCard({
@@ -27,33 +30,22 @@ export function ChallengeCard({
 }) {
   const isSolved = progress.status === CHALLENGE_STATUS.SOLVED;
   const isAttempted = progress.status === CHALLENGE_STATUS.ATTEMPTED;
-  const difficultyStyle = DIFFICULTY_STYLES[problem.difficulty] || DIFFICULTY_STYLES[DIFFICULTY.EASY];
+  const difficultyVariant = DIFFICULTY_VARIANTS[problem.difficulty] ?? DIFFICULTY_VARIANTS[DIFFICULTY.EASY];
+  const statusVariant: BadgeVariant = isSolved ? "success" : isAttempted ? "warning" : "secondary";
 
   if (layout === "grid") {
     return (
       <Link
         href={`/challenges/${problem.slug || problem.id}`}
-        className="group flex flex-col justify-between gap-4 border-2 border-black bg-card p-5 shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_4px_0px_#000000] transition-all hover:border-primary hover:-translate-y-1"
+        className="group flex flex-col justify-between gap-4 pixel-raised bg-card p-5 transition-colors hover:border-primary/50"
       >
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
-            <Badge
-              variant="outline"
-              className={`font-pixel-body text-[10px] uppercase border px-2 py-0.5 ${difficultyStyle}`}
-            >
+            <Badge variant={difficultyVariant} className="text-[10px] uppercase px-2 py-0.5">
               {problem.difficulty}
             </Badge>
 
-            <Badge
-              variant="secondary"
-              className={`gap-1.5 text-[10px] uppercase border-black ${
-                isSolved
-                  ? "bg-emerald-950 text-emerald-300 border-emerald-500"
-                  : isAttempted
-                  ? "bg-amber-950 text-amber-300 border-amber-500"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
+            <Badge variant={statusVariant} className="gap-1.5 text-[10px] uppercase">
               {isSolved ? (
                 <CheckCircle2 className="h-3 w-3" />
               ) : isAttempted ? (
@@ -66,24 +58,24 @@ export function ChallengeCard({
           </div>
 
           <div>
-            <h3 className="font-pixel-header text-sm text-foreground group-hover:text-primary transition-colors uppercase tracking-wider pixel-text-shadow leading-snug">
+            <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors leading-snug">
               {problem.title}
             </h3>
             {problem.statement && (
-              <p className="mt-2 text-xs text-muted-foreground line-clamp-2 font-pixel-body leading-relaxed">
+              <p className="mt-2 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                 {problem.statement}
               </p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t-2 border-black/40 pt-3 mt-1 font-pixel-body">
-          <div className="flex items-center gap-1.5 text-xs text-amber-400 font-bold">
+        <div className="flex items-center justify-between border-t-2 border-border pt-3 mt-1">
+          <div className="flex items-center gap-1.5 text-xs text-amber-400 font-semibold">
             <Trophy className="h-3.5 w-3.5 text-amber-400" />
             <span className="text-foreground">{progress.bestScore}</span> / {problem.points} XP
           </div>
 
-          <div className="flex h-8 w-8 items-center justify-center border-2 border-black bg-primary text-primary-foreground shadow-[inset_1.5px_1.5px_0px_rgba(255,255,255,0.4),0px_2px_0px_#000000] transition-transform group-hover:scale-105">
+          <div className="flex h-8 w-8 items-center justify-center pixel-flat bg-primary text-primary-foreground transition-transform group-hover:scale-105">
             <ArrowRight className="h-4 w-4" />
           </div>
         </div>
@@ -94,39 +86,25 @@ export function ChallengeCard({
   return (
     <Link
       href={`/challenges/${problem.slug || problem.id}`}
-      className="group flex items-center justify-between gap-4 border-2 border-black bg-card p-4 shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_4px_0px_#000000] transition-all hover:border-primary hover:-translate-y-0.5"
+      className="group flex items-center justify-between gap-4 pixel-raised bg-card p-4 transition-colors hover:border-primary/50"
     >
       <div className="flex flex-col gap-2 min-w-0">
         <div className="flex items-center gap-3">
-          <span className="font-pixel-header text-xs text-foreground group-hover:text-primary transition-colors uppercase tracking-wider pixel-text-shadow truncate">
+          <span className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors truncate">
             {problem.title}
           </span>
-          <Badge
-            variant="outline"
-            className={`font-pixel-body text-[10px] uppercase border shrink-0 ${difficultyStyle}`}
-          >
+          <Badge variant={difficultyVariant} className="text-[10px] uppercase shrink-0">
             {problem.difficulty}
           </Badge>
         </div>
         {problem.statement && (
-          <p className="text-xs text-muted-foreground line-clamp-1 font-pixel-body">
-            {problem.statement}
-          </p>
+          <p className="text-xs text-muted-foreground line-clamp-1">{problem.statement}</p>
         )}
       </div>
 
       <div className="flex items-center gap-5 shrink-0">
-        <div className="flex flex-col items-end gap-1 font-pixel-body">
-          <Badge
-            variant="secondary"
-            className={`gap-1.5 text-[10px] uppercase border-black ${
-              isSolved
-                ? "bg-emerald-900 text-emerald-300 border-emerald-500"
-                : isAttempted
-                ? "bg-amber-900 text-amber-300 border-amber-500"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
+        <div className="flex flex-col items-end gap-1">
+          <Badge variant={statusVariant} className="gap-1.5 text-[10px] uppercase">
             {isSolved ? (
               <CheckCircle2 className="h-3 w-3" />
             ) : isAttempted ? (
@@ -136,13 +114,13 @@ export function ChallengeCard({
             )}
             {STATUS_LABELS[progress.status]}
           </Badge>
-          <div className="flex items-center gap-1 text-xs font-pixel-body text-amber-400">
+          <div className="flex items-center gap-1 text-xs text-amber-400">
             <Trophy className="h-3 w-3 text-amber-400" />
             <strong className="text-foreground">{progress.bestScore}</strong> / {problem.points} XP
           </div>
         </div>
 
-        <div className="flex h-9 w-9 items-center justify-center border-2 border-black bg-primary text-primary-foreground shadow-[inset_2px_2px_0px_rgba(255,255,255,0.4),0px_2px_0px_#000000] transition-transform group-hover:scale-105">
+        <div className="flex h-9 w-9 items-center justify-center pixel-flat bg-primary text-primary-foreground transition-transform group-hover:scale-105">
           <ArrowRight className="h-4 w-4" />
         </div>
       </div>

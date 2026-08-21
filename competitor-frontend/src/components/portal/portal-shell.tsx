@@ -55,9 +55,7 @@ function ToastBanner() {
       {!isSuccess && !isError && <Info className="size-5 text-primary shrink-0 mt-0.5" />}
 
       <div className="flex flex-col gap-0.5 text-xs">
-        <span className="font-pixel-header text-[10px] tracking-wider uppercase text-foreground">
-          {toast.title}
-        </span>
+        <span className="font-semibold text-foreground">{toast.title}</span>
         <span className="text-muted-foreground">{toast.description}</span>
       </div>
 

@@ -91,9 +91,9 @@ export function LeaderboardClient({
   );
 
   return (
-    <div className="space-y-5 font-pixel-body">
+    <div className="space-y-5">
       {/* Control Bar: Search, Sort & Quick Stat */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-2 border-black bg-card p-3 shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_3px_0px_#000000]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pixel-raised bg-card p-3">
         <div className="flex flex-wrap items-center gap-3 flex-1 max-w-lg">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -102,22 +102,22 @@ export function LeaderboardClient({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search teams..."
-              className="w-full border-2 border-black bg-background pl-8 pr-3 py-1.5 font-pixel-body text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full pixel-inset bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
 
           {/* Sort Selection */}
-          <div className="flex items-center gap-1.5 border-2 border-black bg-card px-2.5 py-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 pixel-flat bg-card px-2.5 py-1.5 shrink-0">
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="bg-transparent font-pixel-body text-xs uppercase text-foreground focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
             >
-              <option value="RANK_ASC">Rank: #1 to Last</option>
-              <option value="SCORE_DESC">Score: High to Low</option>
-              <option value="SCORE_ASC">Score: Low to High</option>
-              <option value="SOLVED_DESC">Solved: Most to Least</option>
+              <option value="RANK_ASC">Rank: #1 to last</option>
+              <option value="SCORE_DESC">Score: high to low</option>
+              <option value="SCORE_ASC">Score: low to high</option>
+              <option value="SOLVED_DESC">Solved: most to least</option>
               <option value="NAME_ASC">Team: A to Z</option>
             </select>
           </div>
@@ -127,11 +127,11 @@ export function LeaderboardClient({
           {currentUserStanding && (
             <div className="flex items-center gap-2 border border-primary/60 bg-primary/10 px-2.5 py-1 text-foreground font-semibold">
               <Trophy className="h-3.5 w-3.5 text-amber-400" />
-              <span>YOUR RANK: #{currentUserStanding.rank} ({currentUserStanding.totalScore} XP)</span>
+              <span>Your rank: #{currentUserStanding.rank} ({currentUserStanding.totalScore} XP)</span>
             </div>
           )}
           <span className="text-muted-foreground text-xs">
-            Teams: <strong className="text-foreground font-bold">{leaderboard.length}</strong>
+            Teams: <strong className="text-foreground font-semibold">{leaderboard.length}</strong>
           </span>
           <button
             type="button"
@@ -142,7 +142,7 @@ export function LeaderboardClient({
                 ? `Updated ${updatedAt.toLocaleTimeString()} - refreshes automatically`
                 : "Refreshes automatically"
             }
-            className="flex items-center gap-1.5 border-2 border-black bg-card px-2 py-1 text-xs uppercase text-muted-foreground hover:text-foreground disabled:opacity-60"
+            className="flex items-center gap-1.5 pixel-flat bg-card px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
           >
             <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
             <span>{refreshing ? "Syncing" : "Live"}</span>
@@ -151,9 +151,9 @@ export function LeaderboardClient({
       </div>
 
       {/* Standings Table */}
-      <div className="border-2 border-black bg-card shadow-[inset_2px_2px_0px_var(--bevel-light),inset_-2px_-2px_0px_var(--bevel-dark),0px_4px_0px_#000000] overflow-hidden">
+      <div className="pixel-raised bg-card overflow-hidden">
         {sortedLeaderboard.length === 0 ? (
-          <div className="p-10 text-center text-xs text-muted-foreground uppercase">
+          <div className="p-10 text-center text-xs text-muted-foreground">
             {search ? "No matching teams found." : "No standings recorded yet."}
           </div>
         ) : (
@@ -184,7 +184,7 @@ export function LeaderboardClient({
                     className="py-3 px-4 text-center cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1 justify-center">
-                      <span>QUESTS SOLVED</span>
+                      <span>SOLVED</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
                   </th>
@@ -199,7 +199,7 @@ export function LeaderboardClient({
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y border-black/40">
+              <tbody className="divide-y divide-border">
                 {sortedLeaderboard.map((row) => {
                   const isCurrentTeam =
                     Boolean(currentUser?.teamId && row.teamId === currentUser.teamId) ||
@@ -217,17 +217,17 @@ export function LeaderboardClient({
                           : "hover:bg-muted/40"
                       }`}
                     >
-                      <td className="py-3 px-4 text-center font-bold">
+                      <td className="py-3 px-4 text-center font-semibold">
                         {isTop1 ? (
-                          <span className="inline-flex h-6 w-6 items-center justify-center border-2 border-black bg-amber-400 text-black text-[11px] font-pixel-header font-bold shadow-[inset_1px_1px_0px_#ffffff]">
+                          <span className="inline-flex h-6 w-6 items-center justify-center pixel-flat bg-amber-400 text-black text-xs font-bold">
                             1
                           </span>
                         ) : isTop2 ? (
-                          <span className="inline-flex h-6 w-6 items-center justify-center border-2 border-black bg-slate-300 text-black text-[11px] font-pixel-header font-bold shadow-[inset_1px_1px_0px_#ffffff]">
+                          <span className="inline-flex h-6 w-6 items-center justify-center pixel-flat bg-slate-300 text-black text-xs font-bold">
                             2
                           </span>
                         ) : isTop3 ? (
-                          <span className="inline-flex h-6 w-6 items-center justify-center border-2 border-black bg-amber-700 text-white text-[11px] font-pixel-header font-bold shadow-[inset_1px_1px_0px_#ffffff]">
+                          <span className="inline-flex h-6 w-6 items-center justify-center pixel-flat bg-amber-700 text-white text-xs font-bold">
                             3
                           </span>
                         ) : (
@@ -237,10 +237,10 @@ export function LeaderboardClient({
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <Users className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="font-bold uppercase text-foreground">{row.teamName}</span>
+                          <span className="font-semibold text-foreground">{row.teamName}</span>
                           {isCurrentTeam && (
-                            <Badge variant="secondary" className="text-[9px] py-0 px-1.5 border-black bg-primary text-primary-foreground uppercase font-bold">
-                              YOUR TEAM
+                            <Badge variant="default" className="text-[9px] py-0 px-1.5 font-semibold">
+                              Your team
                             </Badge>
                           )}
                         </div>

@@ -2,6 +2,7 @@
 
 import { RotateCw, ShieldOff } from "lucide-react";
 import { useProctor } from "@/components/providers/proctor-provider";
+import { Button } from "@/components/ui/button";
 import type { AccessMode } from "@/types/proctor";
 
 /**
@@ -59,28 +60,25 @@ export function AccessBlockScreen() {
         <div className="flex items-center gap-3 border-b-2 border-border pb-4">
           <ShieldOff className="size-7 shrink-0 text-destructive" />
           <div>
-            <h2
-              id="access-block-title"
-              className="font-pixel-header text-base uppercase tracking-wider text-foreground"
-            >
+            <h2 id="access-block-title" className="text-base font-semibold text-foreground">
               {title}
             </h2>
-            <p className="text-xs font-pixel-body text-muted-foreground mt-0.5">
-              Contest workspace & editor locked
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Contest workspace &amp; editor locked
             </p>
           </div>
         </div>
 
-        <dl className="flex flex-col gap-2.5 border-2 border-black bg-muted/40 p-4 text-xs font-pixel-body">
+        <dl className="flex flex-col gap-2.5 pixel-flat bg-muted/40 p-4 text-xs">
           <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">Current Environment:</dt>
-            <dd className="font-bold text-foreground">
+            <dt className="text-muted-foreground">Current environment:</dt>
+            <dd className="font-semibold text-foreground">
               {accessMode ? MODE_LABEL[accessMode] : "Unrecognised window"}
             </dd>
           </div>
           <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">Allowed Submission Modes:</dt>
-            <dd className="font-bold text-foreground">
+            <dt className="text-muted-foreground">Allowed submission modes:</dt>
+            <dd className="font-semibold text-foreground">
               {allowedModes.length > 0
                 ? allowedModes.map((mode) => MODE_LABEL[mode]).join(", or ")
                 : MODE_LABEL.DESKTOP}
@@ -88,14 +86,14 @@ export function AccessBlockScreen() {
           </div>
           {code && (
             <div className="flex flex-wrap gap-x-2">
-              <dt className="text-muted-foreground">Lock Code:</dt>
-              <dd className="font-mono text-destructive font-bold">{code}</dd>
+              <dt className="text-muted-foreground">Lock code:</dt>
+              <dd className="font-mono text-destructive font-semibold">{code}</dd>
             </div>
           )}
         </dl>
 
-        <div className="flex flex-col gap-1 text-xs font-pixel-body">
-          <span className="font-bold text-foreground">Required Action:</span>
+        <div className="flex flex-col gap-1 text-xs">
+          <span className="font-semibold text-foreground">Required action:</span>
           <p className="text-muted-foreground leading-relaxed">
             {remedy ??
               "Start the proctor client window, or ask an organizer to grant browser access for your account."}
@@ -103,17 +101,13 @@ export function AccessBlockScreen() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-border pt-4">
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 border-2 border-black bg-primary px-4 py-2 font-pixel-body text-xs font-bold uppercase text-primary-foreground transition-all hover:bg-primary/90 active:translate-y-0.5"
-          >
+          <Button type="button" onClick={() => window.location.reload()}>
             <RotateCw className="size-4" />
-            Retry Connection
-          </button>
+            Retry connection
+          </Button>
           {local?.support_code && (
             <span className="font-mono text-xs text-muted-foreground">
-              SUPPORT CODE: <span className="font-bold text-foreground">{local.support_code}</span>
+              Support code: <span className="font-semibold text-foreground">{local.support_code}</span>
             </span>
           )}
         </div>

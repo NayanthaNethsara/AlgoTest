@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useProctor } from "@/components/providers/proctor-provider";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 /**
  * Persistent proctoring indicator. An agent that keeps running in the background
@@ -31,21 +32,18 @@ export function ProctorPill() {
 
   if (starting) {
     return (
-      <Badge
-        variant="outline"
-        className="gap-1.5 border-warning bg-warning/20 text-warning text-xs h-7 px-2.5 font-pixel-body"
-      >
+      <Badge variant="outline" className="gap-1.5 border-warning bg-warning/20 text-warning text-xs h-7 px-2.5">
         <Loader2 className="h-3.5 w-3.5 pixel-spin" />
-        PROCTOR STARTING...
+        Proctor starting...
       </Badge>
     );
   }
 
   if (exempt) {
     return (
-      <Badge variant="outline" className="gap-1.5 text-xs h-7 px-2.5 font-pixel-body border-black">
+      <Badge variant="outline" className="gap-1.5 text-xs h-7 px-2.5">
         <ShieldOff className="h-3.5 w-3.5" />
-        PROCTOR EXEMPT
+        Proctor exempt
       </Badge>
     );
   }
@@ -59,7 +57,7 @@ export function ProctorPill() {
     return (
       <Badge
         variant="destructive"
-        className="gap-1.5 text-xs h-7 px-2.5 font-pixel-body"
+        className="gap-1.5 text-xs h-7 px-2.5"
         title={
           notAllowed
             ? "Scored submissions from this window are not enabled for your account."
@@ -70,10 +68,10 @@ export function ProctorPill() {
       >
         <ShieldOff className="h-3.5 w-3.5" />
         {notAllowed
-          ? "WINDOW NOT ALLOWED"
+          ? "Window not allowed"
           : cutOff
-            ? "PROCTOR OFF-GRID"
-            : "PROCTOR INACTIVE"}
+            ? "Proctor off-grid"
+            : "Proctor inactive"}
       </Badge>
     );
   }
@@ -83,11 +81,11 @@ export function ProctorPill() {
     return (
       <Badge
         variant="outline"
-        className="gap-1.5 border-warning bg-warning/20 text-warning text-xs h-7 px-2.5 font-pixel-body"
+        className="gap-1.5 border-warning bg-warning/20 text-warning text-xs h-7 px-2.5"
         title="The portal could not reach the contest server on the last check."
       >
         <AlertTriangle className="h-3.5 w-3.5" />
-        NET UNSTABLE
+        Net unstable
       </Badge>
     );
   }
@@ -99,11 +97,11 @@ export function ProctorPill() {
     return (
       <Badge
         variant="outline"
-        className="gap-1.5 text-xs h-7 px-2.5 font-pixel-body border-black"
+        className="gap-1.5 text-xs h-7 px-2.5"
         title="An organizer allowed this account to submit from a browser without the proctor client."
       >
         <ShieldOff className="h-3.5 w-3.5" />
-        BROWSER ACCESS
+        Browser access
       </Badge>
     );
   }
@@ -113,7 +111,7 @@ export function ProctorPill() {
   return (
     <Badge
       variant="outline"
-      className="gap-1.5 border-success bg-success/20 text-success text-xs h-7 px-2.5 font-pixel-body"
+      className="gap-1.5 border-success bg-success/20 text-success text-xs h-7 px-2.5"
       title={
         attested
           ? `Proctor agent ${local?.agent_version} · support code ${local?.support_code}`
@@ -121,7 +119,7 @@ export function ProctorPill() {
       }
     >
       <ShieldCheck className="h-3.5 w-3.5" />
-      {attested ? "PROCTOR ACTIVE" : "PROCTOR UNVERIFIED"}
+      {attested ? "Proctor active" : "Proctor unverified"}
     </Badge>
   );
 }
@@ -149,10 +147,10 @@ export function ProctorLockBanner() {
     return (
       <div
         role="status"
-        className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 border-b-2 border-black bg-warning/20 px-4 py-2 text-xs font-pixel-body text-warning shadow-[0px_4px_0px_#000000]"
+        className="absolute inset-x-0 top-0 z-40 flex items-center gap-2 border-b border-warning/40 bg-warning/15 px-4 py-2 text-xs text-warning"
       >
         <Loader2 className="h-3.5 w-3.5 shrink-0 pixel-spin" />
-        <span className="font-bold">PROCTORING STARTING.</span>
+        <span className="font-semibold">Proctoring is starting.</span>
         <span>
           {remedy ??
             "Submissions unlock as soon as the proctor client reports in."}
@@ -164,16 +162,16 @@ export function ProctorLockBanner() {
   return (
     <div
       role="status"
-      className="absolute inset-x-0 top-0 z-40 flex flex-wrap items-center gap-x-3 gap-y-1 border-b-2 border-black bg-destructive/30 px-4 py-2.5 text-xs font-pixel-body text-destructive shadow-[0px_4px_0px_#000000]"
+      className="absolute inset-x-0 top-0 z-40 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-destructive/40 bg-destructive/20 px-4 py-2.5 text-xs text-destructive"
     >
       <AlertTriangle className="h-4 w-4 shrink-0" />
-      <span className="font-bold uppercase tracking-wider">
+      <span className="font-semibold">
         {/* The agent may be running perfectly — this window is simply not one this
             account may submit from. Blaming the client would send the contestant to
             restart something that is already working. */}
         {code === "CLIENT_NOT_ALLOWED"
-          ? "SUBMISSIONS LOCKED — THIS WINDOW IS NOT ALLOWED FOR SCORED SUBMISSIONS"
-          : "SUBMISSIONS LOCKED — PROCTOR CLIENT IS NOT REPORTING"}
+          ? "Submissions locked — this window isn't allowed for scored submissions."
+          : "Submissions locked — proctor client isn't reporting."}
       </span>
       <span>
         {remedy ?? "Start the proctor client, then submit again."}
@@ -184,17 +182,13 @@ export function ProctorLockBanner() {
       <span className="ml-auto flex items-center gap-3">
         {local?.support_code && (
           <span className="font-mono text-xs">
-            CODE: <span className="font-bold">{local.support_code}</span>
+            Code: <span className="font-semibold">{local.support_code}</span>
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="inline-flex items-center gap-1.5 border-2 border-black bg-destructive text-white px-2.5 py-1 text-xs font-pixel-body uppercase font-bold transition-all hover:bg-destructive/90 active:translate-y-[2px]"
-        >
+        <Button type="button" variant="destructive" size="sm" onClick={() => window.location.reload()}>
           <RotateCw className="h-3 w-3" />
-          RETRY
-        </button>
+          Retry
+        </Button>
       </span>
       <p className="w-full text-muted-foreground text-[11px]">
         Test runs are enabled. Scored submissions are held until proctor connects.
