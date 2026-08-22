@@ -45,6 +45,19 @@ setup_cgroups() {
     echo "${CONTROLLERS}" >"${CGROUP}/cgroup.subtree_control" || return 1
     mkdir -p "${ISOLATE_CG}" || return 1
     echo "${CONTROLLERS}" >"${ISOLATE_CG}/cgroup.subtree_control" || return 1
+
+    pin_cpus
+}
+
+pin_cpus() {
+    [[ -n ${RUN_CPU_LIST:-} ]] || return 0
+
+    if echo "+cpuset" 2>/dev/null >"${CGROUP}/cgroup.subtree_control" &&
+        echo "${RUN_CPU_LIST}" 2>/dev/null >"${ISOLATE_CG}/cpuset.cpus"; then
+        echo "entrypoint: sandboxes confined to CPUs $(<"${ISOLATE_CG}/cpuset.cpus.effective")"
+    else
+        warn "could not confine sandboxes to CPUs ${RUN_CPU_LIST} -- cpuset unavailable, only taskset applies"
+    fi
 }
 
 # The stock config expects an "isolate" user with /etc/subuid ranges, which the

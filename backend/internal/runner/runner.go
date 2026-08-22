@@ -43,6 +43,12 @@ func New(cfg Config) (*Runner, error) {
 
 // CheckHost verifies isolate is installed and the host is provisioned.
 func (r *Runner) CheckHost(ctx context.Context) error {
+	if r.cfg.RequireIsolate {
+		if _, err := exec.LookPath(r.cfg.IsolateBin); err != nil {
+			return fmt.Errorf("isolate not found on PATH (%s): untrusted code would run unsandboxed: %w", r.cfg.IsolateBin, err)
+		}
+	}
+
 	highest := r.cfg.MaxConcurrent - 1
 	r.cleanupBox(highest)
 	if _, err := r.initBox(ctx, highest); err != nil {
@@ -673,4 +679,3 @@ func (r *Runner) Stats() LimiterStats {
 	}
 	return r.limiter.stats()
 }
-

@@ -114,17 +114,25 @@ func (j *Judge) work(ctx context.Context, workerID string) {
 		case <-ctx.Done():
 			return
 		case <-j.notify:
-			j.processNext(ctx, workerID)
+			j.drain(ctx, workerID)
 		case <-ticker.C:
-			j.processNext(ctx, workerID)
+			j.drain(ctx, workerID)
 		}
 	}
 }
 
-func (j *Judge) processNext(ctx context.Context, workerID string) {
+func (j *Judge) drain(ctx context.Context, workerID string) {
+	for j.processNext(ctx, workerID) {
+		if ctx.Err() != nil {
+			return
+		}
+	}
+}
+
+func (j *Judge) processNext(ctx context.Context, workerID string) bool {
 	s, err := j.repo.ClaimNextSubmission(ctx, workerID)
 	if err != nil {
-		return
+		return false
 	}
 
 	metrics.JudgeSubmissionsActive.Inc()
@@ -159,12 +167,13 @@ func (j *Judge) processNext(ctx context.Context, workerID string) {
 	if err := j.repo.CompleteSubmission(ctx, res, workerID); err != nil {
 		if errors.Is(err, ErrLeaseLost) {
 			j.log.Warn("discarded result for a reassigned submission", "submission_id", s.ID, "worker", workerID)
-			return
+			return true
 		}
 		j.log.Error("failed to complete submission", "submission_id", s.ID, "error", err)
 	} else {
 		j.broadcaster.Broadcast(res)
 	}
+	return true
 }
 
 func (j *Judge) renewLease(ctx context.Context, submissionID, workerID string) {

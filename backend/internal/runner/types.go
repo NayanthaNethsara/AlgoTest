@@ -101,6 +101,7 @@ type Config struct {
 	WorkRoot        string
 	CompileMemoryKB int64
 	CPUList         string
+	RequireIsolate  bool
 
 	MaxConcurrent int
 	RunReserve    int
