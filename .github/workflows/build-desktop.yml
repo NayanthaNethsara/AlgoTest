@@ -7,6 +7,16 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      portal_url:
+        description: 'Portal the client opens, and the only Origin its loopback server answers'
+        required: false
+      api_url:
+        description: 'API base URL the agent reports to. On a LAN with no contestant internet, the relay'
+        required: false
+      portal_origins:
+        description: 'Standby portals the loopback server also answers, comma-separated'
+        required: false
 
 jobs:
   build-desktop:
@@ -53,9 +63,32 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      # No build-time server URL: the client reads its portal and API addresses
-      # from client.json at runtime, so one binary works for every contest.
+      # Baked in, not left to the setup form: the address a contestant types becomes
+      # the only Origin the loopback server answers, so one typo costs them
+      # attestation and blames an agent that is running perfectly. A saved
+      # client.json still overrides these.
+      #
+      # Empty is worse than absent -- option_env! returns Some("") for a set-but-empty
+      # variable -- so fail here rather than publish installers pointing nowhere.
+      - name: Resolve client addresses
+        id: addr
+        shell: bash
+        env:
+          PORTAL: ${{ inputs.portal_url || vars.MINIALGOTHON_SERVER_URL }}
+          API: ${{ inputs.api_url || vars.MINIALGOTHON_API_URL }}
+        run: |
+          if [ -z "$PORTAL" ] || [ -z "$API" ]; then
+            echo "::error::Set repository variables MINIALGOTHON_SERVER_URL and MINIALGOTHON_API_URL, or pass them as workflow inputs. Without them every installer points at localhost."
+            exit 1
+          fi
+          echo "portal=$PORTAL" >> "$GITHUB_OUTPUT"
+          echo "api=$API" >> "$GITHUB_OUTPUT"
+
       - name: Build Desktop Application
+        env:
+          MINIALGOTHON_SERVER_URL: ${{ steps.addr.outputs.portal }}
+          MINIALGOTHON_API_URL: ${{ steps.addr.outputs.api }}
+          MINIALGOTHON_PORTAL_ORIGINS: ${{ inputs.portal_origins || vars.MINIALGOTHON_PORTAL_ORIGINS }}
         run: make desktop-build
 
       - name: Upload Desktop Artifacts to Actions
