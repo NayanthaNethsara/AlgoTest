@@ -10,10 +10,13 @@ import { API_URL, SESSION_COOKIE } from "@/lib/auth/constants";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 export async function GET(request: Request): Promise<Response> {
-  const session = readCookie(request.headers.get("cookie") ?? "", SESSION_COOKIE);
+  const session = readCookie(
+    request.headers.get("cookie") ?? "",
+    SESSION_COOKIE,
+  );
   if (!session) {
     return new Response("unauthenticated", { status: 401 });
   }
@@ -37,7 +40,9 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   if (!upstream.ok || !upstream.body) {
-    return new Response("upstream unavailable", { status: upstream.status || 502 });
+    return new Response("upstream unavailable", {
+      status: upstream.status || 502,
+    });
   }
 
   return new Response(upstream.body, {

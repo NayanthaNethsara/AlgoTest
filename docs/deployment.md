@@ -261,11 +261,51 @@ Host networking again, so the portal answers on `127.0.0.1:3000` where
 fine — point the `/` location at that URL and drop this container.
 
 The admin console has no image and no location block in `nginx.conf`. Reach it
-over an SSH tunnel rather than publishing it:
+over an SSH tunnel:
 
 ```sh
 gcloud compute ssh algothon-judge --zone=us-central1-a -- -L 3001:localhost:3001
 ```
+
+### Hosting the portals instead
+
+Both front ends deploy as separate projects from this one repo. Each needs its
+own **Root Directory** — `competitor-frontend` and `admin-frontend` — so the
+platform installs from the workspace root and resolves `@mini-algothon/auth`.
+Only the root `pnpm-lock.yaml` is committed; a lockfile inside a package cannot
+resolve a `workspace:*` dependency and fails a frozen install.
+
+| | competitor | admin |
+| --- | --- | --- |
+| `API_URL` | the API's public host | same |
+| `COOKIE_SECURE` | `true` | `true` |
+| `NEXT_PUBLIC_PLATFORM` | `web` | — |
+| `NEXT_PUBLIC_ENABLE_TELEMETRY` | `true` | — |
+
+Two projects on one repo rebuild on every push. Skip the ones that changed
+nothing with an ignored-build-step check — including the shared package, which
+both depend on:
+
+```sh
+git diff --quiet HEAD^ HEAD -- ./ ../packages/auth
+```
+
+**Put the admin console behind the platform's own access gate.** Publishing it
+puts bulk user creation, which returns generated passwords, and the problem
+editor, which holds the test cases, on a public URL. Authorization holds up
+without it — the dashboard layout validates the session and the `admin` role
+server-side, and every `/api/v1/admin/*` route enforces `requireAdmin` again —
+but the sign-in page becomes reachable by anyone, throttled only by the
+per-username login limit. A gate in front of the whole deployment is what
+replaces the SSH tunnel above; a guessable admin username is what defeats it.
+
+The live submission feed is a relative path, so the portal serves it from its own
+origin: on the contest LAN nginx owns that path, and off it the route handler at
+`src/app/api/v1/submissions/stream/route.ts` proxies it. A hosted function has a
+bounded lifetime, and `maxDuration` there is set to the lowest tier's ceiling —
+a value above the plan's limit fails the deployment rather than being clamped.
+The stream ends when the platform says so, `EventSource` reconnects, and the
+poller in `submissions-context` is the backstop.
 
 ## Step 10: Observability (Grafana, Loki, Prometheus)
 
