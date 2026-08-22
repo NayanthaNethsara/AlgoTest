@@ -86,9 +86,6 @@ pub fn run() {
                 .title("MiniAlgothon")
                 .inner_size(1280.0, 800.0)
                 .maximized(online)
-                // Fullscreen only once there is a portal to show. A fullscreen error
-                // page with no window chrome is a trap.
-                .fullscreen(online)
                 // Never kiosk and never always-on-top: the whole point of this
                 // design is that contestants alt-tab to their own IDE.
                 .resizable(true)
@@ -147,7 +144,6 @@ fn retry_connection(window: tauri::WebviewWindow, state: State<'_, ShellState>) 
     match probe(&server_url) {
         Ok(()) => {
             let _ = window.maximize();
-            let _ = window.set_fullscreen(true);
             window.navigate(portal_entry_url(&server_url)).map_err(|e| e.to_string())
         }
         Err(err) => {

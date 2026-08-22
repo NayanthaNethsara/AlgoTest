@@ -10,33 +10,55 @@ This guide covers installation, Gatekeeper troubleshooting, building, and deploy
 
 ### macOS Installation
 
-When downloading the `.app` bundle from GitHub or the web on macOS, Gatekeeper flags un-signed executables with a security quarantine attribute.
+Two separate things stop the app on macOS. Check the first before troubleshooting the second.
 
-#### Issue: "App is damaged and can't be opened"
-When attempting to launch the application for the first time, macOS may present the error:
-> *"mini-algothon-competitor" is damaged and can’t be opened. You should move it to the Trash.*
+#### Prerequisite: the bundle must match the Mac's architecture
 
-#### Cause
-macOS automatically assigns the `com.apple.quarantine` extended attribute to files downloaded from web browsers. Since the application binary is self-signed without an Apple Developer ID subscription, Gatekeeper blocks execution by default.
-
-#### Solution 1: Terminal Command (Recommended)
-Open Terminal and remove the quarantine attribute:
+The `aarch64` bundle runs only on Apple Silicon. An Intel Mac will not launch it at all — this is
+not a Gatekeeper prompt, there is nothing to bypass. Check what you have:
 
 ```bash
-xattr -cr /path/to/mini-algothon-competitor.app
+lipo -archs /path/to/mini-algothon-competitor.app/Contents/MacOS/app
 ```
 
-*Example:*
+`arm64` alone is Apple Silicon only. `x86_64 arm64` is universal and runs everywhere. Build the
+universal bundle when contestants may be on either — see [§4](#4-building-the-client).
+
+#### Gatekeeper quarantine
+
+macOS attaches `com.apple.quarantine` to anything a browser downloads. The client is ad-hoc
+signed — valid, but without an Apple Developer ID — so Gatekeeper refuses it until the attribute
+is removed. What you see depends on the macOS version:
+
+| Message | Meaning |
+| --- | --- |
+| *"Apple could not verify … is free of malware"* | macOS 15+, normal for an unnotarized app |
+| *"cannot be opened because it is from an unidentified developer"* | macOS 14 and earlier, same cause |
+| *"is damaged and can't be opened. You should move it to the Trash"* | The signature is inconsistent, not merely unsigned. An official build should never show this — report it rather than working around it |
+
+#### Solution: remove the attribute (works on every version)
+
+Copy the app out of the DMG to `/Applications` **first**, then:
+
 ```bash
-xattr -cr ~/Downloads/mini-algothon-competitor.app
+xattr -dr com.apple.quarantine /Applications/mini-algothon-competitor.app
+open /Applications/mini-algothon-competitor.app
 ```
 
-After running this command, launch the app normally by double-clicking.
+Run it against the app's final location. Removing the attribute and then moving the app is fine;
+downloading it again re-applies it.
 
-#### Solution 2: Right-Click Bypass (GUI)
-1. In Finder, **Control-click** (or Right-click) the `mini-algothon-competitor.app` icon.
-2. Select **Open** from the context menu.
-3. Click **Open** in the security confirmation dialog.
+#### Solution: the GUI path
+
+This differs by version, and the older instructions no longer work:
+
+- **macOS 14 and earlier** — Control-click the app → **Open** → **Open** in the dialog.
+- **macOS 15 (Sequoia) and later** — Apple removed that shortcut. Double-click the app and let it
+  be blocked, then go to **System Settings → Privacy & Security**, scroll to the bottom, and click
+  **Open Anyway** beside the app's name. Double-click it again and confirm.
+
+Notarizing the build (a paid Apple Developer account) is the only way the app simply opens with no
+step for the contestant at all.
 
 ---
 
@@ -138,9 +160,35 @@ Output:
 competitor-desktop/src-tauri/target/release/bundle/macos/mini-algothon-competitor.app
 ```
 
-**There is no build-time server URL.** The portal and API addresses are runtime configuration in
-`client.json`, so one binary works for every contest and the server can move without reimaging
-laptops. Config lives at:
+Build a universal bundle so one artifact covers Intel and Apple Silicon:
+
+```bash
+rustup target add x86_64-apple-darwin aarch64-apple-darwin
+cd competitor-desktop && pnpm tauri build --target universal-apple-darwin
+```
+
+**The portal and API addresses are baked in at build time.** They are read by `option_env!`, so
+they must be set when cargo runs:
+
+```bash
+MINIALGOTHON_SERVER_URL=https://portal.example \
+MINIALGOTHON_API_URL=https://api.example \
+MINIALGOTHON_PORTAL_ORIGINS=http://10.0.0.5 \
+  make desktop-build
+```
+
+| Variable | What it is |
+| --- | --- |
+| `MINIALGOTHON_SERVER_URL` | The portal this client opens, and the Origin its loopback server answers |
+| `MINIALGOTHON_API_URL` | Where the agent reports. On a LAN with no contestant internet, the venue relay — **not** including `/api`, which the agent appends itself |
+| `MINIALGOTHON_PORTAL_ORIGINS` | Standby portals the loopback server also answers, comma-separated. What makes a failover portal usable without reinstalling across a hall |
+
+Baking them in is deliberate. The address a contestant types becomes the only Origin the loopback
+server will answer, so one typo costs them attestation and shows a banner blaming an agent that is
+running perfectly.
+
+A saved `client.json` still overrides the build, so a contest server can move without reimaging.
+Config lives at:
 
 | Platform | Path |
 | --- | --- |
@@ -151,8 +199,11 @@ laptops. Config lives at:
 To pre-seed a lab image, write `client.json` there before first launch:
 
 ```json
-{ "server_url": "http://contest.local", "api_url": "http://contest.local/api" }
+{ "server_url": "http://contest.local", "api_url": "http://contest.local" }
 ```
+
+`api_url` is a bare origin. The agent appends `/api/v1/...` to it, so a trailing `/api` produces
+`/api/api/v1/agent/enroll` and every report fails.
 
 Each contestant still enrols individually — `agent.json` must never be baked into an image, or
 every machine would report as the same person.
@@ -170,5 +221,10 @@ Multi-platform builds (macOS, Windows, Linux) are automated in
    ```
 3. **Manual trigger**: Actions → Build Desktop Release Applications → Run workflow.
 
-No repository variables are needed. The old `NEXT_PUBLIC_API_URL` build variable is gone with
-the runtime configuration.
+**Set `MINIALGOTHON_SERVER_URL` and `MINIALGOTHON_API_URL` as repository variables**
+(Settings → Secrets and variables → Actions → Variables), or pass them as inputs on a manual run.
+The workflow fails fast when they are missing rather than publishing installers that point at
+`localhost`. `MINIALGOTHON_PORTAL_ORIGINS` is optional.
+
+An empty value is worse than an absent one — `option_env!` returns `Some("")` for a variable that
+is set but blank — which is what that pre-build check exists to catch.
