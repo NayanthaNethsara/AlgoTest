@@ -244,7 +244,8 @@ NEXT_PUBLIC_ENABLE_TELEMETRY=true
 `COOKIE_SECURE` defaults to `false` for local HTTP development. Left that way in
 production the session cookie is sent over plain HTTP as well as HTTPS, so
 anyone on the network path can lift a competitor's session. Set it once TLS is
-in place.
+in place — and note it fails in the other direction too: `true` on the venue's
+plain-HTTP LAN means browsers silently discard the cookie and nobody can sign in.
 
 ```sh
 docker pull ghcr.io/<owner>/<repo>/competitor-frontend:v1.0.0
@@ -319,15 +320,20 @@ submission feed, which the browser opens at the relative path
 `/api/v1/submissions/stream`, and the desktop agent's `/api/v1/agent/*` calls.
 
 On the venue machine, `docker-compose.venue.yml` runs the portal and the proxy
-together. Set the `contest_api` upstream in `backend/deploy/venue.conf` first,
-then:
+together:
 
 ```sh
-cp .env.example .env        # set API_URL to the same address as the upstream
+cp .env.example .env        # set API_URL and API_HOST
 make venue                  # builds the image, then serves on :80
 make venue-logs
 make venue-down
 ```
+
+The proxy config is generated from `backend/deploy/templates/` by the nginx
+image's own envsubst pass, so the API hostname and the portal secret come from
+`.env` rather than from a committed file. `API_HOST`/`API_PORT`/`API_SCHEME` drive
+the relay that carries browser and agent traffic; `API_URL` is the same host, for
+the portal's own server-side calls. Keep them in step.
 
 Compose reads `.env` on its own. Anything in the shell or on the make command
 line overrides it, so `make venue API_URL=http://other-host` works for a one-off
@@ -369,20 +375,21 @@ record (Cloudflare needs proxying off; some registrars reject RFC1918) or a
 mapping on the router handed out over DHCP. The router is the more reliable of
 the two in a hall with no internet.
 
-Set `server_name` in `backend/deploy/venue-tls.conf`, then:
+Set `PORTAL_SERVER_NAME` in `.env` to the certificate's hostname, then:
 
 ```sh
 make venue-tls
 ```
 
-That overlays `docker-compose.venue-tls.yml`, which mounts `./certs`, publishes
-443, and sets `COOKIE_SECURE=true`.
+That overlays `docker-compose.venue-tls.yml`, which swaps in the TLS template,
+mounts `./certs`, publishes 443, and sets `COOKIE_SECURE=true`.
 
-This secures the contestant-to-venue hop. Venue-to-backend is separate and still
-plain HTTP — it is governed by the `contest_api` upstream and the `proxy_pass`
-scheme in `venue-locations.conf`, plus `API_URL` for the portal's own server-side
-calls. Do Step 8 on the VM, then switch all three together; the header comment in
-`venue-locations.conf` has the exact directives.
+This secures the contestant-to-venue hop. Venue-to-backend is a separate hop, and
+is TLS by default: `API_SCHEME=https` and `API_PORT=443` in `.env.example`, with
+`proxy_ssl_server_name` set so SNI reaches the right vhost. It used to default to
+port 80, which left agent enrollment tokens and telemetry crossing the internet in
+cleartext while the portal's own calls were encrypted — if you override these, keep
+them on 443.
 
 Certificates last 90 days and renewing needs internet plus DNS access, so reissue
 before the event rather than during it. Avoid self-signed certificates and
@@ -399,9 +406,15 @@ MINIALGOTHON_API_URL=https://contest.example.com \
   cargo tauri build
 ```
 
-On the VM, add the venue's egress IP to `TRUSTED_PROXIES` (otherwise every
-contestant's IP reads as that one address) and `http://contest.local` to
-`ALLOWED_ORIGINS`. Restrict the firewall from Step 2 to that egress IP.
+On the VM, set `TRUSTED_PROXIES` to the API's own nginx. Every contestant behind the
+venue relay reaches the API from one address, so the per-IP login limit is sized for
+that rather than for a single machine — the per-username limit is what bounds a
+brute-force attempt against one account.
+
+`ALLOWED_ORIGINS` is not an access control here and never was. Every portal call is
+server-to-server, so no `Origin` is sent and no preflight happens; restricting it
+stops nothing, and anyone can still reach the API directly. What actually gates
+access is the session token, enforced per-route.
 
 The uplink is now a contest-wide single point of failure, and every page
 navigation is an SSR round trip across it. The whole stack runs under
@@ -434,4 +447,7 @@ check whether the release added any before rolling back.
 | `JUDGE_WORKERS` | Leave unset — it tracks `RUN_MAX_CONCURRENT - RUN_RESERVE`, so a bigger host needs one change, not two. |
 | `RUN_RESERVE` | Sandboxes held back from batch judging so interactive Run never queues behind submissions. |
 | `RUN_CPU_LIST` | Pins sandboxes to specific cores, keeping them off the ones running the server. |
-| `ALLOWED_ORIGINS` | Your real domain. |
+| `SESSION_TTL_HOURS` | Keep it near the contest length. A token stays valid this long, is accepted as a bearer token, and is readable by its owner out of devtools. |
+| `ENV` | `production` also disables the Swagger UI, which maps every route including the admin surface. |
+| `ALLOWED_ORIGINS` | Your real domain — but see below: this is not an access control. |
+

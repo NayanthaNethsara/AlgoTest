@@ -1,0 +1,6 @@
+# tsc has no outDir, so `pnpm build` emits next to the sources. The package is
+# consumed as TypeScript (see "main"), so that output is never loaded -- but a
+# stale copy of the auth flow sitting beside the real one is a trap worth closing.
+src/**/*.js
+src/**/*.d.ts
+*.tsbuildinfo

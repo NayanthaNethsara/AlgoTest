@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tiny_http::{Header, Method, Response, Server};
 
 use super::state::AgentState;
-use crate::config::portal_origin;
+use crate::config::allowed_portal_origins;
 use crate::LOOPBACK_PORTS;
 
 /// Binds the loopback attestation server and returns the port it claimed.
@@ -43,12 +43,13 @@ fn probe(port: u16) -> bool {
 
 fn serve(server: Server, state: Arc<AgentState>) {
     for request in server.incoming_requests() {
-        let allowed_origin = portal_origin(&state.server_url());
+        let allowed_origin =
+            allowed_portal_origins(&state.server_url(), &state.portal_origins());
         let request_origin = header(&request, "Origin");
 
-        // Only the configured portal may read the nonce. Any other page in the
-        // browser gets no CORS grant, so it cannot use this server to prove
-        // co-location on the contestant's behalf.
+        // Only a configured portal may read the nonce -- the one this client opens,
+        // or a standby it was built to accept. Any other page gets no CORS grant, so
+        // it cannot prove co-location on the contestant's behalf.
         let cors_origin = match &request_origin {
             Some(origin) if crate::config::origin_matches(&allowed_origin, origin) => {
                 Some(origin.clone())

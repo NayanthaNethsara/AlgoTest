@@ -102,9 +102,11 @@ export async function getSubmissionStatusAction(
   submissionId: string,
 ): Promise<SubmissionStatusResponse | null> {
   try {
-    const res = await backendFetch(`/api/v1/submissions/${submissionId}`, {
-      method: "GET",
-    });
+    // Caller-controlled, so an id carrying path segments must not resolve elsewhere.
+    const res = await backendFetch(
+      `/api/v1/submissions/${encodeURIComponent(submissionId)}`,
+      { method: "GET" },
+    );
     if (res.ok) {
       return res.json();
     }

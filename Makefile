@@ -85,7 +85,7 @@ frontend: competitor-frontend
 
 # Portal in Docker on this machine, backend wherever API_URL points, served to the
 # network on port 80. Builds the image on first run and after any code change.
-#   make venue API_URL=http://35.192.22.76
+#   make venue
 VENUE = docker compose -f docker-compose.venue.yml
 VENUE_TLS = $(VENUE) -f docker-compose.venue-tls.yml
 
@@ -101,7 +101,8 @@ venue:
 	@echo "Contestants: http://$(LAN_IP)"
 	$(VENUE) up --build
 
-# Needs ./certs and server_name in backend/deploy/venue-tls.conf.
+# Needs ./certs plus PORTAL_SERVER_NAME in .env -- a bare LAN IP cannot be
+# certificated, so this wants a hostname contestants actually resolve.
 venue-tls:
 	$(VENUE_TLS) up --build
 

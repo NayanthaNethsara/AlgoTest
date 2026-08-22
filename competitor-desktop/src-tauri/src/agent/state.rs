@@ -206,6 +206,10 @@ impl AgentState {
         self.client.lock().map(|c| c.server_url.clone()).unwrap_or_default()
     }
 
+    pub fn portal_origins(&self) -> String {
+        self.client.lock().map(|c| c.portal_origins.clone()).unwrap_or_default()
+    }
+
     pub fn token(&self) -> Option<String> {
         self.enrollment.lock().ok()?.as_ref().map(|e| e.agent_token.clone())
     }

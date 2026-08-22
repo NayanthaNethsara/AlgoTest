@@ -38,6 +38,8 @@ pub fn save_server(server_url: String, api_url: String, state: State<'_, Arc<Age
     let cfg = ClientConfig {
         server_url: server_url.trim().trim_end_matches('/').to_string(),
         api_url: api_url.trim().trim_end_matches('/').to_string(),
+        // Preserved: the standby origins come from the build, not from this form.
+        portal_origins: state.portal_origins(),
     };
     if cfg.server_url.is_empty() || cfg.api_url.is_empty() {
         return Err("both the portal and API address are required".into());

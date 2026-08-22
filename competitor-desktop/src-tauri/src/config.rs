@@ -23,11 +23,24 @@ pub const DEFAULT_API_URL: &str = match option_env!("MINIALGOTHON_API_URL") {
     None => "http://localhost:8080",
 };
 
+/// Additional portal origins the loopback server will answer, comma-separated and
+/// baked in the same way — `MINIALGOTHON_PORTAL_ORIGINS=… cargo tauri build`.
+///
+/// This is what makes a standby portal usable: contestants sent to the backup address
+/// keep their attestation, without their client being reinstalled mid-round.
+pub const DEFAULT_PORTAL_ORIGINS: &str = match option_env!("MINIALGOTHON_PORTAL_ORIGINS") {
+    Some(origins) => origins,
+    None => "",
+};
+
 /// Where the client points.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ClientConfig {
     pub server_url: String,
     pub api_url: String,
+    /// Defaulted so a `client.json` written by an earlier build still loads.
+    #[serde(default)]
+    pub portal_origins: String,
 }
 
 impl Default for ClientConfig {
@@ -35,6 +48,7 @@ impl Default for ClientConfig {
         Self {
             server_url: DEFAULT_SERVER_URL.trim_end_matches('/').to_string(),
             api_url: DEFAULT_API_URL.trim_end_matches('/').to_string(),
+            portal_origins: DEFAULT_PORTAL_ORIGINS.to_string(),
         }
     }
 }
@@ -238,7 +252,27 @@ pub fn portal_origin(server_url: &str) -> String {
     }
 }
 
-/// Whether a request's `Origin` is the configured portal.
+/// Every origin the loopback server will answer — the portal this client opens plus
+/// any standbys — in the comma-separated form `origin_matches` takes.
+pub fn allowed_portal_origins(server_url: &str, extra_origins: &str) -> String {
+    let mut origins = Vec::new();
+
+    let primary = portal_origin(server_url);
+    if !primary.is_empty() {
+        origins.push(primary);
+    }
+    for extra in extra_origins.split(',') {
+        let origin = portal_origin(extra.trim());
+        if !origin.is_empty() && !origins.contains(&origin) {
+            origins.push(origin);
+        }
+    }
+
+    origins.join(",")
+}
+
+/// Whether a request's `Origin` is one of the configured portals, given a
+/// comma-separated list of them.
 ///
 /// Compared on the resolved host and port rather than by string equality, because
 /// `localhost` and `127.0.0.1` name the same machine and `http://host` and
@@ -246,8 +280,16 @@ pub fn portal_origin(server_url: &str) -> String {
 /// spelling while the client holds the other is doing nothing suspicious, and the
 /// cost of refusing them is invisible: no nonce, so no attestation, so a banner
 /// telling them their proctor client is not running when it is.
-pub fn origin_matches(allowed_origin: &str, candidate: &str) -> bool {
-    !allowed_origin.is_empty() && normalize_origin(allowed_origin) == normalize_origin(candidate)
+pub fn origin_matches(allowed_origins: &str, candidate: &str) -> bool {
+    let candidate = normalize_origin(candidate);
+    if candidate.is_empty() {
+        return false;
+    }
+    allowed_origins
+        .split(',')
+        .map(str::trim)
+        .filter(|allowed| !allowed.is_empty())
+        .any(|allowed| normalize_origin(allowed) == candidate)
 }
 
 #[cfg(test)]
@@ -286,6 +328,36 @@ mod tests {
     fn refuses_everything_when_no_portal_is_configured() {
         assert!(!origin_matches("", "http://localhost:3000"));
         assert!(!origin_matches("", ""));
+        assert!(!origin_matches("http://contest.local", ""));
+    }
+
+    #[test]
+    fn accepts_any_configured_portal() {
+        let allowed = "http://contest.local,https://algothon.vercel.app";
+        assert!(origin_matches(allowed, "http://contest.local"));
+        assert!(origin_matches(allowed, "https://algothon.vercel.app"));
+        assert!(!origin_matches(allowed, "https://evil.example"));
+    }
+
+    #[test]
+    fn tolerates_blank_entries_in_the_origin_list() {
+        assert!(origin_matches("http://contest.local, ,", "http://contest.local"));
+        assert!(!origin_matches(" , ", "http://contest.local"));
+    }
+
+    #[test]
+    fn collects_the_primary_portal_and_its_standbys() {
+        let origins = allowed_portal_origins(
+            "http://contest.local/login",
+            "https://algothon.vercel.app, http://contest.local",
+        );
+        assert_eq!(origins, "http://contest.local,https://algothon.vercel.app");
+    }
+
+    #[test]
+    fn collects_nothing_from_unparseable_addresses() {
+        assert_eq!(allowed_portal_origins("", ""), "");
+        assert_eq!(allowed_portal_origins("not a url", "also not"), "");
     }
 
     #[test]
