@@ -306,7 +306,49 @@ func TestUnattestedEvidenceOmitsUntrustedClientIP(t *testing.T) {
 		if mismatch, ok := evidence["ip_mismatch"].(bool); !ok || !mismatch {
 			t.Errorf("ip_mismatch = %v, want true for 10.0.0.9 against agent 10.0.0.5", evidence["ip_mismatch"])
 		}
+		if comparable, ok := evidence["ip_comparable"].(bool); !ok || !comparable {
+			t.Error("two LAN addresses should be marked comparable")
+		}
 	})
+
+	t.Run("a public portal address is not compared to a LAN address", func(t *testing.T) {
+		in := base
+		in.ClientIP = "203.0.113.7"
+		in.ClientIPTrusted = true
+
+		evidence := findingEvidence(t, Decide(in, now), "tel.no_attest")
+		if _, ok := evidence["ip_mismatch"]; ok {
+			t.Error("a public address must not be reported as mismatching a LAN address")
+		}
+		if comparable, ok := evidence["ip_comparable"].(bool); !ok || comparable {
+			t.Error("a reviewer must be able to tell 'not comparable' from 'matched'")
+		}
+		if evidence["client_ip"] != "203.0.113.7" {
+			t.Errorf("the address should still be recorded, got %v", evidence["client_ip"])
+		}
+	})
+}
+
+func TestPrivateIP(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want bool
+	}{
+		{"10.0.0.5", true},
+		{"192.168.1.20", true},
+		{"172.18.0.4", true},
+		{"127.0.0.1", true},
+		{"169.254.10.1", true},
+		{"10.0.0.5:53312", true}, // a direct peer address carries a port
+		{"203.0.113.7", false},
+		{"8.8.8.8", false},
+		{"", false},
+		{"not-an-ip", false},
+	} {
+		if got := privateIP(tc.in); got != tc.want {
+			t.Errorf("privateIP(%q) = %v, want %v", tc.in, got, tc.want)
+		}
+	}
 }
 
 func findingEvidence(t *testing.T, d Decision, ruleID string) map[string]any {

@@ -351,7 +351,7 @@ func (h *handler) listUserSubmissions(c *gin.Context) {
 		teamID = *u.TeamID
 	}
 
-	submissions, total, err := h.judge.Repo().ListAdminSubmissions(c.Request.Context(), statusFilter, problemID, teamID, limit, offset)
+	submissions, total, err := h.judge.Repo().ListOwnSubmissions(c.Request.Context(), statusFilter, problemID, u.ID, teamID, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list submissions: " + err.Error()})
 		return

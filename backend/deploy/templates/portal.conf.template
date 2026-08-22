@@ -1,0 +1,25 @@
+# The venue: portal on this machine, backend in the cloud, both reached through one
+# origin on the contest LAN over plain HTTP.
+#
+# One origin for portal and API is required, not cosmetic: the portal opens the live
+# submission feed at the relative path /api/v1/submissions/stream, and the session
+# cookie belongs to this origin.
+
+upstream contest_api {
+    server ${API_HOST}:${API_PORT};
+    keepalive 32;
+}
+
+upstream portal {
+    server frontend:3000;
+    keepalive 16;
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    include /etc/nginx/common-locations.conf;
+    include /etc/nginx/conf.d/portal-locations.inc;
+}

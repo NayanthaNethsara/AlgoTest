@@ -68,8 +68,8 @@ func (h *handler) enrollAgent(c *gin.Context) {
 		return
 	}
 
-	ip := c.ClientIP()
-	if !loginIPLimiter.Get(ip).Allow() || !loginUserLimiter.Get(strings.ToLower(req.Username)).Allow() {
+	// Its own bucket: a whole hall enrolls at registration, from one relay address.
+	if !enrollIPLimiter.Get(c.ClientIP()).Allow() || !loginUserLimiter.Get(strings.ToLower(req.Username)).Allow() {
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many enrollment attempts. Please wait a moment."})
 		return
 	}
@@ -111,12 +111,11 @@ func (h *handler) enrollAgent(c *gin.Context) {
 		return
 	}
 
-	// The agent enrolls directly against the API rather than through the portal's
-	// server actions, so ClientIP here really is the contestant's machine — which
-	// is what makes it worth recording alongside the consent.
+	// Where a venue relays agent traffic this is the relay, not the contestant's
+	// machine. The agent reports its own LAN address in its heartbeat.
 	agentID, rebound, err := h.agents.Enroll(
 		c.Request.Context(), u.ID, req.MachineID, agent.HashToken(token),
-		req.Platform, req.AgentVersion, req.ConsentVersion, ip,
+		req.Platform, req.AgentVersion, req.ConsentVersion, c.ClientIP(),
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enroll agent"})

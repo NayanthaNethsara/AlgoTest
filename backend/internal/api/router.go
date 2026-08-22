@@ -136,21 +136,25 @@ func NewRouter(
 		log:              log,
 	}
 
-	r.GET("/healthz", h.health)
+	r.GET("/healthz", rateLimitMiddleware(healthLimiter, peerIPKeyFunc), h.health)
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// The interactive docs map every route, the admin surface included.
+	if !cfg.IsProduction() {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	v1 := r.Group("/api/v1")
 	{
-		v1.POST("/auth/login", h.login)
+		v1.POST("/auth/login", maxBodySizeMiddleware(4_096), h.login)
 		v1.POST("/auth/logout", h.logout)
-		v1.GET("/me", h.requireUser, h.me)
-		v1.GET("/teams", h.requireUser, h.listTeams)
+		v1.GET("/me", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.me)
+		v1.GET("/teams", h.requireUser, h.requireAdmin, h.listTeams)
 
-		v1.GET("/problems", h.requireUser, h.listPublishedProblems)
-		v1.GET("/problems/:slug", h.requireUser, h.getPublishedProblemBySlug)
+		v1.GET("/problems", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.listPublishedProblems)
+		v1.GET("/problems/:slug", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.getPublishedProblemBySlug)
 
-		v1.GET("/leaderboard", h.requireUser, h.getLeaderboard)
+		v1.GET("/leaderboard", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.getLeaderboard)
 
 		v1.GET("/proctor/disclosure", h.getProctorDisclosure)
 
@@ -217,8 +221,8 @@ func NewRouter(
 		v1.POST("/run", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), h.runCode)
 
 		v1.POST("/submissions", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(submissionLimiter, userIDKeyFunc), h.createSubmission)
-		v1.GET("/submissions", h.requireUser, h.listUserSubmissions)
-		v1.GET("/submissions/stream", h.requireUser, h.streamSubmissions)
+		v1.GET("/submissions", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.listUserSubmissions)
+		v1.GET("/submissions/stream", h.requireUser, rateLimitMiddleware(streamLimiter, userIDKeyFunc), h.streamSubmissions)
 		v1.GET("/submissions/:id", h.requireUser, rateLimitMiddleware(submissionStatusLimiter, userIDKeyFunc), h.getSubmission)
 	}
 
@@ -234,6 +238,10 @@ func userIDKeyFunc(c *gin.Context) string {
 		return usr.ID
 	}
 	return ""
+}
+
+func peerIPKeyFunc(c *gin.Context) string {
+	return c.RemoteIP()
 }
 
 func agentIDKeyFunc(c *gin.Context) string {

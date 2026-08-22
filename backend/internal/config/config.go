@@ -92,6 +92,15 @@ func Load() Config {
 	return c
 }
 
+// IsProduction gates the interactive API docs.
+func (c Config) IsProduction() bool {
+	switch strings.ToLower(strings.TrimSpace(c.Env)) {
+	case "production", "prod":
+		return true
+	}
+	return false
+}
+
 // SessionTTL is how long a login session stays valid.
 func (c Config) SessionTTL() time.Duration {
 	return time.Duration(c.SessionTTLHours) * time.Hour

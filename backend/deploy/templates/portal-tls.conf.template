@@ -1,0 +1,38 @@
+# The venue, served over TLS: portal.conf.template with a certificate in front.
+#
+# Needs PORTAL_SERVER_NAME plus fullchain.pem / privkey.pem in ./certs. A bare LAN IP
+# cannot be certificated, so this wants a hostname the venue resolves.
+
+upstream contest_api {
+    server ${API_HOST}:${API_PORT};
+    keepalive 32;
+}
+
+upstream portal {
+    server frontend:3000;
+    keepalive 16;
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name ${PORTAL_SERVER_NAME};
+
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    http2 on;
+    server_name ${PORTAL_SERVER_NAME};
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    include /etc/nginx/common-locations.conf;
+    include /etc/nginx/conf.d/portal-locations.inc;
+}

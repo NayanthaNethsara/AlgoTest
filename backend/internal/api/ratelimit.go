@@ -9,26 +9,32 @@ import (
 	"golang.org/x/time/rate"
 )
 
+type entry struct {
+	limiter *rate.Limiter
+	seen    time.Time
+}
+
 type LimiterStore struct {
 	mu       sync.Mutex
-	limiters map[string]*rate.Limiter
+	limiters map[string]*entry
 	r        rate.Limit
 	b        int
 }
 
+// idleEviction must exceed the time a full bucket takes to refill, or dropping a
+// limiter would hand back an unspent burst.
+const idleEviction = 15 * time.Minute
+
 func NewLimiterStore(r rate.Limit, b int) *LimiterStore {
 	store := &LimiterStore{
-		limiters: make(map[string]*rate.Limiter),
+		limiters: make(map[string]*entry),
 		r:        r,
 		b:        b,
 	}
-	// Cleanup stale limiters periodically
 	go func() {
 		for {
-			time.Sleep(10 * time.Minute)
-			store.mu.Lock()
-			store.limiters = make(map[string]*rate.Limiter)
-			store.mu.Unlock()
+			time.Sleep(idleEviction)
+			store.evictIdle(time.Now())
 		}
 	}()
 	return store
@@ -38,22 +44,44 @@ func (s *LimiterStore) Get(key string) *rate.Limiter {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	limiter, exists := s.limiters[key]
+	e, exists := s.limiters[key]
 	if !exists {
-		limiter = rate.NewLimiter(s.r, s.b)
-		s.limiters[key] = limiter
+		e = &entry{limiter: rate.NewLimiter(s.r, s.b)}
+		s.limiters[key] = e
 	}
-	return limiter
+	e.seen = time.Now()
+	return e.limiter
+}
+
+func (s *LimiterStore) evictIdle(now time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for key, e := range s.limiters {
+		if now.Sub(e.seen) >= idleEviction {
+			delete(s.limiters, key)
+		}
+	}
 }
 
 var (
-	// Rate limiters
-	loginIPLimiter          = NewLimiterStore(rate.Every(6*time.Second), 10)         // 10 req/min/IP
+	// A whole hall shares this key, since they all reach the API through one portal.
+	// The per-username limit below is what bounds a brute-force attempt.
+	loginIPLimiter          = NewLimiterStore(rate.Every(100*time.Millisecond), 300) // 600 req/min/IP
 	loginUserLimiter        = NewLimiterStore(rate.Every(12*time.Second), 5)         // 5 req/min/user
 	runLimiter              = NewLimiterStore(rate.Every(5*time.Second), 12)         // 12 req/min/user
 	submissionLimiter       = NewLimiterStore(rate.Every(6*time.Second), 10)         // 10 req/min/user
 	submissionStatusLimiter = NewLimiterStore(rate.Every(1*time.Second), 60)         // 60 req/min/user
 	adminLimiter            = NewLimiterStore(rate.Every(500*time.Millisecond), 120) // 120 req/min/admin
+
+	readLimiter = NewLimiterStore(rate.Every(500*time.Millisecond), 90) // 120 req/min/user
+
+	// Opens, not reads: an established stream is never charged again.
+	streamLimiter = NewLimiterStore(rate.Every(5*time.Second), 12) // 12 opens/min/user
+
+	// Keyed on the peer, so everyone behind a relay shares one bucket.
+	healthLimiter   = NewLimiterStore(rate.Every(200*time.Millisecond), 60)  // 300 req/min/peer
+	enrollIPLimiter = NewLimiterStore(rate.Every(200*time.Millisecond), 300) // 300 req/min/peer
 
 	// The agent heartbeats every 15s (4/min). The headroom absorbs a reconnect
 	// burst without letting a rogue client flood the ingest path.

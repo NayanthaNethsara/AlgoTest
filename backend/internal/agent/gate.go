@@ -2,8 +2,25 @@ package agent
 
 import (
 	"context"
+	"net"
+	"strings"
 	"time"
 )
+
+func privateIP(raw string) bool {
+	host := strings.TrimSpace(raw)
+	if host == "" {
+		return false
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast()
+}
 
 // Block codes returned to the client. 423 Locked carries them; 403 reads as
 // authorization and 409 is already taken by ErrActiveSubmissionExists.
@@ -233,7 +250,14 @@ func Decide(in GateInput, now time.Time) Decision {
 		evidence := map[string]any{"agent_lan_ip": in.AgentLanIP}
 		if in.ClientIPTrusted {
 			evidence["client_ip"] = in.ClientIP
-			evidence["ip_mismatch"] = in.AgentLanIP != "" && in.ClientIP != "" && in.AgentLanIP != in.ClientIP
+			// A public portal address differs from a LAN address for reasons that
+			// say nothing about where the contestant is sitting.
+			if privateIP(in.AgentLanIP) && privateIP(in.ClientIP) {
+				evidence["ip_comparable"] = true
+				evidence["ip_mismatch"] = in.AgentLanIP != in.ClientIP
+			} else {
+				evidence["ip_comparable"] = false
+			}
 		} else {
 			// Say so explicitly. A reviewer who sees no ip_mismatch key must be able
 			// to tell "the addresses matched" from "we never knew the address".

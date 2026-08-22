@@ -308,15 +308,57 @@ func (r *Repository) CompleteSubmission(ctx context.Context, res Result, workerI
 	return tx.Commit(ctx)
 }
 
-// ListAdminSubmissions lists submissions joining users, teams, and problems for admin monitoring.
+// ListAdminSubmissions lists submissions joining users, teams, and problems for
+// admin monitoring. An omitted filter means no filter, so contestant listings must
+// use ListOwnSubmissions instead.
 func (r *Repository) ListAdminSubmissions(ctx context.Context, statusFilter, problemID, teamID string, limit, offset int) ([]AdminSubmissionItem, int, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-
 	whereClause := "WHERE 1=1"
 	args := []interface{}{}
 	argID := 1
+
+	if teamID != "" {
+		whereClause += fmt.Sprintf(" AND s.team_id = $%d", argID)
+		args = append(args, teamID)
+		argID++
+	}
+
+	return r.listSubmissions(ctx, whereClause, args, argID, statusFilter, problemID, limit, offset)
+}
+
+// ListOwnSubmissions lists what one contestant may see: their team's submissions
+// where they have a team, their own where they do not. The owner predicate is built
+// here rather than passed in, so it can never be empty.
+func (r *Repository) ListOwnSubmissions(ctx context.Context, statusFilter, problemID, userID, teamID string, limit, offset int) ([]AdminSubmissionItem, int, error) {
+	if userID == "" {
+		return nil, 0, fmt.Errorf("list own submissions: no user")
+	}
+
+	args := []interface{}{userID}
+	argID := 2
+
+	// Parenthesised: the caller's filters are appended with AND, so an unbracketed
+	// OR would let `state = 'passed'` widen the set and return other teams' rows.
+	ownerClause := "WHERE s.user_id = $1"
+	if teamID != "" {
+		ownerClause = fmt.Sprintf("WHERE (s.user_id = $1 OR s.team_id = $%d)", argID)
+		args = append(args, teamID)
+		argID++
+	}
+
+	return r.listSubmissions(ctx, ownerClause, args, argID, statusFilter, problemID, limit, offset)
+}
+
+func (r *Repository) listSubmissions(
+	ctx context.Context,
+	whereClause string,
+	args []interface{},
+	argID int,
+	statusFilter, problemID string,
+	limit, offset int,
+) ([]AdminSubmissionItem, int, error) {
+	if limit <= 0 {
+		limit = 50
+	}
 
 	if statusFilter != "" {
 		whereClause += fmt.Sprintf(" AND s.state = $%d", argID)
@@ -326,11 +368,6 @@ func (r *Repository) ListAdminSubmissions(ctx context.Context, statusFilter, pro
 	if problemID != "" {
 		whereClause += fmt.Sprintf(" AND s.problem_id = $%d", argID)
 		args = append(args, problemID)
-		argID++
-	}
-	if teamID != "" {
-		whereClause += fmt.Sprintf(" AND s.team_id = $%d", argID)
-		args = append(args, teamID)
 		argID++
 	}
 
