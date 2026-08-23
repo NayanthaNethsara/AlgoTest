@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown, CheckCircle2, Clock, History, Search, XCircle } from "lucide-react";
+import { ArrowUpDown, Ban, CheckCircle2, Clock, History, Search, XCircle } from "lucide-react";
 import { Mascot } from "@/components/common/mascot";
 
 export type SubmissionItem = {
@@ -11,13 +11,16 @@ export type SubmissionItem = {
   submittedBy: string;
   teamName: string;
   language: string;
-  execTime: string;
+  score: number;
+  maxScore: number;
   status: string;
+  reviewStatus?: "accepted" | "rejected";
+  reviewReason?: string;
   submittedAt: string;
   timestamp?: number;
 };
 
-type SortOption = "NEWEST" | "OLDEST" | "TIME_ASC" | "STATUS_ASC" | "TITLE_ASC";
+type SortOption = "NEWEST" | "OLDEST" | "SCORE_DESC" | "STATUS_ASC" | "TITLE_ASC";
 
 export function SubmissionsClient({
   submissions,
@@ -51,15 +54,10 @@ export function SubmissionsClient({
     return true;
   });
 
-  const parseExecTimeMs = (t: string): number => {
-    const num = parseInt(t, 10);
-    return isNaN(num) ? 999999 : num;
-  };
-
   const sortedSubmissions = [...filteredSubmissions].sort((a, b) => {
     if (sortBy === "NEWEST") return (b.timestamp ?? 0) - (a.timestamp ?? 0);
     if (sortBy === "OLDEST") return (a.timestamp ?? 0) - (b.timestamp ?? 0);
-    if (sortBy === "TIME_ASC") return parseExecTimeMs(a.execTime) - parseExecTimeMs(b.execTime);
+    if (sortBy === "SCORE_DESC") return b.score - a.score;
     if (sortBy === "STATUS_ASC") return a.status.localeCompare(b.status);
     if (sortBy === "TITLE_ASC") return a.problemTitle.localeCompare(b.problemTitle);
     return 0;
@@ -109,7 +107,7 @@ export function SubmissionsClient({
             >
               <option value="NEWEST">Newest first</option>
               <option value="OLDEST">Oldest first</option>
-              <option value="TIME_ASC">Exec time: fastest</option>
+              <option value="SCORE_DESC">Score: highest first</option>
               <option value="STATUS_ASC">Status: verdict A-Z</option>
               <option value="TITLE_ASC">Challenge: A to Z</option>
             </select>
@@ -152,11 +150,11 @@ export function SubmissionsClient({
                   <th className="py-3 px-4">TEAM / CONTESTANT</th>
                   <th className="py-3 px-4">LANGUAGE</th>
                   <th
-                    onClick={() => setSortBy(sortBy === "TIME_ASC" ? "NEWEST" : "TIME_ASC")}
+                    onClick={() => setSortBy(sortBy === "SCORE_DESC" ? "NEWEST" : "SCORE_DESC")}
                     className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1">
-                      <span>EXEC TIME</span>
+                      <span>SCORE</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
                   </th>
@@ -184,9 +182,13 @@ export function SubmissionsClient({
                 {sortedSubmissions.map((sub) => {
                   const isAc = sub.status.toLowerCase().includes("accepted") || sub.status.toLowerCase() === "ac";
                   const isPending = sub.status.toLowerCase().includes("queued") || sub.status.toLowerCase().includes("evaluating");
+                  const isRejected = sub.reviewStatus === "rejected";
 
                   return (
-                    <tr key={sub.id} className="hover:bg-muted/40 transition-colors">
+                    <tr
+                      key={sub.id}
+                      className={`hover:bg-muted/40 transition-colors ${isRejected ? "opacity-60" : ""}`}
+                    >
                       <td className="py-3 px-4 font-semibold text-xs text-foreground">
                         {sub.problemTitle}
                       </td>
@@ -202,22 +204,37 @@ export function SubmissionsClient({
                         </Badge>
                       </td>
                       <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
-                        {sub.execTime}
+                        <span className={isRejected ? "line-through" : undefined}>
+                          {sub.score} / {sub.maxScore}
+                        </span>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge
-                          variant={isAc ? "success" : isPending ? "warning" : "destructive"}
-                          className={`gap-1.5 text-[10px] uppercase font-bold ${isPending ? "animate-pulse" : ""}`}
-                        >
-                          {isAc ? (
-                            <CheckCircle2 className="h-3 w-3" />
-                          ) : isPending ? (
-                            <Clock className="h-3 w-3 pixel-spin" />
-                          ) : (
-                            <XCircle className="h-3 w-3" />
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge
+                            variant={isAc ? "success" : isPending ? "warning" : "destructive"}
+                            className={`gap-1.5 text-[10px] uppercase font-bold ${isPending ? "animate-pulse" : ""}`}
+                          >
+                            {isAc ? (
+                              <CheckCircle2 className="h-3 w-3" />
+                            ) : isPending ? (
+                              <Clock className="h-3 w-3 pixel-spin" />
+                            ) : (
+                              <XCircle className="h-3 w-3" />
+                            )}
+                            {sub.status}
+                          </Badge>
+                          {/* Neutral, not another red: the verdict already owns that colour here. */}
+                          {isRejected && (
+                            <Badge
+                              variant="outline"
+                              className="gap-1 text-[9px] uppercase font-bold"
+                              title={sub.reviewReason || "Rejected by an organizer"}
+                            >
+                              <Ban className="h-3 w-3" />
+                              Not counted
+                            </Badge>
                           )}
-                          {sub.status}
-                        </Badge>
+                        </div>
                       </td>
                       <td className="py-3 px-4 text-right text-xs text-muted-foreground">
                         {sub.submittedAt}

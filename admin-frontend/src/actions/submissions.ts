@@ -1,7 +1,7 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
-import type { AdminSubmission } from "@/types/submission";
+import type { AdminSubmission, ReviewStatus } from "@/types/submission";
 
 export async function listAdminSubmissionsAction(
   statusFilter = "",
@@ -58,6 +58,27 @@ export async function cancelSubmissionAction(
     }
     const data = await res.json().catch(() => ({}));
     return { success: false, error: data.error || "Failed to cancel submission" };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Network error" };
+  }
+}
+
+export async function reviewSubmissionAction(
+  submissionId: string,
+  status: ReviewStatus,
+  reason: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await backendFetch(`/api/v1/admin/submissions/${submissionId}/review`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, reason }),
+    });
+    if (res.ok) {
+      return { success: true };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { success: false, error: data.error || "Failed to review submission" };
   } catch (err: any) {
     return { success: false, error: err.message || "Network error" };
   }

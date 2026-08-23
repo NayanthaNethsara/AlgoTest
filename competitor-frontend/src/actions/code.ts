@@ -2,7 +2,11 @@
 
 import { backendFetch } from "@/lib/api/server";
 import { getProblemAction } from "@/actions/problems";
-import type { RunResult, SubmissionStatusResponse, SubmitResult } from "@/types/code";
+import type {
+  RunResult,
+  SubmissionStatusResponse,
+  SubmitResult,
+} from "@/types/code";
 
 import { executeRun } from "@/lib/runner";
 
@@ -25,7 +29,12 @@ export async function runCode(
     assertLength(stdin, MAX_STDIN_LENGTH, "stdin");
 
     if (!code.trim()) {
-      return { stdout: "", stderr: "error: empty program", exitCode: 1, timeMs: 0 };
+      return {
+        stdout: "",
+        stderr: "error: empty program",
+        exitCode: 1,
+        timeMs: 0,
+      };
     }
 
     return await executeRun(language, code, stdin);
@@ -47,7 +56,9 @@ export async function submitCode(
     const problem = await getProblemAction(problemId);
     const maxScore = problem ? problem.points : 100;
 
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
     // Proof that the browser making this request is on the same machine as the
     // live proctor agent. Read over 127.0.0.1, so only that machine can supply it.
     if (attestNonce) {
@@ -86,7 +97,10 @@ export async function submitCode(
       previousBest,
     };
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : "Failed to queue submission. Please check your connection.";
+    const errorMsg =
+      err instanceof Error
+        ? err.message
+        : "Failed to queue submission. Please check your connection.";
     return {
       error: errorMsg,
       subtasks: [],
@@ -122,8 +136,11 @@ export type SubmissionItemData = {
   submittedBy: string;
   teamName: string;
   language: string;
-  execTime: string;
+  score: number;
+  maxScore: number;
   status: string;
+  reviewStatus?: "accepted" | "rejected";
+  reviewReason?: string;
   submittedAt: string;
   timestamp?: number;
 };
@@ -135,15 +152,20 @@ export async function listSubmissionsAction(): Promise<SubmissionItemData[]> {
       const data = await res.json();
       if (Array.isArray(data.submissions)) {
         return data.submissions.map((s: any) => ({
-          id: s.id,
-          problemTitle: s.problem_title || s.problem_id || "Challenge",
-          submittedBy: s.user_name || s.user_id || "Competitor",
-          teamName: s.team_name || "Team",
+          id: s.submissionId,
+          problemTitle: s.problemTitle || s.problemId || "Challenge",
+          submittedBy: s.userName || "Competitor",
+          teamName: s.teamName || "Team",
           language: s.language || "cpp",
-          execTime: s.time_ms ? `${s.time_ms} ms` : "N/A",
-          status: s.verdict || s.state || "Pending",
-          submittedAt: s.created_at ? new Date(s.created_at).toLocaleTimeString() : "Just now",
-          timestamp: s.created_at ? new Date(s.created_at).getTime() : Date.now(),
+          score: s.score ?? 0,
+          maxScore: s.maxScore ?? 0,
+          status: s.verdict || s.status || "Pending",
+          reviewStatus: s.reviewStatus,
+          reviewReason: s.reviewReason,
+          submittedAt: s.createdAt
+            ? new Date(s.createdAt).toLocaleTimeString()
+            : "Just now",
+          timestamp: s.createdAt ? new Date(s.createdAt).getTime() : Date.now(),
         }));
       }
     }

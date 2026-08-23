@@ -75,8 +75,9 @@ export default function ContestantTimelinePage() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Newest first. Everything here is evidence for a human to weigh — nothing on this page
-        disqualifies anyone by itself.
+        Newest first: what the proctor client saw them open, when it connected and went dark, every
+        finding it raised, and every submission. All of it is evidence for a human to weigh —
+        nothing on this page disqualifies anyone by itself.
       </p>
 
       <ol className="relative flex flex-col gap-0 border-l border-border pl-6">
@@ -115,7 +116,7 @@ function TimelineRow({ entry }: { entry: TimelineEntry }) {
         <span className="absolute -left-[31px] top-1.5 size-3 rounded-full bg-destructive ring-4 ring-background" />
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-xs">
           <div className="flex items-center justify-between font-semibold text-destructive">
-            <span>Telemetry Blackout ({entry.label})</span>
+            <span>{entry.label}</span>
             <span className="font-mono text-[11px] text-muted-foreground">{atTime}</span>
           </div>
           {entry.detail && <p className="mt-1 text-muted-foreground">{entry.detail}</p>}
@@ -161,13 +162,30 @@ function TimelineRow({ entry }: { entry: TimelineEntry }) {
     );
   }
 
+  // Events and enrollments. The label is already the readable sentence the server
+  // derived from the raw signal set; the raw set stays one click away, because a
+  // reviewer arguing with a contestant needs the bundle identifier, not "Chrome".
   return (
     <li className="relative mb-6 ml-2">
       <span className="absolute -left-[31px] top-1.5 size-2 rounded-full bg-muted-foreground ring-4 ring-background" />
-      <div className="text-xs text-muted-foreground">
-        <span className="font-mono text-[11px] mr-2">{atTime}</span>
-        <span>{entry.label}</span>
-        {entry.detail && <span className="ml-2 text-muted-foreground/70">({entry.detail})</span>}
+      <div className="text-xs">
+        <div className="flex items-baseline gap-2">
+          <span className="font-mono text-[11px] text-muted-foreground shrink-0">{atTime}</span>
+          <span className="font-medium text-foreground">{entry.label}</span>
+        </div>
+        {entry.detail && (
+          <p className="ml-[62px] text-[11px] text-muted-foreground">{entry.detail}</p>
+        )}
+        {entry.payload && (
+          <details className="ml-[62px] mt-1">
+            <summary className="cursor-pointer text-[10px] text-muted-foreground/70 hover:text-muted-foreground">
+              Raw signals
+            </summary>
+            <pre className="mt-1 overflow-x-auto rounded bg-black/40 p-2 font-mono text-[10px] text-foreground">
+              {JSON.stringify(entry.payload, null, 2)}
+            </pre>
+          </details>
+        )}
       </div>
     </li>
   );
