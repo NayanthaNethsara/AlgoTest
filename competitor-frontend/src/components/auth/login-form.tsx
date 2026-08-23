@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { authenticateUser } from "@mini-algothon/auth";
+import { loginAction } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -28,7 +28,7 @@ export function LoginForm() {
     setErrorMessage(null);
 
     try {
-      const result = await authenticateUser({ username, password });
+      const result = await loginAction({ username, password });
       if (!result.success) {
         setErrorMessage(result.error || "Invalid username or password.");
         return;
