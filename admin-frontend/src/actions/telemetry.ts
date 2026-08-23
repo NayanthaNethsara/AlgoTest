@@ -18,7 +18,7 @@ export async function getMonitoringSnapshotAction(sections: MonitoringSection[])
   const query = include.length > 0 ? `?include=${include.join(",")}` : "";
 
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/dashboard${query}`, {
+    const response = await backendFetch(`/api/v1/admin/monitoring${query}`, {
       method: "GET",
     });
 

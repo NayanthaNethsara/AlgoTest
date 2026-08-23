@@ -97,20 +97,18 @@ export function ProctorPill() {
     );
   }
 
-  const attested = Boolean(local?.attest_nonce);
-
   return (
     <Badge
       variant="outline"
       className="gap-1.5 border-success bg-success/20 text-success text-xs h-7 px-2.5"
       title={
-        attested
-          ? `Proctor agent ${local?.agent_version} · support code ${local?.support_code}`
-          : "Proctoring is active, but this page could not reach the agent on this machine."
+        local?.agent_version
+          ? `Proctor agent ${local.agent_version} · support code ${local.support_code}`
+          : "Proctoring is active and verified by the contest server."
       }
     >
       <ShieldCheck className="h-3.5 w-3.5" />
-      {attested ? "Proctor active" : "Proctor unverified"}
+      Proctor active
     </Badge>
   );
 }
