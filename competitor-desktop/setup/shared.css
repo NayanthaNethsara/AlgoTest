@@ -358,3 +358,61 @@ code {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-bevel);
 }
+
+/* Custom Desktop Titlebar */
+.desktop-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  background: var(--surface);
+  border-bottom: 2px solid #000000;
+  padding: 0 8px 0 16px;
+  margin: -24px -28px 24px -28px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.desktop-titlebar-title {
+  font-family: var(--font-header);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.desktop-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.win-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: var(--surface-inset);
+  color: var(--muted);
+  border: 2px solid #000000;
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.win-btn:hover {
+  background: var(--surface);
+  color: var(--fg);
+  border-color: #000000;
+  box-shadow: none;
+}
+
+.win-btn.close:hover {
+  background: var(--destructive);
+  color: #ffffff;
+}
+

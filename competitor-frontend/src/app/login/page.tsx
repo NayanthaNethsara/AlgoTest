@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
+import { DesktopWindowControls } from "@/components/portal/desktop-window-controls";
 import { getSessionUser } from "@/lib/auth/session";
 import { Terminal } from "lucide-react";
 
@@ -8,20 +9,34 @@ export default async function LoginPage() {
   if (user) redirect("/challenges");
 
   return (
-    <div className="flex h-dvh items-center justify-center bg-background">
-      <div className="flex w-full max-w-md flex-col gap-6 pixel-raised bg-card p-8">
-        <div className="flex flex-col items-center text-center gap-2">
-          <div className="flex h-11 w-11 items-center justify-center pixel-flat bg-primary text-primary-foreground">
-            <Terminal className="h-5 w-5" />
+    <div className="flex h-dvh flex-col bg-background select-none">
+      <div
+        data-tauri-drag-region
+        className="flex h-10 w-full shrink-0 items-center justify-between px-4 border-b-2 border-black bg-card/60"
+      >
+        <span
+          data-tauri-drag-region
+          className="text-[11px] font-pixel-header text-primary uppercase tracking-wider"
+        >
+          MiniAlgothon
+        </span>
+        <DesktopWindowControls />
+      </div>
+      <div className="flex flex-1 items-center justify-center p-4">
+        <div className="flex w-full max-w-md flex-col gap-6 pixel-raised bg-card p-8">
+          <div className="flex flex-col items-center text-center gap-2">
+            <div className="flex h-11 w-11 items-center justify-center pixel-flat bg-primary text-primary-foreground">
+              <Terminal className="h-5 w-5" />
+            </div>
+            <h1 className="text-sm font-pixel-header text-primary tracking-widest mt-2">
+              MiniAlgothon
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Sign in with your competitor credentials
+            </p>
           </div>
-          <h1 className="text-sm font-pixel-header text-primary tracking-widest mt-2">
-            MiniAlgothon
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Sign in with your competitor credentials
-          </p>
+          <LoginForm />
         </div>
-        <LoginForm />
       </div>
     </div>
   );

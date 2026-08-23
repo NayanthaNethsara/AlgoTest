@@ -73,7 +73,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_shell_target,
             retry_connection,
-            open_proctor_setup
+            open_proctor_setup,
+            minimize_window,
+            toggle_maximize_window,
+            close_window,
+            is_window_maximized
         ])
         .setup(move |app| {
             app.handle().plugin(
@@ -82,13 +86,31 @@ pub fn run() {
                     .build(),
             )?;
 
+            #[cfg(target_os = "macos")]
             let window = WebviewWindowBuilder::new(app, MAIN_WINDOW, target)
                 .title("MiniAlgothon")
                 .inner_size(1280.0, 800.0)
                 .maximized(online)
-                // Never kiosk and never always-on-top: the whole point of this
-                // design is that contestants alt-tab to their own IDE.
                 .resizable(true)
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true)
+                .initialization_script(r#"
+                    window.__MINIALGOTHON_DESKTOP__ = true;
+                    window.__MINIALGOTHON_OS__ = "macos";
+                "#)
+                .build()?;
+
+            #[cfg(not(target_os = "macos"))]
+            let window = WebviewWindowBuilder::new(app, MAIN_WINDOW, target)
+                .title("MiniAlgothon")
+                .inner_size(1280.0, 800.0)
+                .maximized(online)
+                .resizable(true)
+                .decorations(false)
+                .initialization_script(r#"
+                    window.__MINIALGOTHON_DESKTOP__ = true;
+                    window.__MINIALGOTHON_OS__ = "windows";
+                "#)
                 .build()?;
 
             spawn_control_listener(listener, app.handle().clone());
@@ -129,6 +151,30 @@ fn get_shell_target(state: State<'_, ShellState>) -> ShellTarget {
         api_url: config.as_ref().map(|c| c.api_url.clone()).unwrap_or_default(),
         message: state.message.lock().map(|m| m.clone()).unwrap_or_default(),
     }
+}
+
+#[tauri::command]
+fn minimize_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.minimize().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn toggle_maximize_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.is_maximized().unwrap_or(false) {
+        window.unmaximize().map_err(|e| e.to_string())
+    } else {
+        window.maximize().map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
+fn close_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.close().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn is_window_maximized(window: tauri::WebviewWindow) -> bool {
+    window.is_maximized().unwrap_or(false)
 }
 
 /// Re-probes the portal and navigates to it if it has come back.

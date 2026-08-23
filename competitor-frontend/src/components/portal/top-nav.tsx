@@ -8,6 +8,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ProctorPill } from "@/components/portal/proctor-status";
 import { useSubmissions } from "@/components/portal/submissions-provider";
 import { Badge } from "@/components/ui/badge";
+import { DesktopWindowControls } from "./desktop-window-controls";
 import type { SessionUser } from "@/lib/auth/constants";
 import { NAV_LINKS } from "@/lib/constants";
 
@@ -17,9 +18,12 @@ export function TopNav({ user }: { user: SessionUser | null }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="relative z-20 border-b-2 border-black bg-card px-4 py-2.5 shadow-[0px_4px_0px_var(--edge)] sm:px-6 lg:px-7 lg:py-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 md:gap-6 lg:gap-7">
+    <header
+      data-tauri-drag-region
+      className="relative z-20 border-b-2 border-black bg-card px-4 py-2.5 shadow-[0px_4px_0px_var(--edge)] sm:px-6 lg:px-7 lg:py-3 select-none"
+    >
+      <div className="flex items-center justify-between" data-tauri-drag-region>
+        <div className="flex items-center gap-4 md:gap-6 lg:gap-7" data-tauri-drag-region>
           <Link
             href="/challenges"
             className="flex items-center hover:opacity-90 transition-opacity"
@@ -102,11 +106,13 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             </div>
 
             <SignOutButton />
+            <DesktopWindowControls />
           </div>
         )}
 
         <div className="flex md:hidden items-center gap-2">
           {user && <ProctorPill />}
+          <DesktopWindowControls />
           <button
             type="button"
             onClick={() => setMobileOpen(!mobileOpen)}

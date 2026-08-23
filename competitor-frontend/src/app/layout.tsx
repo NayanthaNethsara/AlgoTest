@@ -8,9 +8,10 @@ import {
 import "./globals.css";
 
 const inter = Inter({
-  variable: "--font-sans",
+  variable: "--font-inter",
   subsets: ["latin"],
   display: "swap",
+  preload: false,
 });
 
 const pixelHeader = Press_Start_2P({
@@ -18,14 +19,12 @@ const pixelHeader = Press_Start_2P({
   variable: "--font-pixel-header",
   subsets: ["latin"],
   display: "swap",
-  preload: false,
 });
 
 const pixelBody = Pixelify_Sans({
   variable: "--font-pixel-body",
   subsets: ["latin"],
   display: "swap",
-  preload: false,
 });
 
 const geistMono = Geist_Mono({

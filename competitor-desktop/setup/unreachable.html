@@ -7,6 +7,15 @@
     <script src="bridge.js"></script>
   </head>
   <body>
+    <div class="desktop-titlebar" data-tauri-drag-region>
+      <span class="desktop-titlebar-title" data-tauri-drag-region>MiniAlgothon</span>
+      <div class="desktop-controls">
+        <button id="win-min" type="button" class="win-btn" title="Minimize">_</button>
+        <button id="win-max" type="button" class="win-btn" title="Maximize">□</button>
+        <button id="win-close" type="button" class="win-btn close" title="Close">✕</button>
+      </div>
+    </div>
+
     <h1>CANNOT REACH CONTEST SERVER</h1>
     <p class="lede">
       Proctoring is unaffected and keeps running. This window just cannot load the contest portal
@@ -80,6 +89,10 @@
           el("error").hidden = false;
         }
       });
+
+      el("win-min")?.addEventListener("click", () => invoke("minimize_window").catch(() => {}));
+      el("win-max")?.addEventListener("click", () => invoke("toggle_maximize_window").catch(() => {}));
+      el("win-close")?.addEventListener("click", () => invoke("close_window").catch(() => {}));
 
       load();
       setInterval(() => retry(false), 10_000);
