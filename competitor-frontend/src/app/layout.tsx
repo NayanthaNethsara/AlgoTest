@@ -10,22 +10,29 @@ import "./globals.css";
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const pixelHeader = Press_Start_2P({
   weight: "400",
   variable: "--font-pixel-header",
   subsets: ["latin"],
+  display: "swap",
+  preload: false,
 });
 
 const pixelBody = Pixelify_Sans({
   variable: "--font-pixel-body",
   subsets: ["latin"],
+  display: "swap",
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-mono",
   subsets: ["latin"],
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
