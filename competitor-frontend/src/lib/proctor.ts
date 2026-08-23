@@ -14,8 +14,15 @@ function agentUrl(port: number, path: string): string {
 
 export async function readLocalAgent(
   preferredPort?: number,
+  exhaustive = false,
 ): Promise<AgentLocalStatus | null> {
-  for (const port of orderedPorts(preferredPort)) {
+  const ports = preferredPort
+    ? [preferredPort]
+    : exhaustive
+      ? [...LOOPBACK_PORTS]
+      : [LOOPBACK_PORTS[0]];
+
+  for (const port of ports) {
     const status = await probe(port);
     if (status) return status;
   }

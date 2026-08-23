@@ -53,13 +53,19 @@ export function ProctorProvider({
   const knownPort = useRef<number | undefined>(undefined);
   const router = useRouter();
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (exhaustive = false) => {
     const tabVisible =
       typeof document !== "undefined" ? !document.hidden : true;
-    const [self, local] = await Promise.all([
-      getProctorSelfAction(tabVisible),
-      readLocalAgent(knownPort.current),
-    ]);
+    const self = await getProctorSelfAction(tabVisible);
+
+    const needsLocalProbe =
+      Boolean(self) &&
+      !self?.exempt &&
+      !(self?.allowed && self?.allowed_modes?.includes("WEB_ONLY"));
+
+    const local = needsLocalProbe
+      ? await readLocalAgent(knownPort.current, exhaustive)
+      : null;
 
     if (local?.loopback_port) {
       knownPort.current = local.loopback_port;
@@ -85,18 +91,18 @@ export function ProctorProvider({
   useEffect(() => {
     let cancelled = false;
 
-    const tick = async () => {
+    const tick = async (exhaustive = false) => {
       if (cancelled) return;
-      await refresh();
+      await refresh(exhaustive);
     };
 
     const handleVisibilityChange = () => {
       if (typeof document !== "undefined" && !document.hidden && !cancelled) {
-        void tick();
+        void tick(true);
       }
     };
 
-    void tick();
+    void tick(true);
     const timer = setInterval(
       () => {
         if (typeof document === "undefined" || !document.hidden || degraded) {
