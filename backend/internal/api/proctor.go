@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
@@ -117,15 +118,30 @@ func (h *handler) getAdminProctorTimeline(c *gin.Context) {
 	c.JSON(http.StatusOK, timeline)
 }
 
-// @Summary List Enrolled Agents
-// @Description Enrollment history and liveness per competitor, including revoked enrollments.
-// @Tags Admin Proctoring
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/admin/proctor/agents [get]
-func (h *handler) listAdminAgents(c *gin.Context) {
-	rows, err := h.db.Query(c.Request.Context(), `
+// agentItem is one enrollment row: a machine a competitor has registered, live
+// or revoked.
+type agentItem struct {
+	ID            string  `json:"id"`
+	UserID        string  `json:"userId"`
+	Username      string  `json:"username"`
+	DisplayName   string  `json:"displayName"`
+	MachineID     string  `json:"machineId"`
+	Platform      string  `json:"platform"`
+	AgentVersion  string  `json:"agentVersion"`
+	LoopbackPort  int     `json:"loopbackPort"`
+	EnrolledAt    string  `json:"enrolledAt"`
+	LastSeenAt    *string `json:"lastSeenAt"`
+	StoppedAt     *string `json:"stoppedAt"`
+	StoppedReason string  `json:"stoppedReason"`
+	RevokedAt     *string `json:"revokedAt"`
+	RevokedReason string  `json:"revokedReason"`
+	InGap         bool    `json:"inGap"`
+}
+
+// listAgents is shared by the standalone agents endpoint and the monitoring
+// snapshot, so the console cannot drift from what a direct call returns.
+func (h *handler) listAgents(ctx context.Context) ([]agentItem, error) {
+	rows, err := h.db.Query(ctx, `
 		SELECT a.id, u.id, u.username, u.display_name, a.machine_id, a.platform,
 		       a.agent_version, a.loopback_port, a.enrolled_at, a.last_seen_at,
 		       a.stopped_at, a.stopped_reason, a.revoked_at, a.revoked_reason,
@@ -135,28 +151,9 @@ func (h *handler) listAdminAgents(c *gin.Context) {
 		ORDER BY a.revoked_at NULLS FIRST, a.last_seen_at DESC NULLS LAST;
 	`)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, err
 	}
 	defer rows.Close()
-
-	type agentItem struct {
-		ID            string  `json:"id"`
-		UserID        string  `json:"userId"`
-		Username      string  `json:"username"`
-		DisplayName   string  `json:"displayName"`
-		MachineID     string  `json:"machineId"`
-		Platform      string  `json:"platform"`
-		AgentVersion  string  `json:"agentVersion"`
-		LoopbackPort  int     `json:"loopbackPort"`
-		EnrolledAt    string  `json:"enrolledAt"`
-		LastSeenAt    *string `json:"lastSeenAt"`
-		StoppedAt     *string `json:"stoppedAt"`
-		StoppedReason string  `json:"stoppedReason"`
-		RevokedAt     *string `json:"revokedAt"`
-		RevokedReason string  `json:"revokedReason"`
-		InGap         bool    `json:"inGap"`
-	}
 
 	items := []agentItem{}
 	for rows.Next() {
@@ -165,12 +162,30 @@ func (h *handler) listAdminAgents(c *gin.Context) {
 			&item.MachineID, &item.Platform, &item.AgentVersion, &item.LoopbackPort,
 			&item.EnrolledAt, &item.LastSeenAt, &item.StoppedAt, &item.StoppedReason,
 			&item.RevokedAt, &item.RevokedReason, &item.InGap); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+			return nil, err
 		}
 		items = append(items, item)
 	}
 
+	return items, rows.Err()
+}
+
+// @Summary List Enrolled Agents
+// @Description Enrollment history and liveness per competitor, including revoked enrollments.
+// @Tags Admin Proctoring
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/admin/proctor/agents [get]
+func (h *handler) listAdminAgents(c *gin.Context) {
+	items, err := h.listAgents(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// A missing incident flag is not worth failing the list over: the rows are
+	// what the organizer came for, and the flag only suppresses gap alarms.
 	incidentOpen, err := h.agents.IncidentOpen(c.Request.Context())
 	if err != nil {
 		incidentOpen = false

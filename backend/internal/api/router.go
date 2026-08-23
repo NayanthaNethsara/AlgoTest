@@ -209,6 +209,8 @@ func NewRouter(
 			admin.POST("/submissions/:id/cancel", h.cancelSubmission)
 			admin.POST("/teams/:id/unstick", h.unstickTeamSubmissions)
 
+			admin.GET("/monitoring", h.getAdminMonitoring)
+
 			admin.GET("/telemetry", h.listAdminTelemetry)
 			admin.GET("/proctor/risk", h.listAdminProctorRisk)
 			admin.GET("/proctor/findings/:userId", h.getAdminProctorFindings)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -34,15 +35,26 @@ type postReviewRequest struct {
 	Notes  string `json:"notes"`
 }
 
-// @Summary List Competitor Risk Rollups
-// @Description Fetch risk scores, severities, and finding counts for all competitors.
-// @Tags Admin Proctoring
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} map[string]interface{}
-// @Router /api/v1/admin/proctor/risk [get]
-func (h *handler) listAdminProctorRisk(c *gin.Context) {
-	rows, err := h.db.Query(c.Request.Context(), `
+// competitorRiskItem is one competitor's risk rollup.
+type competitorRiskItem struct {
+	UserID        string  `json:"userId"`
+	Username      string  `json:"username"`
+	DisplayName   string  `json:"displayName"`
+	ProctorExempt bool    `json:"proctorExempt"`
+	Score         int     `json:"score"`
+	Severity      string  `json:"severity"`
+	FindingCount  int     `json:"findingCount"`
+	LastPingAt    *string `json:"lastPingAt"`
+	// Which fallbacks this competitor holds, so a reviewer reading the row's
+	// findings knows the same submission means something different under them.
+	AllowWebWithAgent bool `json:"allowWebWithAgent"`
+	AllowWebOnly      bool `json:"allowWebOnly"`
+}
+
+// listProctorRisk is shared by the standalone risk endpoint and the monitoring
+// snapshot, so the console cannot drift from what a direct call returns.
+func (h *handler) listProctorRisk(ctx context.Context) ([]competitorRiskItem, error) {
+	rows, err := h.db.Query(ctx, `
 		SELECT u.id, u.username, u.display_name, u.proctor_exempt,
 		       COALESCE(r.score, 0) as score,
 		       COALESCE(r.severity, 'LOW') as severity,
@@ -57,38 +69,37 @@ func (h *handler) listAdminProctorRisk(c *gin.Context) {
 		ORDER BY r.score DESC NULLS LAST, u.username ASC;
 	`)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, err
 	}
 	defer rows.Close()
-
-	type competitorRiskItem struct {
-		UserID        string  `json:"userId"`
-		Username      string  `json:"username"`
-		DisplayName   string  `json:"displayName"`
-		ProctorExempt bool    `json:"proctorExempt"`
-		Score         int     `json:"score"`
-		Severity      string  `json:"severity"`
-		FindingCount  int     `json:"findingCount"`
-		LastPingAt    *string `json:"lastPingAt"`
-		// Which fallbacks this competitor holds, so a reviewer reading the row's
-		// findings knows the same submission means something different under them.
-		AllowWebWithAgent bool `json:"allowWebWithAgent"`
-		AllowWebOnly      bool `json:"allowWebOnly"`
-	}
 
 	items := []competitorRiskItem{}
 	for rows.Next() {
 		var item competitorRiskItem
 		var pingTime *string
 		if err := rows.Scan(&item.UserID, &item.Username, &item.DisplayName, &item.ProctorExempt, &item.Score, &item.Severity, &item.FindingCount, &pingTime, &item.AllowWebWithAgent, &item.AllowWebOnly); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+			return nil, err
 		}
 		item.LastPingAt = pingTime
 		items = append(items, item)
 	}
 
+	return items, rows.Err()
+}
+
+// @Summary List Competitor Risk Rollups
+// @Description Fetch risk scores, severities, and finding counts for all competitors.
+// @Tags Admin Proctoring
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/admin/proctor/risk [get]
+func (h *handler) listAdminProctorRisk(c *gin.Context) {
+	items, err := h.listProctorRisk(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"risk": items})
 }
 
