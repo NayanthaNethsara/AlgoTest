@@ -110,6 +110,20 @@ pub fn run() {
                 .initialization_script(r#"
                     window.__MINIALGOTHON_DESKTOP__ = true;
                     window.__MINIALGOTHON_OS__ = "windows";
+
+                    window.addEventListener("DOMContentLoaded", () => {
+                        document.addEventListener("mousedown", (e) => {
+                            const dragTarget = e.target && e.target.closest && e.target.closest("[data-tauri-drag-region]");
+                            const isInteractive = e.target && e.target.closest && e.target.closest("button, a, input, select, textarea, [data-no-drag]");
+                            if (dragTarget && !isInteractive && e.buttons === 1) {
+                                try {
+                                    if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+                                        window.__TAURI_INTERNALS__.invoke("plugin:window|start_dragging");
+                                    }
+                                } catch (err) {}
+                            }
+                        }, true);
+                    });
                 "#)
                 .build()?;
 
@@ -258,33 +272,46 @@ fn probe(server_url: &str) -> Result<(), String> {
     }
 }
 
-/// Answers the agent's two requests of this shell: come forward, or go away.
+/// Answers the agent's requests and window control actions.
 fn spawn_control_listener(listener: std::net::TcpListener, app: tauri::AppHandle) {
     std::thread::spawn(move || {
         for stream in listener.incoming() {
             let Ok(mut stream) = stream else { continue };
 
-            // Read the request line so the client sees a complete exchange rather
-            // than a reset connection, and so the two routes can be told apart.
             use std::io::{Read, Write};
             let mut scratch = [0u8; 512];
             let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
             let read = stream.read(&mut scratch).unwrap_or(0);
             let path = request_path(&scratch[..read]);
 
-            // Answer before acting on /quit: the reply never leaves the socket
-            // otherwise, and the agent waits out its timeout for nothing.
-            let _ = stream
-                .write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+            let reply = b"HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            let _ = stream.write_all(reply);
             let _ = stream.flush();
 
             match path.as_deref() {
-                // Proctoring stopped on purpose. Exiting is what stops the watchdog
-                // below from reading that as a crash and relaunching the agent.
                 Some("/quit") => {
                     QUITTING.store(true, Ordering::Relaxed);
                     app.exit(0);
                     return;
+                }
+                Some("/minimize") => {
+                    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                        let _ = window.minimize();
+                    }
+                }
+                Some("/toggle-maximize") | Some("/maximize") => {
+                    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                        if window.is_maximized().unwrap_or(false) {
+                            let _ = window.unmaximize();
+                        } else {
+                            let _ = window.maximize();
+                        }
+                    }
+                }
+                Some("/close") => {
+                    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                        let _ = window.hide();
+                    }
                 }
                 _ => {
                     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {

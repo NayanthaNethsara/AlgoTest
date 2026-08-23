@@ -5,6 +5,12 @@
   "windows": [
     "contest"
   ],
+  "remote": {
+    "urls": [
+      "http://*/*",
+      "https://*/*"
+    ]
+  },
   "permissions": [
     "core:default",
     "core:window:allow-minimize",
