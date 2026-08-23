@@ -75,44 +75,94 @@ jobs:
     name: Pull & Deploy via Docker Compose
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      # Secrets, not variables: Actions logs are public on this repo, and
+      # GitHub masks secret values wherever gcloud echoes them back.
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+      # Inert without the project ID, so left readable.
+      GCE_INSTANCE: ${{ vars.GCE_INSTANCE }}
+      GCE_ZONE: ${{ vars.GCE_ZONE }}
     steps:
-      - name: SSH to VM and Deploy
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            set -e
-            echo "==> Navigating to project directory"
-            cd ~/mini-algothon
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
 
-            echo "==> Syncing branch: ${{ github.event.inputs.git_ref }}"
-            git fetch --all
-            git checkout ${{ github.event.inputs.git_ref }}
-            git pull origin ${{ github.event.inputs.git_ref }}
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
 
-            echo "==> Deriving lowercase image name"
-            RAW_IMAGE="${{ github.repository }}/backend"
-            export GHCR_IMAGE=$(echo "$RAW_IMAGE" | tr '[:upper:]' '[:lower:]')
+      - name: Verify deploy config is present
+        run: |
+          for VAR in GCP_PROJECT GCE_INSTANCE GCE_ZONE DEPLOY_USER DEPLOY_DIR; do
+            if [ -z "${!VAR}" ]; then
+              echo "::error::$VAR is empty -- set it in Settings > Secrets and variables > Actions"
+              exit 1
+            fi
+          done
 
-            echo "==> Logging into GHCR"
-            echo "${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin 2>/dev/null || true
+      - name: Compose remote deploy script
+        env:
+          GIT_REF: ${{ github.event.inputs.git_ref }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          # Values are injected as quoted assignments rather than interpolated
+          # into the script body, so a crafted ref cannot break out into code.
+          {
+            printf 'export GIT_REF=%q\n' "$GIT_REF"
+            printf 'export GHCR_USER=%q\n' "$GHCR_USER"
+            printf 'export GHCR_TOKEN=%q\n' "$GHCR_TOKEN"
+            printf 'export GHCR_IMAGE=%q\n' "$(echo "$REPO_SLUG/backend" | tr '[:upper:]' '[:lower:]')"
+            printf 'export DEPLOY_DIR=%q\n' "$DEPLOY_DIR"
+            cat <<'REMOTE'
+          set -euo pipefail
 
-            echo "==> Pulling latest backend image"
-            docker compose -f docker-compose.prod.yml pull backend
+          echo "==> Navigating to project directory"
+          cd "$DEPLOY_DIR"
 
-            echo "==> Starting / Updating services with Docker Compose"
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+          echo "==> Syncing branch: $GIT_REF"
+          git fetch --all
+          git checkout "$GIT_REF"
+          git pull origin "$GIT_REF"
 
-            echo "==> Starting / Updating Monitoring stack (Prometheus, Loki, Promtail, Grafana)"
-            docker compose -f monitoring/docker-compose.monitoring.yml up -d
+          echo "==> Logging into GHCR"
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
-            echo "==> Cleaning up dangling old images"
-            docker image prune -f
+          echo "==> Pulling latest backend image"
+          docker compose -f docker-compose.prod.yml pull backend
 
-            echo "==> Production Services Status:"
-            docker compose -f docker-compose.prod.yml ps
+          echo "==> Starting / Updating services with Docker Compose"
+          docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            echo "==> Monitoring Services Status:"
-            docker compose -f monitoring/docker-compose.monitoring.yml ps
+          echo "==> Starting / Updating Monitoring stack (Prometheus, Loki, Promtail, Grafana)"
+          docker compose -f monitoring/docker-compose.monitoring.yml up -d
+
+          echo "==> Cleaning up dangling old images"
+          docker image prune -f
+
+          echo "==> Production Services Status:"
+          docker compose -f docker-compose.prod.yml ps
+
+          echo "==> Monitoring Services Status:"
+          docker compose -f monitoring/docker-compose.monitoring.yml ps
+          REMOTE
+          } > "$RUNNER_TEMP/deploy.sh"
+
+      - name: Deploy over IAP tunnel
+        run: |
+          gcloud compute ssh "$GCE_INSTANCE" \
+            --zone="$GCE_ZONE" \
+            --project="$GCP_PROJECT" \
+            --tunnel-through-iap \
+            --quiet \
+            --ssh-key-expire-after=10m \
+            --command="sudo -u $DEPLOY_USER -H bash -s" < "$RUNNER_TEMP/deploy.sh"
