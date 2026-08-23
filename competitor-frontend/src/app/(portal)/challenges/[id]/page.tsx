@@ -1,15 +1,15 @@
 import { notFound } from "next/navigation";
+import { getProblemAction } from "@/actions/problems";
+import { ChallengeThemeProvider } from "@/components/problem/challenge-theme-provider";
 import { ProblemPanel } from "@/components/problem/problem-panel";
-import { CodeWorkspace } from "@/components/workspace/code-workspace";
-import { ChallengeThemeProvider } from "@/components/providers/challenge-theme-provider";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { getProblemAction } from "@/actions/problems";
-import { readProctorGate } from "@/lib/proctor-gate";
+import { CodeWorkspace } from "@/components/workspace/code-workspace";
 import { proctorLocksContest } from "@/lib/proctor";
+import { readProctorGate } from "@/lib/proctor-gate";
 
 export default async function ChallengePage({
   params,
@@ -18,9 +18,6 @@ export default async function ChallengePage({
 }) {
   const { id } = await params;
 
-  // Ordered, not parallel: fetching the statement and then declining to render it
-  // still ships it to a locked contestant in the RSC payload. The lock screen the
-  // portal layout renders is the whole response in that case.
   if (proctorLocksContest(await readProctorGate())) return null;
 
   const problem = await getProblemAction(id);

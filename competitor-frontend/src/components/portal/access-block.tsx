@@ -1,52 +1,22 @@
 "use client";
 
 import { Loader2, RotateCw, ShieldOff } from "lucide-react";
-import { contestLocked, useProctor } from "@/components/providers/proctor-provider";
+import { contestLocked, useProctor } from "@/components/portal/proctor-provider";
 import { Button } from "@/components/ui/button";
-import type { AccessMode } from "@/types/proctor";
+import {
+  PROCTOR_LOCK_TITLES,
+  PROCTOR_MODE_LABELS,
+  PROCTOR_TRANSIENT_CODE,
+} from "@/lib/constants";
 
-/**
- * What each mode is, in the contestant's words.
- */
-const MODE_LABEL: Record<AccessMode, string> = {
-  DESKTOP: "the proctor client window",
-  WEB_WITH_AGENT: "a browser, with the proctor client running",
-  WEB_ONLY: "a browser, with no proctor client running",
-};
-
-const LOCK_TITLE: Record<string, string> = {
-  CLIENT_NOT_ALLOWED: "Browser Access Not Permitted",
-  AGENT_MISSING: "Proctor Client Required",
-  AGENT_STOPPED: "Proctor Client Stopped",
-  ENROLLMENT_REVOKED: "Enrollment Revoked",
-  AGENT_UNREACHABLE: "Proctor Client Unreachable",
-  AGENT_STALE: "Proctor Connection Stale",
-  AGENT_STARTING: "Proctor Client Starting",
-};
-
-/**
- * The one lock that clears itself. It is still a lock — the API withholds the
- * contest during startup exactly as it does for a stopped client — but dressing a
- * three-second wait in the same alarm as a revoked enrolment trains contestants to
- * ignore the alarm.
- */
-const TRANSIENT = "AGENT_STARTING";
-
-/**
- * Full-screen blocking page for all proctor lock conditions.
- *
- * When a contestant cannot proceed due to agent or permission requirements,
- * this page blocks access to the editor and problem workspace entirely.
- * There is no option to dismiss or bypass to the editor.
- */
 export function AccessBlockScreen() {
   const state = useProctor();
   const { code, accessMode, allowedModes, remedy, local } = state;
 
   if (!contestLocked(state)) return null;
 
-  const transient = code === TRANSIENT;
-  const title = (code && LOCK_TITLE[code]) || "Contest Access Blocked";
+  const transient = code === PROCTOR_TRANSIENT_CODE;
+  const title = (code && PROCTOR_LOCK_TITLES[code]) || "Contest Access Blocked";
 
   return (
     <div
@@ -75,15 +45,15 @@ export function AccessBlockScreen() {
           <div className="flex flex-wrap gap-x-2">
             <dt className="text-muted-foreground">Current environment:</dt>
             <dd className="font-semibold text-foreground">
-              {accessMode ? MODE_LABEL[accessMode] : "Unrecognised window"}
+              {accessMode ? PROCTOR_MODE_LABELS[accessMode] : "Unrecognised window"}
             </dd>
           </div>
           <div className="flex flex-wrap gap-x-2">
             <dt className="text-muted-foreground">Allowed submission modes:</dt>
             <dd className="font-semibold text-foreground">
               {allowedModes.length > 0
-                ? allowedModes.map((mode) => MODE_LABEL[mode]).join(", or ")
-                : MODE_LABEL.DESKTOP}
+                ? allowedModes.map((mode) => PROCTOR_MODE_LABELS[mode]).join(", or ")
+                : PROCTOR_MODE_LABELS.DESKTOP}
             </dd>
           </div>
           {code && (

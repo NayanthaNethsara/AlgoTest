@@ -1,15 +1,7 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
-
-export type LeaderboardEntry = {
-  rank: number;
-  teamId: string;
-  teamName: string;
-  totalScore: number;
-  problemsSolved: number;
-  lastSubmissionAt?: string;
-};
+import type { LeaderboardEntry } from "@/types/leaderboard";
 
 export async function getLeaderboardAction(): Promise<LeaderboardEntry[]> {
   try {
@@ -21,7 +13,7 @@ export async function getLeaderboardAction(): Promise<LeaderboardEntry[]> {
       }
     }
   } catch (err: unknown) {
-    console.error("Failed to fetch leaderboard from backend:", err);
+    console.error("Failed to fetch leaderboard:", err);
   }
   return [];
 }

@@ -1,17 +1,15 @@
 "use server";
 
-import { backendFetch } from "@/lib/api/server";
 import { getProblemAction } from "@/actions/problems";
+import { backendFetch } from "@/lib/api/server";
+import { MAX_CODE_LENGTH, MAX_STDIN_LENGTH } from "@/lib/constants";
+import { executeRun } from "@/lib/runner";
 import type {
   RunResult,
   SubmissionStatusResponse,
   SubmitResult,
 } from "@/types/code";
-
-import { executeRun } from "@/lib/runner";
-
-const MAX_CODE_LENGTH = 100_000;
-const MAX_STDIN_LENGTH = 1_000_000;
+import type { SubmissionItem } from "@/types/submission";
 
 function assertLength(value: string, max: number, name: string) {
   if (typeof value !== "string" || value.length > max) {
@@ -59,8 +57,6 @@ export async function submitCode(
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    // Proof that the browser making this request is on the same machine as the
-    // live proctor agent. Read over 127.0.0.1, so only that machine can supply it.
     if (attestNonce) {
       headers["X-Agent-Attest"] = attestNonce;
     }
@@ -116,7 +112,6 @@ export async function getSubmissionStatusAction(
   submissionId: string,
 ): Promise<SubmissionStatusResponse | null> {
   try {
-    // Caller-controlled, so an id carrying path segments must not resolve elsewhere.
     const res = await backendFetch(
       `/api/v1/submissions/${encodeURIComponent(submissionId)}`,
       { method: "GET" },
@@ -130,22 +125,7 @@ export async function getSubmissionStatusAction(
   return null;
 }
 
-export type SubmissionItemData = {
-  id: string;
-  problemTitle: string;
-  submittedBy: string;
-  teamName: string;
-  language: string;
-  score: number;
-  maxScore: number;
-  status: string;
-  reviewStatus?: "accepted" | "rejected";
-  reviewReason?: string;
-  submittedAt: string;
-  timestamp?: number;
-};
-
-type ApiSubmission = {
+type BackendSubmissionEntry = {
   submissionId: string;
   problemId?: string;
   problemTitle?: string;
@@ -156,37 +136,39 @@ type ApiSubmission = {
   maxScore?: number;
   status?: string;
   verdict?: string;
-  reviewStatus?: SubmissionItemData["reviewStatus"];
+  reviewStatus?: "accepted" | "rejected";
   reviewReason?: string;
   createdAt?: string;
 };
 
-export async function listSubmissionsAction(): Promise<SubmissionItemData[]> {
+export async function listSubmissionsAction(): Promise<SubmissionItem[]> {
   try {
     const res = await backendFetch("/api/v1/submissions", { method: "GET" });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.submissions)) {
-        return data.submissions.map((s: ApiSubmission) => ({
-          id: s.submissionId,
-          problemTitle: s.problemTitle || s.problemId || "Challenge",
-          submittedBy: s.userName || "Competitor",
-          teamName: s.teamName || "Team",
-          language: s.language || "cpp",
-          score: s.score ?? 0,
-          maxScore: s.maxScore ?? 0,
-          status: s.verdict || s.status || "Pending",
-          reviewStatus: s.reviewStatus,
-          reviewReason: s.reviewReason,
-          submittedAt: s.createdAt
-            ? new Date(s.createdAt).toLocaleTimeString()
-            : "Just now",
-          timestamp: s.createdAt ? new Date(s.createdAt).getTime() : Date.now(),
-        }));
+        return data.submissions.map(
+          (s: BackendSubmissionEntry): SubmissionItem => ({
+            id: s.submissionId,
+            problemTitle: s.problemTitle || s.problemId || "Challenge",
+            submittedBy: s.userName || "Competitor",
+            teamName: s.teamName || "Team",
+            language: s.language || "cpp",
+            score: s.score ?? 0,
+            maxScore: s.maxScore ?? 0,
+            status: s.verdict || s.status || "Pending",
+            reviewStatus: s.reviewStatus,
+            reviewReason: s.reviewReason,
+            submittedAt: s.createdAt
+              ? new Date(s.createdAt).toLocaleTimeString()
+              : "Just now",
+            timestamp: s.createdAt ? new Date(s.createdAt).getTime() : Date.now(),
+          }),
+        );
       }
     }
   } catch (err) {
-    console.error("Failed to fetch submissions from backend:", err);
+    console.error("Failed to fetch submissions:", err);
   }
   return [];
 }

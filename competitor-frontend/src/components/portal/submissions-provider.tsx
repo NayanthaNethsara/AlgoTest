@@ -12,28 +12,14 @@ import { getSubmissionStatusAction, submitCode } from "@/actions/code";
 import {
   contestLocked,
   useProctor,
-} from "@/components/providers/proctor-provider";
+} from "@/components/portal/proctor-provider";
 import type { SubmitResult } from "@/types/code";
-
-export type ActiveSubmission = {
-  id: string;
-  problemId: string;
-  status: "queued" | "running";
-  queuePosition?: number;
-};
-
-export type ToastMessage = {
-  id: string;
-  title: string;
-  description: string;
-  variant: "success" | "error" | "info";
-};
-
-export type ReviewNotice = {
-  submissionId: string;
-  reviewStatus: "accepted" | "rejected";
-  reviewReason?: string;
-};
+import type {
+  ActiveSubmission,
+  ReviewNotice,
+  SubmissionStatusResponse,
+  ToastMessage,
+} from "@/types/submission";
 
 type SubmissionsContextType = {
   activeSubmission: ActiveSubmission | null;
@@ -51,36 +37,8 @@ type SubmissionsContextType = {
 
 const SubmissionsContext = createContext<SubmissionsContextType | null>(null);
 
-type SubmissionEventTest = {
-  ordinal: number;
-  verdict?: string;
-  points?: number;
-  timeMs?: number;
-  time_ms?: number;
-};
-
-type SubmissionEvent = {
-  submissionId?: string;
-  submission_id?: string;
-  id?: string;
-  problemId?: string;
-  problem_id?: string;
-  status?: SubmitResult["status"];
-  verdict?: SubmitResult["verdict"];
-  score?: number;
-  maxScore?: number;
-  max_score?: number;
-  queuePosition?: number;
-  queue_position?: number;
-  compileError?: string;
-  compile_error?: string;
-  reviewStatus?: ReviewNotice["reviewStatus"];
-  reviewReason?: string;
-  tests?: SubmissionEventTest[];
-};
-
 function parseSubmissionResult(
-  data: SubmissionEvent,
+  data: SubmissionStatusResponse,
 ): SubmitResult & { problemId?: string } {
   const submissionId = data.submissionId || data.submission_id || data.id;
   const problemId = data.problemId || data.problem_id;
@@ -125,12 +83,8 @@ function parseSubmissionResult(
 export function SubmissionsProvider({ children }: { children: ReactNode }) {
   const proctor = useProctor();
   const { attestNonce } = proctor;
-
-  // Both result lanes are gated server-side now, so running them while locked buys
-  // nothing but a 423 every tick — and EventSource reconnects on its own, which
-  // would burn the stream-open limiter within a minute. Derived as a primitive so
-  // the effects below re-run on the transition and not on every poll tick.
   const locked = contestLocked(proctor);
+
   const [activeSubmission, setActiveSubmission] =
     useState<ActiveSubmission | null>(null);
   const [lastResult, setLastResult] = useState<SubmitResult | null>(null);
@@ -140,7 +94,6 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
 
   const clearToast = () => setToast(null);
 
-  // Background SSE listener for real-time submission pushes
   useEffect(() => {
     if (locked) return;
 
@@ -152,13 +105,10 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
 
       eventSource.addEventListener("submission", (e) => {
         try {
-          const data = JSON.parse(e.data);
+          const data = JSON.parse(e.data) as SubmissionStatusResponse;
           const parsed = parseSubmissionResult(data);
           if (!parsed.submissionId) return;
 
-          // Ahead of the status branches on purpose: a review event carries no test
-          // results, so letting it fall through would blank the subtask table it
-          // never touched, and toast "Accepted" over a rejection.
           if (data.reviewStatus) {
             const rejected = data.reviewStatus === "rejected";
             setLastReview({
@@ -176,7 +126,6 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
                 : "An organizer restored it. It counts towards your score again.",
               variant: rejected ? "error" : "success",
             });
-            // Repaints the history page, which reads its rows straight from props.
             router.refresh();
             return;
           }
@@ -220,7 +169,6 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     };
   }, [locked, router]);
 
-  // Background fallback poller if an active submission exists
   useEffect(() => {
     if (!activeSubmission || locked) return;
 

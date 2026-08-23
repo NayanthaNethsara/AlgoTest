@@ -3,18 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Code2, History, Loader2, Menu, Trophy, Users, X } from "lucide-react";
+import { Loader2, Menu, Users, X } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ProctorPill } from "@/components/portal/proctor-status";
-import { useSubmissions } from "@/components/providers/submissions-context";
+import { useSubmissions } from "@/components/portal/submissions-provider";
 import { Badge } from "@/components/ui/badge";
 import type { SessionUser } from "@/lib/auth/constants";
-
-const NAV_LINKS = [
-  { href: "/challenges", label: "Challenges", icon: Code2 },
-  { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { href: "/submissions", label: "Submissions", icon: History },
-];
+import { NAV_LINKS } from "@/lib/constants";
 
 export function TopNav({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
@@ -24,7 +19,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
   return (
     <header className="relative z-20 border-b-2 border-black bg-card px-4 py-2.5 shadow-[0px_4px_0px_var(--edge)] sm:px-6 lg:px-7 lg:py-3">
       <div className="flex items-center justify-between">
-        {/* Brand & Desktop Nav */}
         <div className="flex items-center gap-4 md:gap-6 lg:gap-7">
           <Link
             href="/challenges"
@@ -39,7 +33,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             />
           </Link>
 
-          {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-1 lg:gap-1.5 border-l-2 border-black pl-5 lg:pl-6">
             {NAV_LINKS.map((link) => {
               const active = pathname.startsWith(link.href);
@@ -62,12 +55,10 @@ export function TopNav({ user }: { user: SessionUser | null }) {
           </nav>
         </div>
 
-        {/* Desktop Right Section */}
         {user && (
           <div className="hidden md:flex items-center gap-3 lg:gap-3.5">
             <ProctorPill />
 
-            {/* Active Submission Pill */}
             {activeSubmission && (
               <Badge
                 variant="outline"
@@ -82,7 +73,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               </Badge>
             )}
 
-            {/* Team Name Badge */}
             {user.teamName ? (
               <Badge variant="secondary" className="gap-1.5 text-xs h-7.5 lg:h-8 px-2.5 bg-muted">
                 <Users className="h-3.5 w-3.5 text-primary" />
@@ -94,7 +84,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               </Badge>
             )}
 
-            {/* User Profile */}
             <div className="flex items-center gap-2 border-l-2 border-black pl-3">
               <div className="flex h-6.5 w-6.5 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-xs">
                 {(user.displayName || user.username || "U")[0].toUpperCase()}
@@ -108,7 +97,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
           </div>
         )}
 
-        {/* Mobile Header Controls */}
         <div className="flex md:hidden items-center gap-2">
           {user && <ProctorPill />}
           <button
@@ -123,7 +111,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
       {mobileOpen && (
         <div className="md:hidden mt-3 border-t-2 border-black pt-3 pb-2 flex flex-col gap-3 animate-in slide-in-from-top-2 duration-150">
           <nav className="flex flex-col gap-1">
@@ -150,7 +137,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
 
           {user && (
             <div className="flex flex-col gap-2.5 border-t-2 border-border pt-3">
-              {/* Active Submission Pill */}
               {activeSubmission && (
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Submission:</span>
@@ -168,7 +154,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                 </div>
               )}
 
-              {/* Team Name */}
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Team:</span>
                 {user.teamName ? (
@@ -183,7 +168,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                 )}
               </div>
 
-              {/* User Profile & Sign Out */}
               <div className="flex items-center justify-between border-t-2 border-border pt-2.5">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-[10px]">

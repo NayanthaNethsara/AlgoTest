@@ -2,18 +2,9 @@
 
 import { AlertCircle, Check, Loader2, TrendingUp, X } from "lucide-react";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
+import { VERDICT_DETAILS } from "@/lib/constants";
 import type { SubmitResult } from "@/types/code";
 import type { VariantProps } from "class-variance-authority";
-
-type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
-
-const VERDICT_DETAILS: Record<string, { label: string; variant: BadgeVariant }> = {
-  AC: { label: "Accepted (AC)", variant: "success" },
-  WA: { label: "Wrong answer (WA)", variant: "destructive" },
-  TLE: { label: "Time limit exceeded (TLE)", variant: "warning" },
-  RTE: { label: "Runtime error (RTE)", variant: "destructive" },
-  CE: { label: "Compilation error (CE)", variant: "destructive" },
-};
 
 export function SubmissionResult({
   result,
@@ -73,7 +64,10 @@ export function SubmissionResult({
               </span>
             </span>
             {overallVerdict && (
-              <Badge variant={overallVerdict.variant} className="text-[10px] font-semibold uppercase">
+              <Badge
+                variant={overallVerdict.variant as VariantProps<typeof badgeVariants>["variant"]}
+                className="text-[10px] font-semibold uppercase"
+              >
                 {overallVerdict.label}
               </Badge>
             )}
@@ -115,7 +109,10 @@ export function SubmissionResult({
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold">Test #{subtask.id}</span>
                     {vDetails && (
-                      <Badge variant={vDetails.variant} className="text-[9px] py-0 px-1.5 uppercase">
+                      <Badge
+                        variant={vDetails.variant as VariantProps<typeof badgeVariants>["variant"]}
+                        className="text-[9px] py-0 px-1.5 uppercase"
+                      >
                         {vDetails.label}
                       </Badge>
                     )}

@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { ChallengeCard } from "@/components/challenges/challenge-card";
-import { CHALLENGE_STATUS, type ChallengeProgress } from "@/types/challenge";
+import { DIFFICULTY_RANKS } from "@/lib/constants";
+import {
+  CHALLENGE_STATUS,
+  type ChallengeLayout,
+  type ChallengeProgress,
+  type ChallengeSortOption,
+} from "@/types/challenge";
 import type { Problem } from "@/types/problem";
 import { ArrowUpDown, Code2, Grid, List, Search, SlidersHorizontal } from "lucide-react";
-
-type SortOption = "DEFAULT" | "POINTS_DESC" | "POINTS_ASC" | "DIFFICULTY_ASC" | "DIFFICULTY_DESC" | "TITLE_ASC";
 
 export function ChallengesListClient({
   problems,
@@ -18,8 +22,8 @@ export function ChallengesListClient({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [difficultyFilter, setDifficultyFilter] = useState<string>("ALL");
-  const [sortBy, setSortBy] = useState<SortOption>("DEFAULT");
-  const [layout, setLayout] = useState<"grid" | "list">("grid");
+  const [sortBy, setSortBy] = useState<ChallengeSortOption>("DEFAULT");
+  const [layout, setLayout] = useState<ChallengeLayout>("grid");
 
   const filteredProblems = problems.filter((problem) => {
     const pProgress =
@@ -30,7 +34,6 @@ export function ChallengesListClient({
         bestScore: 0,
       };
 
-    // Search filter
     if (
       search.trim() &&
       !problem.title.toLowerCase().includes(search.toLowerCase()) &&
@@ -39,14 +42,12 @@ export function ChallengesListClient({
       return false;
     }
 
-    // Status filter
     if (statusFilter !== "ALL") {
       if (statusFilter === "SOLVED" && pProgress.status !== CHALLENGE_STATUS.SOLVED) return false;
       if (statusFilter === "IN_PROGRESS" && pProgress.status !== CHALLENGE_STATUS.ATTEMPTED) return false;
       if (statusFilter === "UNSOLVED" && pProgress.status === CHALLENGE_STATUS.SOLVED) return false;
     }
 
-    // Difficulty filter
     if (difficultyFilter !== "ALL") {
       if (problem.difficulty.toUpperCase() !== difficultyFilter) return false;
     }
@@ -54,20 +55,14 @@ export function ChallengesListClient({
     return true;
   });
 
-  const difficultyRank: Record<string, number> = {
-    EASY: 1,
-    MEDIUM: 2,
-    HARD: 3,
-  };
-
   const sortedProblems = [...filteredProblems].sort((a, b) => {
     if (sortBy === "POINTS_DESC") return b.points - a.points;
     if (sortBy === "POINTS_ASC") return a.points - b.points;
     if (sortBy === "DIFFICULTY_ASC") {
-      return (difficultyRank[a.difficulty.toUpperCase()] || 0) - (difficultyRank[b.difficulty.toUpperCase()] || 0);
+      return (DIFFICULTY_RANKS[a.difficulty.toUpperCase()] || 0) - (DIFFICULTY_RANKS[b.difficulty.toUpperCase()] || 0);
     }
     if (sortBy === "DIFFICULTY_DESC") {
-      return (difficultyRank[b.difficulty.toUpperCase()] || 0) - (difficultyRank[a.difficulty.toUpperCase()] || 0);
+      return (DIFFICULTY_RANKS[b.difficulty.toUpperCase()] || 0) - (DIFFICULTY_RANKS[a.difficulty.toUpperCase()] || 0);
     }
     if (sortBy === "TITLE_ASC") return a.title.localeCompare(b.title);
     return 0;
@@ -75,9 +70,7 @@ export function ChallengesListClient({
 
   return (
     <div className="space-y-6">
-      {/* Control Bar: Search, Filters, Sort, Layout Toggle */}
       <div className="flex flex-col gap-4 pixel-raised bg-card p-4 lg:flex-row lg:items-center lg:justify-between">
-        {/* Search Input */}
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -89,9 +82,7 @@ export function ChallengesListClient({
           />
         </div>
 
-        {/* Filters, Sort & View Toggle */}
         <div className="flex flex-wrap items-center gap-3 text-xs">
-          {/* Status Filter */}
           <div className="flex items-center gap-1 pixel-flat bg-muted/50 p-1">
             {["ALL", "SOLVED", "IN_PROGRESS", "UNSOLVED"].map((st) => (
               <button
@@ -109,7 +100,6 @@ export function ChallengesListClient({
             ))}
           </div>
 
-          {/* Difficulty Filter */}
           <div className="flex items-center gap-1 pixel-flat bg-muted/50 p-1">
             {["ALL", "EASY", "MEDIUM", "HARD"].map((diff) => (
               <button
@@ -127,12 +117,11 @@ export function ChallengesListClient({
             ))}
           </div>
 
-          {/* Sort Selection */}
           <div className="flex items-center gap-1.5 pixel-flat bg-card px-2 py-1">
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              onChange={(e) => setSortBy(e.target.value as ChallengeSortOption)}
               className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
             >
               <option value="DEFAULT">Default order</option>
@@ -144,7 +133,6 @@ export function ChallengesListClient({
             </select>
           </div>
 
-          {/* Grid vs List Toggle */}
           <div className="flex items-center gap-1 pixel-flat bg-card p-1 shrink-0">
             <button
               type="button"
@@ -174,7 +162,6 @@ export function ChallengesListClient({
         </div>
       </div>
 
-      {/* Challenge List / Grid */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">

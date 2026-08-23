@@ -1,6 +1,6 @@
 "use client";
 
-import { useChallengeTheme } from "@/components/providers/challenge-theme-provider";
+import { useChallengeTheme } from "@/components/problem/challenge-theme-provider";
 import { Gamepad2, Moon, Sun } from "lucide-react";
 
 export function ChallengeThemeSwitcher() {

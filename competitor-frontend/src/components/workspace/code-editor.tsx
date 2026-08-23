@@ -1,7 +1,7 @@
 "use client";
 
 import Editor, { loader, type Monaco } from "@monaco-editor/react";
-import { useChallengeTheme } from "@/components/providers/challenge-theme-provider";
+import { useChallengeTheme } from "@/components/problem/challenge-theme-provider";
 
 loader.config({ paths: { vs: "/monaco/vs" } });
 
@@ -12,14 +12,14 @@ type CodeEditorProps = {
 };
 
 const PALETTE = {
-  bg: "#0e1614", // --input: the editor is a surface pressed into the page
-  gutter: "#111a17", // --background
-  surface: "#182622", // --card
+  bg: "#0e1614",
+  gutter: "#111a17",
+  surface: "#182622",
   edge: "#000000",
-  fg: "#e6f4f0", // --foreground
-  muted: "#8caaa2", // --muted-foreground
+  fg: "#e6f4f0",
+  muted: "#8caaa2",
   dim: "#3f5d54",
-  emerald: "#34d399", // --primary, lightened
+  emerald: "#34d399",
   emeraldDeep: "#10b981",
   gold: "#fbbf24",
   diamond: "#67e8f9",
@@ -66,7 +66,6 @@ function defineTheme(monaco: Monaco) {
       "editorLineNumber.activeForeground": PALETTE.emerald,
       "editor.lineHighlightBackground": "#16211d",
       "editor.lineHighlightBorder": "#00000000",
-      // Hard-edged and opaque enough to read against gold strings.
       "editor.selectionBackground": "#10b98159",
       "editor.inactiveSelectionBackground": "#10b9812e",
       "editor.selectionHighlightBackground": "#10b9812e",
@@ -79,7 +78,6 @@ function defineTheme(monaco: Monaco) {
       "editorBracketMatch.border": PALETTE.emerald,
       "editor.findMatchBackground": "#f59e0b66",
       "editor.findMatchHighlightBackground": "#f59e0b33",
-      // Chunky, square, and the same greens as the page scrollbars.
       "scrollbarSlider.background": "#2f4d4499",
       "scrollbarSlider.hoverBackground": "#3f5d54cc",
       "scrollbarSlider.activeBackground": PALETTE.emeraldDeep,
@@ -129,7 +127,6 @@ export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
         padding: { top: 12, bottom: 12 },
         automaticLayout: true,
         scrollbar: { verticalScrollbarSize: 12, horizontalScrollbarSize: 12 },
-
         cursorStyle: mode === "pixel" ? "block" : "line",
         cursorBlinking: mode === "pixel" ? "blink" : "smooth",
         cursorSmoothCaretAnimation: mode === "pixel" ? "off" : "on",

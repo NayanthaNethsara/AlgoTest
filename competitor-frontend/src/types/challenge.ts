@@ -11,3 +11,15 @@ export type ChallengeProgress = {
   status: ChallengeStatus;
   bestScore: number;
 };
+
+export type ChallengeProgressMap = Record<string, ChallengeProgress>;
+
+export type ChallengeSortOption =
+  | "DEFAULT"
+  | "POINTS_DESC"
+  | "POINTS_ASC"
+  | "DIFFICULTY_ASC"
+  | "DIFFICULTY_DESC"
+  | "TITLE_ASC";
+
+export type ChallengeLayout = "grid" | "list";

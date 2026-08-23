@@ -1,15 +1,14 @@
 "use client";
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
-
-export type ChallengeThemeMode = "pixel" | "dark" | "light";
+import { THEME_STORAGE_KEY } from "@/lib/constants";
+import type { ChallengeThemeMode } from "@/types/problem";
 
 type ChallengeThemeContextType = {
   mode: ChallengeThemeMode;
   setMode: (mode: ChallengeThemeMode) => void;
 };
 
-const STORAGE_KEY = "minialgothon_challenge_theme";
 const DEFAULT_MODE: ChallengeThemeMode = "pixel";
 
 const MODE_CLASS: Record<ChallengeThemeMode, string> = {
@@ -34,7 +33,7 @@ function subscribe(onStoreChange: () => void) {
 
 function readMode(): ChallengeThemeMode {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
     if (saved === "pixel" || saved === "dark" || saved === "light") {
       return saved;
     }
@@ -50,9 +49,9 @@ function serverMode(): ChallengeThemeMode {
 
 function writeMode(mode: ChallengeThemeMode) {
   try {
-    localStorage.setItem(STORAGE_KEY, mode);
+    localStorage.setItem(THEME_STORAGE_KEY, mode);
   } catch {
-    // The choice still applies for this session.
+    // Session fallback if storage is restricted
   }
   listeners.forEach((notify) => notify());
 }

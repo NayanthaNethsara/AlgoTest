@@ -4,23 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpDown, Ban, CheckCircle2, Clock, History, Search, XCircle } from "lucide-react";
 import { Mascot } from "@/components/common/mascot";
-
-export type SubmissionItem = {
-  id: string;
-  problemTitle: string;
-  submittedBy: string;
-  teamName: string;
-  language: string;
-  score: number;
-  maxScore: number;
-  status: string;
-  reviewStatus?: "accepted" | "rejected";
-  reviewReason?: string;
-  submittedAt: string;
-  timestamp?: number;
-};
-
-type SortOption = "NEWEST" | "OLDEST" | "SCORE_DESC" | "STATUS_ASC" | "TITLE_ASC";
+import type { SubmissionItem, SubmissionSortOption } from "@/types/submission";
 
 export function SubmissionsClient({
   submissions,
@@ -29,10 +13,9 @@ export function SubmissionsClient({
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [sortBy, setSortBy] = useState<SortOption>("NEWEST");
+  const [sortBy, setSortBy] = useState<SubmissionSortOption>("NEWEST");
 
   const filteredSubmissions = submissions.filter((sub) => {
-    // Search filter
     if (
       search.trim() &&
       !sub.problemTitle.toLowerCase().includes(search.toLowerCase()) &&
@@ -42,7 +25,6 @@ export function SubmissionsClient({
       return false;
     }
 
-    // Status filter
     if (statusFilter !== "ALL") {
       const isAc = sub.status.toLowerCase().includes("accepted") || sub.status.toLowerCase() === "ac";
       const isWa = sub.status.toLowerCase().includes("wrong") || sub.status.toLowerCase() === "wa";
@@ -65,7 +47,6 @@ export function SubmissionsClient({
 
   return (
     <div className="space-y-5">
-      {/* Control Bar: Search, Status Filter, Sort */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pixel-raised bg-card p-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -79,7 +60,6 @@ export function SubmissionsClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-xs">
-          {/* Status Filter Tabs */}
           <div className="flex items-center gap-1 pixel-flat bg-muted/50 p-1">
             {["ALL", "ACCEPTED", "WRONG_ANSWER"].map((st) => (
               <button
@@ -97,12 +77,11 @@ export function SubmissionsClient({
             ))}
           </div>
 
-          {/* Sort Dropdown */}
           <div className="flex items-center gap-1.5 pixel-flat bg-card px-2.5 py-1.5">
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              onChange={(e) => setSortBy(e.target.value as SubmissionSortOption)}
               className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
             >
               <option value="NEWEST">Newest first</option>
@@ -115,7 +94,6 @@ export function SubmissionsClient({
         </div>
       </div>
 
-      {/* Submissions Table */}
       <div className="pixel-raised bg-card overflow-hidden">
         {sortedSubmissions.length === 0 ? (
           <div className="p-12 text-center">
@@ -181,7 +159,7 @@ export function SubmissionsClient({
               <tbody className="divide-y divide-border">
                 {sortedSubmissions.map((sub) => {
                   const isAc = sub.status.toLowerCase().includes("accepted") || sub.status.toLowerCase() === "ac";
-                  const isPending = sub.status.toLowerCase().includes("queued") || sub.status.toLowerCase().includes("evaluating");
+                  const isPending = sub.status.toLowerCase().includes("queued") || sub.status.toLowerCase() === "evaluating";
                   const isRejected = sub.reviewStatus === "rejected";
 
                   return (
@@ -223,7 +201,6 @@ export function SubmissionsClient({
                             )}
                             {sub.status}
                           </Badge>
-                          {/* Neutral, not another red: the verdict already owns that colour here. */}
                           {isRejected && (
                             <Badge
                               variant="outline"

@@ -1,59 +1,45 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
-import type { Problem, Difficulty } from "@/types/problem";
+import type { ChallengeProgressMap } from "@/types/challenge";
+import type { Difficulty, Problem, Sample } from "@/types/problem";
 
-type ApiSample = {
+type BackendProblemResponse = {
   id?: string;
-  ordinal?: number;
-  input: string;
-  output: string;
-  explanation?: string;
+  slug?: string;
+  title?: string;
+  difficulty?: string;
+  statement?: string;
+  constraints?: string;
+  timeLimitMs?: number;
+  memoryLimitMb?: number;
+  maxScore?: number;
+  samples?: Sample[];
 };
 
-type ApiProblem = {
-  id: string;
-  slug: string;
-  title: string;
-  difficulty: string;
-  statement: string;
-  constraints: string;
-  timeLimitMs: number;
-  memoryLimitMb: number;
-  maxScore: number;
-  published: boolean;
-  samples?: ApiSample[];
-};
-
-function mapApiProblem(p: ApiProblem): Problem {
+function mapToProblem(raw: BackendProblemResponse): Problem {
   return {
-    id: p.id || p.slug,
-    slug: p.slug || p.id,
-    title: p.title,
-    difficulty: (p.difficulty as Difficulty) || "Easy",
-    points: p.maxScore ?? 100,
-    timeLimitMs: p.timeLimitMs || 4000,
-    memoryLimitMb: p.memoryLimitMb || 256,
-    statement: p.statement || "",
-    constraints: p.constraints || "",
-    samples: (p.samples || []).map((s) => ({
-      id: s.id,
-      ordinal: s.ordinal,
-      input: s.input || "",
-      output: s.output || "",
-      explanation: s.explanation || undefined,
-    })),
+    id: raw.id || raw.slug || "",
+    slug: raw.slug || raw.id || "",
+    title: raw.title || "Untitled Challenge",
+    difficulty: (raw.difficulty as Difficulty) || "Easy",
+    points: raw.maxScore ?? 100,
+    timeLimitMs: raw.timeLimitMs || 4000,
+    memoryLimitMb: raw.memoryLimitMb || 256,
+    statement: raw.statement || "",
+    constraints: raw.constraints || "",
+    samples: Array.isArray(raw.samples)
+      ? raw.samples.map((s) => ({
+          id: s.id,
+          ordinal: s.ordinal,
+          input: s.input || "",
+          output: s.output || "",
+          explanation: s.explanation,
+        }))
+      : [],
     subtasks: [],
   };
 }
-
-export type ChallengeProgressItem = {
-  problemId: string;
-  bestScore: number;
-  status: "solved" | "attempted" | "not_attempted";
-};
-
-export type ChallengeProgressMap = Record<string, ChallengeProgressItem>;
 
 export async function listProblemsAction(): Promise<{
   problems: Problem[];
@@ -63,28 +49,29 @@ export async function listProblemsAction(): Promise<{
     const res = await backendFetch("/api/v1/problems");
     if (res.ok) {
       const data = await res.json();
-      const problems = Array.isArray(data.problems) ? data.problems.map(mapApiProblem) : [];
+      const problems = Array.isArray(data.problems)
+        ? data.problems.map(mapToProblem)
+        : [];
       const progress = (data.progress || {}) as ChallengeProgressMap;
       return { problems, progress };
     }
   } catch (err: unknown) {
-    console.error("Failed to list problems from backend:", err);
+    console.error("Failed to list problems:", err);
   }
   return { problems: [], progress: {} };
 }
 
 export async function getProblemAction(slug: string): Promise<Problem | null> {
   try {
-    // Caller-controlled: an unescaped "../../admin/users" resolves elsewhere.
     const res = await backendFetch(`/api/v1/problems/${encodeURIComponent(slug)}`);
     if (res.ok) {
       const data = await res.json();
       if (data.problem) {
-        return mapApiProblem(data.problem);
+        return mapToProblem(data.problem);
       }
     }
   } catch (err: unknown) {
-    console.error(`Failed to fetch problem ${slug} from backend:`, err);
+    console.error(`Failed to fetch problem ${slug}:`, err);
   }
   return null;
 }

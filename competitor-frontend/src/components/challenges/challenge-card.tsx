@@ -1,15 +1,10 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, Clock, HelpCircle, Trophy } from "lucide-react";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
-import { CHALLENGE_STATUS, type ChallengeProgress, type ChallengeStatus } from "@/types/challenge";
+import { CHALLENGE_STATUS_LABELS } from "@/lib/constants";
+import { CHALLENGE_STATUS, type ChallengeProgress } from "@/types/challenge";
 import { DIFFICULTY, type Difficulty, type Problem } from "@/types/problem";
 import type { VariantProps } from "class-variance-authority";
-
-const STATUS_LABELS: Record<ChallengeStatus, string> = {
-  [CHALLENGE_STATUS.SOLVED]: "Solved",
-  [CHALLENGE_STATUS.ATTEMPTED]: "In progress",
-  [CHALLENGE_STATUS.NOT_ATTEMPTED]: "Unopened",
-};
 
 type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
 
@@ -53,7 +48,7 @@ export function ChallengeCard({
               ) : (
                 <HelpCircle className="h-3 w-3" />
               )}
-              {STATUS_LABELS[progress.status]}
+              {CHALLENGE_STATUS_LABELS[progress.status]}
             </Badge>
           </div>
 
@@ -112,7 +107,7 @@ export function ChallengeCard({
             ) : (
               <HelpCircle className="h-3 w-3" />
             )}
-            {STATUS_LABELS[progress.status]}
+            {CHALLENGE_STATUS_LABELS[progress.status]}
           </Badge>
           <div className="flex items-center gap-1 text-xs text-amber-400">
             <Trophy className="h-3 w-3 text-amber-400" />

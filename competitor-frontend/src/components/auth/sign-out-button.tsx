@@ -4,18 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { revokeUserSession } from "@mini-algothon/auth";
+import { useProctor } from "@/components/portal/proctor-provider";
 import { Button } from "@/components/ui/button";
-import { useProctor } from "@/components/providers/proctor-provider";
 import { isDesktopClient } from "@/lib/desktop";
 import { stopLocalAgent } from "@/lib/proctor";
 
-/**
- * Signing out of the portal in a browser ends a web session and nothing else.
- * Signing out inside the desktop client ends the contest on this machine: it
- * stops proctoring, unenrols the machine, and closes the client completely.
- *
- * That is a bigger action than a menu item usually implies, so it asks first.
- */
 export function SignOutButton() {
   const router = useRouter();
   const { local } = useProctor();
@@ -25,8 +18,6 @@ export function SignOutButton() {
   async function handleSignOut() {
     setIsSigningOut(true);
     try {
-      // Revoke the server session first. The desktop stop closes this very window,
-      // so anything left until afterwards may never run.
       try {
         await revokeUserSession();
       } catch {

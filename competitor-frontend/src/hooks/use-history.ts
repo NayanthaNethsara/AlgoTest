@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import {
+  HISTORY_STORAGE_PREFIX,
+  MAX_HISTORY_SNAPSHOTS,
+} from "@/lib/constants";
 import type { Snapshot, SnapshotTrigger } from "@/types/history";
 
-const MAX_SNAPSHOTS = 50;
-
 function storageKey(problemId: string) {
-  return `mini-algothon:history:${problemId}`;
+  return `${HISTORY_STORAGE_PREFIX}${problemId}`;
 }
 
 function loadSnapshots(problemId: string): Snapshot[] {
@@ -16,18 +18,27 @@ function loadSnapshots(problemId: string): Snapshot[] {
 }
 
 export function useHistory(problemId: string) {
-  const [snapshots, setSnapshots] = useState<Snapshot[]>(() => loadSnapshots(problemId));
+  const [snapshots, setSnapshots] = useState<Snapshot[]>(() =>
+    loadSnapshots(problemId),
+  );
 
   const record = useCallback(
     (
       trigger: SnapshotTrigger,
       language: string,
       code: string,
-      extra?: { verdict?: string; score?: number; maxScore?: number; submissionId?: string },
+      extra?: {
+        verdict?: string;
+        score?: number;
+        maxScore?: number;
+        submissionId?: string;
+      },
     ) => {
       setSnapshots((current) => {
         if (extra?.submissionId) {
-          const idx = current.findIndex((s) => s.submissionId === extra.submissionId);
+          const idx = current.findIndex(
+            (s) => s.submissionId === extra.submissionId,
+          );
           if (idx !== -1) {
             const updated = [...current];
             updated[idx] = {
@@ -36,17 +47,28 @@ export function useHistory(problemId: string) {
               score: extra.score ?? updated[idx].score,
               maxScore: extra.maxScore ?? updated[idx].maxScore,
             };
-            localStorage.setItem(storageKey(problemId), JSON.stringify(updated));
+            localStorage.setItem(
+              storageKey(problemId),
+              JSON.stringify(updated),
+            );
             return updated;
           }
         }
 
         const lastAutosave = current.find((s) => s.trigger === "autosave");
-        if (trigger === "autosave" && lastAutosave && lastAutosave.code === code) {
+        if (
+          trigger === "autosave" &&
+          lastAutosave &&
+          lastAutosave.code === code
+        ) {
           return current;
         }
 
-        if (current[0]?.code === code && current[0]?.trigger === trigger && !extra?.submissionId) {
+        if (
+          current[0]?.code === code &&
+          current[0]?.trigger === trigger &&
+          !extra?.submissionId
+        ) {
           return current;
         }
 
@@ -61,7 +83,7 @@ export function useHistory(problemId: string) {
           maxScore: extra?.maxScore,
           submissionId: extra?.submissionId,
         };
-        const next = [snapshot, ...current].slice(0, MAX_SNAPSHOTS);
+        const next = [snapshot, ...current].slice(0, MAX_HISTORY_SNAPSHOTS);
         localStorage.setItem(storageKey(problemId), JSON.stringify(next));
         return next;
       });

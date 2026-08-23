@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { getProctorSelfAction } from "@/actions/telemetry";
+import { POLL_DEGRADED_MS, POLL_HEALTHY_MS } from "@/lib/constants";
 import { readLocalAgent } from "@/lib/proctor";
 import type {
   AgentLocalStatus,
@@ -17,10 +18,7 @@ import type {
   ProctorState,
 } from "@/types/proctor";
 
-const POLL_HEALTHY_MS = 15_000;
-const POLL_DEGRADED_MS = 5_000;
-
-const INITIAL: ProctorState = {
+const INITIAL_PROCTOR_STATE: ProctorState = {
   submissionsAllowed: true,
   exempt: false,
   accessMode: null,
@@ -33,10 +31,10 @@ const INITIAL: ProctorState = {
   resolved: false,
 };
 
-const ProctorContext = createContext<ProctorState>(INITIAL);
+const ProctorContext = createContext<ProctorState>(INITIAL_PROCTOR_STATE);
 
 function seed(self: ProctorSelfStatus | null): ProctorState {
-  if (!self) return INITIAL;
+  if (!self) return INITIAL_PROCTOR_STATE;
   const state = { ...resolve(self, null), resolved: true };
   if (state.code === "AGENT_MISSING") {
     state.remedy = self.remedy ?? state.remedy;
@@ -44,12 +42,6 @@ function seed(self: ProctorSelfStatus | null): ProctorState {
   return state;
 }
 
-/**
- * Single source of proctoring state for the portal, polled once and shared.
- *
- * Contestants find out their agent has stopped while they are still coding rather
- * than when they hit submit with ninety seconds left on the clock.
- */
 export function ProctorProvider({
   initialProctor = null,
   children,
@@ -81,13 +73,6 @@ export function ProctorProvider({
   const degraded =
     state.resolved && (!state.submissionsAllowed || state.starting);
 
-  // Pages withhold their own content while the contest is locked — a locked render
-  // returns nothing rather than shipping a problem statement the API would refuse.
-  // That is a *server* decision, so lifting the lock in client state is not enough
-  // to bring the page back; without this the overlay lifts to reveal an empty
-  // workspace until the contestant thinks to reload. refresh() re-renders the
-  // server components in place and keeps client state, so an in-flight submission
-  // survives the transition.
   const locked = contestLocked(state);
   const wasLocked = useRef(locked);
   useEffect(() => {
@@ -142,15 +127,6 @@ export function ProctorProvider({
   );
 }
 
-/**
- * Combines the two vantage points, which fail in opposite directions.
- *
- * The server knows whether it will accept a submission but is unreachable exactly
- * when the network drops. The agent's loopback report needs no network at all and
- * knows whether its own heartbeats are landing. Trusting the server alone means a
- * contestant who unplugs sees a reassuring green pill while their submissions are
- * in fact locked — the one moment the indicator has to be right.
- */
 function resolve(
   self: ProctorSelfStatus | null,
   local: AgentLocalStatus | null,
@@ -158,8 +134,6 @@ function resolve(
   const serverReachable = self !== null;
   const base = {
     exempt: self?.exempt ?? false,
-    // Only the server knows what this account was granted, so these stay empty while
-    // it is unreachable rather than being guessed at from what the agent can see.
     accessMode: self?.access_mode ?? null,
     allowedModes: self?.allowed_modes ?? [],
     secondsSincePing: self?.seconds_since_ping ?? local?.seconds_since_ack ?? 0,
@@ -173,9 +147,6 @@ function resolve(
     return { ...base, submissionsAllowed: true };
   }
 
-  // An organizer has allowed this contestant to work with no live agent at all, so
-  // none of the agent-state checks below may lock the portal: every one of them
-  // would report a problem the server has already decided not to hold against them.
   if (self?.allowed && self.allowed_modes?.includes("WEB_ONLY")) {
     return { ...base, submissionsAllowed: true };
   }
@@ -200,9 +171,6 @@ function resolve(
     };
   }
 
-  // Launched but not yet acknowledged. Submissions really are locked until the
-  // first report lands, but blaming the contestant's network here is simply wrong —
-  // and it is the state every single client passes through on startup.
   if (local?.starting) {
     return {
       ...base,
@@ -213,8 +181,6 @@ function resolve(
     };
   }
 
-  // The agent is running and can be reached over loopback, but its heartbeats are
-  // not landing — a dropped network, or the contest server being down.
   if (local && !local.healthy) {
     return {
       ...base,
@@ -227,15 +193,9 @@ function resolve(
   }
 
   if (!serverReachable) {
-    // Both vantage points are dark. Don't cry wolf over one failed poll; the
-    // server refuses the submission itself if it really is locked.
     return { ...base, submissionsAllowed: true };
   }
 
-  // The server has never heard from an agent and this page could not reach one
-  // either. Those are two different problems with the same symptom, and the
-  // server's remedy only names the first — telling a contestant whose client is
-  // running fine to install it sends them in circles.
   if (!local && !self.allowed && self.code === "AGENT_MISSING") {
     return {
       ...base,
@@ -258,14 +218,6 @@ export function useProctor() {
   return useContext(ProctorContext);
 }
 
-/**
- * Whether the contest is withheld right now.
- *
- * Wider than what the lock screen used to show: it includes the agent's own startup
- * window, because the API refuses contest reads during it too. A UI that stayed
- * cheerful through a refusal would leave the contestant staring at an empty page
- * with nothing explaining it.
- */
 export function contestLocked(state: ProctorState): boolean {
   return state.resolved && !state.submissionsAllowed && !state.exempt;
 }

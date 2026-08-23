@@ -1,17 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getLeaderboardAction,
-  type LeaderboardEntry,
-} from "@/actions/leaderboard";
-import { useSubmissions } from "@/components/providers/submissions-context";
+import { getLeaderboardAction } from "@/actions/leaderboard";
 import {
   contestLocked,
   useProctor,
-} from "@/components/providers/proctor-provider";
-import type { SessionUser } from "@/lib/auth/constants";
+} from "@/components/portal/proctor-provider";
+import { useSubmissions } from "@/components/portal/submissions-provider";
 import { Badge } from "@/components/ui/badge";
+import type { SessionUser } from "@/lib/auth/constants";
+import { LEADERBOARD_POLL_INTERVAL_MS } from "@/lib/constants";
+import type {
+  LeaderboardEntry,
+  LeaderboardSortOption,
+} from "@/types/leaderboard";
 import {
   ArrowUpDown,
   RefreshCw,
@@ -21,17 +23,6 @@ import {
   Zap,
 } from "lucide-react";
 
-type SortOption =
-  | "RANK_ASC"
-  | "SCORE_DESC"
-  | "SCORE_ASC"
-  | "SOLVED_DESC"
-  | "NAME_ASC";
-
-// Standings move when other teams score, and the submissions stream only
-// carries this user's own events, so the board has to ask for itself.
-const POLL_INTERVAL_MS = 10_000;
-
 export function LeaderboardClient({
   leaderboard: initialLeaderboard,
   currentUser,
@@ -40,7 +31,7 @@ export function LeaderboardClient({
   currentUser: SessionUser | null;
 }) {
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>("RANK_ASC");
+  const [sortBy, setSortBy] = useState<LeaderboardSortOption>("RANK_ASC");
   const [leaderboard, setLeaderboard] = useState(initialLeaderboard);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -55,7 +46,6 @@ export function LeaderboardClient({
     setRefreshing(true);
     try {
       const next = await getLeaderboardAction();
-      // An empty array is also what a failed fetch returns.
       if (next.length > 0) {
         setLeaderboard(next);
         setUpdatedAt(new Date());
@@ -72,7 +62,7 @@ export function LeaderboardClient({
     const tick = () => {
       if (document.visibilityState === "visible") void refresh();
     };
-    const interval = setInterval(tick, POLL_INTERVAL_MS);
+    const interval = setInterval(tick, LEADERBOARD_POLL_INTERVAL_MS);
     document.addEventListener("visibilitychange", tick);
     return () => {
       clearInterval(interval);
@@ -117,7 +107,6 @@ export function LeaderboardClient({
 
   return (
     <div className="space-y-5">
-      {/* Control Bar: Search, Sort & Quick Stat */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pixel-raised bg-card p-3">
         <div className="flex flex-wrap items-center gap-3 flex-1 max-w-lg">
           <div className="relative flex-1 min-w-[200px]">
@@ -131,12 +120,11 @@ export function LeaderboardClient({
             />
           </div>
 
-          {/* Sort Selection */}
           <div className="flex items-center gap-1.5 pixel-flat bg-card px-2.5 py-1.5 shrink-0">
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              onChange={(e) => setSortBy(e.target.value as LeaderboardSortOption)}
               className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
             >
               <option value="RANK_ASC">Rank: #1 to last</option>
@@ -183,7 +171,6 @@ export function LeaderboardClient({
         </div>
       </div>
 
-      {/* Standings Table */}
       <div className="pixel-raised bg-card overflow-hidden">
         {sortedLeaderboard.length === 0 ? (
           <div className="p-10 text-center text-xs text-muted-foreground">

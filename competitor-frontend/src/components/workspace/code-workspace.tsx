@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { History, Play, Send } from "lucide-react";
 import { runCode } from "@/actions/code";
+import { useSubmissions } from "@/components/portal/submissions-provider";
 import { CodeEditor } from "@/components/workspace/code-editor";
 import { HistoryPanel } from "@/components/workspace/history-panel";
 import { IoPanels } from "@/components/workspace/io-panels";
 import { SubmissionResult } from "@/components/workspace/submission-result";
-import { useSubmissions } from "@/components/providers/submissions-context";
 import { Button } from "@/components/ui/button";
 import {
   ResizableHandle,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useHistory } from "@/hooks/use-history";
+import { BEST_SCORE_STORAGE_PREFIX } from "@/lib/constants";
 import { LANGUAGES } from "@/lib/languages";
 import type { Language, RunResult, SubmitResult } from "@/types/code";
 import type { Snapshot } from "@/types/history";
@@ -45,7 +46,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const { snapshots, record } = useHistory(problem.id);
-  const bestKey = `mini-algothon:best:${problem.id}`;
+  const bestKey = `${BEST_SCORE_STORAGE_PREFIX}${problem.id}`;
   const [best, setBest] = useState(() =>
     typeof window === "undefined"
       ? 0

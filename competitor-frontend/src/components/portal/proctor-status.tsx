@@ -7,15 +7,10 @@ import {
   ShieldCheck,
   ShieldOff,
 } from "lucide-react";
-import { useProctor } from "@/components/providers/proctor-provider";
+import { useProctor } from "@/components/portal/proctor-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-/**
- * Persistent proctoring indicator. An agent that keeps running in the background
- * has to be visible in the UI it is watching — there is no hidden state anywhere
- * in this design.
- */
 export function ProctorPill() {
   const {
     resolved,
@@ -50,9 +45,6 @@ export function ProctorPill() {
 
   if (!submissionsAllowed) {
     const cutOff = Boolean(local && local.healthy === false);
-    // "PROCTOR INACTIVE" would be a lie when the agent is reporting normally and it
-    // is the window that is not permitted — and it would send the contestant off to
-    // restart a client that is already working.
     const notAllowed = code === "CLIENT_NOT_ALLOWED";
     return (
       <Badge
@@ -76,7 +68,6 @@ export function ProctorPill() {
     );
   }
 
-  // Allowed, but we could not confirm it with the server this cycle.
   if (!serverReachable) {
     return (
       <Badge
@@ -90,9 +81,6 @@ export function ProctorPill() {
     );
   }
 
-  // Submitting with no agent behind the page, by grant. Saying so plainly beats
-  // "PROCTOR UNVERIFIED", which reads as a fault when it is the arrangement an
-  // organizer set up for this account.
   if (accessMode === "WEB_ONLY") {
     return (
       <Badge
@@ -124,11 +112,6 @@ export function ProctorPill() {
   );
 }
 
-/**
- * Non-dismissible notice when scored submissions are locked. It always names the
- * remedy and the support code, because the alternative is a contestant discovering
- * this at the deadline with nothing to tell an organizer.
- */
 export function ProctorLockBanner() {
   const {
     resolved,
@@ -166,9 +149,6 @@ export function ProctorLockBanner() {
     >
       <AlertTriangle className="h-4 w-4 shrink-0" />
       <span className="font-semibold">
-        {/* The agent may be running perfectly — this window is simply not one this
-            account may submit from. Blaming the client would send the contestant to
-            restart something that is already working. */}
         {code === "CLIENT_NOT_ALLOWED"
           ? "Submissions locked — this window isn't allowed for scored submissions."
           : "Submissions locked — proctor client isn't reporting."}

@@ -1,31 +1,17 @@
+import { AGENT_HOST, LOOPBACK_PORTS, PROBE_TIMEOUT_MS } from "@/lib/constants";
 import type { AgentLocalStatus, ProctorSelfStatus } from "@/types/proctor";
+
+export { LOOPBACK_PORTS };
 
 export function proctorLocksContest(self: ProctorSelfStatus | null): boolean {
   if (!self || self.exempt) return false;
   return !self.allowed;
 }
 
-/**
- * Ports the agent tries in order. The portal probes the same range, so a port
- * conflict on a contestant's machine costs a retry instead of a broken install.
- */
-export const LOOPBACK_PORTS = [47615, 47616, 47617, 47618, 47619] as const;
-const AGENT_HOST = "127.0.0.1";
-
 function agentUrl(port: number, path: string): string {
   return `http://${AGENT_HOST}:${port}${path}`;
 }
 
-const PROBE_TIMEOUT_MS = 700;
-
-/**
- * Reads the agent's status over loopback.
- *
- * This is the same-machine proof: a page can only read the rotating nonce if the
- * agent is listening on this contestant's own machine. It is not proof the code
- * was written here — a determined contestant with two machines can relay the value
- * over the LAN — so its absence is a review signal, never a verdict.
- */
 export async function readLocalAgent(
   preferredPort?: number,
 ): Promise<AgentLocalStatus | null> {
@@ -48,7 +34,7 @@ export async function stopLocalAgent(preferredPort?: number): Promise<boolean> {
       });
       if (res.ok) return true;
     } catch {
-      // Four of the five ports are unreachable in the normal case.
+      // Ignore unreachable ports
     } finally {
       clearTimeout(timer);
     }
@@ -76,7 +62,6 @@ async function probe(port: number): Promise<AgentLocalStatus | null> {
     if (!res.ok) return null;
     return (await res.json()) as AgentLocalStatus;
   } catch {
-    // An unreachable port is the normal case for four of the five.
     return null;
   } finally {
     clearTimeout(timer);

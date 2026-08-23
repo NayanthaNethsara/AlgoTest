@@ -14,14 +14,6 @@ export type Sample = {
   explanation?: string;
 };
 
-export type TestMetadata = {
-  id: string;
-  ordinal: number;
-  inputSha: string;
-  expectedSha: string;
-  points: number;
-};
-
 export type Problem = {
   id: string;
   slug?: string;
@@ -36,30 +28,4 @@ export type Problem = {
   subtasks?: { id: number; points: number; constraints: string }[];
 };
 
-export type ProblemDetail = Problem & {
-  createdAt?: string;
-  updatedAt?: string;
-  published?: boolean;
-  maxScore?: number;
-  tests?: TestMetadata[];
-};
-
-export type ProblemInput = {
-  slug: string;
-  title: string;
-  difficulty: string;
-  statement: string;
-  constraints?: string;
-  timeLimitMs: number;
-  memoryLimitMb: number;
-  maxScore: number;
-  published: boolean;
-  samples: Sample[];
-};
-
-export type TestCaseInput = {
-  ordinal: number;
-  input: string;
-  expected: string;
-  points: number;
-};
+export type ChallengeThemeMode = "pixel" | "dark" | "light";

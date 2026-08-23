@@ -12,15 +12,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { Snapshot, SnapshotTrigger } from "@/types/history";
-
-const TRIGGER_LABELS: Record<SnapshotTrigger, string> = {
-  autosave: "Autosave",
-  ran: "Ran",
-  submitted: "Submitted",
-};
-
-type HistoryFilter = "all" | "submitted" | "autosave" | "ran";
+import { SNAPSHOT_TRIGGER_LABELS } from "@/lib/constants";
+import type { HistoryFilter, Snapshot } from "@/types/history";
 
 type HistoryPanelProps = {
   open: boolean;
@@ -106,7 +99,7 @@ export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: Histo
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5">
-                          <Badge variant="secondary">{TRIGGER_LABELS[snapshot.trigger]}</Badge>
+                          <Badge variant="secondary">{SNAPSHOT_TRIGGER_LABELS[snapshot.trigger]}</Badge>
                           {snapshot.verdict && (
                             <Badge
                               variant={snapshot.verdict === "AC" ? "success" : "destructive"}

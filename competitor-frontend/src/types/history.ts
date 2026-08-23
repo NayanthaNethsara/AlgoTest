@@ -11,3 +11,5 @@ export type Snapshot = {
   maxScore?: number;
   submissionId?: string;
 };
+
+export type HistoryFilter = "all" | "submitted" | "autosave" | "ran";
