@@ -71,7 +71,7 @@ export function ChallengeThemeProvider({
 
   return (
     <ChallengeThemeContext.Provider value={value}>
-      <div className={`h-full w-full ${MODE_CLASS[mode]}`}>{children}</div>
+      <div className={`h-full w-full bg-background text-foreground ${MODE_CLASS[mode]}`}>{children}</div>
     </ChallengeThemeContext.Provider>
   );
 }

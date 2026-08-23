@@ -98,8 +98,7 @@ function defineTheme(monaco: Monaco) {
 
 export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
   const { mode } = useChallengeTheme();
-  const editorTheme =
-    mode === "light" ? "vs" : mode === "dark" ? "vs-dark" : "mini-pixel";
+  const editorTheme = mode === "light" ? "vs" : "mini-pixel";
 
   return (
     <Editor

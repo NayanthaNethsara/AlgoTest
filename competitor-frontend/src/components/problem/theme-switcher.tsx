@@ -28,7 +28,7 @@ export function ChallengeThemeSwitcher() {
         title="Clean Dark Mode"
         className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-sans transition-colors ${
           mode === "dark"
-            ? "bg-slate-800 font-semibold text-white"
+            ? "bg-primary font-semibold text-primary-foreground"
             : "text-muted-foreground hover:text-foreground"
         }`}
       >
@@ -42,11 +42,11 @@ export function ChallengeThemeSwitcher() {
         title="Clean Light Mode"
         className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-sans transition-colors ${
           mode === "light"
-            ? "bg-white font-semibold text-slate-900"
+            ? "bg-primary font-semibold text-primary-foreground"
             : "text-muted-foreground hover:text-foreground"
         }`}
       >
-        <Sun className="h-3.5 w-3.5 text-amber-500" />
+        <Sun className="h-3.5 w-3.5" />
         <span>Light</span>
       </button>
     </div>

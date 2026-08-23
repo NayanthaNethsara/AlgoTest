@@ -98,10 +98,10 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function SampleBlock({ index, sample }: { index: number; sample: Sample }) {
   return (
     <div className="pixel-raised overflow-hidden">
-      <div className="border-b-2 border-black bg-secondary px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+      <div className="border-b-2 border-border bg-secondary px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
         Sample {index}
       </div>
-      <div className="grid gap-0.5 bg-black sm:grid-cols-2">
+      <div className="grid gap-0.5 bg-border sm:grid-cols-2">
         <IoCell label="Input" value={sample.input} />
         <IoCell label="Output" value={sample.output} />
       </div>

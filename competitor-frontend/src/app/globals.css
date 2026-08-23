@@ -459,7 +459,7 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
    Challenge Workspace Mode Overrides (Dark & Light)
    ========================================================================== */
 
-/* Clean Dark Mode (VS Code / LeetCode Dark Theme) */
+/* Clean Dark Mode: Preserves original dark background/palette, normalizes fonts */
 .challenge-mode-dark {
   font-family:
     var(--font-sans),
@@ -467,8 +467,6 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
     system-ui,
     -apple-system,
     sans-serif !important;
-  background-color: #09090b !important;
-  color: #f8fafc !important;
 }
 
 .challenge-mode-dark *,
@@ -476,6 +474,8 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 .challenge-mode-dark h2,
 .challenge-mode-dark h3,
 .challenge-mode-dark h4,
+.challenge-mode-dark h5,
+.challenge-mode-dark h6,
 .challenge-mode-dark .pixel-text-shadow,
 .challenge-mode-dark .pixel-label,
 .challenge-mode-dark .font-pixel-header,
@@ -494,49 +494,68 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
   content: "" !important;
 }
 
-.challenge-mode-dark .bg-card,
-.challenge-mode-dark .bg-background,
-.challenge-mode-dark .bg-input,
-.challenge-mode-dark .bg-muted {
-  background-color: #18181b !important;
-  color: #f8fafc !important;
-  border-color: #27272a !important;
-  box-shadow: none !important;
-}
-
-.challenge-mode-dark .border-black,
-.challenge-mode-dark .border-2,
-.challenge-mode-dark .border-4 {
-  border-color: #27272a !important;
-}
-
-.challenge-mode-dark .text-muted-foreground {
-  color: #cbd5e1 !important;
-}
-
-.challenge-mode-dark .text-foreground {
-  color: #f8fafc !important;
-}
-
 .challenge-mode-dark pre,
 .challenge-mode-dark code,
 .challenge-mode-dark .markdown :not(pre) > code {
   font-family: var(--font-mono), monospace !important;
-  background-color: #09090b !important;
-  color: #f8fafc !important;
-  border-color: #27272a !important;
 }
 
-/* Clean Light Mode (VS Code / LeetCode Light Theme) */
+/* The pixel scrollbar clean styling */
+body:has(.challenge-mode-dark) ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-color: var(--background);
+}
+
+body:has(.challenge-mode-dark) ::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+/* Clean Light Mode: Full modern light theme with scoped CSS variables */
 .challenge-mode-light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #e2e8f0;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --warning: #d97706;
+  --border: #e2e8f0;
+  --input: #ffffff;
+  --ring: #059669;
+  --edge: #cbd5e1;
+  --bevel-light: #ffffff;
+  --bevel-dark: #e2e8f0;
+  --success-bg: #dcfce7;
+  --success-fg: #15803d;
+  --success-border: #86efac;
+  --warning-bg: #fef3c7;
+  --warning-fg: #b45309;
+  --warning-border: #fcd34d;
+  --destructive-bg: #fee2e2;
+  --destructive-fg: #b91c1c;
+  --destructive-border: #fca5a5;
+  --teal: #0891b2;
+  --teal-deep: #0e7490;
+
   font-family:
     var(--font-sans),
     Inter,
     system-ui,
     -apple-system,
     sans-serif !important;
-  background-color: #f8fafc !important;
-  color: #020617 !important;
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
 }
 
 .challenge-mode-light *,
@@ -544,6 +563,8 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 .challenge-mode-light h2,
 .challenge-mode-light h3,
 .challenge-mode-light h4,
+.challenge-mode-light h5,
+.challenge-mode-light h6,
 .challenge-mode-light .pixel-text-shadow,
 .challenge-mode-light .pixel-label,
 .challenge-mode-light .font-pixel-header,
@@ -562,33 +583,52 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
   content: "" !important;
 }
 
-.challenge-mode-light .bg-card,
-.challenge-mode-light .bg-background,
-.challenge-mode-light .bg-input,
-.challenge-mode-light .bg-muted {
-  background-color: #ffffff !important;
-  color: #020617 !important;
+/* Light mode panels, cards and wells */
+.challenge-mode-light .pixel-raised {
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.07) !important;
+}
+
+.challenge-mode-light .pixel-inset {
+  border-color: #e2e8f0 !important;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.challenge-mode-light .pixel-flat {
   border-color: #e2e8f0 !important;
   box-shadow: none !important;
 }
 
-.challenge-mode-light .border-black,
-.challenge-mode-light .border-2,
-.challenge-mode-light .border-4 {
+.challenge-mode-light .border-black {
   border-color: #e2e8f0 !important;
 }
 
-/* The pixel scrollbar is chunky and teal-tinted by design — a deliberate
-   accent in pixel mode, but a leak into the clean dark/light editor themes. */
-body:has(.challenge-mode-dark) ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
-  border-color: #18181b;
+.challenge-mode-light textarea,
+.challenge-mode-light input,
+.challenge-mode-light select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
 }
 
-body:has(.challenge-mode-dark) ::-webkit-scrollbar-track {
-  background: #09090b;
+/* Light mode tabs */
+.challenge-mode-light [data-slot="tabs-list"] {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
 }
 
+.challenge-mode-light [data-slot="tabs-trigger"] {
+  color: #64748b !important;
+}
+
+.challenge-mode-light [data-slot="tabs-trigger"][data-active] {
+  background-color: #ffffff !important;
+  color: #059669 !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Light mode scrollbars */
 body:has(.challenge-mode-light) ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-color: #f8fafc;
@@ -598,19 +638,12 @@ body:has(.challenge-mode-light) ::-webkit-scrollbar-track {
   background: #f1f5f9;
 }
 
-.challenge-mode-light .text-muted-foreground {
-  color: #475569 !important;
-}
-
-.challenge-mode-light .text-foreground {
-  color: #020617 !important;
-}
-
+/* Light mode code and markdown blocks */
 .challenge-mode-light pre,
 .challenge-mode-light code,
 .challenge-mode-light .markdown :not(pre) > code {
   font-family: var(--font-mono), monospace !important;
   background-color: #f1f5f9 !important;
-  color: #020617 !important;
-  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
 }

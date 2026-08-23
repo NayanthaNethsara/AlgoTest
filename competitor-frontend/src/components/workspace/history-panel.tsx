@@ -103,7 +103,7 @@ export function HistoryPanel({
           </div>
         ) : (
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-            <ScrollArea className="border-r-2 border-black">
+            <ScrollArea className="border-r-2 border-border">
               <ol className="flex flex-col p-2">
                 {filteredSnapshots.map((snapshot) => (
                   <li key={snapshot.id}>
@@ -111,8 +111,8 @@ export function HistoryPanel({
                       onClick={() => setSelectedId(snapshot.id)}
                       className={`flex w-full flex-col gap-1.5 border-2 p-3 text-left transition-colors ${
                         selected?.id === snapshot.id
-                          ? "border-black bg-accent shadow-[inset_2px_2px_0_var(--bevel-light),inset_-2px_-2px_0_var(--bevel-dark)]"
-                          : "border-transparent hover:border-black hover:bg-muted"
+                          ? "border-primary bg-accent shadow-[inset_2px_2px_0_var(--bevel-light),inset_-2px_-2px_0_var(--bevel-dark)]"
+                          : "border-transparent hover:border-border hover:bg-muted"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">

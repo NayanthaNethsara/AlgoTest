@@ -17,7 +17,7 @@ export function IoPanels({
   running,
 }: IoPanelsProps) {
   return (
-    <div className="grid min-h-0 flex-1 gap-px overflow-hidden bg-black sm:grid-cols-2">
+    <div className="grid min-h-0 flex-1 gap-px overflow-hidden bg-border sm:grid-cols-2">
       <div className="flex min-h-0 flex-col bg-background">
         <PanelLabel>Custom input (stdin)</PanelLabel>
         <Textarea
@@ -116,7 +116,7 @@ function OutputBody({
 
 function PanelLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between border-b-2 border-black bg-muted px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground">
+    <div className="flex items-center justify-between border-b-2 border-border bg-muted px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground">
       {children}
     </div>
   );
