@@ -1,4 +1,3 @@
-import { getSessionUser } from "@/lib/auth/session";
 import { listSubmissionsAction } from "@/actions/code";
 import { readProctorGate } from "@/lib/proctor-gate";
 import { proctorLocksContest } from "@/lib/proctor";
@@ -9,10 +8,7 @@ import { History } from "lucide-react";
 export default async function SubmissionsPage() {
   if (proctorLocksContest(await readProctorGate())) return null;
 
-  const [currentUser, submissions] = await Promise.all([
-    getSessionUser(),
-    listSubmissionsAction(),
-  ]);
+  const submissions = await listSubmissionsAction();
 
   return (
     <ScrollArea className="h-full">

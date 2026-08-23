@@ -145,13 +145,29 @@ export type SubmissionItemData = {
   timestamp?: number;
 };
 
+type ApiSubmission = {
+  submissionId: string;
+  problemId?: string;
+  problemTitle?: string;
+  userName?: string;
+  teamName?: string;
+  language?: string;
+  score?: number;
+  maxScore?: number;
+  status?: string;
+  verdict?: string;
+  reviewStatus?: SubmissionItemData["reviewStatus"];
+  reviewReason?: string;
+  createdAt?: string;
+};
+
 export async function listSubmissionsAction(): Promise<SubmissionItemData[]> {
   try {
     const res = await backendFetch("/api/v1/submissions", { method: "GET" });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data.submissions)) {
-        return data.submissions.map((s: any) => ({
+        return data.submissions.map((s: ApiSubmission) => ({
           id: s.submissionId,
           problemTitle: s.problemTitle || s.problemId || "Challenge",
           submittedBy: s.userName || "Competitor",

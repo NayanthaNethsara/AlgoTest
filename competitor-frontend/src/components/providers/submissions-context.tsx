@@ -7,8 +7,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import { getSubmissionStatusAction, submitCode } from "@/actions/code";
-import { contestLocked, useProctor } from "@/components/providers/proctor-provider";
+import {
+  contestLocked,
+  useProctor,
+} from "@/components/providers/proctor-provider";
 import type { SubmitResult } from "@/types/code";
 
 export type ActiveSubmission = {
@@ -25,9 +29,16 @@ export type ToastMessage = {
   variant: "success" | "error" | "info";
 };
 
+export type ReviewNotice = {
+  submissionId: string;
+  reviewStatus: "accepted" | "rejected";
+  reviewReason?: string;
+};
+
 type SubmissionsContextType = {
   activeSubmission: ActiveSubmission | null;
   lastResult: SubmitResult | null;
+  lastReview: ReviewNotice | null;
   toast: ToastMessage | null;
   clearToast: () => void;
   submitFast: (
@@ -40,7 +51,37 @@ type SubmissionsContextType = {
 
 const SubmissionsContext = createContext<SubmissionsContextType | null>(null);
 
-function parseSubmissionResult(data: any): SubmitResult & { problemId?: string } {
+type SubmissionEventTest = {
+  ordinal: number;
+  verdict?: string;
+  points?: number;
+  timeMs?: number;
+  time_ms?: number;
+};
+
+type SubmissionEvent = {
+  submissionId?: string;
+  submission_id?: string;
+  id?: string;
+  problemId?: string;
+  problem_id?: string;
+  status?: SubmitResult["status"];
+  verdict?: SubmitResult["verdict"];
+  score?: number;
+  maxScore?: number;
+  max_score?: number;
+  queuePosition?: number;
+  queue_position?: number;
+  compileError?: string;
+  compile_error?: string;
+  reviewStatus?: ReviewNotice["reviewStatus"];
+  reviewReason?: string;
+  tests?: SubmissionEventTest[];
+};
+
+function parseSubmissionResult(
+  data: SubmissionEvent,
+): SubmitResult & { problemId?: string } {
   const submissionId = data.submissionId || data.submission_id || data.id;
   const problemId = data.problemId || data.problem_id;
   const score = data.score ?? 0;
@@ -53,7 +94,7 @@ function parseSubmissionResult(data: any): SubmitResult & { problemId?: string }
   const rawTests = data.tests;
   const subtasks =
     Array.isArray(rawTests) && rawTests.length > 0
-      ? rawTests.map((t: any) => {
+      ? rawTests.map((t) => {
           const tTime = t.timeMs ?? t.time_ms;
           return {
             id: t.ordinal,
@@ -90,9 +131,12 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
   // would burn the stream-open limiter within a minute. Derived as a primitive so
   // the effects below re-run on the transition and not on every poll tick.
   const locked = contestLocked(proctor);
-  const [activeSubmission, setActiveSubmission] = useState<ActiveSubmission | null>(null);
+  const [activeSubmission, setActiveSubmission] =
+    useState<ActiveSubmission | null>(null);
   const [lastResult, setLastResult] = useState<SubmitResult | null>(null);
+  const [lastReview, setLastReview] = useState<ReviewNotice | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const router = useRouter();
 
   const clearToast = () => setToast(null);
 
@@ -111,6 +155,31 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
           const data = JSON.parse(e.data);
           const parsed = parseSubmissionResult(data);
           if (!parsed.submissionId) return;
+
+          // Ahead of the status branches on purpose: a review event carries no test
+          // results, so letting it fall through would blank the subtask table it
+          // never touched, and toast "Accepted" over a rejection.
+          if (data.reviewStatus) {
+            const rejected = data.reviewStatus === "rejected";
+            setLastReview({
+              submissionId: parsed.submissionId,
+              reviewStatus: data.reviewStatus,
+              reviewReason: data.reviewReason,
+            });
+            setToast({
+              id: `review-${parsed.submissionId}`,
+              title: rejected ? "Submission rejected" : "Submission reinstated",
+              description: rejected
+                ? data.reviewReason
+                  ? `An organizer removed it from the leaderboard: ${data.reviewReason}`
+                  : "An organizer removed it from the leaderboard."
+                : "An organizer restored it. It counts towards your score again.",
+              variant: rejected ? "error" : "success",
+            });
+            // Repaints the history page, which reads its rows straight from props.
+            router.refresh();
+            return;
+          }
 
           if (parsed.status === "queued" || parsed.status === "running") {
             setActiveSubmission((prev) => ({
@@ -131,8 +200,8 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
               description: passed
                 ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
                 : parsed.compileError
-                ? "Compilation Error"
-                : `Verdict: ${parsed.verdict || "Failed"}`,
+                  ? "Compilation Error"
+                  : `Verdict: ${parsed.verdict || "Failed"}`,
               variant: passed ? "success" : "error",
             });
           }
@@ -149,7 +218,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
         eventSource.close();
       }
     };
-  }, [locked]);
+  }, [locked, router]);
 
   // Background fallback poller if an active submission exists
   useEffect(() => {
@@ -183,8 +252,8 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
           description: passed
             ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
             : parsed.compileError
-            ? "Compilation Error"
-            : `Verdict: ${parsed.verdict || "Failed"}`,
+              ? "Compilation Error"
+              : `Verdict: ${parsed.verdict || "Failed"}`,
           variant: passed ? "success" : "error",
         });
       }
@@ -199,11 +268,18 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     previousBest: number,
     language = "cpp",
   ): Promise<SubmitResult> {
-    const result = await submitCode(problemId, code, previousBest, language, attestNonce);
+    const result = await submitCode(
+      problemId,
+      code,
+      previousBest,
+      language,
+      attestNonce,
+    );
 
     if (result.error) {
       const gateRefusal =
-        result.errorCode?.startsWith("AGENT_") || result.errorCode === "NOT_ATTESTED";
+        result.errorCode?.startsWith("AGENT_") ||
+        result.errorCode === "NOT_ATTESTED";
       setToast({
         id: Date.now().toString(),
         title: gateRefusal ? "Submissions are locked" : "Submission Error",
@@ -230,6 +306,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
       value={{
         activeSubmission,
         lastResult,
+        lastReview,
         toast,
         clearToast,
         submitFast,

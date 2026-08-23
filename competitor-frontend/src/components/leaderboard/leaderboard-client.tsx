@@ -1,14 +1,32 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getLeaderboardAction, type LeaderboardEntry } from "@/actions/leaderboard";
+import {
+  getLeaderboardAction,
+  type LeaderboardEntry,
+} from "@/actions/leaderboard";
 import { useSubmissions } from "@/components/providers/submissions-context";
-import { contestLocked, useProctor } from "@/components/providers/proctor-provider";
+import {
+  contestLocked,
+  useProctor,
+} from "@/components/providers/proctor-provider";
 import type { SessionUser } from "@/lib/auth/constants";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown, RefreshCw, Search, Trophy, Users, Zap } from "lucide-react";
+import {
+  ArrowUpDown,
+  RefreshCw,
+  Search,
+  Trophy,
+  Users,
+  Zap,
+} from "lucide-react";
 
-type SortOption = "RANK_ASC" | "SCORE_DESC" | "SCORE_ASC" | "SOLVED_DESC" | "NAME_ASC";
+type SortOption =
+  | "RANK_ASC"
+  | "SCORE_DESC"
+  | "SCORE_ASC"
+  | "SOLVED_DESC"
+  | "NAME_ASC";
 
 // Standings move when other teams score, and the submissions stream only
 // carries this user's own events, so the board has to ask for itself.
@@ -62,14 +80,14 @@ export function LeaderboardClient({
     };
   }, [refresh, locked]);
 
-  const { lastResult } = useSubmissions();
+  const { lastResult, lastReview } = useSubmissions();
   useEffect(() => {
     if (locked) return;
-    if (lastResult?.submissionId) void refresh();
-  }, [lastResult?.submissionId, refresh, locked]);
+    if (lastResult?.submissionId || lastReview?.submissionId) void refresh();
+  }, [lastResult?.submissionId, lastReview?.submissionId, refresh, locked]);
 
   const filteredLeaderboard = leaderboard.filter((entry) =>
-    entry.teamName.toLowerCase().includes(search.toLowerCase().trim())
+    entry.teamName.toLowerCase().includes(search.toLowerCase().trim()),
   );
 
   const sortedLeaderboard = [...filteredLeaderboard].sort((a, b) => {
@@ -94,7 +112,7 @@ export function LeaderboardClient({
   const currentUserStanding = leaderboard.find(
     (e) =>
       (currentUser?.teamId && e.teamId === currentUser.teamId) ||
-      (currentUser?.teamName && e.teamName === currentUser.teamName)
+      (currentUser?.teamName && e.teamName === currentUser.teamName),
   );
 
   return (
@@ -134,11 +152,17 @@ export function LeaderboardClient({
           {currentUserStanding && (
             <div className="flex items-center gap-2 border border-primary/60 bg-primary/10 px-2.5 py-1 text-foreground font-semibold">
               <Trophy className="h-3.5 w-3.5 text-amber-400" />
-              <span>Your rank: #{currentUserStanding.rank} ({currentUserStanding.totalScore} XP)</span>
+              <span>
+                Your rank: #{currentUserStanding.rank} (
+                {currentUserStanding.totalScore} XP)
+              </span>
             </div>
           )}
           <span className="text-muted-foreground text-xs">
-            Teams: <strong className="text-foreground font-semibold">{leaderboard.length}</strong>
+            Teams:{" "}
+            <strong className="text-foreground font-semibold">
+              {leaderboard.length}
+            </strong>
           </span>
           <button
             type="button"
@@ -151,7 +175,9 @@ export function LeaderboardClient({
             }
             className="flex items-center gap-1.5 pixel-flat bg-card px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
           >
-            <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`}
+            />
             <span>{refreshing ? "Syncing" : "Live"}</span>
           </button>
         </div>
@@ -169,7 +195,11 @@ export function LeaderboardClient({
               <thead>
                 <tr className="border-b-2 border-black bg-muted/80 text-foreground uppercase tracking-wider font-bold">
                   <th
-                    onClick={() => setSortBy(sortBy === "RANK_ASC" ? "SCORE_ASC" : "RANK_ASC")}
+                    onClick={() =>
+                      setSortBy(
+                        sortBy === "RANK_ASC" ? "SCORE_ASC" : "RANK_ASC",
+                      )
+                    }
                     className="py-3 px-4 w-20 text-center cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1 justify-center">
@@ -178,7 +208,9 @@ export function LeaderboardClient({
                     </div>
                   </th>
                   <th
-                    onClick={() => setSortBy(sortBy === "NAME_ASC" ? "RANK_ASC" : "NAME_ASC")}
+                    onClick={() =>
+                      setSortBy(sortBy === "NAME_ASC" ? "RANK_ASC" : "NAME_ASC")
+                    }
                     className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1">
@@ -187,7 +219,11 @@ export function LeaderboardClient({
                     </div>
                   </th>
                   <th
-                    onClick={() => setSortBy(sortBy === "SOLVED_DESC" ? "RANK_ASC" : "SOLVED_DESC")}
+                    onClick={() =>
+                      setSortBy(
+                        sortBy === "SOLVED_DESC" ? "RANK_ASC" : "SOLVED_DESC",
+                      )
+                    }
                     className="py-3 px-4 text-center cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1 justify-center">
@@ -196,7 +232,11 @@ export function LeaderboardClient({
                     </div>
                   </th>
                   <th
-                    onClick={() => setSortBy(sortBy === "RANK_ASC" ? "SCORE_ASC" : "RANK_ASC")}
+                    onClick={() =>
+                      setSortBy(
+                        sortBy === "RANK_ASC" ? "SCORE_ASC" : "RANK_ASC",
+                      )
+                    }
                     className="py-3 px-4 text-right cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1 justify-end">
@@ -209,8 +249,13 @@ export function LeaderboardClient({
               <tbody className="divide-y divide-border">
                 {sortedLeaderboard.map((row) => {
                   const isCurrentTeam =
-                    Boolean(currentUser?.teamId && row.teamId === currentUser.teamId) ||
-                    Boolean(currentUser?.teamName && row.teamName === currentUser.teamName);
+                    Boolean(
+                      currentUser?.teamId && row.teamId === currentUser.teamId,
+                    ) ||
+                    Boolean(
+                      currentUser?.teamName &&
+                      row.teamName === currentUser.teamName,
+                    );
                   const isTop1 = row.rank === 1;
                   const isTop2 = row.rank === 2;
                   const isTop3 = row.rank === 3;
@@ -238,15 +283,22 @@ export function LeaderboardClient({
                             3
                           </span>
                         ) : (
-                          <span className="font-mono text-muted-foreground">#{row.rank}</span>
+                          <span className="font-mono text-muted-foreground">
+                            #{row.rank}
+                          </span>
                         )}
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <Users className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="font-semibold text-foreground">{row.teamName}</span>
+                          <span className="font-semibold text-foreground">
+                            {row.teamName}
+                          </span>
                           {isCurrentTeam && (
-                            <Badge variant="default" className="text-[9px] py-0 px-1.5 font-semibold">
+                            <Badge
+                              variant="default"
+                              className="text-[9px] py-0 px-1.5 font-semibold"
+                            >
                               Your team
                             </Badge>
                           )}

@@ -220,7 +220,7 @@ export function ChallengesListClient({
                   layout={layout}
                   progress={{
                     problemId: problem.id,
-                    status: (pProgress.status as any) || CHALLENGE_STATUS.NOT_ATTEMPTED,
+                    status: pProgress.status || CHALLENGE_STATUS.NOT_ATTEMPTED,
                     bestScore: pProgress.bestScore ?? 0,
                   }}
                 />

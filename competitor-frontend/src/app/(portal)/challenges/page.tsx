@@ -1,4 +1,3 @@
-import { getSessionUser } from "@/lib/auth/session";
 import { listProblemsAction } from "@/actions/problems";
 import { readProctorGate } from "@/lib/proctor-gate";
 import { proctorLocksContest } from "@/lib/proctor";
@@ -10,10 +9,7 @@ import { CHALLENGE_STATUS } from "@/types/challenge";
 export default async function ChallengesPage() {
   if (proctorLocksContest(await readProctorGate())) return null;
 
-  const [user, { problems, progress }] = await Promise.all([
-    getSessionUser(),
-    listProblemsAction(),
-  ]);
+  const { problems, progress } = await listProblemsAction();
 
   const totalPoints = problems.reduce((acc, p) => acc + p.points, 0);
   const solvedCount = problems.filter((p) => {

@@ -38,6 +38,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
 
   const { activeSubmission, lastResult, submitFast } = useSubmissions();
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
+  const [appliedResultId, setAppliedResultId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [tab, setTab] = useState("test");
@@ -46,7 +47,9 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   const { snapshots, record } = useHistory(problem.id);
   const bestKey = `mini-algothon:best:${problem.id}`;
   const [best, setBest] = useState(() =>
-    typeof window === "undefined" ? 0 : Number(localStorage.getItem(bestKey) ?? 0),
+    typeof window === "undefined"
+      ? 0
+      : Number(localStorage.getItem(bestKey) ?? 0),
   );
 
   const firstRender = useRef(true);
@@ -59,20 +62,29 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     return () => clearTimeout(timer);
   }, [code, language.id, record]);
 
-  useEffect(() => {
-    if (lastResult && lastResult.submissionId) {
-      setSubmitResult(lastResult);
-      if (lastResult.score > best) {
-        setBest(lastResult.score);
-        localStorage.setItem(bestKey, String(lastResult.score));
-      }
-      record("submitted", language.id, code, {
-        submissionId: lastResult.submissionId,
-        verdict: lastResult.verdict,
-        score: lastResult.score,
-        maxScore: lastResult.maxScore,
-      });
+  if (lastResult?.submissionId && lastResult.submissionId !== appliedResultId) {
+    setAppliedResultId(lastResult.submissionId);
+    setSubmitResult(lastResult);
+    if (lastResult.score > best) {
+      setBest(lastResult.score);
     }
+  }
+
+  const recordedResult = useRef<string | null>(null);
+  useEffect(() => {
+    const id = lastResult?.submissionId;
+    if (!id || recordedResult.current === id) return;
+    recordedResult.current = id;
+
+    if (lastResult.score > best) {
+      localStorage.setItem(bestKey, String(lastResult.score));
+    }
+    record("submitted", language.id, code, {
+      submissionId: id,
+      verdict: lastResult.verdict,
+      score: lastResult.score,
+      maxScore: lastResult.maxScore,
+    });
   }, [lastResult, best, bestKey, language.id, code, record]);
 
   function handleLanguageChange(id: string | null) {
@@ -122,9 +134,9 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     submitting ||
     Boolean(
       activeSubmission &&
-        (activeSubmission.problemId === problem.id ||
-          activeSubmission.problemId === problem.slug ||
-          activeSubmission.id === submitResult?.submissionId)
+      (activeSubmission.problemId === problem.id ||
+        activeSubmission.problemId === problem.slug ||
+        activeSubmission.id === submitResult?.submissionId),
     );
 
   return (
@@ -143,7 +155,12 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
           </SelectContent>
         </Select>
 
-        <Button variant="ghost" size="sm" onClick={() => setHistoryOpen(true)} className="text-xs">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setHistoryOpen(true)}
+          className="text-xs"
+        >
           <History className="size-3.5" />
           History
         </Button>
@@ -152,14 +169,22 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
       <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
         <ResizablePanel defaultSize="62" minSize="30">
           <div className="h-full border-b-2 border-black">
-            <CodeEditor language={language.monaco} value={code} onChange={setCode} />
+            <CodeEditor
+              language={language.monaco}
+              value={code}
+              onChange={setCode}
+            />
           </div>
         </ResizablePanel>
 
         <ResizableHandle withHandle className="bg-border" />
 
         <ResizablePanel defaultSize="38" minSize="20">
-          <Tabs value={tab} onValueChange={setTab} className="flex h-full flex-col gap-0">
+          <Tabs
+            value={tab}
+            onValueChange={setTab}
+            className="flex h-full flex-col gap-0"
+          >
             <div className="flex items-center justify-between gap-3 border-b-2 border-black bg-card px-3 py-1.5">
               <TabsList>
                 <TabsTrigger value="test">Test</TabsTrigger>
@@ -170,7 +195,12 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
                 <span className="hidden text-[11px] text-muted-foreground lg:inline">
                   Run uses your test input · Submit scores against hidden tests
                 </span>
-                <Button variant="secondary" size="sm" onClick={handleRun} disabled={running}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleRun}
+                  disabled={running}
+                >
                   <Play className="size-3.5" />
                   {running ? "Running..." : "Run"}
                 </Button>
@@ -190,7 +220,10 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
               />
             </TabsContent>
 
-            <TabsContent value="submission" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <TabsContent
+              value="submission"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
               <SubmissionResult
                 result={submitResult}
                 submitting={Boolean(isCurrentProblemSubmitting)}
