@@ -16,6 +16,7 @@ import type {
 } from "@/types/leaderboard";
 import {
   ArrowUpDown,
+  Clock,
   RefreshCw,
   Search,
   Trophy,
@@ -233,6 +234,12 @@ export function LeaderboardClient({
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
                   </th>
+                  <th className="py-3 px-4 text-right">
+                    <div className="inline-flex items-center gap-1 justify-end">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      <span>LAST SOLVED</span>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -301,6 +308,24 @@ export function LeaderboardClient({
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-xs text-amber-400">
                         {row.totalScore} XP
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-xs text-muted-foreground">
+                        {row.lastSubmissionAt ? (
+                          <span
+                            title={`Last scoring submission: ${new Date(row.lastSubmissionAt).toLocaleString()}`}
+                          >
+                            {new Date(row.lastSubmissionAt).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                              },
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/50">—</span>
+                        )}
                       </td>
                     </tr>
                   );
