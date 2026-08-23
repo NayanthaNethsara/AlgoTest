@@ -204,6 +204,10 @@ func (h *handler) createProblem(c *gin.Context) {
 			}
 		}
 		if err := h.problems.ReplaceTests(c.Request.Context(), created.ID, inputs); err != nil {
+			if errors.Is(err, problem.ErrPointsMismatch) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save evaluation test cases"})
 			return
 		}
@@ -275,6 +279,10 @@ func (h *handler) updateProblem(c *gin.Context) {
 			}
 		}
 		if err := h.problems.ReplaceTests(c.Request.Context(), id, inputs); err != nil {
+			if errors.Is(err, problem.ErrPointsMismatch) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save evaluation test cases"})
 			return
 		}
@@ -403,6 +411,10 @@ func (h *handler) replaceTestCases(c *gin.Context) {
 	}
 
 	if err := h.problems.ReplaceTests(c.Request.Context(), id, inputs); err != nil {
+		if errors.Is(err, problem.ErrPointsMismatch) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

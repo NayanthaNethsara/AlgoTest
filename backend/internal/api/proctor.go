@@ -19,7 +19,7 @@ import (
 // ConsentVersion identifies the disclosure wording below. Bump it whenever that
 // wording changes: it is what enrollment records in the consent log, and what
 // tells organizers who is still running under superseded terms.
-const ConsentVersion = "2026-08-agent-split"
+const ConsentVersion = "2026-08-no-provenance"
 
 // probedPorts is the list the agent sweeps on 127.0.0.1. The disclosure claims a
 // *published* list, so it has to actually be published — a contestant cannot check
@@ -43,7 +43,6 @@ var disclosure = gin.H{
 		"Which of a published list of localhost ports answer as a local LLM API, listed in full below",
 		"Whether this machine can reach the public internet, by opening a TCP connection to 1.1.1.1:53 and 8.8.8.8:53",
 		"Operating system, architecture, LAN IP address, and agent version",
-		"Editor statistics for code you submit: typed, pasted and bulk-inserted character counts",
 		"The IP address and browser user-agent the portal is opened from",
 	},
 	"notCollected": []string{
@@ -55,6 +54,7 @@ var disclosure = gin.H{
 		"No browser history",
 		"No packet capture",
 		"No code other than what you deliberately submit",
+		"No typing or paste statistics for the code you write",
 	},
 	"lifecycle": []string{
 		"The agent collects only while enrolled and running, and starts at login for the duration of the contest",
@@ -63,7 +63,7 @@ var disclosure = gin.H{
 		"Autostart is removable, and uninstalling revokes the agent's credential",
 		"The agent listens on 127.0.0.1 (one of ports 47615-47619) so the contest page can confirm it is running on this same machine. It answers only the contest portal, and serves only its own status",
 	},
-	"retention": "Heartbeats and events are kept 30 days. Gaps, findings, provenance and reviews are kept 90 days so appeals can be heard.",
+	"retention": "Heartbeats and events are kept 30 days. Gaps, findings and reviews are kept 90 days so appeals can be heard.",
 	"policy":    "Signals are flagged for human review. Nothing here disqualifies anyone automatically.",
 }
 

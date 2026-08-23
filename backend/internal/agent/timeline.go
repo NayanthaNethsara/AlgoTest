@@ -97,15 +97,10 @@ func (r *Repository) Timeline(ctx context.Context, userID string, limit int) (Ti
 			       jsonb_build_object(
 			           'submission_id', s.id,
 			           'language', s.language,
-			           'max_score', s.max_score,
-			           'typed_chars', pr.typed_chars,
-			           'pasted_chars', pr.pasted_chars,
-			           'bulk_inserted_chars', pr.bulk_inserted_chars,
-			           'paste_count', pr.paste_count
+			           'max_score', s.max_score
 			       )
 			FROM submissions s
 			JOIN problems p ON p.id = s.problem_id
-			LEFT JOIN submission_provenance pr ON pr.submission_id = s.id
 			WHERE s.user_id = $1
 
 			UNION ALL

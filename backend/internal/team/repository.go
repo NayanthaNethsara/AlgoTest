@@ -371,7 +371,10 @@ func (r *Repository) GetLeaderboard(ctx context.Context) ([]LeaderboardEntry, er
 			t.name AS team_name,
 			COALESCE(SUM(ps.best_score) FILTER (WHERE p.published), 0)::INT AS total_score,
 			COUNT(DISTINCT ps.problem_id) FILTER (WHERE p.published AND ps.best_score > 0)::INT AS problems_solved,
-			MAX(ps.updated_at) FILTER (WHERE p.published) AS last_submission_at
+			-- Only scoring rows. Zero-score rows record an attempt, and letting one
+			-- move the tiebreak would rank a team below an equal-scoring rival for
+			-- having tried an extra problem and failed.
+			MAX(ps.updated_at) FILTER (WHERE p.published AND ps.best_score > 0) AS last_submission_at
 		FROM teams t
 		LEFT JOIN problem_scores ps ON t.id = ps.team_id
 		LEFT JOIN problems p ON p.id = ps.problem_id

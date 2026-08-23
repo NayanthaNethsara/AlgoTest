@@ -315,12 +315,14 @@ func recomputeProblemScore(ctx context.Context, w scoreWriter, teamID, problemID
 
 	if _, err := w.Exec(ctx, `
 		INSERT INTO problem_scores (team_id, problem_id, user_id, best_score, best_submission_id, updated_at)
-		SELECT s.team_id, s.problem_id, s.user_id, s.score, s.id, s.finished_at
+		SELECT s.team_id, s.problem_id, s.user_id,
+		       CASE WHEN s.review_status = 'accepted' THEN s.score ELSE 0 END,
+		       CASE WHEN s.review_status = 'accepted' THEN s.id ELSE NULL END,
+		       s.finished_at
 		FROM submissions s
 		WHERE s.team_id = $1 AND s.problem_id = $2
 		  AND s.finished_at IS NOT NULL
-		  AND s.review_status = 'accepted'
-		ORDER BY s.score DESC, s.finished_at ASC
+		ORDER BY (s.review_status = 'accepted') DESC, s.score DESC, s.finished_at ASC
 		LIMIT 1;
 	`, teamID, problemID); err != nil {
 		return fmt.Errorf("recompute problem score: %w", err)
@@ -524,7 +526,8 @@ func (r *Repository) RejudgeSubmission(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, `
 		UPDATE submissions
 		SET state = 'queued', verdict = NULL, score = 0, tests_done = 0, compile_error = NULL,
-		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL, finished_at = NULL
+		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL, finished_at = NULL,
+		    attempts = 0
 		WHERE id = $1;
 	`, id)
 	return err

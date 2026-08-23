@@ -155,28 +155,6 @@ func (e *Evaluator) RecordEvent(ctx context.Context, userID, ruleID string, defa
 	return e.recalculateRiskScore(ctx, userID)
 }
 
-func (e *Evaluator) EvaluateSubmissionProvenance(
-	ctx context.Context,
-	userID string,
-	submissionID string,
-	typedChars int,
-	pastedChars int,
-	pasteCount int,
-	largestPaste int,
-) error {
-	if pastedChars > typedChars && pastedChars > 200 {
-		if err := e.recordSubmissionFinding(ctx, userID, submissionID, "prov.paste_dominant", 10, map[string]any{
-			"typedChars":   typedChars,
-			"pastedChars":  pastedChars,
-			"pasteCount":   pasteCount,
-			"largestPaste": largestPaste,
-		}); err != nil && e.log != nil {
-			e.log.Error("failed to record provenance finding", "error", err)
-		}
-	}
-	return e.recalculateRiskScore(ctx, userID)
-}
-
 func matchForeground(app string, dwell map[string]int64, denylist []string) string {
 	candidates := make([]string, 0, len(dwell)+1)
 	if app != "" {
@@ -260,29 +238,6 @@ func (e *Evaluator) observe(ctx context.Context, userID, ruleID string, defaultW
 	if err != nil && e.log != nil {
 		e.log.Error("failed to record finding", "rule", ruleID, "user_id", userID, "error", err)
 	}
-}
-
-func (e *Evaluator) recordSubmissionFinding(
-	ctx context.Context,
-	userID, submissionID, ruleID string,
-	defaultWeight int,
-	evidence map[string]any,
-) error {
-	weight := e.ruleWeight(ruleID, defaultWeight)
-	if weight < 0 {
-		return nil
-	}
-
-	evidenceBytes, err := json.Marshal(evidence)
-	if err != nil {
-		evidenceBytes = []byte("{}")
-	}
-
-	_, err = e.pool.Exec(ctx, `
-		INSERT INTO proctor_findings (user_id, submission_id, rule_id, weight, evidence)
-		VALUES ($1, $2, $3, $4, $5);
-	`, userID, submissionID, ruleID, weight, evidenceBytes)
-	return err
 }
 
 // ruleWeight returns the configured weight, -1 when the rule is disabled, or the

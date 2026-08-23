@@ -1,6 +1,10 @@
 package problem
 
-import "time"
+import (
+	"errors"
+	"fmt"
+	"time"
+)
 
 // Problem represents a competitive programming problem.
 type Problem struct {
@@ -73,6 +77,39 @@ type TestInput struct {
 	Input    []byte `json:"input"`
 	Expected []byte `json:"expected"`
 	Points   int32  `json:"points"`
+}
+
+var ErrPointsMismatch = errors.New("test points do not sum to the problem's max score")
+
+func ValidateTestPoints(tests []TestInput, maxScore int32) error {
+	if len(tests) == 0 {
+		return nil
+	}
+
+	var sum int32
+	custom := false
+	for _, t := range tests {
+		if t.Points != 0 {
+			custom = true
+		}
+		sum += t.Points
+	}
+	if !custom {
+		return nil
+	}
+
+	for _, t := range tests {
+		if t.Points <= 0 {
+			return fmt.Errorf("%w: test %d carries %d points -- once any test is weighted by hand every test needs a positive value, or leave them all at 0 to split %d evenly",
+				ErrPointsMismatch, t.Ordinal, t.Points, maxScore)
+		}
+	}
+
+	if sum != maxScore {
+		return fmt.Errorf("%w: the test cases total %d points but the problem is worth %d -- give every test a value that adds up to %d, or leave them all at 0 to split it evenly",
+			ErrPointsMismatch, sum, maxScore, maxScore)
+	}
+	return nil
 }
 
 // DistributePoints shares maxScore across tests that carry no points of their

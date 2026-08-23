@@ -1,6 +1,9 @@
 package problem
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestDistributePointsMatchesMaxScore(t *testing.T) {
 	cases := []struct {
@@ -51,5 +54,55 @@ func TestDistributePointsIgnoresMissingMaxScore(t *testing.T) {
 		if test.Points != 0 {
 			t.Errorf("test %d points = %d, want 0 so the repository default applies", i, test.Points)
 		}
+	}
+}
+
+func weighted(points ...int32) []TestInput {
+	out := make([]TestInput, len(points))
+	for i, p := range points {
+		out[i] = TestInput{Ordinal: int32(i + 1), Points: p}
+	}
+	return out
+}
+
+func TestValidateTestPointsAcceptsAllZeroForEvenSplit(t *testing.T) {
+	if err := ValidateTestPoints(weighted(0, 0, 0, 0, 0), 100); err != nil {
+		t.Fatalf("all-zero should defer to DistributePoints, got %v", err)
+	}
+}
+
+func TestValidateTestPointsAcceptsExactCustomTotal(t *testing.T) {
+	if err := ValidateTestPoints(weighted(20, 20, 20, 20, 20), 100); err != nil {
+		t.Fatalf("custom points summing to max_score should pass, got %v", err)
+	}
+}
+
+func TestValidateTestPointsRejectsPartiallyAssignedSet(t *testing.T) {
+	err := ValidateTestPoints(weighted(20, 0, 0, 0, 0), 100)
+	if !errors.Is(err, ErrPointsMismatch) {
+		t.Fatalf("err = %v, want ErrPointsMismatch", err)
+	}
+}
+
+func TestValidateTestPointsRejectsOverAndUnderShoot(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		points []int32
+	}{
+		{"undershoot", []int32{10, 10}},
+		{"overshoot", []int32{80, 80}},
+		{"negative", []int32{-50, 150}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := ValidateTestPoints(weighted(tc.points...), 100); !errors.Is(err, ErrPointsMismatch) {
+				t.Fatalf("err = %v, want ErrPointsMismatch", err)
+			}
+		})
+	}
+}
+
+func TestValidateTestPointsIgnoresEmptySet(t *testing.T) {
+	if err := ValidateTestPoints(nil, 100); err != nil {
+		t.Fatalf("an empty set is caught elsewhere as ErrNoTestCases, got %v", err)
 	}
 }
