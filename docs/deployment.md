@@ -290,6 +290,23 @@ both depend on:
 git diff --quiet HEAD^ HEAD -- ./ ../packages/auth
 ```
 
+**Pin the function region next to the API.** The admin console's proctoring
+page polls `/api/v1/admin/monitoring` every ten seconds, and every poll is a
+round trip from the platform's function to this VM. Vercel defaults new projects
+to `iad1` (Washington DC), which for a VM in `asia-southeast1` is most of a
+second of network per refresh before a single query runs — far more than the
+work the request actually does. `admin-frontend/vercel.json` pins it:
+
+```json
+{ "regions": ["sin1"] }
+```
+
+Keep it in step with the VM: `sin1` for `asia-southeast1`, `cle1` for
+`us-central1`, `iad1` for `us-east1`. The browser-to-function leg is one
+request; the function-to-API leg is the one that repeats, so co-locating the
+function with the API matters more than co-locating it with the organizer.
+Hobby projects are limited to a single region, which is all this needs.
+
 **Put the admin console behind the platform's own access gate.** Publishing it
 puts bulk user creation, which returns generated passwords, and the problem
 editor, which holds the test cases, on a public URL. Authorization holds up

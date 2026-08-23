@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Clock,
   Globe,
@@ -13,30 +13,31 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
-  getAdminTelemetryAction,
-  getAdminProctorRiskAction,
   getAdminProctorFindingsAction,
-  getAdminProctorOverviewAction,
-  getAdminAgentsAction,
+  getMonitoringSnapshotAction,
   toggleProctorExemptionAction,
 } from "@/actions/telemetry";
 import { AgentsTable } from "@/components/monitoring/agents-table";
 import { FleetHeader } from "@/components/monitoring/fleet-header";
 import { formatDuration } from "@/lib/monitoring";
 import type { CompetitorHeartbeat, TelemetryStatus } from "@/types/telemetry";
-import type { EnrolledAgent, ProctorOverview } from "@/types/proctor";
+import type { CompetitorRisk, EnrolledAgent, ProctorOverview } from "@/types/proctor";
+import { MONITORING_SECTIONS, type MonitoringSection } from "@/types/monitoring";
 
-interface CompetitorRisk {
-  userId: string;
-  username: string;
-  displayName: string;
-  proctorExempt: boolean;
-  score: number;
-  severity: "HIGH" | "MEDIUM" | "LOW";
-  findingCount: number;
-  lastPingAt: string | null;
-  allowWebWithAgent?: boolean;
-  allowWebOnly?: boolean;
+type Tab = "TELEMETRY" | "PROCTOR_RISK" | "AGENTS";
+
+const POLL_INTERVAL_MS = 10_000;
+
+/** What the visible tab needs. The fleet header sits above all three of them. */
+function sectionsForTab(tab: Tab): MonitoringSection[] {
+  switch (tab) {
+    case "TELEMETRY":
+      return ["overview", "telemetry"];
+    case "PROCTOR_RISK":
+      return ["overview", "risk"];
+    case "AGENTS":
+      return ["overview", "agents"];
+  }
 }
 
 interface EvidenceFinding {
@@ -50,7 +51,7 @@ interface EvidenceFinding {
 }
 
 export default function OnsiteMonitoringPage() {
-  const [activeTab, setActiveTab] = useState<"TELEMETRY" | "PROCTOR_RISK" | "AGENTS">("TELEMETRY");
+  const [activeTab, setActiveTab] = useState<Tab>("TELEMETRY");
   const [overview, setOverview] = useState<ProctorOverview | null>(null);
   const [agents, setAgents] = useState<EnrolledAgent[]>([]);
   const [telemetryList, setTelemetryList] = useState<CompetitorHeartbeat[]>([]);
@@ -62,30 +63,47 @@ export default function OnsiteMonitoringPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isAutoRefreshActive, setIsAutoRefreshActive] = useState<boolean>(true);
-  const [isPending, startTransition] = useTransition();
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const fetchData = () => {
-    startTransition(async () => {
-      const [telRes, riskRes, overviewRes, agentsRes] = await Promise.all([
-        getAdminTelemetryAction(),
-        getAdminProctorRiskAction(),
-        getAdminProctorOverviewAction(),
-        getAdminAgentsAction(),
-      ]);
-      if (!telRes.error) {
-        setTelemetryList(telRes.telemetry);
+  // A Server Action cannot be aborted, so a superseded refresh is discarded on
+  // arrival instead: switching tabs, hitting Refresh or unmounting bumps this,
+  // and a reply that does not match is dropped rather than overwriting newer
+  // rows with older ones.
+  const generation = useRef(0);
+
+  const load = useCallback(async (sections: MonitoringSection[]) => {
+    const mine = ++generation.current;
+    setIsRefreshing(true);
+    try {
+      const result = await getMonitoringSnapshotAction(sections);
+      if (mine !== generation.current) return;
+
+      if (result.unauthenticated) {
+        window.location.href = "/login";
+        return;
       }
-      if (!riskRes.error) {
-        setRiskList(riskRes.risk);
+      if (result.error || !result.snapshot) {
+        setLoadError(result.error ?? "Monitoring feed unavailable.");
+        return;
       }
-      if (overviewRes.overview) {
-        setOverview(overviewRes.overview);
-      }
-      if (!agentsRes.error) {
-        setAgents(agentsRes.agents);
-      }
-    });
-  };
+
+      const { overview, telemetry, risk, agents, errors } = result.snapshot;
+      if (overview) setOverview(overview);
+      if (telemetry) setTelemetryList(telemetry);
+      if (risk) setRiskList(risk);
+      if (agents) setAgents(agents);
+
+      const failed = Object.keys(errors ?? {});
+      setLoadError(failed.length > 0 ? `Could not refresh: ${failed.join(", ")}.` : null);
+    } finally {
+      if (mine === generation.current) setIsRefreshing(false);
+    }
+  }, []);
+
+  const refreshNow = useCallback(() => {
+    void load([...MONITORING_SECTIONS]);
+  }, [load]);
 
   const handleFetchUserFindings = async (user: CompetitorRisk) => {
     setSelectedUserRisk(user);
@@ -110,7 +128,7 @@ export default function OnsiteMonitoringPage() {
 
     const res = await toggleProctorExemptionAction(userId, !currentExempt, reason);
     if (!res.error) {
-      fetchData();
+      refreshNow();
       if (selectedUserRisk?.userId === userId) {
         setSelectedUserRisk((prev) => (prev ? { ...prev, proctorExempt: !currentExempt } : null));
       }
@@ -118,14 +136,38 @@ export default function OnsiteMonitoringPage() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
 
-  useEffect(() => {
-    if (!isAutoRefreshActive) return;
-    const interval = setInterval(fetchData, 10_000);
-    return () => clearInterval(interval);
-  }, [isAutoRefreshActive]);
+    // Chained timeouts rather than setInterval: a tick that outran the interval
+    // used to have the next one start on top of it, so the console got slower
+    // exactly when the API was already struggling.
+    const tick = async () => {
+      await load(sectionsForTab(activeTab));
+      if (stopped || !isAutoRefreshActive) return;
+      timer = setTimeout(tick, POLL_INTERVAL_MS);
+    };
+
+    const start = async () => {
+      // Every section on the way in, so the counts on the tabs nobody is looking
+      // at are populated too; the polled ticks above refresh only the visible one.
+      await load([...MONITORING_SECTIONS]);
+      if (stopped || !isAutoRefreshActive) return;
+      timer = setTimeout(tick, POLL_INTERVAL_MS);
+    };
+
+    void start();
+
+    return () => {
+      stopped = true;
+      // Bumping the counter here is the point: it invalidates a reply still in
+      // flight. The rule guards against reading a stale DOM node on cleanup,
+      // which this is not.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      generation.current++;
+      if (timer) clearTimeout(timer);
+    };
+  }, [activeTab, isAutoRefreshActive, load]);
 
   const filteredTelemetry = telemetryList.filter((item) => {
     const matchesStatus = statusFilter === "ALL" || item.status === statusFilter;
@@ -175,19 +217,27 @@ export default function OnsiteMonitoringPage() {
             }`}
           >
             <Clock className="size-3.5" />
-            {isAutoRefreshActive ? "Auto-refreshing (10s)" : "Auto-refresh paused"}
+            {isAutoRefreshActive
+              ? `Auto-refreshing (${POLL_INTERVAL_MS / 1000}s)`
+              : "Auto-refresh paused"}
           </button>
 
           <button
-            onClick={fetchData}
-            disabled={isPending}
+            onClick={refreshNow}
+            disabled={isRefreshing}
             className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
-            <RefreshCw className={`size-3.5 ${isPending ? "animate-spin" : ""}`} />
+            <RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {loadError}
+        </div>
+      )}
 
       <FleetHeader overview={overview} />
 
@@ -260,7 +310,7 @@ export default function OnsiteMonitoringPage() {
 
       {/* Table Content */}
       {activeTab === "AGENTS" ? (
-        <AgentsTable agents={agents} onChanged={fetchData} />
+        <AgentsTable agents={agents} onChanged={refreshNow} />
       ) : activeTab === "TELEMETRY" ? (
         <div className="rounded-lg border border-border bg-card overflow-x-auto shadow-sm">
           <table className="w-full text-left text-xs">

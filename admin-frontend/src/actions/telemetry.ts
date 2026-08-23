@@ -1,72 +1,35 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
-import type { CompetitorHeartbeat } from "@/types/telemetry";
-import type { EnrolledAgent, ProctorOverview, ProctorTimeline } from "@/types/proctor";
+import type { ProctorTimeline } from "@/types/proctor";
+import {
+  MONITORING_SECTIONS,
+  type MonitoringSection,
+  type MonitoringSnapshot,
+} from "@/types/monitoring";
 
-export async function getAdminTelemetryAction(): Promise<{
-  telemetry: CompetitorHeartbeat[];
+export async function getMonitoringSnapshotAction(sections: MonitoringSection[]): Promise<{
+  snapshot?: MonitoringSnapshot;
+  /** Distinct from `error`: the page redirects rather than showing a banner. */
+  unauthenticated?: boolean;
   error?: string;
 }> {
-  try {
-    const response = await backendFetch("/api/v1/admin/telemetry", {
-      method: "GET",
-    });
+  const include = MONITORING_SECTIONS.filter((section) => sections.includes(section));
+  const query = include.length > 0 ? `?include=${include.join(",")}` : "";
 
+  try {
+    const response = await backendFetch(`/api/v1/admin/monitoring${query}`, { method: "GET" });
+
+    if (response.status === 401 || response.status === 403) {
+      return { unauthenticated: true };
+    }
     if (!response.ok) {
-      return { telemetry: [], error: "Failed to fetch telemetry data" };
+      return { error: "Monitoring feed unavailable." };
     }
 
-    const data = await response.json();
-    return { telemetry: data.telemetry || [] };
+    return { snapshot: await response.json() };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { telemetry: [], error: message };
-  }
-}
-
-export async function getAdminProctorOverviewAction(): Promise<{
-  overview: ProctorOverview | null;
-  error?: string;
-}> {
-  try {
-    const response = await backendFetch("/api/v1/admin/proctor/overview", {
-      method: "GET",
-    });
-    if (!response.ok) {
-      return { overview: null, error: "Failed to fetch proctoring overview" };
-    }
-    return { overview: await response.json() };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { overview: null, error: message };
-  }
-}
-
-export async function getAdminAgentsAction(): Promise<{
-  agents: EnrolledAgent[];
-  incidentOpen: boolean;
-  error?: string;
-}> {
-  try {
-    const response = await backendFetch("/api/v1/admin/proctor/agents", {
-      method: "GET",
-    });
-    if (!response.ok) {
-      return {
-        agents: [],
-        incidentOpen: false,
-        error: "Failed to fetch enrolled agents",
-      };
-    }
-    const data = await response.json();
-    return {
-      agents: data.agents || [],
-      incidentOpen: Boolean(data.incidentOpen),
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { agents: [], incidentOpen: false, error: message };
+    return { error: err instanceof Error ? err.message : "Monitoring feed unavailable." };
   }
 }
 
@@ -108,25 +71,6 @@ export async function revokeAgentAction(
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return { error: message };
-  }
-}
-
-export async function getAdminProctorRiskAction(): Promise<{
-  risk: any[];
-  error?: string;
-}> {
-  try {
-    const response = await backendFetch("/api/v1/admin/proctor/risk", {
-      method: "GET",
-    });
-    if (!response.ok) {
-      return { risk: [], error: "Failed to fetch proctor risk" };
-    }
-    const data = await response.json();
-    return { risk: data.risk || [] };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { risk: [], error: message };
   }
 }
 

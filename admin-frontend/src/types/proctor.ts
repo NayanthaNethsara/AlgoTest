@@ -74,3 +74,21 @@ export type ProctorTimeline = {
   supportHint: string;
   entries: TimelineEntry[];
 };
+
+/**
+ * A competitor's risk rollup as `/api/v1/admin/proctor/risk` returns it: the
+ * score and finding count, plus which submission fallbacks they hold, because
+ * the same finding means something different under a browser grant.
+ */
+export type CompetitorRisk = {
+  userId: string;
+  username: string;
+  displayName: string;
+  proctorExempt: boolean;
+  score: number;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  findingCount: number;
+  lastPingAt: string | null;
+  allowWebWithAgent?: boolean;
+  allowWebOnly?: boolean;
+};
