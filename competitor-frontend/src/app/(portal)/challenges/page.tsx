@@ -31,13 +31,13 @@ export default async function ChallengesPage() {
 
   return (
     <ScrollArea className="h-full">
-      <div className="w-full max-w-6xl mx-auto flex flex-col gap-5 p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-7xl 2xl:max-w-[1536px] mx-auto flex flex-col gap-5 p-4 sm:p-6 lg:p-7">
         {/* Sleek Page Header */}
-        <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
+        <div className="flex flex-col gap-3 border-b-2 border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-0.5">
             <div className="flex items-center gap-2.5">
               <Code2 className="h-5 w-5 text-primary" />
-              <h1 className="text-lg font-semibold text-foreground">
+              <h1 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
                 Challenges
               </h1>
             </div>
@@ -47,7 +47,7 @@ export default async function ChallengesPage() {
             </p>
           </div>
 
-          {/* Compact Quest Progress Pill */}
+          {/* Quest Progress Pill */}
           <div className="flex items-center gap-3 pixel-flat bg-card px-3 py-1.5 shrink-0 text-xs">
             <Zap className="h-4 w-4 text-amber-400" />
             <div className="flex items-center gap-2">

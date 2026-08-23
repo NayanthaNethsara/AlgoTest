@@ -93,20 +93,20 @@ export function ChallengesListClient({
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 pixel-raised bg-card p-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3.5 pixel-raised bg-card p-3.5 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search challenges..."
-            className="w-full pixel-inset bg-background pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full pixel-inset bg-background pl-9 pr-3.5 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2.5 text-xs">
           <div className="flex items-center gap-1 pixel-flat bg-muted/50 p-1">
             {["ALL", "SOLVED", "IN_PROGRESS", "UNSOLVED"].map((st) => (
               <button
@@ -141,7 +141,7 @@ export function ChallengesListClient({
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 pixel-flat bg-card px-2 py-1">
+          <div className="flex items-center gap-1.5 pixel-flat bg-card px-2.5 py-1">
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
@@ -200,7 +200,7 @@ export function ChallengesListClient({
         </div>
 
         {sortedProblems.length === 0 ? (
-          <div className="pixel-raised bg-card p-12 text-center">
+          <div className="pixel-raised bg-card p-10 text-center">
             <Code2 className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
             <h3 className="font-semibold text-sm text-foreground">
               No matching challenges found

@@ -88,7 +88,7 @@ function FormField({
 }) {
   return (
     <label className="flex flex-col gap-1.5 text-xs">
-      <span className="text-foreground/80 font-semibold tracking-wide uppercase text-[11px]">
+      <span className="text-foreground font-semibold tracking-wide uppercase text-[11px]">
         {label}
       </span>
       {children}

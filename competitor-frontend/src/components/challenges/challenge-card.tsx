@@ -61,7 +61,7 @@ export function ChallengeCard({
 
             <Badge
               variant={statusVariant}
-              className="gap-1.5 text-[10px] uppercase"
+              className="gap-1.5 text-[10px] uppercase px-2 py-0.5"
             >
               {isSolved ? (
                 <CheckCircle2 className="h-3 w-3" />
@@ -75,11 +75,11 @@ export function ChallengeCard({
           </div>
 
           <div>
-            <h3 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors leading-snug">
+            <h3 className="font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors leading-snug">
               {problem.title}
             </h3>
             {problem.statement && (
-              <p className="mt-2 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+              <p className="mt-2 text-xs text-muted-foreground line-clamp-3 leading-relaxed">
                 {problem.statement}
               </p>
             )}
@@ -106,20 +106,20 @@ export function ChallengeCard({
       href={`/challenges/${problem.slug || problem.id}`}
       className="group flex items-center justify-between gap-4 pixel-raised bg-card p-4 transition-colors hover:border-primary/50"
     >
-      <div className="flex flex-col gap-2 min-w-0">
+      <div className="flex flex-col gap-2 min-w-0 flex-1">
         <div className="flex items-center gap-3">
-          <span className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors truncate">
+          <span className="font-bold text-xs sm:text-sm text-foreground group-hover:text-primary transition-colors truncate">
             {problem.title}
           </span>
           <Badge
             variant={difficultyVariant}
-            className="text-[10px] uppercase shrink-0"
+            className="text-[10px] uppercase shrink-0 px-2 py-0.5"
           >
             {problem.difficulty}
           </Badge>
         </div>
         {problem.statement && (
-          <p className="text-xs text-muted-foreground line-clamp-1">
+          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
             {problem.statement}
           </p>
         )}
@@ -129,7 +129,7 @@ export function ChallengeCard({
         <div className="flex flex-col items-end gap-1">
           <Badge
             variant={statusVariant}
-            className="gap-1.5 text-[10px] uppercase"
+            className="gap-1.5 text-[10px] uppercase px-2 py-0.5"
           >
             {isSolved ? (
               <CheckCircle2 className="h-3 w-3" />
@@ -140,15 +140,15 @@ export function ChallengeCard({
             )}
             {CHALLENGE_STATUS_LABELS[progress.status]}
           </Badge>
-          <div className="flex items-center gap-1 text-xs text-amber-400">
-            <Trophy className="h-3 w-3 text-amber-400" />
+          <div className="flex items-center gap-1 text-xs text-amber-400 font-semibold">
+            <Trophy className="h-3.5 w-3.5 text-amber-400" />
             <strong className="text-foreground">
               {progress.bestScore}
             </strong> / {problem.points} XP
           </div>
         </div>
 
-        <div className="flex h-9 w-9 items-center justify-center pixel-flat bg-primary text-primary-foreground transition-transform group-hover:scale-105">
+        <div className="flex h-8.5 w-8.5 items-center justify-center pixel-flat bg-primary text-primary-foreground transition-transform group-hover:scale-105">
           <ArrowRight className="h-4 w-4" />
         </div>
       </div>

@@ -59,50 +59,50 @@
 
 :root {
   --background: oklch(0.11 0.015 158);
-  --foreground: oklch(0.95 0.015 160);
+  --foreground: oklch(0.98 0.01 160);
   --card: oklch(0.15 0.02 158);
-  --card-foreground: oklch(0.95 0.015 160);
+  --card-foreground: oklch(0.98 0.01 160);
   --popover: oklch(0.15 0.02 158);
-  --popover-foreground: oklch(0.95 0.015 160);
-  --primary: oklch(0.6 0.15 155);
+  --popover-foreground: oklch(0.98 0.01 160);
+  --primary: oklch(0.72 0.16 155);
   --primary-foreground: oklch(0.08 0.02 155);
-  --secondary: oklch(0.2 0.02 160);
-  --secondary-foreground: oklch(0.95 0.015 160);
-  --muted: oklch(0.17 0.015 160);
-  --muted-foreground: oklch(0.65 0.03 160);
-  --accent: oklch(0.22 0.03 158);
-  --accent-foreground: oklch(0.95 0.015 160);
-  --destructive: oklch(0.6 0.16 25);
-  --success: oklch(0.6 0.15 155);
-  --warning: oklch(0.72 0.12 85);
-  --border: oklch(0.27 0.02 160);
+  --secondary: oklch(0.22 0.02 160);
+  --secondary-foreground: oklch(0.98 0.01 160);
+  --muted: oklch(0.19 0.015 160);
+  --muted-foreground: oklch(0.78 0.025 160);
+  --accent: oklch(0.24 0.03 158);
+  --accent-foreground: oklch(0.98 0.01 160);
+  --destructive: oklch(0.72 0.18 25);
+  --success: oklch(0.72 0.16 155);
+  --warning: oklch(0.82 0.14 85);
+  --border: oklch(0.29 0.02 160);
   --input: oklch(0.12 0.015 160);
-  --ring: oklch(0.6 0.15 155);
-  --chart-1: oklch(0.6 0.15 155);
-  --chart-2: oklch(0.62 0.12 185);
-  --chart-3: oklch(0.72 0.12 85);
-  --chart-4: oklch(0.6 0.16 25);
-  --chart-5: oklch(0.62 0.13 300);
+  --ring: oklch(0.72 0.16 155);
+  --chart-1: oklch(0.72 0.16 155);
+  --chart-2: oklch(0.72 0.13 185);
+  --chart-3: oklch(0.82 0.14 85);
+  --chart-4: oklch(0.72 0.18 25);
+  --chart-5: oklch(0.72 0.14 300);
   --radius: 0px;
 
   /* The app's second brand hue, alongside --primary (emerald). Two tones, not a
      rainbow: teal for secondary accents, teal-deep as the one place a UI needs a
      third depth (the Hard difficulty tag) without reaching for a new hue. */
-  --teal: oklch(0.62 0.12 185);
-  --teal-deep: oklch(0.34 0.09 185);
+  --teal: oklch(0.72 0.13 185);
+  --teal-deep: oklch(0.42 0.09 185);
 
   /* Muted background/foreground/border triples for status chips (verdicts,
      difficulty tags). Same hue families as --success/--warning/--destructive,
      but dialed back so a badge reads as a label, not a klaxon. */
-  --success-bg: oklch(0.22 0.06 155);
-  --success-fg: oklch(0.8 0.14 155);
-  --success-border: oklch(0.5 0.13 155);
-  --warning-bg: oklch(0.25 0.06 85);
-  --warning-fg: oklch(0.82 0.14 85);
-  --warning-border: oklch(0.6 0.13 85);
-  --destructive-bg: oklch(0.25 0.08 25);
-  --destructive-fg: oklch(0.78 0.16 25);
-  --destructive-border: oklch(0.55 0.16 25);
+  --success-bg: oklch(0.24 0.07 155);
+  --success-fg: oklch(0.88 0.14 155);
+  --success-border: oklch(0.55 0.14 155);
+  --warning-bg: oklch(0.27 0.07 85);
+  --warning-fg: oklch(0.90 0.14 85);
+  --warning-border: oklch(0.65 0.14 85);
+  --destructive-bg: oklch(0.27 0.09 25);
+  --destructive-fg: oklch(0.88 0.16 25);
+  --destructive-border: oklch(0.60 0.16 25);
 
   /* Minecraft blocks read as blocks because every face is outlined in near-black
      and lit from the top-left. These three tokens are that lighting model, and
@@ -112,44 +112,44 @@
   --bevel-dark: oklch(0.07 0.015 155);
 
   --sidebar: oklch(0.12 0.02 158);
-  --sidebar-foreground: oklch(0.95 0.015 160);
-  --sidebar-primary: oklch(0.6 0.15 155);
+  --sidebar-foreground: oklch(0.98 0.01 160);
+  --sidebar-primary: oklch(0.72 0.16 155);
   --sidebar-primary-foreground: oklch(0.08 0.02 155);
-  --sidebar-accent: oklch(0.2 0.02 160);
-  --sidebar-accent-foreground: oklch(0.95 0.015 160);
-  --sidebar-border: oklch(0.27 0.02 160);
-  --sidebar-ring: oklch(0.6 0.15 155);
+  --sidebar-accent: oklch(0.22 0.02 160);
+  --sidebar-accent-foreground: oklch(0.98 0.01 160);
+  --sidebar-border: oklch(0.29 0.02 160);
+  --sidebar-ring: oklch(0.72 0.16 155);
 }
 
 .dark {
   --background: oklch(0.11 0.015 158);
-  --foreground: oklch(0.95 0.015 160);
+  --foreground: oklch(0.98 0.01 160);
   --card: oklch(0.15 0.02 158);
-  --card-foreground: oklch(0.95 0.015 160);
+  --card-foreground: oklch(0.98 0.01 160);
   --popover: oklch(0.15 0.02 158);
-  --popover-foreground: oklch(0.95 0.015 160);
-  --primary: oklch(0.6 0.15 155);
+  --popover-foreground: oklch(0.98 0.01 160);
+  --primary: oklch(0.72 0.16 155);
   --primary-foreground: oklch(0.08 0.02 155);
-  --secondary: oklch(0.2 0.02 160);
-  --secondary-foreground: oklch(0.95 0.015 160);
-  --muted: oklch(0.17 0.015 160);
-  --muted-foreground: oklch(0.65 0.03 160);
-  --accent: oklch(0.22 0.03 158);
-  --accent-foreground: oklch(0.95 0.015 160);
-  --destructive: oklch(0.6 0.16 25);
-  --success: oklch(0.6 0.15 155);
-  --warning: oklch(0.72 0.12 85);
-  --border: oklch(0.27 0.02 160);
+  --secondary: oklch(0.22 0.02 160);
+  --secondary-foreground: oklch(0.98 0.01 160);
+  --muted: oklch(0.19 0.015 160);
+  --muted-foreground: oklch(0.78 0.025 160);
+  --accent: oklch(0.24 0.03 158);
+  --accent-foreground: oklch(0.98 0.01 160);
+  --destructive: oklch(0.72 0.18 25);
+  --success: oklch(0.72 0.16 155);
+  --warning: oklch(0.82 0.14 85);
+  --border: oklch(0.29 0.02 160);
   --input: oklch(0.12 0.015 160);
-  --ring: oklch(0.6 0.15 155);
+  --ring: oklch(0.72 0.16 155);
   --sidebar: oklch(0.12 0.02 158);
-  --sidebar-foreground: oklch(0.95 0.015 160);
-  --sidebar-primary: oklch(0.6 0.15 155);
+  --sidebar-foreground: oklch(0.98 0.01 160);
+  --sidebar-primary: oklch(0.72 0.16 155);
   --sidebar-primary-foreground: oklch(0.08 0.02 155);
-  --sidebar-accent: oklch(0.2 0.02 160);
-  --sidebar-accent-foreground: oklch(0.95 0.015 160);
-  --sidebar-border: oklch(0.27 0.02 160);
-  --sidebar-ring: oklch(0.6 0.15 155);
+  --sidebar-accent: oklch(0.22 0.02 160);
+  --sidebar-accent-foreground: oklch(0.98 0.01 160);
+  --sidebar-border: oklch(0.29 0.02 160);
+  --sidebar-ring: oklch(0.72 0.16 155);
 }
 
 @layer base {
@@ -424,6 +424,7 @@
   font-family: var(--font-mono);
   font-size: 0.85em;
   background: var(--muted);
+  color: var(--foreground);
   padding: 0.1rem 0.35rem;
   border-radius: 0px;
   border: 1px solid var(--edge);
@@ -467,7 +468,7 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
     -apple-system,
     sans-serif !important;
   background-color: #09090b !important;
-  color: #f4f4f5 !important;
+  color: #f8fafc !important;
 }
 
 .challenge-mode-dark *,
@@ -498,7 +499,7 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 .challenge-mode-dark .bg-input,
 .challenge-mode-dark .bg-muted {
   background-color: #18181b !important;
-  color: #f4f4f5 !important;
+  color: #f8fafc !important;
   border-color: #27272a !important;
   box-shadow: none !important;
 }
@@ -510,11 +511,11 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 }
 
 .challenge-mode-dark .text-muted-foreground {
-  color: #a1a1aa !important;
+  color: #cbd5e1 !important;
 }
 
 .challenge-mode-dark .text-foreground {
-  color: #f4f4f5 !important;
+  color: #f8fafc !important;
 }
 
 .challenge-mode-dark pre,
@@ -522,7 +523,7 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 .challenge-mode-dark .markdown :not(pre) > code {
   font-family: var(--font-mono), monospace !important;
   background-color: #09090b !important;
-  color: #f4f4f5 !important;
+  color: #f8fafc !important;
   border-color: #27272a !important;
 }
 
@@ -535,7 +536,7 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
     -apple-system,
     sans-serif !important;
   background-color: #f8fafc !important;
-  color: #0f172a !important;
+  color: #020617 !important;
 }
 
 .challenge-mode-light *,
@@ -566,7 +567,7 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 .challenge-mode-light .bg-input,
 .challenge-mode-light .bg-muted {
   background-color: #ffffff !important;
-  color: #0f172a !important;
+  color: #020617 !important;
   border-color: #e2e8f0 !important;
   box-shadow: none !important;
 }
@@ -598,11 +599,11 @@ body:has(.challenge-mode-light) ::-webkit-scrollbar-track {
 }
 
 .challenge-mode-light .text-muted-foreground {
-  color: #64748b !important;
+  color: #475569 !important;
 }
 
 .challenge-mode-light .text-foreground {
-  color: #0f172a !important;
+  color: #020617 !important;
 }
 
 .challenge-mode-light pre,
@@ -610,6 +611,6 @@ body:has(.challenge-mode-light) ::-webkit-scrollbar-track {
 .challenge-mode-light .markdown :not(pre) > code {
   font-family: var(--font-mono), monospace !important;
   background-color: #f1f5f9 !important;
-  color: #0f172a !important;
+  color: #020617 !important;
   border-color: #cbd5e1 !important;
 }

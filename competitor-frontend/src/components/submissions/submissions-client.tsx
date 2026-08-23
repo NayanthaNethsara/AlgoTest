@@ -60,7 +60,7 @@ export function SubmissionsClient({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pixel-raised bg-card p-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pixel-raised bg-card p-3.5">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -111,7 +111,7 @@ export function SubmissionsClient({
 
       <div className="pixel-raised bg-card overflow-hidden">
         {sortedSubmissions.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="p-10 text-center">
             {search ? (
               <History className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
             ) : (
