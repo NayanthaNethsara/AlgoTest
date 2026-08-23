@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate admin backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test venue venue-tls venue-down venue-logs monitoring-up monitoring-down monitoring-logs monitoring-restart
+.PHONY: install db-up db-down db-logs db-reset migrate admin backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test venue venue-tls venue-down venue-logs monitoring-up monitoring-down monitoring-logs monitoring-restart monitoring-tunnel grafana-remote
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -129,18 +129,43 @@ swagger:
 # --- Observability Stack (Prometheus, Loki, Promtail, Node Exporter, Grafana) ---
 
 MONITORING = docker compose -f monitoring/docker-compose.monitoring.yml
+# Grafana sits behind the "local" profile, so a plain `up -d` on the VM never
+# starts it. Only these local targets enable the profile.
+MONITORING_LOCAL = $(MONITORING) --profile local
+
+# Local ports for the IAP tunnel, offset so they never collide with a local stack.
+VM_NAME ?= mini-algothon
+VM_ZONE ?= asia-southeast1-b
+REMOTE_PROM_PORT ?= 19090
+REMOTE_LOKI_PORT ?= 13100
 
 monitoring-up:
-	$(MONITORING) up -d
+	$(MONITORING_LOCAL) up -d
 	@echo "Grafana running on http://localhost:3002 (credentials: admin / admin)"
 
 monitoring-down:
-	$(MONITORING) down
+	$(MONITORING_LOCAL) down
 
 monitoring-logs:
-	$(MONITORING) logs -f
+	$(MONITORING_LOCAL) logs -f
 
 monitoring-restart:
-	$(MONITORING) restart
+	$(MONITORING_LOCAL) restart
+
+# --- Reading the deployed VM's metrics and logs in a local Grafana ---
+
+# Forwards the VM's loopback-bound Prometheus and Loki onto this machine.
+# Leave it running in its own shell; pair with `make grafana-remote`.
+monitoring-tunnel:
+	gcloud compute ssh $(VM_NAME) --zone=$(VM_ZONE) --tunnel-through-iap -- -N \
+	  -L $(REMOTE_PROM_PORT):localhost:9090 \
+	  -L $(REMOTE_LOKI_PORT):localhost:3100
+
+# Starts Grafana alone, pointed through the tunnel at the VM's data.
+grafana-remote:
+	PROMETHEUS_URL=http://host.docker.internal:$(REMOTE_PROM_PORT) \
+	LOKI_URL=http://host.docker.internal:$(REMOTE_LOKI_PORT) \
+	$(MONITORING) up -d --no-deps --force-recreate grafana
+	@echo "Grafana on http://localhost:3002 -> VM data (needs 'make monitoring-tunnel' running)"
 
 

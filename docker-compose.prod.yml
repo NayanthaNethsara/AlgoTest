@@ -32,4 +32,5 @@ services:
 
 networks:
   algothon-net:
+    name: algothon-net
     driver: bridge

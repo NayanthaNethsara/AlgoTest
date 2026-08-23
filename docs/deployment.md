@@ -324,19 +324,31 @@ a value above the plan's limit fails the deployment rather than being clamped.
 The stream ends when the platform says so, `EventSource` reconnects, and the
 poller in `submissions-context` is the backstop.
 
-## Step 10: Observability (Grafana, Loki, Prometheus)
+## Step 10: Observability (Loki, Prometheus)
 
-To monitor VM resource usage, judge worker throughput, error rates, and live logs without SSH:
+On the VM, start the collectors. Grafana is **not** part of this -- it sits behind
+the `local` Compose profile and runs on your own machine instead:
 
 ```sh
-make monitoring-up
+docker compose -f monitoring/docker-compose.monitoring.yml up -d
 ```
 
-- **Grafana UI**: `http://<vm-ip>:3002` (credentials `admin` / `admin` by default).
+Prometheus and Loki bind to `127.0.0.1`, and Node Exporter publishes no host port
+at all, so none of them is reachable over the network -- deliberately, since none
+of the three has any authentication. Do not open firewall rules for 9090, 3100, or
+9100.
+
+To read the data, forward the two ports over IAP and point a local Grafana at them:
+
+```sh
+make monitoring-tunnel   # in one shell
+make grafana-remote      # in another; Grafana on http://localhost:3002
+```
+
 - Pre-provisioned dashboards:
   - **MiniAlgothon - Platform & System Overview**: Live HTTP throughput, P95 latencies, judge workers, runner boxes, database connection pool, and host CPU/RAM.
   - **MiniAlgothon - Logs & Live Diagnostics**: Real-time log streaming with level filtering and error search.
-- See [docs/monitoring.md](docs/monitoring.md) for LogQL/PromQL queries and alert configurations.
+- See [monitoring.md](monitoring.md) for the full local/remote workflow, LogQL/PromQL queries, and the metrics reference.
 
 ## Step 11: Verify
 
