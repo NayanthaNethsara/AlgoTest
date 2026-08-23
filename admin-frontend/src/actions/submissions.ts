@@ -3,6 +3,10 @@
 import { backendFetch } from "@/lib/api/server";
 import type { AdminSubmission, ReviewStatus } from "@/types/submission";
 
+function getErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 export async function listAdminSubmissionsAction(
   statusFilter = "",
   problemId = "",
@@ -41,8 +45,8 @@ export async function rejudgeSubmissionAction(
     }
     const data = await res.json().catch(() => ({}));
     return { success: false, error: data.error || "Failed to re-judge submission" };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Network error" };
+  } catch (err: unknown) {
+    return { success: false, error: getErrorMessage(err, "Network error") };
   }
 }
 
@@ -58,8 +62,8 @@ export async function cancelSubmissionAction(
     }
     const data = await res.json().catch(() => ({}));
     return { success: false, error: data.error || "Failed to cancel submission" };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Network error" };
+  } catch (err: unknown) {
+    return { success: false, error: getErrorMessage(err, "Network error") };
   }
 }
 
@@ -79,8 +83,8 @@ export async function reviewSubmissionAction(
     }
     const data = await res.json().catch(() => ({}));
     return { success: false, error: data.error || "Failed to review submission" };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Network error" };
+  } catch (err: unknown) {
+    return { success: false, error: getErrorMessage(err, "Network error") };
   }
 }
 
@@ -96,7 +100,7 @@ export async function unstickTeamAction(
     }
     const data = await res.json().catch(() => ({}));
     return { success: false, error: data.error || "Failed to clear team submission locks" };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Network error" };
+  } catch (err: unknown) {
+    return { success: false, error: getErrorMessage(err, "Network error") };
   }
 }

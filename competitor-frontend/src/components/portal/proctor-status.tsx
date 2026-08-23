@@ -27,7 +27,10 @@ export function ProctorPill() {
 
   if (starting) {
     return (
-      <Badge variant="outline" className="gap-1.5 border-warning bg-warning/20 text-warning text-xs h-7 px-2.5">
+      <Badge
+        variant="outline"
+        className="gap-1.5 border-warning bg-warning/20 text-warning text-xs h-7 px-2.5"
+      >
         <Loader2 className="h-3.5 w-3.5 pixel-spin" />
         Proctor starting...
       </Badge>
@@ -165,13 +168,19 @@ export function ProctorLockBanner() {
             Code: <span className="font-semibold">{local.support_code}</span>
           </span>
         )}
-        <Button type="button" variant="destructive" size="sm" onClick={() => window.location.reload()}>
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          onClick={() => window.location.reload()}
+        >
           <RotateCw className="h-3 w-3" />
           Retry
         </Button>
       </span>
       <p className="w-full text-muted-foreground text-[11px]">
-        Test runs are enabled. Scored submissions are held until proctor connects.
+        Test runs are enabled. Scored submissions are held until proctor
+        connects.
       </p>
     </div>
   );

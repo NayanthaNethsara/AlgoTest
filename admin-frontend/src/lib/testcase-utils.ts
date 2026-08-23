@@ -5,10 +5,7 @@ export const MIN_EVALUATION_TEST_CASES = 5;
 /**
  * Finds a public sample that exactly matches the input and expected output of an evaluation test case.
  */
-export function findMatchingSample(
-  testCase: TestCaseInput,
-  samples: Sample[]
-): Sample | undefined {
+export function findMatchingSample(testCase: TestCaseInput, samples: Sample[]): Sample | undefined {
   const testInput = testCase.input.trim();
   const testExpected = testCase.expected.trim();
   if (!testInput || !testExpected) return undefined;
@@ -67,17 +64,14 @@ export function parseBulkTestCases(
   return {
     testCases: [],
     error:
-      "Could not parse test cases. Please provide a valid JSON array (e.g. [{\"input\":\"5\",\"expected\":\"15\"}]) or use delimiter blocks.",
+      'Could not parse test cases. Please provide a valid JSON array (e.g. [{"input":"5","expected":"15"}]) or use delimiter blocks.',
   };
 }
 
 /**
  * Summary calculations for points and distribution.
  */
-export function calculateScoringSummary(
-  tests: TestCaseInput[],
-  maxScore: number
-) {
+export function calculateScoringSummary(tests: TestCaseInput[], maxScore: number) {
   const customPointsSum = tests.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
   const hasCustomPoints = tests.some((t) => Number(t.points) > 0);
   const autoPointPerTest = tests.length > 0 ? Math.floor(maxScore / tests.length) : 0;

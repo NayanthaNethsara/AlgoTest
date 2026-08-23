@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import {
   AlertCircle,
   Ban,
   CheckCircle2,
   Clock,
   Eye,
-  Filter,
   Loader2,
   Play,
   RefreshCw,
@@ -18,15 +16,12 @@ import {
   XCircle,
 } from "lucide-react";
 import {
-  cancelSubmissionAction,
   listAdminSubmissionsAction,
   rejudgeSubmissionAction,
   reviewSubmissionAction,
   unstickTeamAction,
 } from "@/actions/submissions";
 import type { AdminSubmission } from "@/types/submission";
-import { getSessionUserAction } from "@/lib/actions/auth";
-import { AdminNavbar } from "@/components/navbar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +42,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { User } from "@/types/user";
 
 export default function AdminSubmissionsPage() {
   const [submissions, setSubmissions] = useState<AdminSubmission[]>([]);
@@ -63,17 +57,17 @@ export default function AdminSubmissionsPage() {
     type: "success" | "error";
   } | null>(null);
 
-  useEffect(() => {
-    fetchSubmissions();
-  }, [statusFilter]);
-
-  async function fetchSubmissions() {
+  const fetchSubmissions = useCallback(async () => {
     setLoading(true);
     const filter = statusFilter === "all" ? "" : statusFilter;
     const res = await listAdminSubmissionsAction(filter);
     setSubmissions(res.submissions || []);
     setLoading(false);
-  }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    fetchSubmissions();
+  }, [fetchSubmissions]);
 
   async function handleRejudge(id: string) {
     setActionMessage(null);
@@ -86,21 +80,14 @@ export default function AdminSubmissionsPage() {
     }
   }
 
-  async function handleCancel(id: string) {
-    setActionMessage(null);
-    const res = await cancelSubmissionAction(id);
-    if (res.success) {
-      setActionMessage({ text: "Submission cancelled.", type: "success" });
-      fetchSubmissions();
-    } else {
-      setActionMessage({ text: res.error || "Failed to cancel", type: "error" });
-    }
-  }
-
   async function handleReject() {
     if (!reviewTarget || !reviewReason.trim()) return;
     setReviewing(true);
-    const res = await reviewSubmissionAction(reviewTarget.submissionId, "rejected", reviewReason.trim());
+    const res = await reviewSubmissionAction(
+      reviewTarget.submissionId,
+      "rejected",
+      reviewReason.trim()
+    );
     setReviewing(false);
     if (res.success) {
       setReviewTarget(null);
@@ -282,97 +269,102 @@ export default function AdminSubmissionsPage() {
                 {submissions.map((sub) => {
                   const rejected = sub.reviewStatus === "rejected";
                   return (
-                  <TableRow key={sub.submissionId} className={rejected ? "opacity-60" : undefined}>
-                    <TableCell className="font-mono text-xs font-semibold">
-                      {sub.submissionId.slice(0, 8)}...
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col text-xs">
-                        <span className="font-medium text-foreground">
-                          {sub.teamName || sub.userName}
+                    <TableRow
+                      key={sub.submissionId}
+                      className={rejected ? "opacity-60" : undefined}
+                    >
+                      <TableCell className="font-mono text-xs font-semibold">
+                        {sub.submissionId.slice(0, 8)}...
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col text-xs">
+                          <span className="font-medium text-foreground">
+                            {sub.teamName || sub.userName}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">{sub.userName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs font-medium">
+                        {sub.problemTitle || sub.problemId}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs uppercase">{sub.language}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={sub.status} verdict={sub.verdict} />
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        <span className={rejected ? "line-through" : undefined}>
+                          {sub.score} / {sub.maxScore}
                         </span>
-                        <span className="text-[11px] text-muted-foreground">{sub.userName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs font-medium">
-                      {sub.problemTitle || sub.problemId}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs uppercase">{sub.language}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={sub.status} verdict={sub.verdict} />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <span className={rejected ? "line-through" : undefined}>
-                        {sub.score} / {sub.maxScore}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <ReviewCell submission={sub} />
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {new Date(sub.createdAt).toLocaleTimeString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedSubmission(sub)}
-                          className="h-7 w-7 p-0"
-                          title="Inspect Code"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <ReviewCell submission={sub} />
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(sub.createdAt).toLocaleTimeString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedSubmission(sub)}
+                            className="h-7 w-7 p-0"
+                            title="Inspect Code"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
 
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRejudge(sub.submissionId)}
-                          className="h-7 px-2 text-[11px] gap-1"
-                          title="Re-judge Submission"
-                        >
-                          <RotateCcw className="h-3 w-3" /> Rejudge
-                        </Button>
-
-                        {rejected ? (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleRestore(sub)}
+                            onClick={() => handleRejudge(sub.submissionId)}
                             className="h-7 px-2 text-[11px] gap-1"
-                            title="Count this submission again"
+                            title="Re-judge Submission"
                           >
-                            <Undo2 className="h-3 w-3" /> Restore
+                            <RotateCcw className="h-3 w-3" /> Rejudge
                           </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setReviewReason("");
-                              setReviewTarget(sub);
-                            }}
-                            className="h-7 px-2 text-[11px] gap-1"
-                            title="Stop this submission counting towards the leaderboard"
-                          >
-                            <Ban className="h-3 w-3" /> Reject
-                          </Button>
-                        )}
 
-                        {sub.teamId && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleUnstick(sub.teamId, sub.teamName || sub.userName)}
-                            className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive/10 gap-1"
-                            title="Clear Team Submission Lock"
-                          >
-                            <ShieldAlert className="h-3 w-3" /> Unstick
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                          {rejected ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRestore(sub)}
+                              className="h-7 px-2 text-[11px] gap-1"
+                              title="Count this submission again"
+                            >
+                              <Undo2 className="h-3 w-3" /> Restore
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setReviewReason("");
+                                setReviewTarget(sub);
+                              }}
+                              className="h-7 px-2 text-[11px] gap-1"
+                              title="Stop this submission counting towards the leaderboard"
+                            >
+                              <Ban className="h-3 w-3" /> Reject
+                            </Button>
+                          )}
+
+                          {sub.teamId && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleUnstick(sub.teamId, sub.teamName || sub.userName)
+                              }
+                              className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive/10 gap-1"
+                              title="Clear Team Submission Lock"
+                            >
+                              <ShieldAlert className="h-3 w-3" /> Unstick
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
               </TableBody>
@@ -420,7 +412,11 @@ export default function AdminSubmissionsPage() {
                 onClick={handleReject}
                 className="gap-1.5"
               >
-                {reviewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />}
+                {reviewing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Ban className="h-3.5 w-3.5" />
+                )}
                 Reject submission
               </Button>
             </DialogFooter>

@@ -8,8 +8,4 @@ export type LeaderboardEntry = {
 };
 
 export type LeaderboardSortOption =
-  | "RANK_ASC"
-  | "SCORE_DESC"
-  | "SCORE_ASC"
-  | "SOLVED_DESC"
-  | "NAME_ASC";
+  "RANK_ASC" | "SCORE_DESC" | "SCORE_ASC" | "SOLVED_DESC" | "NAME_ASC";

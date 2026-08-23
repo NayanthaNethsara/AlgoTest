@@ -13,7 +13,13 @@ import {
   Cpu,
   RotateCcw,
 } from "lucide-react";
-import type { Difficulty, ProblemDetail, ProblemInput, Sample, TestCaseInput } from "@/types/problem";
+import type {
+  Difficulty,
+  ProblemDetail,
+  ProblemInput,
+  Sample,
+  TestCaseInput,
+} from "@/types/problem";
 import { STARTER_PROBLEM_TEMPLATE } from "@/lib/templates";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -146,10 +152,7 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
 
   // Test case handlers
   function handleAddTest() {
-    setTests((prev) => [
-      ...prev,
-      { ordinal: prev.length + 1, input: "", expected: "", points: 0 },
-    ]);
+    setTests((prev) => [...prev, { ordinal: prev.length + 1, input: "", expected: "", points: 0 }]);
   }
 
   function handleRemoveTest(index: number) {

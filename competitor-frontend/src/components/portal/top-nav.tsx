@@ -74,12 +74,20 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             )}
 
             {user.teamName ? (
-              <Badge variant="secondary" className="gap-1.5 text-xs h-7.5 lg:h-8 px-2.5 bg-muted">
+              <Badge
+                variant="secondary"
+                className="gap-1.5 text-xs h-7.5 lg:h-8 px-2.5 bg-muted"
+              >
                 <Users className="h-3.5 w-3.5 text-primary" />
-                <span className="font-semibold text-foreground">{user.teamName}</span>
+                <span className="font-semibold text-foreground">
+                  {user.teamName}
+                </span>
               </Badge>
             ) : (
-              <Badge variant="outline" className="text-xs text-muted-foreground h-7.5 lg:h-8 px-2.5">
+              <Badge
+                variant="outline"
+                className="text-xs text-muted-foreground h-7.5 lg:h-8 px-2.5"
+              >
                 No team
               </Badge>
             )}
@@ -106,7 +114,11 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             aria-expanded={mobileOpen}
             className="flex h-8.5 w-8.5 items-center justify-center pixel-raised pixel-press bg-card text-foreground"
           >
-            {mobileOpen ? <X className="h-4.5 w-4.5 text-destructive" /> : <Menu className="h-4.5 w-4.5" />}
+            {mobileOpen ? (
+              <X className="h-4.5 w-4.5 text-destructive" />
+            ) : (
+              <Menu className="h-4.5 w-4.5" />
+            )}
           </button>
         </div>
       </div>
@@ -139,7 +151,9 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             <div className="flex flex-col gap-2.5 border-t-2 border-border pt-3">
               {activeSubmission && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Submission:</span>
+                  <span className="text-xs text-muted-foreground">
+                    Submission:
+                  </span>
                   <Badge
                     variant="outline"
                     className="gap-1.5 border-primary bg-primary/20 text-primary text-[11px] h-7 px-2.5 animate-pulse"
@@ -157,12 +171,20 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Team:</span>
                 {user.teamName ? (
-                  <Badge variant="secondary" className="gap-1.5 text-xs h-7 px-2.5 bg-muted">
+                  <Badge
+                    variant="secondary"
+                    className="gap-1.5 text-xs h-7 px-2.5 bg-muted"
+                  >
                     <Users className="h-3.5 w-3.5 text-primary" />
-                    <span className="font-semibold text-foreground">{user.teamName}</span>
+                    <span className="font-semibold text-foreground">
+                      {user.teamName}
+                    </span>
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-xs text-muted-foreground h-7 px-2.5">
+                  <Badge
+                    variant="outline"
+                    className="text-xs text-muted-foreground h-7 px-2.5"
+                  >
                     No team
                   </Badge>
                 )}
@@ -171,7 +193,9 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               <div className="flex items-center justify-between border-t-2 border-border pt-2.5">
                 <div className="flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-[10px]">
-                    {(user.displayName || user.username || "U")[0].toUpperCase()}
+                    {(user.displayName ||
+                      user.username ||
+                      "U")[0].toUpperCase()}
                   </div>
                   <span className="text-xs text-foreground font-semibold">
                     {user.displayName || user.username}

@@ -22,7 +22,12 @@ type HistoryPanelProps = {
   onRestore: (snapshot: Snapshot) => void;
 };
 
-export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: HistoryPanelProps) {
+export function HistoryPanel({
+  open,
+  onOpenChange,
+  snapshots,
+  onRestore,
+}: HistoryPanelProps) {
   const [filter, setFilter] = useState<HistoryFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -32,18 +37,29 @@ export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: Histo
   });
 
   const selected =
-    filteredSnapshots.find((s) => s.id === selectedId) ?? filteredSnapshots[0] ?? null;
+    filteredSnapshots.find((s) => s.id === selectedId) ??
+    filteredSnapshots[0] ??
+    null;
 
-  const countSubmitted = snapshots.filter((s) => s.trigger === "submitted").length;
-  const countAutosave = snapshots.filter((s) => s.trigger === "autosave").length;
+  const countSubmitted = snapshots.filter(
+    (s) => s.trigger === "submitted",
+  ).length;
+  const countAutosave = snapshots.filter(
+    (s) => s.trigger === "autosave",
+  ).length;
   const countRan = snapshots.filter((s) => s.trigger === "ran").length;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-xl"
+      >
         <SheetHeader className="border-b px-4 py-3">
           <SheetTitle>Version history</SheetTitle>
-          <SheetDescription>Snapshots saved as you work on this problem.</SheetDescription>
+          <SheetDescription>
+            Snapshots saved as you work on this problem.
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex items-center gap-1.5 border-b bg-muted/30 px-3 py-2 text-xs">
@@ -82,7 +98,9 @@ export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: Histo
         </div>
 
         {filteredSnapshots.length === 0 ? (
-          <div className="p-6 text-sm text-muted-foreground">No snapshots found for this category.</div>
+          <div className="p-6 text-sm text-muted-foreground">
+            No snapshots found for this category.
+          </div>
         ) : (
           <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
             <ScrollArea className="border-r-2 border-black">
@@ -99,10 +117,16 @@ export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: Histo
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5">
-                          <Badge variant="secondary">{SNAPSHOT_TRIGGER_LABELS[snapshot.trigger]}</Badge>
+                          <Badge variant="secondary">
+                            {SNAPSHOT_TRIGGER_LABELS[snapshot.trigger]}
+                          </Badge>
                           {snapshot.verdict && (
                             <Badge
-                              variant={snapshot.verdict === "AC" ? "success" : "destructive"}
+                              variant={
+                                snapshot.verdict === "AC"
+                                  ? "success"
+                                  : "destructive"
+                              }
                               className="text-[10px] py-0 px-1 font-semibold"
                             >
                               {snapshot.verdict}
@@ -131,7 +155,8 @@ export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: Histo
               <div className="flex min-h-0 flex-col">
                 <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
                   <span className="text-xs text-muted-foreground">
-                    {selected.language} · {new Date(selected.at).toLocaleString()}
+                    {selected.language} ·{" "}
+                    {new Date(selected.at).toLocaleString()}
                   </span>
                   <Button
                     size="sm"
@@ -146,7 +171,9 @@ export function HistoryPanel({ open, onOpenChange, snapshots, onRestore }: Histo
                   </Button>
                 </div>
                 <ScrollArea className="min-h-0 flex-1">
-                  <pre className="p-4 font-mono text-xs leading-relaxed">{selected.code}</pre>
+                  <pre className="p-4 font-mono text-xs leading-relaxed">
+                    {selected.code}
+                  </pre>
                 </ScrollArea>
               </div>
             )}

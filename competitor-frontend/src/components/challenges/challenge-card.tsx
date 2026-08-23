@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock, HelpCircle, Trophy } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  HelpCircle,
+  Trophy,
+} from "lucide-react";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { CHALLENGE_STATUS_LABELS } from "@/lib/constants";
 import { CHALLENGE_STATUS, type ChallengeProgress } from "@/types/challenge";
@@ -16,7 +22,11 @@ const DIFFICULTY_VARIANTS: Record<Difficulty, BadgeVariant> = {
 
 export function ChallengeCard({
   problem,
-  progress = { problemId: problem.id, status: CHALLENGE_STATUS.NOT_ATTEMPTED, bestScore: 0 },
+  progress = {
+    problemId: problem.id,
+    status: CHALLENGE_STATUS.NOT_ATTEMPTED,
+    bestScore: 0,
+  },
   layout = "grid",
 }: {
   problem: Problem;
@@ -25,8 +35,14 @@ export function ChallengeCard({
 }) {
   const isSolved = progress.status === CHALLENGE_STATUS.SOLVED;
   const isAttempted = progress.status === CHALLENGE_STATUS.ATTEMPTED;
-  const difficultyVariant = DIFFICULTY_VARIANTS[problem.difficulty] ?? DIFFICULTY_VARIANTS[DIFFICULTY.EASY];
-  const statusVariant: BadgeVariant = isSolved ? "success" : isAttempted ? "warning" : "secondary";
+  const difficultyVariant =
+    DIFFICULTY_VARIANTS[problem.difficulty] ??
+    DIFFICULTY_VARIANTS[DIFFICULTY.EASY];
+  const statusVariant: BadgeVariant = isSolved
+    ? "success"
+    : isAttempted
+      ? "warning"
+      : "secondary";
 
   if (layout === "grid") {
     return (
@@ -36,11 +52,17 @@ export function ChallengeCard({
       >
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
-            <Badge variant={difficultyVariant} className="text-[10px] uppercase px-2 py-0.5">
+            <Badge
+              variant={difficultyVariant}
+              className="text-[10px] uppercase px-2 py-0.5"
+            >
               {problem.difficulty}
             </Badge>
 
-            <Badge variant={statusVariant} className="gap-1.5 text-[10px] uppercase">
+            <Badge
+              variant={statusVariant}
+              className="gap-1.5 text-[10px] uppercase"
+            >
               {isSolved ? (
                 <CheckCircle2 className="h-3 w-3" />
               ) : isAttempted ? (
@@ -67,7 +89,8 @@ export function ChallengeCard({
         <div className="flex items-center justify-between border-t-2 border-border pt-3 mt-1">
           <div className="flex items-center gap-1.5 text-xs text-amber-400 font-semibold">
             <Trophy className="h-3.5 w-3.5 text-amber-400" />
-            <span className="text-foreground">{progress.bestScore}</span> / {problem.points} XP
+            <span className="text-foreground">{progress.bestScore}</span> /{" "}
+            {problem.points} XP
           </div>
 
           <div className="flex h-8 w-8 items-center justify-center pixel-flat bg-primary text-primary-foreground transition-transform group-hover:scale-105">
@@ -88,18 +111,26 @@ export function ChallengeCard({
           <span className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors truncate">
             {problem.title}
           </span>
-          <Badge variant={difficultyVariant} className="text-[10px] uppercase shrink-0">
+          <Badge
+            variant={difficultyVariant}
+            className="text-[10px] uppercase shrink-0"
+          >
             {problem.difficulty}
           </Badge>
         </div>
         {problem.statement && (
-          <p className="text-xs text-muted-foreground line-clamp-1">{problem.statement}</p>
+          <p className="text-xs text-muted-foreground line-clamp-1">
+            {problem.statement}
+          </p>
         )}
       </div>
 
       <div className="flex items-center gap-5 shrink-0">
         <div className="flex flex-col items-end gap-1">
-          <Badge variant={statusVariant} className="gap-1.5 text-[10px] uppercase">
+          <Badge
+            variant={statusVariant}
+            className="gap-1.5 text-[10px] uppercase"
+          >
             {isSolved ? (
               <CheckCircle2 className="h-3 w-3" />
             ) : isAttempted ? (
@@ -111,7 +142,9 @@ export function ChallengeCard({
           </Badge>
           <div className="flex items-center gap-1 text-xs text-amber-400">
             <Trophy className="h-3 w-3 text-amber-400" />
-            <strong className="text-foreground">{progress.bestScore}</strong> / {problem.points} XP
+            <strong className="text-foreground">
+              {progress.bestScore}
+            </strong> / {problem.points} XP
           </div>
         </div>
 

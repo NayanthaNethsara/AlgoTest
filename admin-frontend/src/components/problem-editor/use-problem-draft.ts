@@ -24,7 +24,10 @@ export function useProblemDraft(
 ) {
   const [draftRestored, setDraftRestored] = useState(false);
   const [hasSavedDraft, setHasSavedDraft] = useState(
-    () => !isEditing && typeof window !== "undefined" && Boolean(localStorage.getItem(DRAFT_STORAGE_KEY))
+    () =>
+      !isEditing &&
+      typeof window !== "undefined" &&
+      Boolean(localStorage.getItem(DRAFT_STORAGE_KEY))
   );
 
   // Auto-save draft on every change when creating a new problem

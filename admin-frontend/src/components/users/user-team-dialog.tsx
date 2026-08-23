@@ -19,13 +19,7 @@ interface UserTeamDialogProps {
   onClose: () => void;
 }
 
-export function UserTeamDialog({
-  user,
-  teams,
-  pending,
-  onSave,
-  onClose,
-}: UserTeamDialogProps) {
+export function UserTeamDialog({ user, teams, pending, onSave, onClose }: UserTeamDialogProps) {
   const [selectedTeamId, setSelectedTeamId] = useState<string>(user?.teamId ?? "");
 
   if (!user) return null;
@@ -72,7 +66,12 @@ export function UserTeamDialog({
             <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={pending || !selectedTeamId} className="text-xs">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={pending || !selectedTeamId}
+              className="text-xs"
+            >
               {pending ? "Saving..." : "Save Assignment"}
             </Button>
           </div>

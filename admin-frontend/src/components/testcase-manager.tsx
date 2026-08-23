@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Plus,
-  Trash2,
-  Cpu,
-  AlertCircle,
-  CheckCircle2,
-  ShieldAlert,
-  Upload,
-} from "lucide-react";
+import { Plus, Trash2, Cpu, AlertCircle, CheckCircle2, ShieldAlert, Upload } from "lucide-react";
 import {
   getProblemDetailAction,
   getProblemTestsAction,
@@ -182,7 +174,8 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
               </Badge>
             </div>
             <DialogDescription className="text-xs text-muted-foreground pt-1">
-              Official evaluation test cases used to score contestant code. Strictly hidden from competitors and distinct from public statement samples.
+              Official evaluation test cases used to score contestant code. Strictly hidden from
+              competitors and distinct from public statement samples.
             </DialogDescription>
           </DialogHeader>
 
@@ -212,8 +205,8 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                       {!scoring.hasMinimumCases
                         ? `At least ${MIN_EVALUATION_TEST_CASES} evaluation test cases required (currently ${testCases.length}).`
                         : scoring.hasCustomPoints
-                        ? `Custom scoring: ${scoring.customPointsSum} / ${maxScore} points allocated across ${testCases.length} test cases.`
-                        : `Auto-distribution: ${maxScore} max points distributed evenly (~${scoring.autoPointPerTest} pts per case).`}
+                          ? `Custom scoring: ${scoring.customPointsSum} / ${maxScore} points allocated across ${testCases.length} test cases.`
+                          : `Auto-distribution: ${maxScore} max points distributed evenly (~${scoring.autoPointPerTest} pts per case).`}
                     </span>
                   </div>
                   <div className="text-[11px] text-muted-foreground font-mono">
@@ -303,7 +296,8 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                     <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
                       <p className="text-xs font-medium text-foreground">No Test Cases Added</p>
                       <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                        Click &quot;Add Test Case&quot; or &quot;Bulk JSON Import&quot; to define evaluation test cases.
+                        Click &quot;Add Test Case&quot; or &quot;Bulk JSON Import&quot; to define
+                        evaluation test cases.
                       </p>
                     </div>
                   ) : (
@@ -328,7 +322,8 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                               </Badge>
                               {isDuplicate && (
                                 <Badge variant="destructive" className="text-[10px] gap-1">
-                                  <AlertCircle className="h-3 w-3" /> Matches Public Sample #{matchedSample?.ordinal}
+                                  <AlertCircle className="h-3 w-3" /> Matches Public Sample #
+                                  {matchedSample?.ordinal}
                                 </Badge>
                               )}
                             </div>
@@ -363,7 +358,8 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
 
                           {isDuplicate && (
                             <div className="rounded border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive">
-                              Evaluation test cases cannot be identical to public sample test cases. Please provide a distinct test case for judging.
+                              Evaluation test cases cannot be identical to public sample test cases.
+                              Please provide a distinct test case for judging.
                             </div>
                           )}
 

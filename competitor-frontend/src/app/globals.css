@@ -164,10 +164,20 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif;
+    font-family:
+      var(--font-sans),
+      Inter,
+      system-ui,
+      -apple-system,
+      sans-serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: inherit;
   }
 
@@ -212,7 +222,9 @@
   /* Interactive blocks physically depress. 2px is one "pixel" at this scale, so
      the motion lands on the grid instead of blurring across it. */
   .pixel-press {
-    transition: transform 0.05s ease, box-shadow 0.05s ease;
+    transition:
+      transform 0.05s ease,
+      box-shadow 0.05s ease;
   }
 
   .pixel-press:active:not(:disabled):not([aria-disabled="true"]) {
@@ -301,8 +313,12 @@
   }
 
   @keyframes pixel-spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -344,13 +360,19 @@
 .pixel-btn {
   font-family: var(--font-pixel-body), sans-serif;
   border: 2px solid #000000;
-  box-shadow: inset 2px 2px 0px oklch(0.85 0.16 172), inset -2px -2px 0px oklch(0.45 0.16 172);
-  transition: transform 0.05s ease, box-shadow 0.05s ease;
+  box-shadow:
+    inset 2px 2px 0px oklch(0.85 0.16 172),
+    inset -2px -2px 0px oklch(0.45 0.16 172);
+  transition:
+    transform 0.05s ease,
+    box-shadow 0.05s ease;
 }
 
 .pixel-btn:active:not(:disabled) {
   transform: translateY(2px);
-  box-shadow: inset -2px -2px 0px oklch(0.85 0.16 172), inset 2px 2px 0px oklch(0.45 0.16 172);
+  box-shadow:
+    inset -2px -2px 0px oklch(0.85 0.16 172),
+    inset 2px 2px 0px oklch(0.45 0.16 172);
 }
 
 ::-webkit-scrollbar {
@@ -438,7 +460,12 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 
 /* Clean Dark Mode (VS Code / LeetCode Dark Theme) */
 .challenge-mode-dark {
-  font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif !important;
+  font-family:
+    var(--font-sans),
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif !important;
   background-color: #09090b !important;
   color: #f4f4f5 !important;
 }
@@ -452,7 +479,12 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 .challenge-mode-dark .pixel-label,
 .challenge-mode-dark .font-pixel-header,
 .challenge-mode-dark .font-pixel-body {
-  font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif !important;
+  font-family:
+    var(--font-sans),
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif !important;
   text-shadow: none !important;
   letter-spacing: normal !important;
 }
@@ -496,7 +528,12 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 
 /* Clean Light Mode (VS Code / LeetCode Light Theme) */
 .challenge-mode-light {
-  font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif !important;
+  font-family:
+    var(--font-sans),
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif !important;
   background-color: #f8fafc !important;
   color: #0f172a !important;
 }
@@ -510,7 +547,12 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 .challenge-mode-light .pixel-label,
 .challenge-mode-light .font-pixel-header,
 .challenge-mode-light .font-pixel-body {
-  font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif !important;
+  font-family:
+    var(--font-sans),
+    Inter,
+    system-ui,
+    -apple-system,
+    sans-serif !important;
   text-shadow: none !important;
   letter-spacing: normal !important;
 }

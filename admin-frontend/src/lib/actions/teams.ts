@@ -4,6 +4,10 @@ import { backendFetch } from "@/lib/api/server";
 import type { Team, CreateTeamInput } from "@/types/team";
 import type { User } from "@/types/user";
 
+function getErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 export async function listTeamsAction(): Promise<Team[]> {
   try {
     const res = await backendFetch("/api/v1/admin/teams");
@@ -13,8 +17,8 @@ export async function listTeamsAction(): Promise<Team[]> {
     }
     const data = await res.json();
     return data.teams || [];
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to fetch teams");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to fetch teams"));
   }
 }
 
@@ -31,8 +35,8 @@ export async function createTeamAction(
       throw new Error(errBody.error || "Failed to create team");
     }
     return await res.json();
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to create team");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to create team"));
   }
 }
 
@@ -48,8 +52,8 @@ export async function updateTeamAction(id: string, name: string): Promise<Team> 
     }
     const data = await res.json();
     return data.team;
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to update team");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to update team"));
   }
 }
 
@@ -62,8 +66,8 @@ export async function deleteTeamAction(id: string): Promise<void> {
       const errBody = await res.json().catch(() => ({}));
       throw new Error(errBody.error || "Failed to delete team");
     }
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to delete team");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to delete team"));
   }
 }
 
@@ -84,8 +88,8 @@ export async function addTeamMemberAction(
       throw new Error(errBody.error || "Failed to add team member");
     }
     return await res.json();
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to add team member");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to add team member"));
   }
 }
 
@@ -100,7 +104,7 @@ export async function removeTeamMemberAction(teamId: string, userId: string): Pr
     }
     const data = await res.json();
     return data.team;
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to remove team member");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to remove team member"));
   }
 }

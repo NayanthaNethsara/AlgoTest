@@ -12,9 +12,12 @@ export async function fetchProctorGate(
   tabVisible = true,
 ): Promise<ProctorSelfStatus | null> {
   try {
-    const res = await backendFetch(`/api/v1/telemetry/self?tab_visible=${tabVisible}`, {
-      method: "GET",
-    });
+    const res = await backendFetch(
+      `/api/v1/telemetry/self?tab_visible=${tabVisible}`,
+      {
+        method: "GET",
+      },
+    );
     if (!res.ok) return null;
     return (await res.json()) as ProctorSelfStatus;
   } catch {

@@ -1,12 +1,5 @@
 import { useState } from "react";
-import {
-  KeyRound,
-  Trash2,
-  ShieldCheck,
-  ShieldOff,
-  Users,
-  Search,
-} from "lucide-react";
+import { KeyRound, Trash2, ShieldCheck, ShieldOff, Users, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -114,8 +107,8 @@ export function UserTable({
                   {searchQuery
                     ? "No users match your search query."
                     : subTab === "competitors"
-                    ? "No competitors found. Use \"Add Competitor\" or \"Bulk Import\" above."
-                    : "No admin users found."}
+                      ? 'No competitors found. Use "Add Competitor" or "Bulk Import" above.'
+                      : "No admin users found."}
                 </TableCell>
               </TableRow>
             ) : (
@@ -134,7 +127,9 @@ export function UserTable({
                           </Badge>
                         )}
                       </div>
-                      <div className="text-[11px] font-mono text-muted-foreground">{u.username}</div>
+                      <div className="text-[11px] font-mono text-muted-foreground">
+                        {u.username}
+                      </div>
                     </TableCell>
 
                     {subTab === "competitors" && (

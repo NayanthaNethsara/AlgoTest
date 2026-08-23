@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { getAdminProctorTimelineAction } from "@/actions/telemetry";
-import { formatClock, formatDuration } from "@/lib/monitoring";
+import { formatClock } from "@/lib/monitoring";
 import type { ProctorTimeline, TimelineEntry } from "@/types/proctor";
 
 export default function ContestantTimelinePage() {

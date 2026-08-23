@@ -3,11 +3,7 @@ import type { Verdict } from "./code";
 export type SubmissionStatus = "queued" | "running" | "passed" | "failed";
 
 export type SubmissionSortOption =
-  | "NEWEST"
-  | "OLDEST"
-  | "SCORE_DESC"
-  | "STATUS_ASC"
-  | "TITLE_ASC";
+  "NEWEST" | "OLDEST" | "SCORE_DESC" | "STATUS_ASC" | "TITLE_ASC";
 
 export type SubmissionItem = {
   id: string;

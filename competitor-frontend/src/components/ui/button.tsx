@@ -1,18 +1,23 @@
-import { Button as ButtonPrimitive } from "@base-ui/react/button"
-import { cva, type VariantProps } from "class-variance-authority"
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
+import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center rounded-none text-sm font-semibold whitespace-nowrap transition-colors outline-none select-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "pixel-raised pixel-press bg-primary text-primary-foreground hover:bg-primary/90",
-        outline: "pixel-raised pixel-press bg-secondary text-secondary-foreground hover:bg-muted",
-        secondary: "pixel-raised pixel-press bg-accent text-accent-foreground hover:bg-accent/80",
-        ghost: "border border-transparent bg-transparent text-foreground hover:bg-muted",
-        destructive: "pixel-raised pixel-press bg-destructive text-white hover:bg-destructive/90",
+        default:
+          "pixel-raised pixel-press bg-primary text-primary-foreground hover:bg-primary/90",
+        outline:
+          "pixel-raised pixel-press bg-secondary text-secondary-foreground hover:bg-muted",
+        secondary:
+          "pixel-raised pixel-press bg-accent text-accent-foreground hover:bg-accent/80",
+        ghost:
+          "border border-transparent bg-transparent text-foreground hover:bg-muted",
+        destructive:
+          "pixel-raised pixel-press bg-destructive text-white hover:bg-destructive/90",
         link: "border border-transparent text-primary underline-offset-4 hover:underline",
       },
       size: {
@@ -30,8 +35,8 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
-)
+  },
+);
 
 function Button({
   className,
@@ -45,7 +50,7 @@ function Button({
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
-  )
+  );
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

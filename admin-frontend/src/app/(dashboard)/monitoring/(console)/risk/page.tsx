@@ -8,19 +8,9 @@ import { SeverityBadge, formatTimeAgo } from "@/components/monitoring/badges";
 import { useMonitoring } from "@/components/monitoring/monitoring-context";
 import { MonitoringFilters } from "@/components/monitoring/monitoring-filters";
 import { FindingsSkeleton, RiskPanelSkeleton } from "@/components/monitoring/skeletons";
-import type { CompetitorRisk } from "@/types/proctor";
+import type { CompetitorRisk, EvidenceFinding } from "@/types/proctor";
 
 const SEVERITY_OPTIONS = ["ALL", "HIGH", "MEDIUM", "LOW"];
-
-interface EvidenceFinding {
-  id: string;
-  ruleId: string;
-  title: string;
-  category: string;
-  weight: number;
-  evidence: unknown;
-  createdAt: string;
-}
 
 export default function RiskPage() {
   const { risk, loaded, searchQuery, statusFilter, refreshNow } = useMonitoring();

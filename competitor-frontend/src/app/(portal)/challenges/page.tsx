@@ -13,16 +13,21 @@ export default async function ChallengesPage() {
 
   const totalPoints = problems.reduce((acc, p) => acc + p.points, 0);
   const solvedCount = problems.filter((p) => {
-    const pr = (p.id ? progress[p.id] : undefined) || (p.slug ? progress[p.slug] : undefined);
+    const pr =
+      (p.id ? progress[p.id] : undefined) ||
+      (p.slug ? progress[p.slug] : undefined);
     return pr?.status === CHALLENGE_STATUS.SOLVED;
   }).length;
 
   const earnedPoints = Object.values(progress).reduce(
     (acc, pr) => acc + (pr.bestScore ?? 0),
-    0
+    0,
   );
 
-  const earnedPct = totalPoints > 0 ? Math.min(100, Math.round((earnedPoints / totalPoints) * 100)) : 0;
+  const earnedPct =
+    totalPoints > 0
+      ? Math.min(100, Math.round((earnedPoints / totalPoints) * 100))
+      : 0;
 
   return (
     <ScrollArea className="h-full">
@@ -37,7 +42,8 @@ export default async function ChallengesPage() {
               </h1>
             </div>
             <p className="text-xs text-muted-foreground">
-              Select a challenge to inspect specs, code in the editor, and submit to earn points.
+              Select a challenge to inspect specs, code in the editor, and
+              submit to earn points.
             </p>
           </div>
 
@@ -45,9 +51,13 @@ export default async function ChallengesPage() {
           <div className="flex items-center gap-3 pixel-flat bg-card px-3 py-1.5 shrink-0 text-xs">
             <Zap className="h-4 w-4 text-amber-400" />
             <div className="flex items-center gap-2">
-              <span className="font-bold text-foreground">{solvedCount}/{problems.length} Solved</span>
+              <span className="font-bold text-foreground">
+                {solvedCount}/{problems.length} Solved
+              </span>
               <span className="text-muted-foreground">•</span>
-              <span className="font-bold text-amber-400">{earnedPoints}/{totalPoints} XP ({earnedPct}%)</span>
+              <span className="font-bold text-amber-400">
+                {earnedPoints}/{totalPoints} XP ({earnedPct}%)
+              </span>
             </div>
           </div>
         </div>

@@ -10,7 +10,7 @@ import {
 } from "@/lib/actions/users";
 import { setProctorAccessAction, toggleProctorExemptionAction } from "@/actions/telemetry";
 import { addTeamMemberAction, removeTeamMemberAction } from "@/lib/actions/teams";
-import type { User, CreateUserInput, BulkResult } from "@/types/user";
+import type { User, CreateUserInput } from "@/types/user";
 import type { Team } from "@/types/team";
 import { ConfirmDialog } from "./confirm-dialog";
 import { CredentialsAlert } from "./credentials-alert";

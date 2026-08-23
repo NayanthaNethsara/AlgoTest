@@ -1,7 +1,7 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
-import type { ProctorTimeline } from "@/types/proctor";
+import type { EvidenceFinding, ProctorTimeline } from "@/types/proctor";
 import {
   MONITORING_SECTIONS,
   type MonitoringSection,
@@ -18,46 +18,57 @@ export async function getMonitoringSnapshotAction(sections: MonitoringSection[])
   const query = include.length > 0 ? `?include=${include.join(",")}` : "";
 
   try {
-    const response = await backendFetch(`/api/v1/admin/monitoring${query}`, { method: "GET" });
+    const response = await backendFetch(`/api/v1/admin/proctor/dashboard${query}`, {
+      method: "GET",
+    });
 
     if (response.status === 401 || response.status === 403) {
       return { unauthenticated: true };
     }
     if (!response.ok) {
-      return { error: "Monitoring feed unavailable." };
+      return { error: "Monitoring overview unavailable" };
     }
-
-    return { snapshot: await response.json() };
+    const data = (await response.json()) as MonitoringSnapshot;
+    return { snapshot: data };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "Monitoring feed unavailable." };
+    const message = err instanceof Error ? err.message : "Monitoring service unreachable";
+    return { error: message };
   }
 }
 
-export async function getAdminProctorTimelineAction(userId: string): Promise<{
-  timeline: ProctorTimeline | null;
-  error?: string;
-}> {
+export async function setProctorAccessAction(
+  userId: string,
+  grant: { webWithAgent: boolean; webOnly: boolean },
+  reason = "",
+  hoursValid = 0
+): Promise<{ status?: string; warning?: string; error?: string }> {
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/timeline/${userId}`, {
-      method: "GET",
+    const response = await backendFetch(`/api/v1/admin/users/${userId}/access`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        webWithAgent: grant.webWithAgent,
+        webOnly: grant.webOnly,
+        reason,
+        hoursValid,
+      }),
     });
     if (!response.ok) {
-      return { timeline: null, error: "Failed to fetch contestant timeline" };
+      const err = await response.json().catch(() => ({}));
+      return { error: err.error || "Failed to update proctor access" };
     }
-    return { timeline: await response.json() };
+    const data = await response.json().catch(() => ({}));
+    return { status: "updated", warning: data.warning };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return { timeline: null, error: message };
+    return { error: message };
   }
 }
 
 export async function revokeAgentAction(
   agentId: string,
   reason: string
-): Promise<{
-  status?: string;
-  error?: string;
-}> {
+): Promise<{ status?: string; error?: string }> {
   try {
     const response = await backendFetch(`/api/v1/admin/proctor/agents/${agentId}/revoke`, {
       method: "POST",
@@ -74,8 +85,10 @@ export async function revokeAgentAction(
   }
 }
 
+export const revokeProctorEnrolmentAction = revokeAgentAction;
+
 export async function getAdminProctorFindingsAction(userId: string): Promise<{
-  findings: any[];
+  findings: EvidenceFinding[];
   error?: string;
 }> {
   try {
@@ -93,56 +106,42 @@ export async function getAdminProctorFindingsAction(userId: string): Promise<{
   }
 }
 
-export async function setProctorAccessAction(
+export async function toggleProctorExemptionAction(
   userId: string,
-  grant: { webWithAgent: boolean; webOnly: boolean },
-  reason: string,
-  hoursValid = 0
-): Promise<{
-  status?: string;
-  /** Set when the saved combination works against the organizer who set it. */
-  warning?: string;
-  error?: string;
-}> {
+  exempt: boolean,
+  reason?: string
+): Promise<{ status?: string; error?: string }> {
   try {
-    const response = await backendFetch(`/api/v1/admin/users/${userId}/access`, {
-      method: "PATCH",
+    const response = await backendFetch(`/api/v1/admin/proctor/exempt/${userId}`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...grant, reason, hoursValid }),
+      body: JSON.stringify({ exempt, reason }),
     });
-    const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      return { error: body.error ?? "Failed to update submission access" };
+      return { error: "Failed to update exemption status" };
     }
-    return { status: "updated", warning: body.warning || undefined };
+    return { status: "updated" };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return { error: message };
   }
 }
 
-export async function toggleProctorExemptionAction(
-  userId: string,
-  exempt: boolean,
-  reason: string,
-  hoursValid = 4
-): Promise<{
-  status?: string;
+export async function getAdminProctorTimelineAction(userId: string): Promise<{
+  timeline?: ProctorTimeline;
   error?: string;
 }> {
   try {
-    const response = await backendFetch(`/api/v1/admin/users/${userId}/exemption`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ exempt, reason, hoursValid }),
+    const response = await backendFetch(`/api/v1/admin/proctor/timeline/${userId}`, {
+      method: "GET",
     });
     if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      return { error: body.error ?? "Failed to update exemption" };
+      return { error: "Failed to load contestant evidence timeline" };
     }
-    return { status: "updated" };
+    const data = (await response.json()) as { timeline: ProctorTimeline };
+    return { timeline: data.timeline };
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const message = err instanceof Error ? err.message : "Telemetry service unreachable";
     return { error: message };
   }
 }

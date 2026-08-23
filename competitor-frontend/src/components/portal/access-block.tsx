@@ -1,7 +1,10 @@
 "use client";
 
 import { Loader2, RotateCw, ShieldOff } from "lucide-react";
-import { contestLocked, useProctor } from "@/components/portal/proctor-provider";
+import {
+  contestLocked,
+  useProctor,
+} from "@/components/portal/proctor-provider";
 import { Button } from "@/components/ui/button";
 import {
   PROCTOR_LOCK_TITLES,
@@ -32,7 +35,10 @@ export function AccessBlockScreen() {
             <ShieldOff className="size-7 shrink-0 text-destructive" />
           )}
           <div>
-            <h2 id="access-block-title" className="text-base font-semibold text-foreground">
+            <h2
+              id="access-block-title"
+              className="text-base font-semibold text-foreground"
+            >
               {title}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -45,14 +51,18 @@ export function AccessBlockScreen() {
           <div className="flex flex-wrap gap-x-2">
             <dt className="text-muted-foreground">Current environment:</dt>
             <dd className="font-semibold text-foreground">
-              {accessMode ? PROCTOR_MODE_LABELS[accessMode] : "Unrecognised window"}
+              {accessMode
+                ? PROCTOR_MODE_LABELS[accessMode]
+                : "Unrecognised window"}
             </dd>
           </div>
           <div className="flex flex-wrap gap-x-2">
             <dt className="text-muted-foreground">Allowed submission modes:</dt>
             <dd className="font-semibold text-foreground">
               {allowedModes.length > 0
-                ? allowedModes.map((mode) => PROCTOR_MODE_LABELS[mode]).join(", or ")
+                ? allowedModes
+                    .map((mode) => PROCTOR_MODE_LABELS[mode])
+                    .join(", or ")
                 : PROCTOR_MODE_LABELS.DESKTOP}
             </dd>
           </div>
@@ -69,7 +79,9 @@ export function AccessBlockScreen() {
         </dl>
 
         <div className="flex flex-col gap-1 text-xs">
-          <span className="font-semibold text-foreground">Required action:</span>
+          <span className="font-semibold text-foreground">
+            Required action:
+          </span>
           <p className="text-muted-foreground leading-relaxed">
             {remedy ??
               "Start the proctor client window, or ask an organizer to grant browser access for your account."}
@@ -83,7 +95,10 @@ export function AccessBlockScreen() {
           </Button>
           {local?.support_code && (
             <span className="font-mono text-xs text-muted-foreground">
-              Support code: <span className="font-semibold text-foreground">{local.support_code}</span>
+              Support code:{" "}
+              <span className="font-semibold text-foreground">
+                {local.support_code}
+              </span>
             </span>
           )}
         </div>

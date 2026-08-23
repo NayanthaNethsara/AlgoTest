@@ -124,7 +124,9 @@ export function LeaderboardClient({
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as LeaderboardSortOption)}
+              onChange={(e) =>
+                setSortBy(e.target.value as LeaderboardSortOption)
+              }
               className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
             >
               <option value="RANK_ASC">Rank: #1 to last</option>

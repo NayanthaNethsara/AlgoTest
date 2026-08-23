@@ -45,7 +45,8 @@ export function TeamAddMemberDialog({
             <DialogTitle className="text-base font-semibold">Add Member</DialogTitle>
           </div>
           <DialogDescription className="text-xs">
-            Add an unassigned competitor to <strong className="text-foreground">{team.name}</strong>.
+            Add an unassigned competitor to <strong className="text-foreground">{team.name}</strong>
+            .
           </DialogDescription>
         </DialogHeader>
 

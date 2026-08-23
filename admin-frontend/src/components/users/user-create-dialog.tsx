@@ -13,12 +13,7 @@ interface UserCreateDialogProps {
   onCancel: () => void;
 }
 
-export function UserCreateDialog({
-  teams,
-  pending,
-  onSubmit,
-  onCancel,
-}: UserCreateDialogProps) {
+export function UserCreateDialog({ teams, pending, onSubmit, onCancel }: UserCreateDialogProps) {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");

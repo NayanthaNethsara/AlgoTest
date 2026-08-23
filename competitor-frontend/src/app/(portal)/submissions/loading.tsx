@@ -19,7 +19,11 @@ export default function SubmissionsLoading() {
 
       <div className="pixel-raised bg-card overflow-hidden divide-y divide-border">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-11 animate-pulse bg-muted/30" style={{ animationDelay: `${i * 75}ms` }} />
+          <div
+            key={i}
+            className="h-11 animate-pulse bg-muted/30"
+            style={{ animationDelay: `${i * 75}ms` }}
+          />
         ))}
       </div>
     </div>

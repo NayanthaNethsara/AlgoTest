@@ -64,18 +64,33 @@ export function LoginForm() {
           placeholder="••••••••"
         />
       </FormField>
-      {errorMessage && <p className="text-xs text-destructive font-medium">{errorMessage}</p>}
-      <Button type="submit" size="lg" disabled={isAuthenticating} className="mt-2 w-full">
+      {errorMessage && (
+        <p className="text-xs text-destructive font-medium">{errorMessage}</p>
+      )}
+      <Button
+        type="submit"
+        size="lg"
+        disabled={isAuthenticating}
+        className="mt-2 w-full"
+      >
         {isAuthenticating ? "Signing in..." : "Start challenge"}
       </Button>
     </form>
   );
 }
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FormField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="flex flex-col gap-1.5 text-xs">
-      <span className="text-foreground/80 font-semibold tracking-wide uppercase text-[11px]">{label}</span>
+      <span className="text-foreground/80 font-semibold tracking-wide uppercase text-[11px]">
+        {label}
+      </span>
       {children}
     </label>
   );

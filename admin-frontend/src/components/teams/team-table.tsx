@@ -1,6 +1,5 @@
 import { Edit2, Trash2, UserPlus, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableHeader,

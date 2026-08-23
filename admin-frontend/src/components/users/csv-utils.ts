@@ -5,7 +5,10 @@ export function parseCsvInput(
   isSingleTeamMode: boolean,
   singleTeamName?: string
 ): ParsedCsvRow[] {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   if (lines.length === 0) return [];
 
   // Check if first line is a header

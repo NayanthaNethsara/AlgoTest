@@ -31,7 +31,10 @@ export default async function LeaderboardPage() {
         </div>
 
         {/* Clean Standings Table */}
-        <LeaderboardClient leaderboard={leaderboardData} currentUser={currentUser} />
+        <LeaderboardClient
+          leaderboard={leaderboardData}
+          currentUser={currentUser}
+        />
       </div>
     </ScrollArea>
   );

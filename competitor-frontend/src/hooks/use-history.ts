@@ -1,10 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  HISTORY_STORAGE_PREFIX,
-  MAX_HISTORY_SNAPSHOTS,
-} from "@/lib/constants";
+import { HISTORY_STORAGE_PREFIX, MAX_HISTORY_SNAPSHOTS } from "@/lib/constants";
 import type { Snapshot, SnapshotTrigger } from "@/types/history";
 
 function storageKey(problemId: string) {

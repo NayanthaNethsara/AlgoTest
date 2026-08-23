@@ -1,6 +1,11 @@
 "use client";
 
-import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import { THEME_STORAGE_KEY } from "@/lib/constants";
 import type { ChallengeThemeMode } from "@/types/problem";
 
@@ -56,7 +61,11 @@ function writeMode(mode: ChallengeThemeMode) {
   listeners.forEach((notify) => notify());
 }
 
-export function ChallengeThemeProvider({ children }: { children: React.ReactNode }) {
+export function ChallengeThemeProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const mode = useSyncExternalStore(subscribe, readMode, serverMode);
   const value = useMemo(() => ({ mode, setMode: writeMode }), [mode]);
 

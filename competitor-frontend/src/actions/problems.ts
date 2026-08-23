@@ -63,7 +63,9 @@ export async function listProblemsAction(): Promise<{
 
 export async function getProblemAction(slug: string): Promise<Problem | null> {
   try {
-    const res = await backendFetch(`/api/v1/problems/${encodeURIComponent(slug)}`);
+    const res = await backendFetch(
+      `/api/v1/problems/${encodeURIComponent(slug)}`,
+    );
     if (res.ok) {
       const data = await res.json();
       if (data.problem) {

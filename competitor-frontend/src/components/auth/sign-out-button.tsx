@@ -38,7 +38,12 @@ export function SignOutButton() {
 
   if (!isDesktopClient()) {
     return (
-      <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={isSigningOut}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleSignOut}
+        disabled={isSigningOut}
+      >
         <LogOut className="size-4" />
         Sign out
       </Button>
@@ -59,10 +64,20 @@ export function SignOutButton() {
       <span className="hidden text-[10px] uppercase tracking-wider text-muted-foreground sm:inline">
         Stops proctoring · closes the app
       </span>
-      <Button variant="ghost" size="sm" onClick={() => setIsConfirming(false)} disabled={isSigningOut}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setIsConfirming(false)}
+        disabled={isSigningOut}
+      >
         Cancel
       </Button>
-      <Button variant="destructive" size="sm" onClick={handleSignOut} disabled={isSigningOut}>
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={handleSignOut}
+        disabled={isSigningOut}
+      >
         <LogOut className="size-4" />
         {isSigningOut ? "Signing out…" : "Confirm"}
       </Button>

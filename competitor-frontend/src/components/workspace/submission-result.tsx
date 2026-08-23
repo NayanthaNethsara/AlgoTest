@@ -46,7 +46,9 @@ export function SubmissionResult({
     );
   }
 
-  const overallVerdict = result.verdict ? VERDICT_DETAILS[result.verdict] : null;
+  const overallVerdict = result.verdict
+    ? VERDICT_DETAILS[result.verdict]
+    : null;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4 pb-16">
@@ -65,7 +67,11 @@ export function SubmissionResult({
             </span>
             {overallVerdict && (
               <Badge
-                variant={overallVerdict.variant as VariantProps<typeof badgeVariants>["variant"]}
+                variant={
+                  overallVerdict.variant as VariantProps<
+                    typeof badgeVariants
+                  >["variant"]
+                }
                 className="text-[10px] font-semibold uppercase"
               >
                 {overallVerdict.label}
@@ -74,7 +80,10 @@ export function SubmissionResult({
           </div>
         </div>
         {result.improvedBest ? (
-          <Badge variant="success" className="text-[10px] font-semibold uppercase">
+          <Badge
+            variant="success"
+            className="text-[10px] font-semibold uppercase"
+          >
             <TrendingUp className="size-3" />
             New best!
           </Badge>
@@ -87,7 +96,9 @@ export function SubmissionResult({
 
       {result.compileError && (
         <div className="badge-destructive pixel-flat p-3 text-xs font-mono">
-          <span className="font-semibold uppercase text-[10px] tracking-wide">Compilation error:</span>
+          <span className="font-semibold uppercase text-[10px] tracking-wide">
+            Compilation error:
+          </span>
           <pre className="mt-1 whitespace-pre-wrap">{result.compileError}</pre>
         </div>
       )}
@@ -97,7 +108,9 @@ export function SubmissionResult({
           Test case breakdown
         </span>
         {result.subtasks.map((subtask) => {
-          const vDetails = subtask.verdict ? VERDICT_DETAILS[subtask.verdict] : null;
+          const vDetails = subtask.verdict
+            ? VERDICT_DETAILS[subtask.verdict]
+            : null;
           return (
             <div
               key={subtask.id}
@@ -107,10 +120,16 @@ export function SubmissionResult({
                 <StatusIcon passed={subtask.passed} />
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold">Test #{subtask.id}</span>
+                    <span className="text-xs font-semibold">
+                      Test #{subtask.id}
+                    </span>
                     {vDetails && (
                       <Badge
-                        variant={vDetails.variant as VariantProps<typeof badgeVariants>["variant"]}
+                        variant={
+                          vDetails.variant as VariantProps<
+                            typeof badgeVariants
+                          >["variant"]
+                        }
                         className="text-[9px] py-0 px-1.5 uppercase"
                       >
                         {vDetails.label}
@@ -124,7 +143,9 @@ export function SubmissionResult({
                   )}
                 </div>
               </div>
-              <span className={`text-xs font-semibold ${subtask.passed ? "text-success" : "text-muted-foreground"}`}>
+              <span
+                className={`text-xs font-semibold ${subtask.passed ? "text-success" : "text-muted-foreground"}`}
+              >
                 {subtask.earned}/{subtask.points} XP
               </span>
             </div>

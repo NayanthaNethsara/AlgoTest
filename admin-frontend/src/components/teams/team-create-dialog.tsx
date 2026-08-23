@@ -41,7 +41,12 @@ export function TeamCreateDialog({ pending, onSubmit, onCancel }: TeamCreateDial
           <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={pending}>
             Cancel
           </Button>
-          <Button type="submit" size="sm" disabled={pending || !name.trim()} className="text-xs gap-1.5">
+          <Button
+            type="submit"
+            size="sm"
+            disabled={pending || !name.trim()}
+            className="text-xs gap-1.5"
+          >
             <Plus className="h-3.5 w-3.5" />
             {pending ? "Creating..." : "Create Team"}
           </Button>

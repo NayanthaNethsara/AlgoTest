@@ -3,7 +3,11 @@ import { PortalShell } from "@/components/portal/portal-shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { readProctorGate } from "@/lib/proctor-gate";
 
-export default async function PortalLayout({ children }: { children: React.ReactNode }) {
+export default async function PortalLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const user = await getSessionUser();
   if (!user) {
     redirect("/login");

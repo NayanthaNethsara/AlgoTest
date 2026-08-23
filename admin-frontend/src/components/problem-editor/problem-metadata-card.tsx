@@ -54,9 +54,7 @@ export function ProblemMetadataCard({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-muted-foreground block">
-          Problem Title *
-        </label>
+        <label className="text-xs font-medium text-muted-foreground block">Problem Title *</label>
         <Input
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}

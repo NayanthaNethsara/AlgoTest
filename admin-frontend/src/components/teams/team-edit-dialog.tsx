@@ -38,7 +38,8 @@ export function TeamEditDialog({ team, pending, onSave, onClose }: TeamEditDialo
             <DialogTitle className="text-base font-semibold">Rename Team</DialogTitle>
           </div>
           <DialogDescription className="text-xs">
-            Change the display name for team <strong className="text-foreground">{team.name}</strong>.
+            Change the display name for team{" "}
+            <strong className="text-foreground">{team.name}</strong>.
           </DialogDescription>
         </DialogHeader>
 

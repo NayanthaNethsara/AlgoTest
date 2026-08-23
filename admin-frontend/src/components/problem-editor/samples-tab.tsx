@@ -30,12 +30,7 @@ export function SamplesTab({
             as hidden evaluation cases.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onAddSample}
-          className="h-8 text-xs gap-1"
-        >
+        <Button variant="outline" size="sm" onClick={onAddSample} className="h-8 text-xs gap-1">
           <Plus className="h-3.5 w-3.5" /> Add Sample Case
         </Button>
       </div>
@@ -47,10 +42,7 @@ export function SamplesTab({
           </p>
         ) : (
           samples.map((s, idx) => (
-            <div
-              key={idx}
-              className="rounded-lg border p-4 bg-muted/10 relative space-y-3"
-            >
+            <div key={idx} className="rounded-lg border p-4 bg-muted/10 relative space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Sample #{idx + 1}

@@ -92,3 +92,16 @@ export type CompetitorRisk = {
   allowWebWithAgent?: boolean;
   allowWebOnly?: boolean;
 };
+
+export type EvidenceFinding = {
+  id: string;
+  ruleId: string;
+  title: string;
+  category?: string;
+  severity?: "HIGH" | "MEDIUM" | "LOW";
+  weight?: number;
+  evidence?: unknown;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+  detectedAt?: string;
+};

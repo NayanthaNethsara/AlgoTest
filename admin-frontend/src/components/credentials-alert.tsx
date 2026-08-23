@@ -20,7 +20,9 @@ export function CredentialsAlert({
 
   function handleCopyAll() {
     const formatted = credentials
-      .map((c) => (c.teamName ? `${c.username}\t${c.teamName}\t${c.password}` : `${c.username}\t${c.password}`))
+      .map((c) =>
+        c.teamName ? `${c.username}\t${c.teamName}\t${c.password}` : `${c.username}\t${c.password}`
+      )
       .join("\n");
     navigator.clipboard.writeText(formatted);
     setCopied(true);
@@ -50,7 +52,10 @@ export function CredentialsAlert({
       </div>
       <div className="font-mono text-xs max-h-36 overflow-y-auto space-y-1">
         {credentials.map((c, i) => (
-          <div key={i} className="flex items-center justify-between border-b border-green-500/20 py-1 gap-2">
+          <div
+            key={i}
+            className="flex items-center justify-between border-b border-green-500/20 py-1 gap-2"
+          >
             <span className="font-medium">{c.username}</span>
             {c.teamName && (
               <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0">

@@ -4,7 +4,8 @@ export const CHALLENGE_STATUS = {
   SOLVED: "solved",
 } as const;
 
-export type ChallengeStatus = (typeof CHALLENGE_STATUS)[keyof typeof CHALLENGE_STATUS];
+export type ChallengeStatus =
+  (typeof CHALLENGE_STATUS)[keyof typeof CHALLENGE_STATUS];
 
 export type ChallengeProgress = {
   problemId: string;

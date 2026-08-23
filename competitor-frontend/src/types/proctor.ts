@@ -5,7 +5,6 @@
  */
 export type AccessMode = "DESKTOP" | "WEB_WITH_AGENT" | "WEB_ONLY";
 
-
 /** What the server knows about this contestant's proctor agent. */
 export type ProctorSelfStatus = {
   allowed: boolean;

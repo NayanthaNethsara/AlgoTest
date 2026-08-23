@@ -238,8 +238,7 @@ export function AdminTeams({
             <strong className="text-foreground">
               {removeMemberTarget?.user.displayName || removeMemberTarget?.user.username}
             </strong>{" "}
-            from team{" "}
-            <strong className="text-foreground">{removeMemberTarget?.team.name}</strong>?
+            from team <strong className="text-foreground">{removeMemberTarget?.team.name}</strong>?
           </>
         }
         actionLabel="Remove Member"

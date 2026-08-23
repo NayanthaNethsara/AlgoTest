@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpDown, Ban, CheckCircle2, Clock, History, Search, XCircle } from "lucide-react";
+import {
+  ArrowUpDown,
+  Ban,
+  CheckCircle2,
+  Clock,
+  History,
+  Search,
+  XCircle,
+} from "lucide-react";
 import { Mascot } from "@/components/common/mascot";
 import type { SubmissionItem, SubmissionSortOption } from "@/types/submission";
 
@@ -26,8 +34,12 @@ export function SubmissionsClient({
     }
 
     if (statusFilter !== "ALL") {
-      const isAc = sub.status.toLowerCase().includes("accepted") || sub.status.toLowerCase() === "ac";
-      const isWa = sub.status.toLowerCase().includes("wrong") || sub.status.toLowerCase() === "wa";
+      const isAc =
+        sub.status.toLowerCase().includes("accepted") ||
+        sub.status.toLowerCase() === "ac";
+      const isWa =
+        sub.status.toLowerCase().includes("wrong") ||
+        sub.status.toLowerCase() === "wa";
       if (statusFilter === "ACCEPTED" && !isAc) return false;
       if (statusFilter === "WRONG_ANSWER" && !isWa) return false;
       if (statusFilter === "OTHER" && (isAc || isWa)) return false;
@@ -41,7 +53,8 @@ export function SubmissionsClient({
     if (sortBy === "OLDEST") return (a.timestamp ?? 0) - (b.timestamp ?? 0);
     if (sortBy === "SCORE_DESC") return b.score - a.score;
     if (sortBy === "STATUS_ASC") return a.status.localeCompare(b.status);
-    if (sortBy === "TITLE_ASC") return a.problemTitle.localeCompare(b.problemTitle);
+    if (sortBy === "TITLE_ASC")
+      return a.problemTitle.localeCompare(b.problemTitle);
     return 0;
   });
 
@@ -81,7 +94,9 @@ export function SubmissionsClient({
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SubmissionSortOption)}
+              onChange={(e) =>
+                setSortBy(e.target.value as SubmissionSortOption)
+              }
               className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
             >
               <option value="NEWEST">Newest first</option>
@@ -117,7 +132,9 @@ export function SubmissionsClient({
               <thead>
                 <tr className="border-b-2 border-black bg-muted/80 text-foreground uppercase tracking-wider font-bold">
                   <th
-                    onClick={() => setSortBy(sortBy === "TITLE_ASC" ? "NEWEST" : "TITLE_ASC")}
+                    onClick={() =>
+                      setSortBy(sortBy === "TITLE_ASC" ? "NEWEST" : "TITLE_ASC")
+                    }
                     className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1">
@@ -128,7 +145,11 @@ export function SubmissionsClient({
                   <th className="py-3 px-4">TEAM / CONTESTANT</th>
                   <th className="py-3 px-4">LANGUAGE</th>
                   <th
-                    onClick={() => setSortBy(sortBy === "SCORE_DESC" ? "NEWEST" : "SCORE_DESC")}
+                    onClick={() =>
+                      setSortBy(
+                        sortBy === "SCORE_DESC" ? "NEWEST" : "SCORE_DESC",
+                      )
+                    }
                     className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1">
@@ -137,7 +158,11 @@ export function SubmissionsClient({
                     </div>
                   </th>
                   <th
-                    onClick={() => setSortBy(sortBy === "STATUS_ASC" ? "NEWEST" : "STATUS_ASC")}
+                    onClick={() =>
+                      setSortBy(
+                        sortBy === "STATUS_ASC" ? "NEWEST" : "STATUS_ASC",
+                      )
+                    }
                     className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1">
@@ -146,7 +171,9 @@ export function SubmissionsClient({
                     </div>
                   </th>
                   <th
-                    onClick={() => setSortBy(sortBy === "NEWEST" ? "OLDEST" : "NEWEST")}
+                    onClick={() =>
+                      setSortBy(sortBy === "NEWEST" ? "OLDEST" : "NEWEST")
+                    }
                     className="py-3 px-4 text-right cursor-pointer hover:bg-muted select-none"
                   >
                     <div className="inline-flex items-center gap-1 justify-end">
@@ -158,8 +185,12 @@ export function SubmissionsClient({
               </thead>
               <tbody className="divide-y divide-border">
                 {sortedSubmissions.map((sub) => {
-                  const isAc = sub.status.toLowerCase().includes("accepted") || sub.status.toLowerCase() === "ac";
-                  const isPending = sub.status.toLowerCase().includes("queued") || sub.status.toLowerCase() === "evaluating";
+                  const isAc =
+                    sub.status.toLowerCase().includes("accepted") ||
+                    sub.status.toLowerCase() === "ac";
+                  const isPending =
+                    sub.status.toLowerCase().includes("queued") ||
+                    sub.status.toLowerCase() === "evaluating";
                   const isRejected = sub.reviewStatus === "rejected";
 
                   return (
@@ -171,25 +202,40 @@ export function SubmissionsClient({
                         {sub.problemTitle}
                       </td>
                       <td className="py-3 px-4 text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground">{sub.teamName}</span>
+                        <span className="font-semibold text-foreground">
+                          {sub.teamName}
+                        </span>
                         {sub.submittedBy && (
-                          <span className="text-[11px] text-muted-foreground ml-1.5">({sub.submittedBy})</span>
+                          <span className="text-[11px] text-muted-foreground ml-1.5">
+                            ({sub.submittedBy})
+                          </span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-xs">
-                        <Badge variant="outline" className="font-mono text-[10px] uppercase bg-muted">
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-[10px] uppercase bg-muted"
+                        >
                           {sub.language}
                         </Badge>
                       </td>
                       <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
-                        <span className={isRejected ? "line-through" : undefined}>
+                        <span
+                          className={isRejected ? "line-through" : undefined}
+                        >
                           {sub.score} / {sub.maxScore}
                         </span>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex flex-col items-start gap-1">
                           <Badge
-                            variant={isAc ? "success" : isPending ? "warning" : "destructive"}
+                            variant={
+                              isAc
+                                ? "success"
+                                : isPending
+                                  ? "warning"
+                                  : "destructive"
+                            }
                             className={`gap-1.5 text-[10px] uppercase font-bold ${isPending ? "animate-pulse" : ""}`}
                           >
                             {isAc ? (
@@ -205,7 +251,9 @@ export function SubmissionsClient({
                             <Badge
                               variant="outline"
                               className="gap-1 text-[9px] uppercase font-bold"
-                              title={sub.reviewReason || "Rejected by an organizer"}
+                              title={
+                                sub.reviewReason || "Rejected by an organizer"
+                              }
                             >
                               <Ban className="h-3 w-3" />
                               Not counted

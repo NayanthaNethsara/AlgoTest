@@ -10,7 +10,14 @@ import {
   type ChallengeSortOption,
 } from "@/types/challenge";
 import type { Problem } from "@/types/problem";
-import { ArrowUpDown, Code2, Grid, List, Search, SlidersHorizontal } from "lucide-react";
+import {
+  ArrowUpDown,
+  Code2,
+  Grid,
+  List,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 
 export function ChallengesListClient({
   problems,
@@ -26,8 +33,7 @@ export function ChallengesListClient({
   const [layout, setLayout] = useState<ChallengeLayout>("grid");
 
   const filteredProblems = problems.filter((problem) => {
-    const pProgress =
-      (problem.id ? progress[problem.id] : undefined) ||
+    const pProgress = (problem.id ? progress[problem.id] : undefined) ||
       (problem.slug ? progress[problem.slug] : undefined) || {
         problemId: problem.id,
         status: CHALLENGE_STATUS.NOT_ATTEMPTED,
@@ -43,9 +49,21 @@ export function ChallengesListClient({
     }
 
     if (statusFilter !== "ALL") {
-      if (statusFilter === "SOLVED" && pProgress.status !== CHALLENGE_STATUS.SOLVED) return false;
-      if (statusFilter === "IN_PROGRESS" && pProgress.status !== CHALLENGE_STATUS.ATTEMPTED) return false;
-      if (statusFilter === "UNSOLVED" && pProgress.status === CHALLENGE_STATUS.SOLVED) return false;
+      if (
+        statusFilter === "SOLVED" &&
+        pProgress.status !== CHALLENGE_STATUS.SOLVED
+      )
+        return false;
+      if (
+        statusFilter === "IN_PROGRESS" &&
+        pProgress.status !== CHALLENGE_STATUS.ATTEMPTED
+      )
+        return false;
+      if (
+        statusFilter === "UNSOLVED" &&
+        pProgress.status === CHALLENGE_STATUS.SOLVED
+      )
+        return false;
     }
 
     if (difficultyFilter !== "ALL") {
@@ -59,10 +77,16 @@ export function ChallengesListClient({
     if (sortBy === "POINTS_DESC") return b.points - a.points;
     if (sortBy === "POINTS_ASC") return a.points - b.points;
     if (sortBy === "DIFFICULTY_ASC") {
-      return (DIFFICULTY_RANKS[a.difficulty.toUpperCase()] || 0) - (DIFFICULTY_RANKS[b.difficulty.toUpperCase()] || 0);
+      return (
+        (DIFFICULTY_RANKS[a.difficulty.toUpperCase()] || 0) -
+        (DIFFICULTY_RANKS[b.difficulty.toUpperCase()] || 0)
+      );
     }
     if (sortBy === "DIFFICULTY_DESC") {
-      return (DIFFICULTY_RANKS[b.difficulty.toUpperCase()] || 0) - (DIFFICULTY_RANKS[a.difficulty.toUpperCase()] || 0);
+      return (
+        (DIFFICULTY_RANKS[b.difficulty.toUpperCase()] || 0) -
+        (DIFFICULTY_RANKS[a.difficulty.toUpperCase()] || 0)
+      );
     }
     if (sortBy === "TITLE_ASC") return a.title.localeCompare(b.title);
     return 0;
@@ -178,9 +202,12 @@ export function ChallengesListClient({
         {sortedProblems.length === 0 ? (
           <div className="pixel-raised bg-card p-12 text-center">
             <Code2 className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-            <h3 className="font-semibold text-sm text-foreground">No matching challenges found</h3>
+            <h3 className="font-semibold text-sm text-foreground">
+              No matching challenges found
+            </h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-              Try adjusting your search terms, status filters, or sort criteria above.
+              Try adjusting your search terms, status filters, or sort criteria
+              above.
             </p>
           </div>
         ) : (
@@ -192,8 +219,9 @@ export function ChallengesListClient({
             }
           >
             {sortedProblems.map((problem) => {
-              const pProgress =
-                (problem.id ? progress[problem.id] : undefined) ||
+              const pProgress = (problem.id
+                ? progress[problem.id]
+                : undefined) ||
                 (problem.slug ? progress[problem.slug] : undefined) || {
                   problemId: problem.id,
                   status: CHALLENGE_STATUS.NOT_ATTEMPTED,

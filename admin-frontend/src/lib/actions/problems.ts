@@ -3,6 +3,10 @@
 import { backendFetch } from "@/lib/api/server";
 import type { ProblemDetail, ProblemInput, TestCaseInput } from "@/types/problem";
 
+function getErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 export async function listProblemsAction(): Promise<ProblemDetail[]> {
   try {
     const res = await backendFetch("/api/v1/admin/problems");
@@ -12,8 +16,8 @@ export async function listProblemsAction(): Promise<ProblemDetail[]> {
     }
     const data = await res.json();
     return data.problems || [];
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to fetch problems");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to fetch problems"));
   }
 }
 
@@ -26,8 +30,8 @@ export async function getProblemDetailAction(id: string): Promise<ProblemDetail>
     }
     const data = await res.json();
     return data.problem;
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to fetch problem detail");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to fetch problem detail"));
   }
 }
 
@@ -43,8 +47,8 @@ export async function createProblemAction(input: ProblemInput): Promise<ProblemD
     }
     const data = await res.json();
     return data.problem;
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to create problem");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to create problem"));
   }
 }
 
@@ -60,8 +64,8 @@ export async function updateProblemAction(id: string, input: ProblemInput): Prom
     }
     const data = await res.json();
     return data.problem;
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to update problem");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to update problem"));
   }
 }
 
@@ -75,8 +79,8 @@ export async function togglePublishAction(id: string, published: boolean): Promi
       const errBody = await res.json().catch(() => ({}));
       throw new Error(errBody.error || "Failed to update published status");
     }
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to update published status");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to update published status"));
   }
 }
 
@@ -89,8 +93,8 @@ export async function deleteProblemAction(id: string): Promise<void> {
       const errBody = await res.json().catch(() => ({}));
       throw new Error(errBody.error || "Failed to delete problem");
     }
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to delete problem");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to delete problem"));
   }
 }
 
@@ -103,8 +107,8 @@ export async function getProblemTestsAction(id: string): Promise<TestCaseInput[]
     }
     const data = await res.json();
     return data.tests || [];
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to fetch test cases");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to fetch test cases"));
   }
 }
 
@@ -118,7 +122,7 @@ export async function replaceTestCasesAction(id: string, tests: TestCaseInput[])
       const errBody = await res.json().catch(() => ({}));
       throw new Error(errBody.error || "Failed to update test cases");
     }
-  } catch (err: any) {
-    throw new Error(err.message || "Failed to update test cases");
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to update test cases"));
   }
 }

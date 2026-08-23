@@ -35,5 +35,8 @@ export function isDesktopClient(): boolean {
   }
   return document.cookie
     .split(";")
-    .some((entry) => entry.trim() === `${DESKTOP_CLIENT_COOKIE}=${DESKTOP_CLIENT_VALUE}`);
+    .some(
+      (entry) =>
+        entry.trim() === `${DESKTOP_CLIENT_COOKIE}=${DESKTOP_CLIENT_VALUE}`,
+    );
 }

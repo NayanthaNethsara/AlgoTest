@@ -7,7 +7,8 @@ export type Language = {
   starter: string;
 };
 
-export type Verdict = "AC" | "WA" | "TLE" | "MLE" | "RE" | "CE" | "OLE" | "IE" | "SK";
+export type Verdict =
+  "AC" | "WA" | "TLE" | "MLE" | "RE" | "CE" | "OLE" | "IE" | "SK";
 
 export type RunResult = {
   stdout: string;

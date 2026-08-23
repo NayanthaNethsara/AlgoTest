@@ -12,7 +12,8 @@ export function Mascot({
   size?: number;
   className?: string;
 }) {
-  const outline = variant === "muted" ? "var(--muted-foreground)" : "var(--foreground)";
+  const outline =
+    variant === "muted" ? "var(--muted-foreground)" : "var(--foreground)";
   const face = variant === "muted" ? "var(--muted)" : "var(--primary)";
   const feature = variant === "muted" ? "var(--secondary)" : "var(--teal-deep)";
 

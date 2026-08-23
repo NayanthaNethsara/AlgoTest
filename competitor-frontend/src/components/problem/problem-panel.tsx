@@ -16,7 +16,9 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
               {problem.title}
             </h1>
             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-              <Meta icon={<Trophy className="size-3.5" />}>{problem.points} points</Meta>
+              <Meta icon={<Trophy className="size-3.5" />}>
+                {problem.points} points
+              </Meta>
               <Meta icon={<Clock className="size-3.5" />}>
                 {problem.timeLimitMs} ms
               </Meta>
@@ -56,7 +58,9 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
                   className="pixel-inset flex items-start justify-between gap-4 bg-input p-3"
                 >
                   <div className="flex flex-col gap-1">
-                    <span className="text-sm font-medium">Subtask {subtask.id}</span>
+                    <span className="text-sm font-medium">
+                      Subtask {subtask.id}
+                    </span>
                     <div className="text-xs text-muted-foreground">
                       <Markdown>{subtask.constraints}</Markdown>
                     </div>
@@ -72,7 +76,13 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
   );
 }
 
-function Meta({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function Meta({
+  icon,
+  children,
+}: {
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <span className="inline-flex items-center gap-1.5 pixel-flat bg-muted px-2 py-1">
       {icon}
@@ -82,11 +92,7 @@ function Meta({ icon, children }: { icon: React.ReactNode; children: React.React
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="pixel-label pixel-prompt">
-      {children}
-    </h2>
-  );
+  return <h2 className="pixel-label pixel-prompt">{children}</h2>;
 }
 
 function SampleBlock({ index, sample }: { index: number; sample: Sample }) {
@@ -114,7 +120,9 @@ function IoCell({ label, value }: { label: string; value: string }) {
       <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
-      <pre className="overflow-x-auto font-mono text-xs leading-relaxed">{value}</pre>
+      <pre className="overflow-x-auto font-mono text-xs leading-relaxed">
+        {value}
+      </pre>
     </div>
   );
 }

@@ -1,13 +1,5 @@
 import { useState } from "react";
-import {
-  Cpu,
-  Plus,
-  Trash2,
-  Upload,
-  AlertCircle,
-  CheckCircle2,
-  HelpCircle,
-} from "lucide-react";
+import { Cpu, Plus, Trash2, Upload, AlertCircle, CheckCircle2, HelpCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,12 +85,7 @@ export function TestCasesTab({
             <Upload className="h-3.5 w-3.5" /> Bulk JSON Import
           </Button>
 
-          <Button
-            type="button"
-            size="sm"
-            onClick={onAddTest}
-            className="h-8 text-xs gap-1.5"
-          >
+          <Button type="button" size="sm" onClick={onAddTest} className="h-8 text-xs gap-1.5">
             <Plus className="h-3.5 w-3.5" /> Add Test Case
           </Button>
         </div>
@@ -116,8 +103,8 @@ export function TestCasesTab({
             {!scoring.hasMinimumCases
               ? `At least ${MIN_EVALUATION_TEST_CASES} distinct evaluation test cases are required (currently ${tests.length}).`
               : scoring.hasCustomPoints
-              ? `Custom scoring: ${scoring.customPointsSum} / ${maxScore} points assigned across ${tests.length} cases.`
-              : `Auto-distribution: ${maxScore} max points distributed evenly (~${scoring.autoPointPerTest} pts per case).`}
+                ? `Custom scoring: ${scoring.customPointsSum} / ${maxScore} points assigned across ${tests.length} cases.`
+                : `Auto-distribution: ${maxScore} max points distributed evenly (~${scoring.autoPointPerTest} pts per case).`}
           </span>
         </div>
         <div className="text-[11px] text-muted-foreground font-mono">
@@ -163,12 +150,7 @@ export function TestCasesTab({
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleApplyBulkImport}
-              className="h-8 text-xs"
-            >
+            <Button type="button" size="sm" onClick={handleApplyBulkImport} className="h-8 text-xs">
               Apply Import
             </Button>
           </div>
@@ -182,16 +164,11 @@ export function TestCasesTab({
             <HelpCircle className="h-8 w-8 text-muted-foreground/60 mx-auto" />
             <p className="text-xs font-medium text-foreground">No Evaluation Test Cases</p>
             <p className="text-xs text-muted-foreground max-w-md mx-auto">
-              Every problem requires at least {MIN_EVALUATION_TEST_CASES} evaluation test cases to be judged.
-              Evaluation test cases must be distinct from public statement samples.
+              Every problem requires at least {MIN_EVALUATION_TEST_CASES} evaluation test cases to
+              be judged. Evaluation test cases must be distinct from public statement samples.
             </p>
             <div className="pt-2 flex justify-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={onAddTest}
-                className="h-8 text-xs gap-1.5"
-              >
+              <Button type="button" size="sm" onClick={onAddTest} className="h-8 text-xs gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> Add First Test Case
               </Button>
             </div>
@@ -218,7 +195,8 @@ export function TestCasesTab({
                     </Badge>
                     {isDuplicate && (
                       <Badge variant="destructive" className="text-[10px] gap-1">
-                        <AlertCircle className="h-3 w-3" /> Duplicate of Public Sample #{matchedSample?.ordinal}
+                        <AlertCircle className="h-3 w-3" /> Duplicate of Public Sample #
+                        {matchedSample?.ordinal}
                       </Badge>
                     )}
                   </div>
@@ -232,9 +210,7 @@ export function TestCasesTab({
                         type="number"
                         min={0}
                         value={t.points || 0}
-                        onChange={(e) =>
-                          onTestChange(idx, "points", Number(e.target.value))
-                        }
+                        onChange={(e) => onTestChange(idx, "points", Number(e.target.value))}
                         placeholder="0 (auto)"
                         className="h-7 w-20 text-xs font-mono"
                       />
@@ -253,8 +229,8 @@ export function TestCasesTab({
 
                 {isDuplicate && (
                   <div className="rounded border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive">
-                    Evaluation test cases cannot be identical to public sample test cases. Please provide
-                    a distinct test case for judging.
+                    Evaluation test cases cannot be identical to public sample test cases. Please
+                    provide a distinct test case for judging.
                   </div>
                 )}
 

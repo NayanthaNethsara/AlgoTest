@@ -47,4 +47,3 @@ export async function backendFetch(
 
   return fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
 }
-

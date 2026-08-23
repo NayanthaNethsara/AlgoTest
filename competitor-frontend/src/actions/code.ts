@@ -162,7 +162,9 @@ export async function listSubmissionsAction(): Promise<SubmissionItem[]> {
             submittedAt: s.createdAt
               ? new Date(s.createdAt).toLocaleTimeString()
               : "Just now",
-            timestamp: s.createdAt ? new Date(s.createdAt).getTime() : Date.now(),
+            timestamp: s.createdAt
+              ? new Date(s.createdAt).getTime()
+              : Date.now(),
           }),
         );
       }

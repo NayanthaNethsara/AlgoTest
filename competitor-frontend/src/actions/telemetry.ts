@@ -14,6 +14,8 @@ import type { ProctorSelfStatus } from "@/types/proctor";
  * only source of truth for that, which is what keeps the browser a fallback rather
  * than a way around proctoring.
  */
-export async function getProctorSelfAction(tabVisible = true): Promise<ProctorSelfStatus | null> {
+export async function getProctorSelfAction(
+  tabVisible = true,
+): Promise<ProctorSelfStatus | null> {
   return fetchProctorGate(tabVisible);
 }
