@@ -10,10 +10,8 @@ var (
 	ErrProblemNotFound        = errors.New("problem not found")
 	ErrNoQueuedSubmission     = errors.New("no queued submission available")
 	ErrLeaseLost              = errors.New("lease no longer held by this worker")
-	// ErrNoTestCases means a problem is published but has no hidden tests, so
-	// there is nothing to grade against. Surfaced to the competitor rather than
-	// graded against public samples, which would score on the wrong scale.
-	ErrNoTestCases = errors.New("problem has no test cases configured")
+	ErrNoTestCases            = errors.New("problem has no test cases configured")
+	ErrSubmissionNotFound     = errors.New("submission not found")
 )
 
 type Status string
@@ -24,6 +22,17 @@ const (
 	StatusPassed  Status = "passed"
 	StatusFailed  Status = "failed"
 )
+
+type ReviewStatus string
+
+const (
+	ReviewAccepted ReviewStatus = "accepted"
+	ReviewRejected ReviewStatus = "rejected"
+)
+
+func ValidReviewStatus(s string) bool {
+	return ReviewStatus(s) == ReviewAccepted || ReviewStatus(s) == ReviewRejected
+}
 
 type Submission struct {
 	ID            string  `json:"id"`
@@ -83,6 +92,9 @@ type Result struct {
 	Tests         []SubmissionTest `json:"tests,omitempty"`
 	CreatedAt     time.Time        `json:"createdAt"`
 	FinishedAt    *time.Time       `json:"finishedAt,omitempty"`
+	ReviewStatus  ReviewStatus     `json:"reviewStatus,omitempty"`
+	ReviewReason  string           `json:"reviewReason,omitempty"`
+	ReviewedAt    *time.Time       `json:"reviewedAt,omitempty"`
 }
 
 type AdminSubmissionItem struct {
@@ -93,6 +105,7 @@ type AdminSubmissionItem struct {
 	ProblemTitle string `json:"problemTitle"`
 	Language     string `json:"language"`
 	Code         string `json:"code"`
+	ReviewedBy   string `json:"reviewedBy,omitempty"`
 }
 
 type ProblemProgress struct {

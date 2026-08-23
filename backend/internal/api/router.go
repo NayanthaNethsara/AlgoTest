@@ -207,6 +207,7 @@ func NewRouter(
 			admin.GET("/submissions", h.listAdminSubmissions)
 			admin.POST("/submissions/:id/rejudge", h.rejudgeSubmission)
 			admin.POST("/submissions/:id/cancel", h.cancelSubmission)
+			admin.POST("/submissions/:id/review", h.reviewSubmission)
 			admin.POST("/teams/:id/unstick", h.unstickTeamSubmissions)
 
 			admin.GET("/monitoring", h.getAdminMonitoring)

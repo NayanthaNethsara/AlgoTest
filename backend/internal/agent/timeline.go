@@ -113,13 +113,22 @@ func (r *Repository) Timeline(ctx context.Context, userID string, limit int) (Ti
 			       a.platform,
 			       CASE
 			           WHEN a.revoked_at IS NOT NULL THEN 'revoked: ' || a.revoked_reason
-			           WHEN a.stopped_at IS NOT NULL THEN 'stopped: ' || a.stopped_reason
 			           ELSE 'active'
 			       END,
 			       0, 0,
 			       jsonb_build_object('machine_id', a.machine_id, 'agent_version', a.agent_version)
 			FROM proctor_agents a
 			WHERE a.user_id = $1
+
+			-- A deliberate stop belongs on the axis at the moment it happened, not
+			-- folded into the enrollment row hours earlier. "Stopped proctoring at
+			-- 14:02, submitted at 14:04" is the sequence an organizer is looking for.
+			UNION ALL
+			SELECT 'event', a.stopped_at, NULL::timestamptz,
+			       'agent_stopped', a.stopped_reason, 0, 0,
+			       '{}'::jsonb
+			FROM proctor_agents a
+			WHERE a.user_id = $1 AND a.stopped_at IS NOT NULL
 		)
 		SELECT kind, at, ended_at, label, detail, weight, count, payload
 		FROM merged
@@ -147,6 +156,8 @@ func (r *Repository) Timeline(ctx context.Context, userID string, limit int) (Ti
 	if err := rows.Err(); err != nil {
 		return Timeline{}, fmt.Errorf("iterate timeline: %w", err)
 	}
+
+	describeEvents(t.Entries)
 
 	return t, nil
 }

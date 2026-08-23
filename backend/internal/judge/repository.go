@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -106,19 +107,21 @@ func (r *Repository) CreateSubmission(ctx context.Context, s Submission) (*Submi
 // GetSubmission fetches a submission by ID along with test case details and live queue position if queued.
 func (r *Repository) GetSubmission(ctx context.Context, id string) (*Result, bool, error) {
 	query := `
-		SELECT id, user_id, team_id, problem_id, state, verdict, score, max_score, tests_total, tests_done, compile_error, created_at, finished_at
+		SELECT id, user_id, team_id, problem_id, state, verdict, score, max_score, tests_total, tests_done, compile_error, created_at, finished_at,
+		       review_status, review_reason, reviewed_at
 		FROM submissions
 		WHERE id = $1;
 	`
 	var res Result
-	var stateStr string
+	var stateStr, reviewStatus string
 	var verdict, compileErr *string
-	var finishedAt *time.Time
+	var finishedAt, reviewedAt *time.Time
 
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&res.SubmissionID, &res.UserID, &res.TeamID, &res.ProblemID, &stateStr, &verdict,
 		&res.Score, &res.MaxScore, &res.TestsTotal, &res.TestsDone,
 		&compileErr, &res.CreatedAt, &finishedAt,
+		&reviewStatus, &res.ReviewReason, &reviewedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -131,6 +134,8 @@ func (r *Repository) GetSubmission(ctx context.Context, id string) (*Result, boo
 	res.Verdict = verdict
 	res.CompileError = compileErr
 	res.FinishedAt = finishedAt
+	res.ReviewStatus = ReviewStatus(reviewStatus)
+	res.ReviewedAt = reviewedAt
 
 	if res.Status == StatusQueued {
 		var pos int
@@ -285,27 +290,110 @@ func (r *Repository) CompleteSubmission(ctx context.Context, res Result, workerI
 		}
 	}
 
-	// Atomically update team's best score for the problem
-	var teamID, userID string
-	err = tx.QueryRow(ctx, `SELECT team_id, user_id FROM submissions WHERE id = $1;`, res.SubmissionID).Scan(&teamID, &userID)
+	var teamID string
+	err = tx.QueryRow(ctx, `SELECT team_id FROM submissions WHERE id = $1;`, res.SubmissionID).Scan(&teamID)
 	if err == nil && teamID != "" {
-		_, err = tx.Exec(ctx, `
-			INSERT INTO problem_scores (team_id, problem_id, user_id, best_score, best_submission_id, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6)
-			ON CONFLICT (team_id, problem_id) DO UPDATE
-			SET best_score = GREATEST(problem_scores.best_score, EXCLUDED.best_score),
-			    best_submission_id = CASE
-			        WHEN EXCLUDED.best_score > problem_scores.best_score THEN EXCLUDED.best_submission_id
-			        ELSE problem_scores.best_submission_id
-			    END,
-			    updated_at = EXCLUDED.updated_at;
-		`, teamID, res.ProblemID, userID, res.Score, res.SubmissionID, now)
-		if err != nil {
-			return fmt.Errorf("update problem scores: %w", err)
+		if err := recomputeProblemScore(ctx, tx, teamID, res.ProblemID); err != nil {
+			return err
 		}
 	}
 
 	return tx.Commit(ctx)
+}
+
+type scoreWriter interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
+func recomputeProblemScore(ctx context.Context, w scoreWriter, teamID, problemID string) error {
+	if _, err := w.Exec(ctx, `
+		DELETE FROM problem_scores ps
+		WHERE ps.team_id = $1 AND ps.problem_id = $2;
+	`, teamID, problemID); err != nil {
+		return fmt.Errorf("clear problem score: %w", err)
+	}
+
+	if _, err := w.Exec(ctx, `
+		INSERT INTO problem_scores (team_id, problem_id, user_id, best_score, best_submission_id, updated_at)
+		SELECT s.team_id, s.problem_id, s.user_id, s.score, s.id, s.finished_at
+		FROM submissions s
+		WHERE s.team_id = $1 AND s.problem_id = $2
+		  AND s.finished_at IS NOT NULL
+		  AND s.review_status = 'accepted'
+		ORDER BY s.score DESC, s.finished_at ASC
+		LIMIT 1;
+	`, teamID, problemID); err != nil {
+		return fmt.Errorf("recompute problem score: %w", err)
+	}
+	return nil
+}
+
+// ReviewSubmission records an organizer's accept/reject and rebuilds the affected
+// team score. Returns the submission's team and problem so the caller can say what
+// moved.
+func (r *Repository) ReviewSubmission(ctx context.Context, submissionID, reviewerID string, status ReviewStatus, reason string) (*AdminSubmissionItem, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var teamID, problemID, previous string
+	// Locked for the length of the review: two organizers reaching the same
+	// submission at once must not each recompute from the other's half-written state.
+	err = tx.QueryRow(ctx, `
+		SELECT team_id, problem_id, review_status
+		FROM submissions
+		WHERE id = $1
+		FOR UPDATE;
+	`, submissionID).Scan(&teamID, &problemID, &previous)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrSubmissionNotFound
+		}
+		return nil, fmt.Errorf("load submission for review: %w", err)
+	}
+
+	now := time.Now().UTC()
+	if _, err := tx.Exec(ctx, `
+		UPDATE submissions
+		SET review_status = $2, review_reason = $3, reviewed_by = NULLIF($4, '')::uuid, reviewed_at = $5
+		WHERE id = $1;
+	`, submissionID, string(status), reason, reviewerID, now); err != nil {
+		return nil, fmt.Errorf("update submission review: %w", err)
+	}
+
+	if previous != string(status) {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO submission_reviews (submission_id, reviewer_id, from_status, to_status, reason)
+			VALUES ($1, NULLIF($2, '')::uuid, $3, $4, $5);
+		`, submissionID, reviewerID, previous, string(status), reason); err != nil {
+			return nil, fmt.Errorf("record submission review: %w", err)
+		}
+	}
+
+	if err := recomputeProblemScore(ctx, tx, teamID, problemID); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit submission review: %w", err)
+	}
+
+	return r.GetAdminSubmission(ctx, submissionID)
+}
+
+// GetAdminSubmission is the single-row form of the admin listing, so a review
+// response and the table it refreshes describe a submission the same way.
+func (r *Repository) GetAdminSubmission(ctx context.Context, id string) (*AdminSubmissionItem, error) {
+	list, _, err := r.listSubmissions(ctx, "WHERE s.id = $1", []interface{}{id}, 2, "", "", 1, 0)
+	if err != nil {
+		return nil, err
+	}
+	if len(list) == 0 {
+		return nil, ErrSubmissionNotFound
+	}
+	return &list[0], nil
 }
 
 // ListAdminSubmissions lists submissions joining users, teams, and problems for
@@ -383,11 +471,14 @@ func (r *Repository) listSubmissions(
 		       COALESCE(u.display_name, u.username, '') AS user_name,
 		       '' AS user_email,
 		       COALESCE(t.name, '') AS team_name,
-		       COALESCE(p.title, '') AS problem_title
+		       COALESCE(p.title, '') AS problem_title,
+		       s.review_status, s.review_reason, s.reviewed_at,
+		       COALESCE(rv.display_name, rv.username, '') AS reviewed_by
 		FROM submissions s
 		LEFT JOIN users u ON s.user_id = u.id
 		LEFT JOIN teams t ON s.team_id = t.id
 		LEFT JOIN problems p ON s.problem_id = p.id
+		LEFT JOIN users rv ON s.reviewed_by = rv.id
 		%s
 		ORDER BY s.created_at DESC
 		LIMIT $%d OFFSET $%d;
@@ -403,21 +494,24 @@ func (r *Repository) listSubmissions(
 	var list []AdminSubmissionItem
 	for rows.Next() {
 		var item AdminSubmissionItem
-		var stateStr string
+		var stateStr, reviewStatus string
 		var verdict, compileErr *string
-		var finishedAt *time.Time
+		var finishedAt, reviewedAt *time.Time
 
 		err := rows.Scan(
 			&item.SubmissionID, &item.UserID, &item.TeamID, &item.ProblemID, &item.Language, &item.Code,
 			&stateStr, &verdict, &item.Score, &item.MaxScore, &item.TestsTotal, &item.TestsDone,
 			&compileErr, &item.CreatedAt, &finishedAt,
 			&item.UserName, &item.UserEmail, &item.TeamName, &item.ProblemTitle,
+			&reviewStatus, &item.ReviewReason, &reviewedAt, &item.ReviewedBy,
 		)
 		if err == nil {
 			item.Status = Status(stateStr)
 			item.Verdict = verdict
 			item.CompileError = compileErr
 			item.FinishedAt = finishedAt
+			item.ReviewStatus = ReviewStatus(reviewStatus)
+			item.ReviewedAt = reviewedAt
 			list = append(list, item)
 		}
 	}
