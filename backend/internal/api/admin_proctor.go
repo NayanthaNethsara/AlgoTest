@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -76,11 +77,11 @@ func (h *handler) listProctorRisk(ctx context.Context) ([]competitorRiskItem, er
 	items := []competitorRiskItem{}
 	for rows.Next() {
 		var item competitorRiskItem
-		var pingTime *string
+		var pingTime *time.Time
 		if err := rows.Scan(&item.UserID, &item.Username, &item.DisplayName, &item.ProctorExempt, &item.Score, &item.Severity, &item.FindingCount, &pingTime, &item.AllowWebWithAgent, &item.AllowWebOnly); err != nil {
 			return nil, err
 		}
-		item.LastPingAt = pingTime
+		item.LastPingAt = formatTimePtr(pingTime)
 		items = append(items, item)
 	}
 

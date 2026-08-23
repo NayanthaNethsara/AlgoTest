@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -138,6 +139,21 @@ type agentItem struct {
 	InGap         bool    `json:"inGap"`
 }
 
+// formatTimePtr renders a nullable timestamptz as the ISO-8601 string the
+// console expects.
+//
+// pgx decodes timestamptz into time.Time and refuses a string destination in
+// binary format, so scanning one of these columns straight into a struct's
+// string field fails the whole query -- which is what silently emptied the
+// agents and risk panels. Scan into a time, format here.
+func formatTimePtr(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.UTC().Format(time.RFC3339Nano)
+	return &s
+}
+
 // listAgents is shared by the standalone agents endpoint and the monitoring
 // snapshot, so the console cannot drift from what a direct call returns.
 func (h *handler) listAgents(ctx context.Context) ([]agentItem, error) {
@@ -158,12 +174,19 @@ func (h *handler) listAgents(ctx context.Context) ([]agentItem, error) {
 	items := []agentItem{}
 	for rows.Next() {
 		var item agentItem
+		// Scanned as times, not strings: see formatTimePtr.
+		var enrolledAt time.Time
+		var lastSeenAt, stoppedAt, revokedAt *time.Time
 		if err := rows.Scan(&item.ID, &item.UserID, &item.Username, &item.DisplayName,
 			&item.MachineID, &item.Platform, &item.AgentVersion, &item.LoopbackPort,
-			&item.EnrolledAt, &item.LastSeenAt, &item.StoppedAt, &item.StoppedReason,
-			&item.RevokedAt, &item.RevokedReason, &item.InGap); err != nil {
+			&enrolledAt, &lastSeenAt, &stoppedAt, &item.StoppedReason,
+			&revokedAt, &item.RevokedReason, &item.InGap); err != nil {
 			return nil, err
 		}
+		item.EnrolledAt = enrolledAt.UTC().Format(time.RFC3339Nano)
+		item.LastSeenAt = formatTimePtr(lastSeenAt)
+		item.StoppedAt = formatTimePtr(stoppedAt)
+		item.RevokedAt = formatTimePtr(revokedAt)
 		items = append(items, item)
 	}
 
