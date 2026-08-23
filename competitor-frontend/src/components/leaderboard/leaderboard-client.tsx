@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getLeaderboardAction, type LeaderboardEntry } from "@/actions/leaderboard";
 import { useSubmissions } from "@/components/providers/submissions-context";
+import { contestLocked, useProctor } from "@/components/providers/proctor-provider";
 import type { SessionUser } from "@/lib/auth/constants";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpDown, RefreshCw, Search, Trophy, Users, Zap } from "lucide-react";
@@ -26,6 +27,9 @@ export function LeaderboardClient({
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
+  const proctor = useProctor();
+  const locked = contestLocked(proctor);
+
   const inFlight = useRef(false);
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
@@ -45,6 +49,8 @@ export function LeaderboardClient({
   }, []);
 
   useEffect(() => {
+    if (locked) return;
+
     const tick = () => {
       if (document.visibilityState === "visible") void refresh();
     };
@@ -54,12 +60,13 @@ export function LeaderboardClient({
       clearInterval(interval);
       document.removeEventListener("visibilitychange", tick);
     };
-  }, [refresh]);
+  }, [refresh, locked]);
 
   const { lastResult } = useSubmissions();
   useEffect(() => {
+    if (locked) return;
     if (lastResult?.submissionId) void refresh();
-  }, [lastResult?.submissionId, refresh]);
+  }, [lastResult?.submissionId, refresh, locked]);
 
   const filteredLeaderboard = leaderboard.filter((entry) =>
     entry.teamName.toLowerCase().includes(search.toLowerCase().trim())

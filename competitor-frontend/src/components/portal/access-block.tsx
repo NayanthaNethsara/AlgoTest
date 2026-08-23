@@ -1,7 +1,7 @@
 "use client";
 
-import { RotateCw, ShieldOff } from "lucide-react";
-import { useProctor } from "@/components/providers/proctor-provider";
+import { Loader2, RotateCw, ShieldOff } from "lucide-react";
+import { contestLocked, useProctor } from "@/components/providers/proctor-provider";
 import { Button } from "@/components/ui/button";
 import type { AccessMode } from "@/types/proctor";
 
@@ -21,7 +21,16 @@ const LOCK_TITLE: Record<string, string> = {
   ENROLLMENT_REVOKED: "Enrollment Revoked",
   AGENT_UNREACHABLE: "Proctor Client Unreachable",
   AGENT_STALE: "Proctor Connection Stale",
+  AGENT_STARTING: "Proctor Client Starting",
 };
+
+/**
+ * The one lock that clears itself. It is still a lock — the API withholds the
+ * contest during startup exactly as it does for a stopped client — but dressing a
+ * three-second wait in the same alarm as a revoked enrolment trains contestants to
+ * ignore the alarm.
+ */
+const TRANSIENT = "AGENT_STARTING";
 
 /**
  * Full-screen blocking page for all proctor lock conditions.
@@ -31,23 +40,12 @@ const LOCK_TITLE: Record<string, string> = {
  * There is no option to dismiss or bypass to the editor.
  */
 export function AccessBlockScreen() {
-  const {
-    resolved,
-    submissionsAllowed,
-    exempt,
-    starting,
-    code,
-    accessMode,
-    allowedModes,
-    remedy,
-    local,
-  } = useProctor();
+  const state = useProctor();
+  const { code, accessMode, allowedModes, remedy, local } = state;
 
-  const blocked =
-    resolved && !submissionsAllowed && !exempt && !starting;
+  if (!contestLocked(state)) return null;
 
-  if (!blocked) return null;
-
+  const transient = code === TRANSIENT;
   const title = (code && LOCK_TITLE[code]) || "Contest Access Blocked";
 
   return (
@@ -58,7 +56,11 @@ export function AccessBlockScreen() {
     >
       <div className="pixel-raised flex w-full max-w-xl flex-col gap-5 bg-card p-6 shadow-2xl">
         <div className="flex items-center gap-3 border-b-2 border-border pb-4">
-          <ShieldOff className="size-7 shrink-0 text-destructive" />
+          {transient ? (
+            <Loader2 className="size-7 shrink-0 animate-spin text-muted-foreground" />
+          ) : (
+            <ShieldOff className="size-7 shrink-0 text-destructive" />
+          )}
           <div>
             <h2 id="access-block-title" className="text-base font-semibold text-foreground">
               {title}
@@ -87,7 +89,11 @@ export function AccessBlockScreen() {
           {code && (
             <div className="flex flex-wrap gap-x-2">
               <dt className="text-muted-foreground">Lock code:</dt>
-              <dd className="font-mono text-destructive font-semibold">{code}</dd>
+              <dd
+                className={`font-mono font-semibold ${transient ? "text-muted-foreground" : "text-destructive"}`}
+              >
+                {code}
+              </dd>
             </div>
           )}
         </dl>

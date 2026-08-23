@@ -1,6 +1,6 @@
 "use server";
 
-import { backendFetch } from "@/lib/api/server";
+import { fetchProctorGate } from "@/lib/proctor-gate";
 import type { ProctorSelfStatus } from "@/types/proctor";
 
 /**
@@ -15,13 +15,5 @@ import type { ProctorSelfStatus } from "@/types/proctor";
  * than a way around proctoring.
  */
 export async function getProctorSelfAction(tabVisible = true): Promise<ProctorSelfStatus | null> {
-  try {
-    const res = await backendFetch(`/api/v1/telemetry/self?tab_visible=${tabVisible}`, {
-      method: "GET",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as ProctorSelfStatus;
-  } catch {
-    return null;
-  }
+  return fetchProctorGate(tabVisible);
 }

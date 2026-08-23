@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { getSubmissionStatusAction, submitCode } from "@/actions/code";
-import { useProctor } from "@/components/providers/proctor-provider";
+import { contestLocked, useProctor } from "@/components/providers/proctor-provider";
 import type { SubmitResult } from "@/types/code";
 
 export type ActiveSubmission = {
@@ -82,7 +82,14 @@ function parseSubmissionResult(data: any): SubmitResult & { problemId?: string }
 }
 
 export function SubmissionsProvider({ children }: { children: ReactNode }) {
-  const { attestNonce } = useProctor();
+  const proctor = useProctor();
+  const { attestNonce } = proctor;
+
+  // Both result lanes are gated server-side now, so running them while locked buys
+  // nothing but a 423 every tick — and EventSource reconnects on its own, which
+  // would burn the stream-open limiter within a minute. Derived as a primitive so
+  // the effects below re-run on the transition and not on every poll tick.
+  const locked = contestLocked(proctor);
   const [activeSubmission, setActiveSubmission] = useState<ActiveSubmission | null>(null);
   const [lastResult, setLastResult] = useState<SubmitResult | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -91,6 +98,8 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
 
   // Background SSE listener for real-time submission pushes
   useEffect(() => {
+    if (locked) return;
+
     let eventSource: EventSource | null = null;
     try {
       eventSource = new EventSource("/api/v1/submissions/stream", {
@@ -140,11 +149,11 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
         eventSource.close();
       }
     };
-  }, []);
+  }, [locked]);
 
   // Background fallback poller if an active submission exists
   useEffect(() => {
-    if (!activeSubmission) return;
+    if (!activeSubmission || locked) return;
 
     const interval = setInterval(async () => {
       const statusData = await getSubmissionStatusAction(activeSubmission.id);
@@ -182,7 +191,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     }, 1500);
 
     return () => clearInterval(interval);
-  }, [activeSubmission]);
+  }, [activeSubmission, locked]);
 
   async function submitFast(
     problemId: string,
@@ -193,10 +202,11 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     const result = await submitCode(problemId, code, previousBest, language, attestNonce);
 
     if (result.error) {
-      const locked = result.errorCode?.startsWith("AGENT_") || result.errorCode === "NOT_ATTESTED";
+      const gateRefusal =
+        result.errorCode?.startsWith("AGENT_") || result.errorCode === "NOT_ATTESTED";
       setToast({
         id: Date.now().toString(),
-        title: locked ? "Submissions are locked" : "Submission Error",
+        title: gateRefusal ? "Submissions are locked" : "Submission Error",
         description: result.error,
         variant: "error",
       });

@@ -1,11 +1,15 @@
 import { getSessionUser } from "@/lib/auth/session";
 import { listProblemsAction } from "@/actions/problems";
+import { readProctorGate } from "@/lib/proctor-gate";
+import { proctorLocksContest } from "@/lib/proctor";
 import { ChallengesListClient } from "@/components/challenges/challenges-list-client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Code2, Zap } from "lucide-react";
 import { CHALLENGE_STATUS } from "@/types/challenge";
 
 export default async function ChallengesPage() {
+  if (proctorLocksContest(await readProctorGate())) return null;
+
   const [user, { problems, progress }] = await Promise.all([
     getSessionUser(),
     listProblemsAction(),

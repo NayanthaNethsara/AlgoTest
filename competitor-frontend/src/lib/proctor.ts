@@ -1,4 +1,9 @@
-import type { AgentLocalStatus } from "@/types/proctor";
+import type { AgentLocalStatus, ProctorSelfStatus } from "@/types/proctor";
+
+export function proctorLocksContest(self: ProctorSelfStatus | null): boolean {
+  if (!self || self.exempt) return false;
+  return !self.allowed;
+}
 
 /**
  * Ports the agent tries in order. The portal probes the same range, so a port

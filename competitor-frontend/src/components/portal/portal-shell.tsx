@@ -8,16 +8,19 @@ import { ProctorLockBanner } from "@/components/portal/proctor-status";
 import { AccessBlockScreen } from "@/components/portal/access-block";
 import { TopNav } from "@/components/portal/top-nav";
 import type { SessionUser } from "@/lib/auth/constants";
+import type { ProctorSelfStatus } from "@/types/proctor";
 
 export function PortalShell({
   user,
+  initialProctor,
   children,
 }: {
   user: SessionUser | null;
+  initialProctor: ProctorSelfStatus | null;
   children: React.ReactNode;
 }) {
   return (
-    <ProctorProvider>
+    <ProctorProvider initialProctor={initialProctor}>
       <SubmissionsProvider>
         <div className="flex h-dvh flex-col">
           <TopNav user={user} />

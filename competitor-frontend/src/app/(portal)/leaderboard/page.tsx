@@ -1,10 +1,14 @@
 import { getSessionUser } from "@/lib/auth/session";
 import { getLeaderboardAction } from "@/actions/leaderboard";
+import { readProctorGate } from "@/lib/proctor-gate";
+import { proctorLocksContest } from "@/lib/proctor";
 import { LeaderboardClient } from "@/components/leaderboard/leaderboard-client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Trophy } from "lucide-react";
 
 export default async function LeaderboardPage() {
+  if (proctorLocksContest(await readProctorGate())) return null;
+
   const [currentUser, leaderboardData] = await Promise.all([
     getSessionUser(),
     getLeaderboardAction(),

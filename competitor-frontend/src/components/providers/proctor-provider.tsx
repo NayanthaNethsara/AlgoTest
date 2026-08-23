@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import { getProctorSelfAction } from "@/actions/telemetry";
 import { readLocalAgent } from "@/lib/proctor";
 import type {
@@ -34,20 +35,35 @@ const INITIAL: ProctorState = {
 
 const ProctorContext = createContext<ProctorState>(INITIAL);
 
+function seed(self: ProctorSelfStatus | null): ProctorState {
+  if (!self) return INITIAL;
+  const state = { ...resolve(self, null), resolved: true };
+  if (state.code === "AGENT_MISSING") {
+    state.remedy = self.remedy ?? state.remedy;
+  }
+  return state;
+}
+
 /**
  * Single source of proctoring state for the portal, polled once and shared.
  *
  * Contestants find out their agent has stopped while they are still coding rather
  * than when they hit submit with ninety seconds left on the clock.
  */
-export function ProctorProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<ProctorState>(INITIAL);
+export function ProctorProvider({
+  initialProctor = null,
+  children,
+}: {
+  initialProctor?: ProctorSelfStatus | null;
+  children: React.ReactNode;
+}) {
+  const [state, setState] = useState<ProctorState>(() => seed(initialProctor));
   const knownPort = useRef<number | undefined>(undefined);
+  const router = useRouter();
 
   const refresh = useCallback(async () => {
-    // The status poll doubles as the browser-presence record, so tab visibility
-    // rides along on it rather than costing a second request.
-    const tabVisible = typeof document !== "undefined" ? !document.hidden : true;
+    const tabVisible =
+      typeof document !== "undefined" ? !document.hidden : true;
     const [self, local] = await Promise.all([
       getProctorSelfAction(tabVisible),
       readLocalAgent(knownPort.current),
@@ -64,6 +80,22 @@ export function ProctorProvider({ children }: { children: React.ReactNode }) {
 
   const degraded =
     state.resolved && (!state.submissionsAllowed || state.starting);
+
+  // Pages withhold their own content while the contest is locked — a locked render
+  // returns nothing rather than shipping a problem statement the API would refuse.
+  // That is a *server* decision, so lifting the lock in client state is not enough
+  // to bring the page back; without this the overlay lifts to reveal an empty
+  // workspace until the contestant thinks to reload. refresh() re-renders the
+  // server components in place and keeps client state, so an in-flight submission
+  // survives the transition.
+  const locked = contestLocked(state);
+  const wasLocked = useRef(locked);
+  useEffect(() => {
+    if (wasLocked.current && !locked) {
+      router.refresh();
+    }
+    wasLocked.current = locked;
+  }, [locked, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,7 +129,10 @@ export function ProctorProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       clearInterval(timer);
       if (typeof document !== "undefined") {
-        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange,
+        );
       }
     };
   }, [refresh, degraded]);
@@ -221,4 +256,16 @@ function resolve(
 
 export function useProctor() {
   return useContext(ProctorContext);
+}
+
+/**
+ * Whether the contest is withheld right now.
+ *
+ * Wider than what the lock screen used to show: it includes the agent's own startup
+ * window, because the API refuses contest reads during it too. A UI that stayed
+ * cheerful through a refusal would leave the contestant staring at an empty page
+ * with nothing explaining it.
+ */
+export function contestLocked(state: ProctorState): boolean {
+  return state.resolved && !state.submissionsAllowed && !state.exempt;
 }
