@@ -63,9 +63,9 @@ export function HistoryPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 p-0 sm:w-[85vw] sm:max-w-[1200px] 2xl:max-w-[1400px]"
+        className="flex h-screen max-h-screen w-full flex-col gap-0 p-0 overflow-hidden sm:w-[85vw] sm:max-w-[1200px] 2xl:max-w-[1400px]"
       >
-        <SheetHeader className="border-b-2 border-border px-5 py-3.5 bg-card">
+        <SheetHeader className="shrink-0 border-b-2 border-border px-5 py-3.5 pr-14 bg-card">
           <div className="flex items-center gap-2.5">
             <History className="h-4.5 w-4.5 text-primary" />
             <SheetTitle className="text-base font-bold text-foreground">
@@ -78,11 +78,11 @@ export function HistoryPanel({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex items-center gap-2 border-b-2 border-border bg-muted/40 px-4 py-2 text-xs">
+        <div className="shrink-0 flex items-center gap-2 border-b-2 border-border bg-muted/40 px-4 py-2 text-xs overflow-x-auto">
           <Button
             variant={filter === "all" ? "default" : "ghost"}
             size="sm"
-            className="h-7 text-xs px-3"
+            className="h-7 text-xs px-3 shrink-0"
             onClick={() => setFilter("all")}
           >
             All ({snapshots.length})
@@ -90,7 +90,7 @@ export function HistoryPanel({
           <Button
             variant={filter === "submitted" ? "default" : "ghost"}
             size="sm"
-            className="h-7 text-xs px-3"
+            className="h-7 text-xs px-3 shrink-0"
             onClick={() => setFilter("submitted")}
           >
             Submissions ({countSubmitted})
@@ -98,7 +98,7 @@ export function HistoryPanel({
           <Button
             variant={filter === "autosave" ? "default" : "ghost"}
             size="sm"
-            className="h-7 text-xs px-3"
+            className="h-7 text-xs px-3 shrink-0"
             onClick={() => setFilter("autosave")}
           >
             Autosaves ({countAutosave})
@@ -106,7 +106,7 @@ export function HistoryPanel({
           <Button
             variant={filter === "ran" ? "default" : "ghost"}
             size="sm"
-            className="h-7 text-xs px-3"
+            className="h-7 text-xs px-3 shrink-0"
             onClick={() => setFilter("ran")}
           >
             Runs ({countRan})
@@ -124,10 +124,10 @@ export function HistoryPanel({
             </span>
           </div>
         ) : (
-          <div className="grid min-h-0 flex-1 grid-cols-[300px_1fr] lg:grid-cols-[360px_1fr]">
+          <div className="grid min-h-0 flex-1 grid-cols-[300px_1fr] lg:grid-cols-[360px_1fr] overflow-hidden">
             {/* Snapshot List Left Pane */}
-            <ScrollArea className="border-r-2 border-border bg-card">
-              <ol className="flex flex-col gap-1.5 p-3">
+            <div className="h-full min-h-0 overflow-y-auto border-r-2 border-border bg-card p-3">
+              <ol className="flex flex-col gap-2">
                 {filteredSnapshots.map((snapshot) => {
                   const isSelected = selected?.id === snapshot.id;
                   return (
@@ -181,12 +181,12 @@ export function HistoryPanel({
                   );
                 })}
               </ol>
-            </ScrollArea>
+            </div>
 
             {/* Selected Snapshot Preview Right Pane */}
             {selected && (
-              <div className="flex min-h-0 flex-col bg-background">
-                <div className="flex items-center justify-between gap-3 border-b-2 border-border bg-card px-4 py-2.5">
+              <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+                <div className="shrink-0 flex items-center justify-between gap-3 border-b-2 border-border bg-card px-4 py-2.5">
                   <div className="flex items-center gap-2 text-xs">
                     <Badge variant="outline" className="font-mono text-[10px] uppercase">
                       {selected.language}
@@ -237,24 +237,22 @@ export function HistoryPanel({
                   </div>
                 </div>
 
-                <ScrollArea className="min-h-0 flex-1">
-                  <div className="p-4 font-mono text-xs leading-relaxed">
-                    <table className="w-full border-collapse">
-                      <tbody>
-                        {codeLines.map((line, idx) => (
-                          <tr key={idx} className="hover:bg-muted/20">
-                            <td className="select-none pr-4 text-right text-muted-foreground/60 w-8 text-[11px] align-top">
-                              {idx + 1}
-                            </td>
-                            <td className="whitespace-pre-wrap text-foreground break-all">
-                              {line || " "}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </ScrollArea>
+                <div className="h-full min-h-0 flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed">
+                  <table className="w-full border-collapse">
+                    <tbody>
+                      {codeLines.map((line, idx) => (
+                        <tr key={idx} className="hover:bg-muted/20">
+                          <td className="select-none pr-4 text-right text-muted-foreground/60 w-8 text-[11px] align-top">
+                            {idx + 1}
+                          </td>
+                          <td className="whitespace-pre-wrap text-foreground break-all">
+                            {line || " "}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
