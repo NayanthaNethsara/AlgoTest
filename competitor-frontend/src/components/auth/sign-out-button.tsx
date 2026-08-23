@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { revokeUserSession } from "@mini-algothon/auth";
+import { logoutAction } from "@/actions/auth";
 import { useProctor } from "@/components/portal/proctor-provider";
 import { Button } from "@/components/ui/button";
 import { isDesktopClient } from "@/lib/desktop";
@@ -19,7 +19,7 @@ export function SignOutButton() {
     setIsSigningOut(true);
     try {
       try {
-        await revokeUserSession();
+        await logoutAction();
       } catch {
         // Ignore network errors during session revocation cleanup
       }
