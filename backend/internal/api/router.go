@@ -151,10 +151,18 @@ func NewRouter(
 		v1.GET("/me", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.me)
 		v1.GET("/teams", h.requireUser, h.requireAdmin, h.listTeams)
 
-		v1.GET("/problems", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.listPublishedProblems)
-		v1.GET("/problems/:slug", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.getPublishedProblemBySlug)
+		// The contest content itself, gated. Proctoring that only stops you scoring
+		// still lets an unproctored contestant read every statement and iterate against
+		// the sandbox — the part of the contest that actually needs watching.
+		gated := requireProctorAccess(func(ctx context.Context, userID string, claimsDesktop bool) (agent.Decision, error) {
+			d, _, err := proctorGate.Status(ctx, userID, claimsDesktop)
+			return d, err
+		}, log)
 
-		v1.GET("/leaderboard", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.getLeaderboard)
+		v1.GET("/problems", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.listPublishedProblems)
+		v1.GET("/problems/:slug", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.getPublishedProblemBySlug)
+
+		v1.GET("/leaderboard", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.getLeaderboard)
 
 		v1.GET("/proctor/disclosure", h.getProctorDisclosure)
 
@@ -221,12 +229,12 @@ func NewRouter(
 			admin.POST("/proctor/agents/:id/revoke", h.revokeAgent)
 		}
 
-		v1.POST("/run", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), h.runCode)
+		v1.POST("/run", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), gated, h.runCode)
 
 		v1.POST("/submissions", h.requireUser, maxBodySizeMiddleware(100_000), rateLimitMiddleware(submissionLimiter, userIDKeyFunc), h.createSubmission)
-		v1.GET("/submissions", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.listUserSubmissions)
-		v1.GET("/submissions/stream", h.requireUser, rateLimitMiddleware(streamLimiter, userIDKeyFunc), h.streamSubmissions)
-		v1.GET("/submissions/:id", h.requireUser, rateLimitMiddleware(submissionStatusLimiter, userIDKeyFunc), h.getSubmission)
+		v1.GET("/submissions", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.listUserSubmissions)
+		v1.GET("/submissions/stream", h.requireUser, rateLimitMiddleware(streamLimiter, userIDKeyFunc), gated, h.streamSubmissions)
+		v1.GET("/submissions/:id", h.requireUser, rateLimitMiddleware(submissionStatusLimiter, userIDKeyFunc), gated, h.getSubmission)
 	}
 
 	return r
