@@ -1,5 +1,5 @@
 [package]
-name = "app"
+name = "mini-algothon-competitor"
 version = "0.2.0"
 description = "MiniAlgothon competitor client: proctor agent and contest shell"
 authors = ["MiniAlgothon"]
@@ -11,6 +11,10 @@ rust-version = "1.77.2"
 [lib]
 name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "mini-algothon-competitor"
+path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }

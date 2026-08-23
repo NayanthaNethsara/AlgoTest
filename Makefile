@@ -77,7 +77,7 @@ desktop-build:
 # The agent is built to survive being closed, which is right in a contest hall and
 # unhelpful on a development laptop.
 desktop-reset:
-	cd competitor-desktop/src-tauri && cargo run --quiet --bin app -- --reset
+	cd competitor-desktop/src-tauri && cargo run --quiet --bin mini-algothon-competitor -- --reset
 
 frontend: competitor-frontend
 

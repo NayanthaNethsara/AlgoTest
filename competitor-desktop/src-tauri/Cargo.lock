@@ -65,32 +65,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
-name = "app"
-version = "0.2.0"
-dependencies = [
- "hex",
- "local-ip-address",
- "log",
- "machine-uid",
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "sha2",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tiny_http",
- "uuid",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "ascii"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2081,6 +2055,32 @@ name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
+
+[[package]]
+name = "mini-algothon-competitor"
+version = "0.2.0"
+dependencies = [
+ "hex",
+ "local-ip-address",
+ "log",
+ "machine-uid",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tiny_http",
+ "uuid",
+ "windows-sys 0.59.0",
+]
 
 [[package]]
 name = "miniz_oxide"

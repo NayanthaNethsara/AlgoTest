@@ -91,6 +91,19 @@ jobs:
           MINIALGOTHON_PORTAL_ORIGINS: ${{ inputs.portal_origins || vars.MINIALGOTHON_PORTAL_ORIGINS }}
         run: make desktop-build
 
+      - name: Prepare Standalone / Portable Executables
+        shell: bash
+        run: |
+          mkdir -p competitor-desktop/src-tauri/target/release/bundle/standalone
+          if [ "${{ matrix.target }}" = "windows" ]; then
+            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor.exe competitor-desktop/src-tauri/target/release/bundle/standalone/mini-algothon-competitor-portable.exe 2>/dev/null || \
+            cp competitor-desktop/src-tauri/target/release/app.exe competitor-desktop/src-tauri/target/release/bundle/standalone/mini-algothon-competitor-portable.exe 2>/dev/null || true
+          elif [ "${{ matrix.target }}" = "linux" ]; then
+            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor competitor-desktop/src-tauri/target/release/bundle/standalone/mini-algothon-competitor 2>/dev/null || \
+            cp competitor-desktop/src-tauri/target/release/app competitor-desktop/src-tauri/target/release/bundle/standalone/mini-algothon-competitor 2>/dev/null || true
+            chmod +x competitor-desktop/src-tauri/target/release/bundle/standalone/mini-algothon-competitor 2>/dev/null || true
+          fi
+
       - name: Upload Desktop Artifacts to Actions
         uses: actions/upload-artifact@v4
         with:
