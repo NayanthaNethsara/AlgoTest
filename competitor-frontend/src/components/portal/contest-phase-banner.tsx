@@ -1,8 +1,7 @@
 "use client";
 
 import { useContest } from "@/components/portal/contest-provider";
-import { CONTEST_STATUS } from "@/types/contest";
-import { AlertCircle, CheckCircle2, PauseCircle, Snowflake, Timer } from "lucide-react";
+import { CheckCircle2, PauseCircle, Snowflake, Timer } from "lucide-react";
 
 export function ContestPhaseBanner() {
   const { state, startsInSeconds, formattedStartsIn, isFrozen } = useContest();

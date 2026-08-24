@@ -43,37 +43,31 @@ async function getAppWindow(): Promise<TauriWindowInstance | null> {
 }
 
 export function DesktopWindowControls() {
-  const [isDesktop, setIsDesktop] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
-
-  useEffect(() => {
+  const [isDesktop] = useState(() => {
+    if (typeof window === "undefined") return false;
     const isClientDesktopParam =
-      typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("client") === "desktop";
-
     const hasTauri =
-      typeof window !== "undefined" &&
-      (isClientDesktopParam ||
-        "__TAURI_INTERNALS__" in window ||
-        "__TAURI__" in window ||
-        Boolean(
-          (window as unknown as { __MINIALGOTHON_DESKTOP__?: boolean })
-            .__MINIALGOTHON_DESKTOP__,
-        ));
-
+      isClientDesktopParam ||
+      "__TAURI_INTERNALS__" in window ||
+      "__TAURI__" in window ||
+      Boolean(
+        (window as unknown as { __MINIALGOTHON_DESKTOP__?: boolean })
+          .__MINIALGOTHON_DESKTOP__,
+      );
     const isMac =
       (window as unknown as { __MINIALGOTHON_OS__?: string })
         .__MINIALGOTHON_OS__ === "macos" ||
-      (typeof navigator !== "undefined" &&
-        /(Mac|iPhone|iPod|iPad)/i.test(
-          navigator.userAgent || navigator.platform,
-        ));
+      /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || navigator.platform);
 
-    if (!hasTauri || isMac) {
+    return Boolean(hasTauri && !isMac);
+  });
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    if (!isDesktop) {
       return;
     }
-
-    setIsDesktop(true);
 
     const checkMaximized = async () => {
       try {
@@ -130,7 +124,7 @@ export function DesktopWindowControls() {
       window.removeEventListener("resize", checkMaximized);
       document.removeEventListener("mousedown", handleMouseDown);
     };
-  }, []);
+  }, [isDesktop]);
 
   if (!isDesktop) return null;
 
