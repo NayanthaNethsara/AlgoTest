@@ -72,6 +72,18 @@ func (h *handler) listPublishedProblems(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/problems/{slug} [get]
 func (h *handler) getPublishedProblemBySlug(c *gin.Context) {
+	u := currentUser(c)
+	if h.contest != nil && u.Role != user.RoleAdmin {
+		cState := h.contest.GetState()
+		if cState.Status == contest.StatusNotStarted {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest has not started yet",
+				"code":  "CONTEST_NOT_STARTED",
+			})
+			return
+		}
+	}
+
 	slug := c.Param("slug")
 	detail, err := h.problems.GetPublishedBySlug(c.Request.Context(), slug)
 	if err != nil {
