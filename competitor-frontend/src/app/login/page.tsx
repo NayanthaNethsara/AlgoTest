@@ -9,17 +9,8 @@ export default async function LoginPage() {
   if (user) redirect("/challenges");
 
   return (
-    <div className="flex h-dvh flex-col bg-background select-none">
-      <div
-        data-tauri-drag-region
-        className="flex h-10 w-full shrink-0 items-center justify-between px-4 border-b-2 border-black bg-card/60"
-      >
-        <span
-          data-tauri-drag-region
-          className="text-[11px] font-pixel-header text-primary uppercase tracking-wider"
-        >
-          MiniAlgothon
-        </span>
+    <div className="relative flex h-dvh flex-col bg-background select-none">
+      <div className="absolute top-3 right-4 z-50">
         <DesktopWindowControls />
       </div>
       <div className="flex flex-1 items-center justify-center p-4">

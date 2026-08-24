@@ -51,6 +51,11 @@ export default function RootLayout({
       style={{ colorScheme: "dark" }}
     >
       <body className="min-h-full flex flex-col font-sans relative">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(new URLSearchParams(window.location.search).get("client")==="desktop"){document.cookie="mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";}}catch(e){}})();`,
+          }}
+        />
         {children}
         <div className="pixel-noise-overlay" aria-hidden="true" />
       </body>

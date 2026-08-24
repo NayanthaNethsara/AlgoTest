@@ -40,3 +40,13 @@ export function isDesktopClient(): boolean {
         entry.trim() === `${DESKTOP_CLIENT_COOKIE}=${DESKTOP_CLIENT_VALUE}`,
     );
 }
+
+export function ensureDesktopClientCookie(): void {
+  if (typeof window === "undefined") return;
+  const isClientDesktop =
+    new URLSearchParams(window.location.search).get("client") === DESKTOP_CLIENT_VALUE;
+  if (isClientDesktop) {
+    document.cookie = `${DESKTOP_CLIENT_COOKIE}=${DESKTOP_CLIENT_VALUE}; path=/; max-age=2592000; SameSite=Lax`;
+  }
+}
+

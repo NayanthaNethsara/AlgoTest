@@ -18,6 +18,11 @@ use state::AgentState;
 /// Runs the proctor agent: no visible window by default, a tray icon for its whole
 /// lifetime, and a loopback server the portal can use to prove co-location.
 pub fn run() {
+    if loopback::agent_already_running() {
+        log::warn!("another proctor agent is already running; exiting");
+        return;
+    }
+
     let state = Arc::new(AgentState::new());
 
     // The loopback bind is also the single-instance lock. Two agents would produce
