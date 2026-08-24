@@ -173,8 +173,12 @@ export async function getAdminProctorTimelineAction(userId: string): Promise<{
     if (!response.ok) {
       return { error: "Failed to load contestant evidence timeline" };
     }
-    const data = (await response.json()) as { timeline: ProctorTimeline };
-    return { timeline: data.timeline };
+    const data = await response.json();
+    const timeline: ProctorTimeline | undefined =
+      data && typeof data === "object"
+        ? (data.timeline ?? (data.userId ? (data as ProctorTimeline) : undefined))
+        : undefined;
+    return { timeline };
   } catch (err: unknown) {
     return { error: getErrorMessage(err, "Telemetry service unreachable") };
   }
