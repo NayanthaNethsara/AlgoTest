@@ -10,82 +10,92 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db/sqlc"
 )
 
-// ErrNotFound is returned when a targeted problem row does not exist.
 var ErrNotFound = errors.New("problem not found")
-
-// ErrDuplicateSlug is returned by Create when the problem slug is already taken.
 var ErrDuplicateSlug = errors.New("problem slug already exists")
 
 type Repository struct {
 	pool *pgxpool.Pool
-	q    *sqlc.Queries
 }
 
 func NewRepository(pool *pgxpool.Pool) *Repository {
-	return &Repository{
-		pool: pool,
-		q:    sqlc.New(pool),
-	}
+	return &Repository{pool: pool}
 }
 
-func toProblem(p sqlc.Problem) Problem {
-	return Problem{
-		ID:            p.ID,
-		Slug:          p.Slug,
-		Title:         p.Title,
-		Difficulty:    p.Difficulty,
-		Statement:     p.Statement,
-		Constraints:   p.Constraints,
-		TimeLimitMs:   p.TimeLimitMs,
-		MemoryLimitMb: p.MemoryLimitMb,
-		MaxScore:      p.MaxScore,
-		Published:     p.Published,
-		CreatedAt:     p.CreatedAt,
-		UpdatedAt:     p.UpdatedAt,
-	}
-}
-
-func toSample(s sqlc.ProblemSample) Sample {
-	return Sample{
-		ID:          s.ID,
-		ProblemID:   s.ProblemID,
-		Ordinal:     s.Ordinal,
-		Input:       s.Input,
-		Output:      s.Output,
-		Explanation: s.Explanation,
-	}
+func scanProblem(row pgx.Row) (Problem, error) {
+	var p Problem
+	err := row.Scan(
+		&p.ID,
+		&p.Slug,
+		&p.Title,
+		&p.Difficulty,
+		&p.Statement,
+		&p.Constraints,
+		&p.TimeLimitMs,
+		&p.MemoryLimitMb,
+		&p.MaxScore,
+		&p.Published,
+		&p.CreatedAt,
+		&p.UpdatedAt,
+	)
+	return p, err
 }
 
 func (r *Repository) ListPublished(ctx context.Context) ([]Problem, error) {
-	rows, err := r.q.ListPublishedProblems(ctx)
+	query := `
+		SELECT id, slug, title, difficulty, statement, constraints, time_limit_ms, memory_limit_mb, max_score, published, created_at, updated_at
+		FROM problems
+		WHERE published = true
+		ORDER BY created_at DESC;
+	`
+	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]Problem, len(rows))
-	for i, row := range rows {
-		result[i] = toProblem(row)
+	defer rows.Close()
+
+	var problems []Problem
+	for rows.Next() {
+		p, err := scanProblem(rows)
+		if err != nil {
+			return nil, err
+		}
+		problems = append(problems, p)
 	}
-	return result, nil
+	return problems, rows.Err()
 }
 
 func (r *Repository) ListAll(ctx context.Context) ([]Problem, error) {
-	rows, err := r.q.ListAllProblems(ctx)
+	query := `
+		SELECT id, slug, title, difficulty, statement, constraints, time_limit_ms, memory_limit_mb, max_score, published, created_at, updated_at
+		FROM problems
+		ORDER BY created_at DESC;
+	`
+	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]Problem, len(rows))
-	for i, row := range rows {
-		result[i] = toProblem(row)
+	defer rows.Close()
+
+	var problems []Problem
+	for rows.Next() {
+		p, err := scanProblem(rows)
+		if err != nil {
+			return nil, err
+		}
+		problems = append(problems, p)
 	}
-	return result, nil
+	return problems, rows.Err()
 }
 
 func (r *Repository) GetBySlug(ctx context.Context, slug string, includeTests bool) (ProblemDetail, error) {
-	p, err := r.q.GetProblemBySlug(ctx, slug)
+	query := `
+		SELECT id, slug, title, difficulty, statement, constraints, time_limit_ms, memory_limit_mb, max_score, published, created_at, updated_at
+		FROM problems
+		WHERE slug = $1;
+	`
+	p, err := scanProblem(r.pool.QueryRow(ctx, query, slug))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ProblemDetail{}, ErrNotFound
@@ -96,7 +106,12 @@ func (r *Repository) GetBySlug(ctx context.Context, slug string, includeTests bo
 }
 
 func (r *Repository) GetPublishedBySlug(ctx context.Context, slug string) (ProblemDetail, error) {
-	p, err := r.q.GetPublishedProblemBySlug(ctx, slug)
+	query := `
+		SELECT id, slug, title, difficulty, statement, constraints, time_limit_ms, memory_limit_mb, max_score, published, created_at, updated_at
+		FROM problems
+		WHERE slug = $1 AND published = true;
+	`
+	p, err := scanProblem(r.pool.QueryRow(ctx, query, slug))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			if detail, idErr := r.GetByID(ctx, slug, false); idErr == nil && detail.Published {
@@ -110,7 +125,12 @@ func (r *Repository) GetPublishedBySlug(ctx context.Context, slug string) (Probl
 }
 
 func (r *Repository) GetByID(ctx context.Context, id string, includeTests bool) (ProblemDetail, error) {
-	p, err := r.q.GetProblemByID(ctx, id)
+	query := `
+		SELECT id, slug, title, difficulty, statement, constraints, time_limit_ms, memory_limit_mb, max_score, published, created_at, updated_at
+		FROM problems
+		WHERE id = $1;
+	`
+	p, err := scanProblem(r.pool.QueryRow(ctx, query, id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ProblemDetail{}, ErrNotFound
@@ -120,36 +140,59 @@ func (r *Repository) GetByID(ctx context.Context, id string, includeTests bool) 
 	return r.assembleDetail(ctx, p, includeTests)
 }
 
-func (r *Repository) assembleDetail(ctx context.Context, p sqlc.Problem, includeTests bool) (ProblemDetail, error) {
-	samplesRows, err := r.q.GetSamplesForProblem(ctx, p.ID)
+func (r *Repository) assembleDetail(ctx context.Context, p Problem, includeTests bool) (ProblemDetail, error) {
+	samplesQuery := `
+		SELECT id, problem_id, ordinal, input, output, explanation
+		FROM problem_samples
+		WHERE problem_id = $1
+		ORDER BY ordinal;
+	`
+	sRows, err := r.pool.Query(ctx, samplesQuery, p.ID)
 	if err != nil {
 		return ProblemDetail{}, err
 	}
-	samples := make([]Sample, len(samplesRows))
-	for i, s := range samplesRows {
-		samples[i] = toSample(s)
+	defer sRows.Close()
+
+	var samples []Sample
+	for sRows.Next() {
+		var s Sample
+		if err := sRows.Scan(&s.ID, &s.ProblemID, &s.Ordinal, &s.Input, &s.Output, &s.Explanation); err != nil {
+			return ProblemDetail{}, err
+		}
+		samples = append(samples, s)
+	}
+	if err := sRows.Err(); err != nil {
+		return ProblemDetail{}, err
 	}
 
 	detail := ProblemDetail{
-		Problem: toProblem(p),
+		Problem: p,
 		Samples: samples,
 	}
 
 	if includeTests {
-		testsRows, err := r.q.GetTestsForProblem(ctx, p.ID)
+		testsQuery := `
+			SELECT id, problem_id, ordinal, input_sha, expected_sha, points
+			FROM problem_tests
+			WHERE problem_id = $1
+			ORDER BY ordinal;
+		`
+		tRows, err := r.pool.Query(ctx, testsQuery, p.ID)
 		if err != nil {
 			return ProblemDetail{}, err
 		}
-		tests := make([]TestMetadata, len(testsRows))
-		for i, t := range testsRows {
-			tests[i] = TestMetadata{
-				ID:          t.ID,
-				ProblemID:   t.ProblemID,
-				Ordinal:     t.Ordinal,
-				InputSHA:    t.InputSha,
-				ExpectedSHA: t.ExpectedSha,
-				Points:      t.Points,
+		defer tRows.Close()
+
+		var tests []TestMetadata
+		for tRows.Next() {
+			var t TestMetadata
+			if err := tRows.Scan(&t.ID, &t.ProblemID, &t.Ordinal, &t.InputSHA, &t.ExpectedSHA, &t.Points); err != nil {
+				return ProblemDetail{}, err
 			}
+			tests = append(tests, t)
+		}
+		if err := tRows.Err(); err != nil {
+			return ProblemDetail{}, err
 		}
 		detail.Tests = tests
 	}
@@ -163,26 +206,18 @@ func (r *Repository) Create(ctx context.Context, input CreateProblemInput) (Prob
 		return ProblemDetail{}, err
 	}
 	defer tx.Rollback(ctx)
-	qtx := r.q.WithTx(tx)
 
-	if input.TimeLimitMs <= 0 {
-		input.TimeLimitMs = 4000
-	}
-	if input.MemoryLimitMb <= 0 {
-		input.MemoryLimitMb = 256
-	}
+	input.TimeLimitMs, input.MemoryLimitMb, input.MaxScore = ClampLimits(input.TimeLimitMs, input.MemoryLimitMb, input.MaxScore)
 
-	p, err := qtx.CreateProblem(ctx, sqlc.CreateProblemParams{
-		Slug:          input.Slug,
-		Title:         input.Title,
-		Difficulty:    input.Difficulty,
-		Statement:     input.Statement,
-		Constraints:   input.Constraints,
-		TimeLimitMs:   input.TimeLimitMs,
-		MemoryLimitMb: input.MemoryLimitMb,
-		MaxScore:      input.MaxScore,
-		Published:     input.Published,
-	})
+	insertProblem := `
+		INSERT INTO problems (slug, title, difficulty, statement, constraints, time_limit_ms, memory_limit_mb, max_score, published)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id, slug, title, difficulty, statement, constraints, time_limit_ms, memory_limit_mb, max_score, published, created_at, updated_at;
+	`
+	p, err := scanProblem(tx.QueryRow(ctx, insertProblem,
+		input.Slug, input.Title, input.Difficulty, input.Statement, input.Constraints,
+		input.TimeLimitMs, input.MemoryLimitMb, input.MaxScore, input.Published,
+	))
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -192,22 +227,24 @@ func (r *Repository) Create(ctx context.Context, input CreateProblemInput) (Prob
 	}
 
 	samples := make([]Sample, 0, len(input.Samples))
+	insertSample := `
+		INSERT INTO problem_samples (problem_id, ordinal, input, output, explanation)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, problem_id, ordinal, input, output, explanation;
+	`
 	for i, s := range input.Samples {
 		ord := s.Ordinal
 		if ord <= 0 {
 			ord = int32(i + 1)
 		}
-		createdSample, err := qtx.CreateSample(ctx, sqlc.CreateSampleParams{
-			ProblemID:   p.ID,
-			Ordinal:     ord,
-			Input:       s.Input,
-			Output:      s.Output,
-			Explanation: s.Explanation,
-		})
+		var createdSample Sample
+		err := tx.QueryRow(ctx, insertSample, p.ID, ord, s.Input, s.Output, s.Explanation).Scan(
+			&createdSample.ID, &createdSample.ProblemID, &createdSample.Ordinal, &createdSample.Input, &createdSample.Output, &createdSample.Explanation,
+		)
 		if err != nil {
 			return ProblemDetail{}, err
 		}
-		samples = append(samples, toSample(createdSample))
+		samples = append(samples, createdSample)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -215,7 +252,7 @@ func (r *Repository) Create(ctx context.Context, input CreateProblemInput) (Prob
 	}
 
 	return ProblemDetail{
-		Problem: toProblem(p),
+		Problem: p,
 		Samples: samples,
 	}, nil
 }
@@ -226,19 +263,19 @@ func (r *Repository) Update(ctx context.Context, id string, input CreateProblemI
 		return ProblemDetail{}, err
 	}
 	defer tx.Rollback(ctx)
-	qtx := r.q.WithTx(tx)
 
-	p, err := qtx.UpdateProblem(ctx, sqlc.UpdateProblemParams{
-		ID:            id,
-		Title:         input.Title,
-		Difficulty:    input.Difficulty,
-		Statement:     input.Statement,
-		Constraints:   input.Constraints,
-		TimeLimitMs:   input.TimeLimitMs,
-		MemoryLimitMb: input.MemoryLimitMb,
-		MaxScore:      input.MaxScore,
-		Published:     input.Published,
-	})
+	input.TimeLimitMs, input.MemoryLimitMb, input.MaxScore = ClampLimits(input.TimeLimitMs, input.MemoryLimitMb, input.MaxScore)
+
+	updateProblem := `
+		UPDATE problems
+		SET title = $2, difficulty = $3, statement = $4, constraints = $5, time_limit_ms = $6, memory_limit_mb = $7, max_score = $8, published = $9, updated_at = now()
+		WHERE id = $1
+		RETURNING id, slug, title, difficulty, statement, constraints, time_limit_ms, memory_limit_mb, max_score, published, created_at, updated_at;
+	`
+	p, err := scanProblem(tx.QueryRow(ctx, updateProblem,
+		id, input.Title, input.Difficulty, input.Statement, input.Constraints,
+		input.TimeLimitMs, input.MemoryLimitMb, input.MaxScore, input.Published,
+	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ProblemDetail{}, ErrNotFound
@@ -246,27 +283,29 @@ func (r *Repository) Update(ctx context.Context, id string, input CreateProblemI
 		return ProblemDetail{}, err
 	}
 
-	if err := qtx.DeleteSamplesForProblem(ctx, id); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM problem_samples WHERE problem_id = $1;`, id); err != nil {
 		return ProblemDetail{}, err
 	}
 
 	samples := make([]Sample, 0, len(input.Samples))
+	insertSample := `
+		INSERT INTO problem_samples (problem_id, ordinal, input, output, explanation)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, problem_id, ordinal, input, output, explanation;
+	`
 	for i, s := range input.Samples {
 		ord := s.Ordinal
 		if ord <= 0 {
 			ord = int32(i + 1)
 		}
-		createdSample, err := qtx.CreateSample(ctx, sqlc.CreateSampleParams{
-			ProblemID:   p.ID,
-			Ordinal:     ord,
-			Input:       s.Input,
-			Output:      s.Output,
-			Explanation: s.Explanation,
-		})
+		var createdSample Sample
+		err := tx.QueryRow(ctx, insertSample, p.ID, ord, s.Input, s.Output, s.Explanation).Scan(
+			&createdSample.ID, &createdSample.ProblemID, &createdSample.Ordinal, &createdSample.Input, &createdSample.Output, &createdSample.Explanation,
+		)
 		if err != nil {
 			return ProblemDetail{}, err
 		}
-		samples = append(samples, toSample(createdSample))
+		samples = append(samples, createdSample)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -274,22 +313,19 @@ func (r *Repository) Update(ctx context.Context, id string, input CreateProblemI
 	}
 
 	return ProblemDetail{
-		Problem: toProblem(p),
+		Problem: p,
 		Samples: samples,
 	}, nil
 }
 
 func (r *Repository) SetPublished(ctx context.Context, id string, published bool) error {
-	n, err := r.q.SetProblemPublished(ctx, sqlc.SetProblemPublishedParams{
-		ID:        id,
-		Published: published,
-	})
-	return notFoundIfZero(n, err)
+	cmd, err := r.pool.Exec(ctx, `UPDATE problems SET published = $2, updated_at = now() WHERE id = $1;`, id, published)
+	return notFoundIfZero(cmd.RowsAffected(), err)
 }
 
 func (r *Repository) Delete(ctx context.Context, id string) error {
-	n, err := r.q.DeleteProblem(ctx, id)
-	return notFoundIfZero(n, err)
+	cmd, err := r.pool.Exec(ctx, `DELETE FROM problems WHERE id = $1;`, id)
+	return notFoundIfZero(cmd.RowsAffected(), err)
 }
 
 func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests []TestInput) error {
@@ -298,7 +334,6 @@ func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests [
 		return err
 	}
 	defer tx.Rollback(ctx)
-	qtx := r.q.WithTx(tx)
 
 	var maxScore int32
 	if err := tx.QueryRow(ctx, `SELECT max_score FROM problems WHERE id = $1;`, problemID).Scan(&maxScore); err != nil {
@@ -309,10 +344,14 @@ func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests [
 	}
 	DistributePoints(tests, maxScore)
 
-	if err := qtx.DeleteTestsForProblem(ctx, problemID); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM problem_tests WHERE problem_id = $1;`, problemID); err != nil {
 		return err
 	}
 
+	insertTest := `
+		INSERT INTO problem_tests (problem_id, ordinal, input, expected, input_sha, expected_sha, points)
+		VALUES ($1, $2, $3, $4, $5, $6, $7);
+	`
 	for i, t := range tests {
 		ord := t.Ordinal
 		if ord <= 0 {
@@ -324,15 +363,7 @@ func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests [
 		if pts <= 0 {
 			pts = 1
 		}
-		_, err := qtx.CreateTest(ctx, sqlc.CreateTestParams{
-			ProblemID:   problemID,
-			Ordinal:     ord,
-			Input:       t.Input,
-			Expected:    t.Expected,
-			InputSha:    inSha,
-			ExpectedSha: expSha,
-			Points:      pts,
-		})
+		_, err := tx.Exec(ctx, insertTest, problemID, ord, t.Input, t.Expected, inSha, expSha, pts)
 		if err != nil {
 			return fmt.Errorf("failed to create test case %d: %w", ord, err)
 		}
@@ -342,20 +373,27 @@ func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests [
 }
 
 func (r *Repository) GetFullTests(ctx context.Context, problemID string) ([]TestInput, error) {
-	rows, err := r.q.GetFullTestsForProblem(ctx, problemID)
+	query := `
+		SELECT ordinal, input, expected, points
+		FROM problem_tests
+		WHERE problem_id = $1
+		ORDER BY ordinal;
+	`
+	rows, err := r.pool.Query(ctx, query, problemID)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]TestInput, len(rows))
-	for i, row := range rows {
-		result[i] = TestInput{
-			Ordinal:  row.Ordinal,
-			Input:    row.Input,
-			Expected: row.Expected,
-			Points:   row.Points,
+	defer rows.Close()
+
+	var result []TestInput
+	for rows.Next() {
+		var t TestInput
+		if err := rows.Scan(&t.Ordinal, &t.Input, &t.Expected, &t.Points); err != nil {
+			return nil, err
 		}
+		result = append(result, t)
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 func notFoundIfZero(n int64, err error) error {

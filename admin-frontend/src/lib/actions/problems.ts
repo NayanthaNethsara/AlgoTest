@@ -1,6 +1,11 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
+import {
+  problemInputSchema,
+  replaceTestsSchema,
+  type ValidatedProblemInput,
+} from "@/lib/validation/problem";
 import type { ProblemDetail, ProblemInput, TestCaseInput } from "@/types/problem";
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -36,10 +41,18 @@ export async function getProblemDetailAction(id: string): Promise<ProblemDetail>
 }
 
 export async function createProblemAction(input: ProblemInput): Promise<ProblemDetail> {
+  const parsed = problemInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid problem input data");
+  }
+
+  const validatedData: ValidatedProblemInput = parsed.data;
+
   try {
     const res = await backendFetch("/api/v1/admin/problems", {
       method: "POST",
-      body: JSON.stringify(input),
+      body: JSON.stringify(validatedData),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -53,10 +66,18 @@ export async function createProblemAction(input: ProblemInput): Promise<ProblemD
 }
 
 export async function updateProblemAction(id: string, input: ProblemInput): Promise<ProblemDetail> {
+  const parsed = problemInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid problem input data");
+  }
+
+  const validatedData: ValidatedProblemInput = parsed.data;
+
   try {
     const res = await backendFetch(`/api/v1/admin/problems/${id}`, {
       method: "PUT",
-      body: JSON.stringify(input),
+      body: JSON.stringify(validatedData),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -113,10 +134,16 @@ export async function getProblemTestsAction(id: string): Promise<TestCaseInput[]
 }
 
 export async function replaceTestCasesAction(id: string, tests: TestCaseInput[]): Promise<void> {
+  const parsed = replaceTestsSchema.safeParse({ tests });
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid test case input data");
+  }
+
   try {
     const res = await backendFetch(`/api/v1/admin/problems/${id}/tests`, {
       method: "PUT",
-      body: JSON.stringify({ tests }),
+      body: JSON.stringify({ tests: parsed.data.tests }),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));

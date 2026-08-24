@@ -3,10 +3,46 @@ package problem
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 )
 
-// Problem represents a competitive programming problem.
+var (
+	ErrInvalidSlug = errors.New("slug must be lowercase alphanumeric and hyphens only (e.g. 'two-sum')")
+	slugRegex      = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+)
+
+func ValidateSlug(slug string) error {
+	if !slugRegex.MatchString(slug) {
+		return ErrInvalidSlug
+	}
+	return nil
+}
+
+func ClampLimits(timeLimitMs, memoryLimitMb, maxScore int32) (int32, int32, int32) {
+	if timeLimitMs <= 0 {
+		timeLimitMs = 4000
+	} else if timeLimitMs < 100 {
+		timeLimitMs = 100
+	} else if timeLimitMs > 10000 {
+		timeLimitMs = 10000
+	}
+
+	if memoryLimitMb <= 0 {
+		memoryLimitMb = 256
+	} else if memoryLimitMb < 16 {
+		memoryLimitMb = 16
+	} else if memoryLimitMb > 1024 {
+		memoryLimitMb = 1024
+	}
+
+	if maxScore <= 0 {
+		maxScore = 100
+	}
+
+	return timeLimitMs, memoryLimitMb, maxScore
+}
+
 type Problem struct {
 	ID            string    `json:"id"`
 	Slug          string    `json:"slug"`
@@ -22,7 +58,6 @@ type Problem struct {
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
-// Sample represents a public sample test case shown with the problem statement.
 type Sample struct {
 	ID          string `json:"id"`
 	ProblemID   string `json:"problemId"`
@@ -32,7 +67,6 @@ type Sample struct {
 	Explanation string `json:"explanation,omitempty"`
 }
 
-// TestMetadata contains non-sensitive metadata for a hidden test case.
 type TestMetadata struct {
 	ID          string `json:"id"`
 	ProblemID   string `json:"problemId"`
@@ -42,14 +76,12 @@ type TestMetadata struct {
 	Points      int32  `json:"points"`
 }
 
-// ProblemDetail combines problem metadata with sample cases and optional test metadata.
 type ProblemDetail struct {
 	Problem
 	Samples []Sample       `json:"samples"`
 	Tests   []TestMetadata `json:"tests,omitempty"`
 }
 
-// CreateProblemInput defines the input parameters for creating or updating a problem.
 type CreateProblemInput struct {
 	Slug          string
 	Title         string
@@ -63,7 +95,6 @@ type CreateProblemInput struct {
 	Samples       []SampleInput
 }
 
-// SampleInput defines input data for a sample test case.
 type SampleInput struct {
 	Ordinal     int32  `json:"ordinal"`
 	Input       string `json:"input"`
@@ -71,7 +102,6 @@ type SampleInput struct {
 	Explanation string `json:"explanation"`
 }
 
-// TestInput defines input data for a hidden grading test case.
 type TestInput struct {
 	Ordinal  int32  `json:"ordinal"`
 	Input    []byte `json:"input"`
@@ -112,9 +142,6 @@ func ValidateTestPoints(tests []TestInput, maxScore int32) error {
 	return nil
 }
 
-// DistributePoints shares maxScore across tests that carry no points of their
-// own. The judge scores the sum of passed tests, so leaving them at 1 each
-// would make the problem worth len(tests) rather than its advertised maxScore.
 func DistributePoints(tests []TestInput, maxScore int32) {
 	if len(tests) == 0 || maxScore <= 0 {
 		return
