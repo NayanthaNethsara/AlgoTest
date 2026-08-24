@@ -165,7 +165,43 @@ export async function listSubmissionsAction(
     }
 
     const data = await res.json();
-    return data.submissions || [];
+    const rawSubmissions = Array.isArray(data.submissions) ? data.submissions : [];
+
+    return rawSubmissions.map((raw: Record<string, unknown>) => {
+      const id = String(raw.submissionId || raw.id || "");
+      const createdAtRaw = raw.createdAt || raw.created_at;
+      const createdAtDate = createdAtRaw ? new Date(String(createdAtRaw)) : undefined;
+      const timestamp =
+        createdAtDate && !isNaN(createdAtDate.getTime())
+          ? createdAtDate.getTime()
+          : typeof raw.timestamp === "number"
+            ? raw.timestamp
+            : 0;
+      const submittedAt =
+        createdAtDate && !isNaN(createdAtDate.getTime())
+          ? createdAtDate.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+          : String(raw.submittedAt || "Just now");
+
+      return {
+        id,
+        submissionId: id,
+        problemTitle: String(raw.problemTitle || raw.problem_title || "Challenge"),
+        submittedBy: String(raw.userName || raw.user_name || raw.submittedBy || ""),
+        teamName: String(raw.teamName || raw.team_name || ""),
+        language: String(raw.language || "cpp"),
+        score: typeof raw.score === "number" ? raw.score : 0,
+        maxScore: typeof raw.maxScore === "number" ? raw.maxScore : typeof raw.max_score === "number" ? raw.max_score : 100,
+        status: String(raw.status || raw.verdict || "QUEUED"),
+        reviewStatus: (raw.reviewStatus || raw.review_status) as "accepted" | "rejected" | undefined,
+        reviewReason: (raw.reviewReason || raw.review_reason) as string | undefined,
+        submittedAt,
+        timestamp,
+      };
+    });
   } catch (err) {
     console.error("listSubmissionsAction error:", err);
     return [];
