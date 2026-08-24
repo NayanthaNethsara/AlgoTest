@@ -32,6 +32,7 @@ type ContestState struct {
 	EndTime          *time.Time `json:"endTime,omitempty"`
 	DurationSeconds  int        `json:"durationSeconds"`
 	FreezeMinutes    int        `json:"freezeMinutes"`
+	FreezeStartTime  *time.Time `json:"freezeStartTime,omitempty"`
 	PausedAt         *time.Time `json:"pausedAt,omitempty"`
 	RemainingSeconds int        `json:"remainingSeconds"`
 	ElapsedSeconds   int        `json:"elapsedSeconds"`
@@ -46,6 +47,8 @@ type stateSnapshot struct {
 	endTime         *time.Time
 	durationSeconds int
 	freezeMinutes   int
+	isFrozen        bool
+	freezeStartTime *time.Time
 	pausedAt        *time.Time
 }
 
@@ -98,6 +101,18 @@ func parseSnapshot(values map[string]string) *stateSnapshot {
 		}
 	}
 
+	isFrozen := false
+	if val, ok := values["contest.is_frozen"]; ok {
+		isFrozen = strings.ToLower(strings.TrimSpace(val)) == "true"
+	}
+
+	var freezeStartTime *time.Time
+	if val, ok := values["contest.freeze_start_time"]; ok && strings.TrimSpace(val) != "" {
+		if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(val)); err == nil {
+			freezeStartTime = &parsed
+		}
+	}
+
 	return &stateSnapshot{
 		title:           title,
 		status:          status,
@@ -105,6 +120,8 @@ func parseSnapshot(values map[string]string) *stateSnapshot {
 		endTime:         endTime,
 		durationSeconds: durSec,
 		freezeMinutes:   freezeMin,
+		isFrozen:        isFrozen,
+		freezeStartTime: freezeStartTime,
 		pausedAt:        pausedAt,
 	}
 }

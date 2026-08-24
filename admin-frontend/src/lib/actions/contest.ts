@@ -174,6 +174,38 @@ export async function endContestAction(): Promise<ContestState> {
   }
 }
 
+export async function freezeContestAction(): Promise<ContestState> {
+  try {
+    const res = await backendFetch("/api/v1/admin/contest/freeze", {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || "Failed to freeze contest scoreboard");
+    }
+    const data = await res.json();
+    return normalizeState(data);
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to freeze contest scoreboard"));
+  }
+}
+
+export async function unfreezeContestAction(): Promise<ContestState> {
+  try {
+    const res = await backendFetch("/api/v1/admin/contest/unfreeze", {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || "Failed to unfreeze contest scoreboard");
+    }
+    const data = await res.json();
+    return normalizeState(data);
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to unfreeze contest scoreboard"));
+  }
+}
+
 export async function updateContestSettingsAction(
   settings: ContestSettingsInput,
 ): Promise<ContestState> {

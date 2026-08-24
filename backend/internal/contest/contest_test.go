@@ -57,14 +57,16 @@ func TestContestFreezeCalculation(t *testing.T) {
 	now := time.Now().UTC()
 	start := now.Add(-100 * time.Minute)
 	end := now.Add(20 * time.Minute)
+	freezeStart := now.Add(-10 * time.Minute)
 
 	values := map[string]string{
-		"contest.title":            "Championship 2026",
-		"contest.status":           StatusRunning,
-		"contest.duration_seconds": "7200",
-		"contest.freeze_minutes":   "30",
-		"contest.start_time":       start.Format(time.RFC3339),
-		"contest.end_time":         end.Format(time.RFC3339),
+		"contest.title":             "Championship 2026",
+		"contest.status":            StatusRunning,
+		"contest.duration_seconds":  "7200",
+		"contest.is_frozen":         "true",
+		"contest.freeze_start_time": freezeStart.Format(time.RFC3339),
+		"contest.start_time":        start.Format(time.RFC3339),
+		"contest.end_time":          end.Format(time.RFC3339),
 	}
 
 	snap := parseSnapshot(values)
@@ -73,7 +75,10 @@ func TestContestFreezeCalculation(t *testing.T) {
 
 	state := m.GetState()
 	if !state.IsFrozen {
-		t.Errorf("contest should be frozen when remaining time is less than freezeMinutes")
+		t.Errorf("contest should be frozen when is_frozen is set to true")
+	}
+	if state.FreezeStartTime == nil || !state.FreezeStartTime.Equal(freezeStart.Truncate(time.Second)) {
+		t.Errorf("expected FreezeStartTime %v, got %v", freezeStart, state.FreezeStartTime)
 	}
 }
 

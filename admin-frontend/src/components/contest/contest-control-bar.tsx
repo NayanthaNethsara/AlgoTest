@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   endContestAction,
   extendContestAction,
+  freezeContestAction,
   getAdminContestStateAction,
   pauseContestAction,
   resetContestAction,
   resumeContestAction,
   startContestAction,
+  unfreezeContestAction,
   updateContestSettingsAction,
 } from "@/lib/actions/contest";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -58,7 +60,6 @@ export function ContestControlBar() {
   const [loading, setLoading] = useState(false);
   const [clockOffset, setClockOffset] = useState<number>(0);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
-  const [isFrozen, setIsFrozen] = useState<boolean>(false);
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
@@ -66,7 +67,6 @@ export function ContestControlBar() {
 
   const [settingsTitle, setSettingsTitle] = useState("");
   const [settingsDuration, setSettingsDuration] = useState("120");
-  const [settingsFreeze, setSettingsFreeze] = useState("30");
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -84,7 +84,6 @@ export function ContestControlBar() {
       }
       setSettingsTitle(data.title);
       setSettingsDuration(String(Math.floor(data.durationSeconds / 60)));
-      setSettingsFreeze(String(data.freezeMinutes));
     } catch (err: unknown) {
       console.error("Failed to load contest state:", err);
     }
@@ -110,7 +109,6 @@ export function ContestControlBar() {
       switch (current.status) {
         case CONTEST_STATUS.NOT_STARTED: {
           setRemainingSeconds(current.durationSeconds);
-          setIsFrozen(false);
           break;
         }
 
@@ -119,29 +117,19 @@ export function ContestControlBar() {
             const endMs = new Date(current.endTime).getTime();
             const remaining = Math.max(0, Math.floor((endMs - now) / 1000));
             setRemainingSeconds(remaining);
-
-            if (current.freezeMinutes > 0) {
-              const freezeThresholdSec = current.freezeMinutes * 60;
-              setIsFrozen(remaining > 0 && remaining <= freezeThresholdSec);
-            } else {
-              setIsFrozen(false);
-            }
           } else {
             setRemainingSeconds(current.durationSeconds);
-            setIsFrozen(false);
           }
           break;
         }
 
         case CONTEST_STATUS.PAUSED: {
           setRemainingSeconds(current.remainingSeconds);
-          setIsFrozen(current.isFrozen);
           break;
         }
 
         case CONTEST_STATUS.ENDED: {
           setRemainingSeconds(0);
-          setIsFrozen(false);
           break;
         }
       }
@@ -168,11 +156,9 @@ export function ContestControlBar() {
     setLoading(true);
     try {
       const dur = parseInt(settingsDuration, 10);
-      const frz = parseInt(settingsFreeze, 10);
       await updateContestSettingsAction({
         title: settingsTitle,
         durationMinutes: isNaN(dur) ? undefined : dur,
-        freezeMinutes: isNaN(frz) ? undefined : frz,
       });
       setSettingsOpen(false);
       await loadState();
@@ -189,6 +175,7 @@ export function ContestControlBar() {
   const isPaused = state.status === CONTEST_STATUS.PAUSED;
   const isNotStarted = state.status === CONTEST_STATUS.NOT_STARTED;
   const isEnded = state.status === CONTEST_STATUS.ENDED;
+  const isFrozen = state.isFrozen;
 
   return (
     <div className="border-b border-white/10 bg-card/60 backdrop-blur-md px-4 sm:px-6 py-2">
@@ -276,6 +263,34 @@ export function ContestControlBar() {
               {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />}
               <span>Resume</span>
             </Button>
+          )}
+
+          {(isRunning || isPaused) && (
+            isFrozen ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleAction(() => unfreezeContestAction())}
+                disabled={loading}
+                className="gap-1.5 bg-sky-500/15 text-sky-300 border-sky-400/50 hover:bg-sky-500/25 h-7.5 text-xs font-semibold"
+                title="Unfreeze Scoreboard to show live scores"
+              >
+                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Snowflake className="h-3 w-3 animate-pulse" />}
+                <span>Unfreeze</span>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleAction(() => freezeContestAction())}
+                disabled={loading}
+                className="gap-1.5 text-sky-400 border-sky-400/40 hover:bg-sky-400/10 h-7.5 text-xs font-medium"
+                title="Freeze Scoreboard at current scores"
+              >
+                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Snowflake className="h-3 w-3" />}
+                <span>Freeze</span>
+              </Button>
+            )
           )}
 
           {(isRunning || isPaused || isEnded) && (
@@ -373,32 +388,17 @@ export function ContestControlBar() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  Duration (Minutes)
-                </label>
-                <Input
-                  type="number"
-                  value={settingsDuration}
-                  onChange={(e) => setSettingsDuration(e.target.value)}
-                  min={1}
-                  className="text-xs font-mono"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  Scoreboard Freeze (Mins)
-                </label>
-                <Input
-                  type="number"
-                  value={settingsFreeze}
-                  onChange={(e) => setSettingsFreeze(e.target.value)}
-                  min={0}
-                  className="text-xs font-mono"
-                />
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-foreground">
+                Duration (Minutes)
+              </label>
+              <Input
+                type="number"
+                value={settingsDuration}
+                onChange={(e) => setSettingsDuration(e.target.value)}
+                min={1}
+                className="text-xs font-mono"
+              />
             </div>
           </div>
           <DialogFooter>
