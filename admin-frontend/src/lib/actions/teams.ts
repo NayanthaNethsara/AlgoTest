@@ -1,6 +1,11 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
+import {
+  createTeamInputSchema,
+  updateTeamInputSchema,
+  addTeamMemberPayloadSchema,
+} from "@/lib/validation/team";
 import type { Team, CreateTeamInput } from "@/types/team";
 import type { User } from "@/types/user";
 
@@ -25,10 +30,16 @@ export async function listTeamsAction(): Promise<Team[]> {
 export async function createTeamAction(
   input: CreateTeamInput
 ): Promise<{ team: Team; members?: Array<{ user: User; password?: string }> }> {
+  const parsed = createTeamInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid team input data");
+  }
+
   try {
     const res = await backendFetch("/api/v1/admin/teams", {
       method: "POST",
-      body: JSON.stringify(input),
+      body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -41,10 +52,16 @@ export async function createTeamAction(
 }
 
 export async function updateTeamAction(id: string, name: string): Promise<Team> {
+  const parsed = updateTeamInputSchema.safeParse({ name });
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid team name");
+  }
+
   try {
     const res = await backendFetch(`/api/v1/admin/teams/${id}`, {
       method: "PUT",
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -78,10 +95,16 @@ export async function addTeamMemberAction(
   teamId: string,
   payload: AddTeamMemberPayload
 ): Promise<{ team: Team; user?: User; password?: string }> {
+  const parsed = addTeamMemberPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid team member data");
+  }
+
   try {
     const res = await backendFetch(`/api/v1/admin/teams/${teamId}/members`, {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));

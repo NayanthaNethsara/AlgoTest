@@ -1,6 +1,12 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
+import {
+  createUserInputSchema,
+  bulkCreateUsersSchema,
+  suspendUserSchema,
+  updateRoleSchema,
+} from "@/lib/validation/user";
 import type { User, CreateUserInput, BulkResult } from "@/types/user";
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -24,10 +30,16 @@ export async function listUsersAction(): Promise<User[]> {
 export async function createUserAction(
   input: CreateUserInput
 ): Promise<{ user: User; password?: string }> {
+  const parsed = createUserInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid user input data");
+  }
+
   try {
     const res = await backendFetch("/api/v1/admin/users", {
       method: "POST",
-      body: JSON.stringify(input),
+      body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -44,13 +56,23 @@ export async function bulkCreateUsersAction(
   defaultTeamId?: string,
   defaultTeamName?: string
 ): Promise<{ results: BulkResult[] }> {
+  const parsed = bulkCreateUsersSchema.safeParse({
+    users,
+    defaultTeamId,
+    defaultTeamName,
+  });
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid bulk user input data");
+  }
+
   try {
     const res = await backendFetch("/api/v1/admin/users/bulk", {
       method: "POST",
       body: JSON.stringify({
-        users,
-        teamId: defaultTeamId || undefined,
-        teamName: defaultTeamName || undefined,
+        users: parsed.data.users,
+        teamId: parsed.data.defaultTeamId || undefined,
+        teamName: parsed.data.defaultTeamName || undefined,
       }),
     });
     if (!res.ok) {
@@ -81,10 +103,16 @@ export async function resetPasswordAction(userId: string): Promise<{ password: s
 }
 
 export async function updateRoleAction(userId: string, role: string): Promise<void> {
+  const parsed = updateRoleSchema.safeParse({ role });
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid role");
+  }
+
   try {
     const res = await backendFetch(`/api/v1/admin/users/${userId}/role`, {
       method: "PATCH",
-      body: JSON.stringify({ role }),
+      body: JSON.stringify({ role: parsed.data.role }),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -114,10 +142,16 @@ export async function suspendUserAction(
   suspended: boolean,
   reason?: string
 ): Promise<void> {
+  const parsed = suspendUserSchema.safeParse({ suspended, reason });
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid suspension data");
+  }
+
   try {
     const res = await backendFetch(`/api/v1/admin/users/${userId}/suspend`, {
       method: "PATCH",
-      body: JSON.stringify({ suspended, reason: reason || "" }),
+      body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({}));
@@ -127,4 +161,3 @@ export async function suspendUserAction(
     throw new Error(getErrorMessage(err, "Failed to update user suspension"));
   }
 }
-

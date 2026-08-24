@@ -4,6 +4,7 @@ import { cache } from "react";
 import { cookies, headers as incomingHeaders } from "next/headers";
 import { API_URL, COOKIE_SECURE, SESSION_COOKIE } from "./constants";
 import { clientAddress } from "./client-ip";
+import { loginCredentialsSchema, changePasswordSchema } from "./validation";
 import type { AuthActionResult, LoginCredentials, SessionUser, UserRole } from "./types";
 
 export async function authenticateUser(
@@ -11,10 +12,13 @@ export async function authenticateUser(
   expectedRole?: UserRole,
   cookieName: string = SESSION_COOKIE
 ): Promise<AuthActionResult> {
-  const { username, password } = credentials;
-  if (!username || !password) {
-    return { success: false, error: "Username and password are required" };
+  const parsed = loginCredentialsSchema.safeParse(credentials);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    return { success: false, error: firstIssue?.message || "Invalid credentials" };
   }
+
+  const { username, password } = parsed.data;
 
   try {
     const headers = new Headers({ "Content-Type": "application/json" });
@@ -125,11 +129,10 @@ export async function changeUserPassword(
   newPassword: string,
   cookieName: string = SESSION_COOKIE
 ): Promise<{ success: boolean; error?: string }> {
-  if (!currentPassword || !newPassword) {
-    return { success: false, error: "Both current and new passwords are required" };
-  }
-  if (newPassword.length < 8) {
-    return { success: false, error: "New password must be at least 8 characters" };
+  const parsed = changePasswordSchema.safeParse({ currentPassword, newPassword });
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    return { success: false, error: firstIssue?.message || "Invalid password data" };
   }
 
   const cookieStore = await cookies();
