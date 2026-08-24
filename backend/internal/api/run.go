@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -16,19 +17,29 @@ const (
 )
 
 var (
-	activeRunsMu   sync.Mutex
-	activeRunUsers = make(map[string]bool)
+	activeRunsMu     sync.Mutex
+	activeRunUsers   = make(map[string]bool)
+	userLastRunTimes = make(map[string]time.Time)
 )
 
-func tryAcquireUserRun(userID string) bool {
+func tryAcquireUserRun(userID string) (bool, string) {
 	activeRunsMu.Lock()
 	defer activeRunsMu.Unlock()
 
 	if activeRunUsers[userID] {
-		return false
+		return false, "ACTIVE_RUN"
 	}
+
+	const cooldown = 3 * time.Second
+	if last, ok := userLastRunTimes[userID]; ok {
+		if time.Since(last) < cooldown {
+			return false, "COOLDOWN"
+		}
+	}
+
 	activeRunUsers[userID] = true
-	return true
+	userLastRunTimes[userID] = time.Now()
+	return true, ""
 }
 
 func releaseUserRun(userID string) {
@@ -73,7 +84,12 @@ func (h *handler) runCode(c *gin.Context) {
 	}
 
 	u := currentUser(c)
-	if !tryAcquireUserRun(u.ID) {
+	acquired, reason := tryAcquireUserRun(u.ID)
+	if !acquired {
+		if reason == "COOLDOWN" {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Run cooldown active. Please wait a few seconds before running code again."})
+			return
+		}
 		c.JSON(http.StatusConflict, gin.H{"error": "You already have an active code run in progress. Please wait for it to complete."})
 		return
 	}

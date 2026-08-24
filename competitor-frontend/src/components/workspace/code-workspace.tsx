@@ -88,6 +88,16 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     });
   }, [lastResult, best, bestKey, language.id, code, record]);
 
+  const [runCooldown, setRunCooldown] = useState(0);
+
+  useEffect(() => {
+    if (runCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setRunCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [runCooldown]);
+
   function handleLanguageChange(id: string | null) {
     const next = LANGUAGES.find((lang) => lang.id === id) ?? LANGUAGES[0];
     setLanguage(next);
@@ -95,12 +105,20 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   }
 
   async function handleRun() {
+    if (running || runCooldown > 0) return;
+    if (!code.trim()) {
+      setTab("test");
+      setRunResult({ stdout: "", stderr: "Error: Cannot run empty code", exitCode: 1, timeMs: 0 });
+      return;
+    }
+
     setTab("test");
     setRunning(true);
     setRunResult(null);
     record("ran", language.id, code);
     try {
       setRunResult(await runCode(language.id, code, stdin));
+      setRunCooldown(3);
     } finally {
       setRunning(false);
     }
@@ -200,14 +218,14 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
                   variant="secondary"
                   size="sm"
                   onClick={handleRun}
-                  disabled={running}
+                  disabled={running || runCooldown > 0}
                 >
                   <Play className="size-3.5" />
-                  {running ? "Running..." : "Run"}
+                  {running ? "Running..." : runCooldown > 0 ? `Run (${runCooldown}s)` : "Run"}
                 </Button>
-                <Button size="sm" onClick={handleSubmit} disabled={submitting}>
+                <Button size="sm" onClick={handleSubmit} disabled={isCurrentProblemSubmitting}>
                   <Send className="size-3.5" />
-                  {submitting ? "Submitting..." : "Submit"}
+                  {isCurrentProblemSubmitting ? "Submitting..." : "Submit"}
                 </Button>
               </div>
             </div>
