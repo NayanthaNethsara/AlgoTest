@@ -44,15 +44,16 @@ type runCodeRequest struct {
 	Stdin    string `json:"stdin"`
 }
 
-// @Summary Run Code in Sandbox
-// @Description Execute untrusted code in isolate sandbox against user-supplied stdin input.
-// @Tags Sandbox
+// @Summary Execute Code
+// @Description Execute code against sample test cases or custom stdin in an isolated sandbox.
+// @Tags Runner
 // @Accept json
 // @Produce json
 // @Security BearerAuth
 // @Param request body runCodeRequest true "Code execution request"
 // @Success 200 {object} runner.Result
 // @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Failure 409 {object} map[string]string
 // @Failure 503 {object} map[string]string
 // @Router /api/v1/run [post]

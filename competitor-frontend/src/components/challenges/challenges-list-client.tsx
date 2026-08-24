@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ChallengeCard } from "@/components/challenges/challenge-card";
+import { ContestWaitingRoom } from "@/components/challenges/contest-waiting-room";
+import { useContest } from "@/components/portal/contest-provider";
 import { DIFFICULTY_RANKS } from "@/lib/constants";
 import {
   CHALLENGE_STATUS,
@@ -9,6 +11,7 @@ import {
   type ChallengeProgress,
   type ChallengeSortOption,
 } from "@/types/challenge";
+import { CONTEST_STATUS } from "@/types/contest";
 import type { Problem } from "@/types/problem";
 import {
   ArrowUpDown,
@@ -26,11 +29,16 @@ export function ChallengesListClient({
   problems: Problem[];
   progress: Record<string, ChallengeProgress>;
 }) {
+  const { state: contestState } = useContest();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [difficultyFilter, setDifficultyFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<ChallengeSortOption>("DEFAULT");
   const [layout, setLayout] = useState<ChallengeLayout>("grid");
+
+  if (contestState.status === CONTEST_STATUS.NOT_STARTED) {
+    return <ContestWaitingRoom />;
+  }
 
   const filteredProblems = problems.filter((problem) => {
     const pProgress = (problem.id ? progress[problem.id] : undefined) ||
