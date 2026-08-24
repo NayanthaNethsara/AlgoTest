@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Check, Copy, History, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,

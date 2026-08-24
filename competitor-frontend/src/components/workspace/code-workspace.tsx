@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { History, Play, Send } from "lucide-react";
 import { runCode } from "@/actions/code";
+import { useContest } from "@/components/portal/contest-provider";
 import { useSubmissions } from "@/components/portal/submissions-provider";
 import { CodeEditor } from "@/components/workspace/code-editor";
 import { HistoryPanel } from "@/components/workspace/history-panel";
@@ -30,6 +31,7 @@ import type { Snapshot } from "@/types/history";
 import type { Problem } from "@/types/problem";
 
 export function CodeWorkspace({ problem }: { problem: Problem }) {
+  const { isNotStarted, isPaused, isEnded } = useContest();
   const [language, setLanguage] = useState<Language>(LANGUAGES[0]);
   const [code, setCode] = useState(LANGUAGES[0].starter);
   const [stdin, setStdin] = useState(problem.samples[0]?.input ?? "");
@@ -105,7 +107,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   }
 
   async function handleRun() {
-    if (running || runCooldown > 0) return;
+    if (running || runCooldown > 0 || isPaused || isNotStarted) return;
     if (!code.trim()) {
       setTab("test");
       setRunResult({ stdout: "", stderr: "Error: Cannot run empty code", exitCode: 1, timeMs: 0 });
@@ -125,6 +127,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   }
 
   async function handleSubmit() {
+    if (isCurrentProblemSubmitting || isPaused || isEnded || isNotStarted) return;
     setTab("submission");
     setSubmitting(true);
     try {
@@ -157,6 +160,10 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
         activeSubmission.problemId === problem.slug ||
         activeSubmission.id === submitResult?.submissionId),
     );
+
+  const isRunDisabled = running || runCooldown > 0 || isPaused || isNotStarted;
+  const isSubmitDisabled =
+    Boolean(isCurrentProblemSubmitting) || isPaused || isEnded || isNotStarted;
 
   return (
     <div className="flex h-full flex-col">
@@ -212,20 +219,44 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
 
               <div className="flex items-center gap-3">
                 <span className="hidden text-[11px] text-muted-foreground lg:inline">
-                  Run uses your test input · Submit scores against hidden tests
+                  {isPaused
+                    ? "Contest paused by judges · Execution locked"
+                    : isEnded
+                      ? "Contest ended · Practice mode active (Submissions closed)"
+                      : isNotStarted
+                        ? "Contest not started · Submissions locked"
+                        : "Run uses your test input · Submit scores against hidden tests"}
                 </span>
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={handleRun}
-                  disabled={running || runCooldown > 0}
+                  disabled={isRunDisabled}
                 >
                   <Play className="size-3.5" />
-                  {running ? "Running..." : runCooldown > 0 ? `Run (${runCooldown}s)` : "Run"}
+                  {isPaused
+                    ? "Paused"
+                    : running
+                      ? "Running..."
+                      : runCooldown > 0
+                        ? `Run (${runCooldown}s)`
+                        : "Run"}
                 </Button>
-                <Button size="sm" onClick={handleSubmit} disabled={isCurrentProblemSubmitting}>
+                <Button
+                  size="sm"
+                  onClick={handleSubmit}
+                  disabled={isSubmitDisabled}
+                >
                   <Send className="size-3.5" />
-                  {isCurrentProblemSubmitting ? "Submitting..." : "Submit"}
+                  {isEnded
+                    ? "Contest Ended"
+                    : isPaused
+                      ? "Paused"
+                      : isNotStarted
+                        ? "Not Started"
+                        : isCurrentProblemSubmitting
+                          ? "Submitting..."
+                          : "Submit"}
                 </Button>
               </div>
             </div>

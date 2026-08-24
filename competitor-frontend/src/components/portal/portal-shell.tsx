@@ -7,6 +7,7 @@ import { ContestPhaseBanner } from "@/components/portal/contest-phase-banner";
 import { ContestProvider } from "@/components/portal/contest-provider";
 import { ProctorProvider } from "@/components/portal/proctor-provider";
 import { ProctorLockBanner } from "@/components/portal/proctor-status";
+import { useContest } from "@/components/portal/contest-provider";
 import {
   SubmissionsProvider,
   useSubmissions,
@@ -48,18 +49,47 @@ export function PortalShell({
 }
 
 function ToastBanner() {
-  const { toast, clearToast } = useSubmissions();
+  const { toast: submissionToast, clearToast: clearSubmissionToast } =
+    useSubmissions();
+  const { alertToast: contestToast, clearAlertToast: clearContestToast } =
+    useContest();
 
   useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => clearToast(), 5000);
+    if (!submissionToast) return;
+    const timer = setTimeout(() => clearSubmissionToast(), 5000);
     return () => clearTimeout(timer);
-  }, [toast, clearToast]);
+  }, [submissionToast, clearSubmissionToast]);
 
-  if (!toast) return null;
+  useEffect(() => {
+    if (!contestToast) return;
+    const timer = setTimeout(() => clearContestToast(), 6000);
+    return () => clearTimeout(timer);
+  }, [contestToast, clearContestToast]);
 
-  const isSuccess = toast.variant === "success";
-  const isError = toast.variant === "error";
+  const activeToast = submissionToast
+    ? {
+        id: submissionToast.id,
+        title: submissionToast.title,
+        description: submissionToast.description,
+        variant: submissionToast.variant,
+        onClose: clearSubmissionToast,
+      }
+    : contestToast
+      ? {
+          id: contestToast.id,
+          title: contestToast.title,
+          description: contestToast.description,
+          variant: contestToast.variant,
+          onClose: clearContestToast,
+        }
+      : null;
+
+  if (!activeToast) return null;
+
+  const isSuccess = activeToast.variant === "success";
+  const isError =
+    activeToast.variant === "error" || activeToast.variant === "destructive";
+  const isWarning = activeToast.variant === "warning";
 
   return (
     <div className="pixel-raised absolute right-4 bottom-4 z-50 flex max-w-sm items-start gap-3 bg-card p-4 animate-in slide-in-from-bottom-2">
@@ -69,18 +99,24 @@ function ToastBanner() {
       {isError && (
         <AlertCircle className="size-5 text-destructive shrink-0 mt-0.5" />
       )}
-      {!isSuccess && !isError && (
+      {isWarning && (
+        <AlertCircle className="size-5 text-amber-400 shrink-0 mt-0.5" />
+      )}
+      {!isSuccess && !isError && !isWarning && (
         <Info className="size-5 text-primary shrink-0 mt-0.5" />
       )}
 
       <div className="flex flex-col gap-0.5 text-xs">
-        <span className="font-semibold text-foreground">{toast.title}</span>
-        <span className="text-muted-foreground">{toast.description}</span>
+        <span className="font-semibold text-foreground">
+          {activeToast.title}
+        </span>
+        <span className="text-muted-foreground">{activeToast.description}</span>
       </div>
 
       <button
-        onClick={clearToast}
-        className="ml-auto text-muted-foreground hover:text-foreground"
+        type="button"
+        onClick={activeToast.onClose}
+        className="ml-auto text-muted-foreground hover:text-foreground cursor-pointer"
       >
         <X className="size-4" />
       </button>

@@ -9,7 +9,13 @@ import React, {
   useState,
 } from "react";
 import { getContestStateAction } from "@/actions/contest";
-import { CONTEST_STATUS, type ContestState } from "@/types/contest";
+import {
+  CONTEST_STATUS,
+  CONTEST_THRESHOLDS_SECONDS,
+  type ContestAlert,
+  type ContestState,
+  type ContestStatus,
+} from "@/types/contest";
 
 type ContestContextValue = {
   state: ContestState;
@@ -19,16 +25,22 @@ type ContestContextValue = {
   isWarning: boolean;
   isCritical: boolean;
   isFrozen: boolean;
+  isNotStarted: boolean;
+  isRunning: boolean;
+  isPaused: boolean;
+  isEnded: boolean;
   formattedRemaining: string;
   formattedStartsIn: string;
+  alertToast: ContestAlert | null;
+  clearAlertToast: () => void;
   refresh: () => Promise<void>;
 };
 
 const ContestContext = createContext<ContestContextValue | null>(null);
 
-const WARNING_THRESHOLD_SECONDS = 15 * 60; // 15 minutes
-const CRITICAL_THRESHOLD_SECONDS = 5 * 60; // 5 minutes
-const BACKGROUND_SYNC_INTERVAL_MS = 20_000; // 20 seconds
+const WARNING_THRESHOLD_SECONDS = 15 * 60;
+const CRITICAL_THRESHOLD_SECONDS = 5 * 60;
+const BACKGROUND_SYNC_INTERVAL_MS = 20_000;
 
 function pad(num: number): string {
   return num.toString().padStart(2, "0");
@@ -67,25 +79,92 @@ export function ContestProvider({
   );
   const [startsInSeconds, setStartsInSeconds] = useState<number>(0);
   const [isFrozen, setIsFrozen] = useState<boolean>(initialState.isFrozen);
+  const [alertToast, setAlertToast] = useState<ContestAlert | null>(null);
+
+  const clearAlertToast = useCallback(() => {
+    setAlertToast(null);
+  }, []);
 
   const stateRef = useRef(state);
-  stateRef.current = state;
-
   const clockOffsetRef = useRef(clockOffset);
-  clockOffsetRef.current = clockOffset;
+  const previousStatusRef = useRef<ContestStatus>(initialState.status);
+  const previousFrozenRef = useRef<boolean>(initialState.isFrozen);
+  const firedThresholdsRef = useRef<Set<number>>(new Set());
+
+  const checkStatusTransitions = useCallback(
+    (prevStatus: ContestStatus, currentStatus: ContestStatus) => {
+      if (prevStatus === currentStatus) return;
+
+      if (
+        prevStatus === CONTEST_STATUS.NOT_STARTED &&
+        currentStatus === CONTEST_STATUS.RUNNING
+      ) {
+        setAlertToast({
+          id: `contest-started-${Date.now()}`,
+          title: "Contest Started!",
+          description:
+            "The round is now live. Problem statements and submissions are unlocked.",
+          variant: "success",
+        });
+      } else if (currentStatus === CONTEST_STATUS.PAUSED) {
+        setAlertToast({
+          id: `contest-paused-${Date.now()}`,
+          title: "Contest Paused",
+          description:
+            "Judges have paused the contest clock. Code execution is on hold.",
+          variant: "warning",
+        });
+      } else if (
+        prevStatus === CONTEST_STATUS.PAUSED &&
+        currentStatus === CONTEST_STATUS.RUNNING
+      ) {
+        setAlertToast({
+          id: `contest-resumed-${Date.now()}`,
+          title: "Contest Resumed",
+          description:
+            "The competition round is active again. You may continue working.",
+          variant: "info",
+        });
+      } else if (currentStatus === CONTEST_STATUS.ENDED) {
+        setAlertToast({
+          id: `contest-ended-${Date.now()}`,
+          title: "Contest Concluded",
+          description:
+            "The round has ended. Submissions are closed and workspace is in practice mode.",
+          variant: "info",
+        });
+      }
+      previousStatusRef.current = currentStatus;
+    },
+    [],
+  );
 
   const refresh = useCallback(async () => {
     try {
       const next = await getContestStateAction();
+      const prevStatus = stateRef.current.status;
+      stateRef.current = next;
       setState(next);
+
       if (next.serverTime) {
         const offset = new Date(next.serverTime).getTime() - Date.now();
+        clockOffsetRef.current = offset;
         setClockOffset(offset);
       }
+
+      checkStatusTransitions(prevStatus, next.status);
     } catch (err: unknown) {
       console.error("Failed to sync contest state:", err);
     }
-  }, []);
+  }, [checkStatusTransitions]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    clockOffsetRef.current = clockOffset;
+  }, [clockOffset]);
 
   useEffect(() => {
     const tickSync = () => {
@@ -138,11 +217,41 @@ export function ContestProvider({
               setElapsedSeconds(elapsed);
             }
 
+            let nextFrozen = false;
             if (current.freezeMinutes > 0) {
               const freezeThresholdSec = current.freezeMinutes * 60;
-              setIsFrozen(remaining > 0 && remaining <= freezeThresholdSec);
-            } else {
-              setIsFrozen(false);
+              nextFrozen = remaining > 0 && remaining <= freezeThresholdSec;
+            }
+            setIsFrozen(nextFrozen);
+
+            if (!previousFrozenRef.current && nextFrozen) {
+              setAlertToast({
+                id: `contest-frozen-${Date.now()}`,
+                title: "Scoreboard Frozen",
+                description: `Public standings are now frozen for the final ${current.freezeMinutes} minutes.`,
+                variant: "info",
+              });
+            }
+            previousFrozenRef.current = nextFrozen;
+
+            if (remaining > 0) {
+              for (const threshold of CONTEST_THRESHOLDS_SECONDS) {
+                if (
+                  remaining <= threshold.seconds &&
+                  !firedThresholdsRef.current.has(threshold.seconds)
+                ) {
+                  firedThresholdsRef.current.add(threshold.seconds);
+                  setAlertToast({
+                    id: `contest-threshold-${threshold.seconds}`,
+                    title: `${threshold.label} Remaining`,
+                    description:
+                      threshold.seconds <= 5 * 60
+                        ? `Only ${threshold.label} left in the round! Ensure your final code is submitted.`
+                        : `${threshold.label} remaining before submissions close.`,
+                    variant: threshold.variant,
+                  });
+                }
+              }
             }
           } else {
             setRemainingSeconds(current.durationSeconds);
@@ -186,6 +295,11 @@ export function ContestProvider({
     remainingSeconds > 0 &&
     remainingSeconds <= CRITICAL_THRESHOLD_SECONDS;
 
+  const isNotStarted = state.status === CONTEST_STATUS.NOT_STARTED;
+  const isRunning = state.status === CONTEST_STATUS.RUNNING;
+  const isPaused = state.status === CONTEST_STATUS.PAUSED;
+  const isEnded = state.status === CONTEST_STATUS.ENDED;
+
   const formattedRemaining = formatTime(remainingSeconds);
   const formattedStartsIn = formatTime(startsInSeconds);
 
@@ -199,8 +313,14 @@ export function ContestProvider({
         isWarning,
         isCritical,
         isFrozen,
+        isNotStarted,
+        isRunning,
+        isPaused,
+        isEnded,
         formattedRemaining,
         formattedStartsIn,
+        alertToast,
+        clearAlertToast,
         refresh,
       }}
     >

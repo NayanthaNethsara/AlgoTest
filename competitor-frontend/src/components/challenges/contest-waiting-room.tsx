@@ -4,11 +4,9 @@ import { useContest } from "@/components/portal/contest-provider";
 import { useProctor } from "@/components/portal/proctor-provider";
 import { Badge } from "@/components/ui/badge";
 import {
-  AlertCircle,
   CheckCircle2,
   Clock,
   FileCode2,
-  MessageSquare,
   Radio,
   ShieldAlert,
   ShieldCheck,

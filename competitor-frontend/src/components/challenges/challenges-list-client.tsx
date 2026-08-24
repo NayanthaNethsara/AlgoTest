@@ -20,6 +20,7 @@ import {
   List,
   Search,
   SlidersHorizontal,
+  Zap,
 } from "lucide-react";
 
 export function ChallengesListClient({
@@ -39,6 +40,24 @@ export function ChallengesListClient({
   if (contestState.status === CONTEST_STATUS.NOT_STARTED) {
     return <ContestWaitingRoom />;
   }
+
+  const totalPoints = problems.reduce((acc, p) => acc + p.points, 0);
+  const solvedCount = problems.filter((p) => {
+    const pr =
+      (p.id ? progress[p.id] : undefined) ||
+      (p.slug ? progress[p.slug] : undefined);
+    return pr?.status === CHALLENGE_STATUS.SOLVED;
+  }).length;
+
+  const earnedPoints = Object.values(progress).reduce(
+    (acc, pr) => acc + (pr.bestScore ?? 0),
+    0,
+  );
+
+  const earnedPct =
+    totalPoints > 0
+      ? Math.min(100, Math.round((earnedPoints / totalPoints) * 100))
+      : 0;
 
   const filteredProblems = problems.filter((problem) => {
     const pProgress = (problem.id ? progress[problem.id] : undefined) ||
@@ -102,6 +121,35 @@ export function ChallengesListClient({
 
   return (
     <div className="space-y-5">
+      <div className="flex flex-col gap-3 border-b-2 border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-2.5">
+            <Code2 className="h-5 w-5 text-primary" />
+            <h1 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
+              Challenges
+            </h1>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Select a challenge to inspect specs, code in the editor, and submit to earn points.
+          </p>
+        </div>
+
+        {problems.length > 0 && (
+          <div className="flex items-center gap-3 pixel-flat bg-card px-3 py-1.5 shrink-0 text-xs">
+            <Zap className="h-4 w-4 text-amber-400" />
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-foreground">
+                {solvedCount}/{problems.length} Solved
+              </span>
+              <span className="text-muted-foreground">•</span>
+              <span className="font-bold text-amber-400">
+                {earnedPoints}/{totalPoints} XP ({earnedPct}%)
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-col gap-3.5 pixel-raised bg-card p-3.5 sm:p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

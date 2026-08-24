@@ -1,6 +1,7 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
+import { contestStateSchema } from "@/lib/validation/contest";
 import { CONTEST_STATUS, type ContestState } from "@/types/contest";
 
 const defaultContestState: ContestState = {
@@ -22,6 +23,10 @@ export async function getContestStateAction(): Promise<ContestState> {
     const res = await backendFetch("/api/v1/contest/state");
     if (res.ok) {
       const data = await res.json();
+      const parsed = contestStateSchema.safeParse(data);
+      if (parsed.success) {
+        return parsed.data;
+      }
       return {
         title: data.title || defaultContestState.title,
         status: data.status || defaultContestState.status,
