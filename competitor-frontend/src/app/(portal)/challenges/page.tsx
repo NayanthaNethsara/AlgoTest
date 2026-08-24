@@ -1,3 +1,4 @@
+import { getContestStateAction } from "@/actions/contest";
 import { listProblemsAction } from "@/actions/problems";
 import { readProctorGate } from "@/lib/proctor-gate";
 import { proctorLocksContest } from "@/lib/proctor";
@@ -5,9 +6,20 @@ import { ChallengesListClient } from "@/components/challenges/challenges-list-cl
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Code2, Zap } from "lucide-react";
 import { CHALLENGE_STATUS } from "@/types/challenge";
+import { CONTEST_STATUS } from "@/types/contest";
 
 export default async function ChallengesPage() {
-  if (proctorLocksContest(await readProctorGate())) return null;
+  const [proctorStatus, contestState] = await Promise.all([
+    readProctorGate(),
+    getContestStateAction(),
+  ]);
+
+  if (
+    contestState.status !== CONTEST_STATUS.NOT_STARTED &&
+    proctorLocksContest(proctorStatus)
+  ) {
+    return null;
+  }
 
   const { problems, progress } = await listProblemsAction();
 
@@ -48,18 +60,20 @@ export default async function ChallengesPage() {
           </div>
 
           {/* Quest Progress Pill */}
-          <div className="flex items-center gap-3 pixel-flat bg-card px-3 py-1.5 shrink-0 text-xs">
-            <Zap className="h-4 w-4 text-amber-400" />
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-foreground">
-                {solvedCount}/{problems.length} Solved
-              </span>
-              <span className="text-muted-foreground">•</span>
-              <span className="font-bold text-amber-400">
-                {earnedPoints}/{totalPoints} XP ({earnedPct}%)
-              </span>
+          {problems.length > 0 && (
+            <div className="flex items-center gap-3 pixel-flat bg-card px-3 py-1.5 shrink-0 text-xs">
+              <Zap className="h-4 w-4 text-amber-400" />
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-foreground">
+                  {solvedCount}/{problems.length} Solved
+                </span>
+                <span className="text-muted-foreground">•</span>
+                <span className="font-bold text-amber-400">
+                  {earnedPoints}/{totalPoints} XP ({earnedPct}%)
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Filter & Challenges Grid */}

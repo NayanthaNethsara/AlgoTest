@@ -6,8 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/contest"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
 // @Summary List Published Problems
@@ -15,18 +17,32 @@ import (
 // @Tags Problems
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {object} map[string][]problem.Problem
+// @Success 200 {object} map[string]interface{}
 // @Failure 401 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/problems [get]
 func (h *handler) listPublishedProblems(c *gin.Context) {
+	u := currentUser(c)
+
+	if h.contest != nil && u.Role != user.RoleAdmin {
+		cState := h.contest.GetState()
+		if cState.Status == contest.StatusNotStarted {
+			c.JSON(http.StatusOK, gin.H{
+				"problems":      []problem.Problem{},
+				"progress":      map[string]judge.ProblemProgress{},
+				"contestStatus": cState.Status,
+				"message":       "contest has not started yet",
+			})
+			return
+		}
+	}
+
 	problems, err := h.problems.ListPublished(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list problems"})
 		return
 	}
 
-	u := currentUser(c)
 	teamID := ""
 	if u.TeamID != nil {
 		teamID = *u.TeamID
@@ -51,6 +67,7 @@ func (h *handler) listPublishedProblems(c *gin.Context) {
 // @Param slug path string true "Problem slug identifier"
 // @Success 200 {object} map[string]problem.ProblemDetail
 // @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Failure 404 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/problems/{slug} [get]

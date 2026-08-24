@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, RotateCw, ShieldOff } from "lucide-react";
+import { useContest } from "@/components/portal/contest-provider";
 import {
   contestLocked,
   useProctor,
@@ -11,10 +12,16 @@ import {
   PROCTOR_MODE_LABELS,
   PROCTOR_TRANSIENT_CODE,
 } from "@/lib/constants";
+import { CONTEST_STATUS } from "@/types/contest";
 
 export function AccessBlockScreen() {
+  const { state: contestState } = useContest();
   const state = useProctor();
   const { code, accessMode, allowedModes, remedy, local } = state;
+
+  if (contestState.status === CONTEST_STATUS.NOT_STARTED) {
+    return null;
+  }
 
   if (!contestLocked(state)) return null;
 
