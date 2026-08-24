@@ -68,7 +68,7 @@ export async function submitCode(
       "Content-Type": "application/json",
     };
     if (parsed.data.attestNonce) {
-      headers["X-Agent-Attest"] = parsed.data.attestNonce;
+      headers["X-Proctor-Attest"] = parsed.data.attestNonce;
     }
 
     const res = await backendFetch("/api/v1/submissions", {

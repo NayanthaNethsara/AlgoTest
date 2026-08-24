@@ -103,3 +103,37 @@ func TestProctorAccessFailsClosedOnGateError(t *testing.T) {
 		t.Error("internal error text was returned to the contestant")
 	}
 }
+
+func TestPortalHeaderExtraction(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("extracts X-Proctor-Attest and X-Proctor-Client headers", func(t *testing.T) {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		req, _ := http.NewRequest(http.MethodPost, "/test", nil)
+		req.Header.Set("X-Proctor-Attest", "nonce-12345")
+		req.Header.Set("X-Proctor-Client", "desktop")
+		c.Request = req
+
+		if nonce := portalAttestNonce(c); nonce != "nonce-12345" {
+			t.Errorf("portalAttestNonce() = %q, want %q", nonce, "nonce-12345")
+		}
+		if !portalClaimsDesktop(c) {
+			t.Error("portalClaimsDesktop() should be true")
+		}
+	})
+
+	t.Run("handles missing or web headers", func(t *testing.T) {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		req, _ := http.NewRequest(http.MethodPost, "/test", nil)
+		req.Header.Set("X-Proctor-Client", "web")
+		c.Request = req
+
+		if nonce := portalAttestNonce(c); nonce != "" {
+			t.Errorf("portalAttestNonce() = %q, want empty", nonce)
+		}
+		if portalClaimsDesktop(c) {
+			t.Error("portalClaimsDesktop() should be false for web client")
+		}
+	})
+}
+

@@ -15,6 +15,10 @@ const (
 	clientHeader = "X-Proctor-Client"
 )
 
+func portalAttestNonce(c *gin.Context) string {
+	return strings.TrimSpace(c.GetHeader(attestHeader))
+}
+
 func portalClaimsDesktop(c *gin.Context) bool {
 	return strings.ToLower(strings.TrimSpace(c.GetHeader(clientHeader))) == "desktop"
 }
