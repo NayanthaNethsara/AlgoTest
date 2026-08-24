@@ -211,6 +211,10 @@ func (h *handler) updateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
 		return
 	}
+	if req.Role == user.RoleAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin role cannot be granted via API; use server CLI"})
+		return
+	}
 	id := c.Param("id")
 	if id == currentUser(c).ID && req.Role != user.RoleAdmin {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot demote yourself"})
