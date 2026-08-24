@@ -92,11 +92,9 @@ pub fn run() {
                 .inner_size(1280.0, 800.0)
                 .maximized(online)
                 .resizable(true)
-                .title_bar_style(tauri::TitleBarStyle::Overlay)
-                .hidden_title(true)
+                .decorations(true)
                 .initialization_script(r#"
-                    window.__MINIALGOTHON_DESKTOP__ = true;
-                    window.__MINIALGOTHON_OS__ = "macos";
+                    document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
                 "#)
                 .build()?;
 
@@ -108,22 +106,7 @@ pub fn run() {
                 .resizable(true)
                 .decorations(false)
                 .initialization_script(r#"
-                    window.__MINIALGOTHON_DESKTOP__ = true;
-                    window.__MINIALGOTHON_OS__ = "windows";
-
-                    window.addEventListener("DOMContentLoaded", () => {
-                        document.addEventListener("mousedown", (e) => {
-                            const dragTarget = e.target && e.target.closest && e.target.closest("[data-tauri-drag-region]");
-                            const isInteractive = e.target && e.target.closest && e.target.closest("button, a, input, select, textarea, [data-no-drag]");
-                            if (dragTarget && !isInteractive && e.buttons === 1) {
-                                try {
-                                    if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
-                                        window.__TAURI_INTERNALS__.invoke("plugin:window|start_dragging");
-                                    }
-                                } catch (err) {}
-                            }
-                        }, true);
-                    });
+                    document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
                 "#)
                 .build()?;
 
