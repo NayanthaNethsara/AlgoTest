@@ -50,6 +50,7 @@ type Config struct {
 	RunReserve        int
 	RunMaxQueue       int
 	RunMaxWaitSeconds int
+	RunRequireIsolate bool
 }
 
 func Load() Config {
@@ -80,6 +81,7 @@ func Load() Config {
 		RunReserve:               getenvInt("RUN_RESERVE", 1),
 		RunMaxQueue:              getenvInt("RUN_MAX_QUEUE", 64),
 		RunMaxWaitSeconds:        getenvInt("RUN_MAX_WAIT_SECONDS", 15),
+		RunRequireIsolate:        getenvBool("RUN_REQUIRE_ISOLATE", false),
 	}
 
 	if c.JudgeWorkers <= 0 {
@@ -99,6 +101,11 @@ func (c Config) IsProduction() bool {
 		return true
 	}
 	return false
+}
+
+// RequireIsolate returns true when isolate sandbox is strictly required (always in production).
+func (c Config) RequireIsolate() bool {
+	return c.IsProduction() || c.RunRequireIsolate
 }
 
 // SessionTTL is how long a login session stays valid.

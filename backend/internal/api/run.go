@@ -105,6 +105,10 @@ func (h *handler) runCode(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		if errors.Is(err, runner.ErrSandboxUnavailable) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "sandbox environment unavailable"})
+			return
+		}
 		if errors.Is(err, runner.ErrBusy) {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "server busy, please retry"})
 			return
