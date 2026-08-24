@@ -7,6 +7,9 @@ import (
 
 var ErrUnsupportedLanguage = errors.New("unsupported language")
 
+// ErrSandboxUnavailable is a service fault, never a verdict against a submission.
+var ErrSandboxUnavailable = errors.New("sandbox unavailable")
+
 // outputLimit caps how much stdout/stderr we hand back per run, to keep a
 // runaway program (e.g. an infinite print loop) from ballooning a response.
 const outputLimit = 128 * 1024

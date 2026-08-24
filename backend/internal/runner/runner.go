@@ -3,6 +3,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -41,12 +42,14 @@ func New(cfg Config) (*Runner, error) {
 	}, nil
 }
 
-// CheckHost verifies isolate is installed and the host is provisioned.
+// CheckHost verifies isolate is installed and the host is provisioned. Required
+// in every environment: a staging or venue-test deployment is as reachable to a
+// contestant as production is.
 func (r *Runner) CheckHost(ctx context.Context) error {
-	if r.cfg.RequireIsolate {
-		if _, err := exec.LookPath(r.cfg.IsolateBin); err != nil {
-			return fmt.Errorf("isolate not found on PATH (%s): untrusted code would run unsandboxed: %w", r.cfg.IsolateBin, err)
-		}
+	if _, err := exec.LookPath(r.cfg.IsolateBin); err != nil {
+		return fmt.Errorf("isolate not found on PATH (%s): untrusted code would run unsandboxed. "+
+			"Run the backend in its container (`make backend`), or provision the host with "+
+			"deploy/provision-isolate.sh: %w", r.cfg.IsolateBin, err)
 	}
 
 	highest := r.cfg.MaxConcurrent - 1
@@ -383,7 +386,7 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		cCancel()
 
 		if err != nil {
-			return BatchResult{CompileError: err.Error()}, nil
+			return BatchResult{}, err
 		}
 
 		if m.status == statusTimedOut || m.exitCodeOrSignal() != 0 {
@@ -449,6 +452,9 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 
 		var verdict Verdict = VerdictAC
 		if err != nil {
+			if errors.Is(err, ErrSandboxUnavailable) {
+				return BatchResult{}, err
+			}
 			// A judge-side failure, not the submission's fault.
 			verdict = VerdictIE
 		} else {
@@ -490,7 +496,7 @@ func (r *Runner) execBox(
 	opts execOpts,
 ) (meta, error) {
 	if _, err := exec.LookPath(r.cfg.IsolateBin); err != nil {
-		return r.execDirectFallback(ctx, work, step, cmd, opts)
+		return meta{}, fmt.Errorf("%w: isolate not found on PATH (%s)", ErrSandboxUnavailable, r.cfg.IsolateBin)
 	}
 
 	metaPath := filepath.Join(base, step+".meta")
@@ -575,68 +581,6 @@ func (r *Runner) execBox(
 	return m, nil
 }
 
-func (r *Runner) execDirectFallback(
-	ctx context.Context,
-	work, step string,
-	cmd []string,
-	opts execOpts,
-) (meta, error) {
-	outPath := filepath.Join(work, step+".out")
-	errPath := filepath.Join(work, step+".err")
-
-	outFile, err := os.Create(outPath)
-	if err != nil {
-		return meta{}, err
-	}
-	defer outFile.Close()
-
-	errFile, err := os.Create(errPath)
-	if err != nil {
-		return meta{}, err
-	}
-	defer errFile.Close()
-
-	if len(cmd) == 0 {
-		return meta{}, fmt.Errorf("empty command")
-	}
-
-	execCmd := cmd[0]
-	if absPath, err := exec.LookPath(execCmd); err == nil {
-		execCmd = absPath
-	}
-
-	execProcess := exec.CommandContext(ctx, execCmd, cmd[1:]...)
-	execProcess.Dir = work
-	execProcess.Stdout = outFile
-	execProcess.Stderr = errFile
-
-	if opts.stdin != "" {
-		if inData, err := os.ReadFile(filepath.Join(work, opts.stdin)); err == nil {
-			execProcess.Stdin = strings.NewReader(string(inData))
-		}
-	}
-
-	start := time.Now()
-	runErr := execProcess.Run()
-	elapsed := time.Since(start)
-
-	exitCode := 0
-	if runErr != nil {
-		if exitErr, ok := runErr.(*exec.ExitError); ok {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = -1
-		}
-	}
-
-	return meta{
-		status:   "",
-		exitCode: exitCode,
-		timeCPU:  elapsed.Seconds(),
-		timeWall: elapsed.Seconds(),
-	}, nil
-}
-
 // resetBox recycles a box between steps. isolate never clears the cgroup's
 // peak memory between runs, so without this every case inherits the high-water
 // mark of the compile and of every case before it.
@@ -649,21 +593,15 @@ func (r *Runner) resetBox(ctx context.Context, boxID int) error {
 }
 
 func (r *Runner) initBox(ctx context.Context, boxID int) (string, error) {
-	if _, err := exec.LookPath(r.cfg.IsolateBin); err != nil {
-		return "", nil
-	}
 	out, err := exec.CommandContext(ctx, r.cfg.IsolateBin,
 		"--cg", "--box-id="+strconv.Itoa(boxID), "--init").Output()
 	if err != nil {
-		return "", fmt.Errorf("initializing sandbox %d: %w", boxID, err)
+		return "", fmt.Errorf("%w: initializing sandbox %d: %v", ErrSandboxUnavailable, boxID, err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
 
 func (r *Runner) cleanupBox(boxID int) {
-	if _, err := exec.LookPath(r.cfg.IsolateBin); err != nil {
-		return
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := exec.CommandContext(ctx, r.cfg.IsolateBin,

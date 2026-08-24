@@ -379,6 +379,24 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 
 		batchRes, runErr := j.runner.RunBatch(ctx, batchReq)
 		if runErr != nil {
+			if errors.Is(runErr, runner.ErrSandboxUnavailable) {
+				overallVerdict = "IE"
+				errMsg := "Sandbox environment is unavailable on the judge host. Please contact an organizer."
+				compileErrStr = &errMsg
+				return Result{
+					SubmissionID: s.ID,
+					UserID:       s.UserID,
+					TeamID:       s.TeamID,
+					ProblemID:    s.ProblemID,
+					Status:       StatusFailed,
+					Verdict:      &overallVerdict,
+					Score:        0,
+					MaxScore:     maxScore,
+					TestsTotal:   len(tests),
+					TestsDone:    0,
+					CompileError: compileErrStr,
+				}
+			}
 			overallVerdict = "RTE"
 		} else if batchRes.CompileError != "" {
 			overallVerdict = "CE"

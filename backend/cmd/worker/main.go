@@ -45,7 +45,7 @@ func main() {
 		RunReserve:     cfg.RunReserve,
 		MaxQueue:       cfg.RunMaxQueue,
 		MaxWait:        time.Duration(cfg.RunMaxWaitSeconds) * time.Second,
-		RequireIsolate: cfg.IsProduction(),
+		RequireIsolate: cfg.RequireIsolate(),
 	})
 	if err != nil {
 		log.Error("worker runner configuration invalid", "error", err)

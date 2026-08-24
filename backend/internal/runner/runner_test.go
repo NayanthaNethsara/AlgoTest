@@ -566,3 +566,40 @@ func TestCPUListParsing(t *testing.T) {
 		}
 	}
 }
+
+func TestRequireIsolateBlocksUnsandboxedExecution(t *testing.T) {
+	r, err := New(Config{
+		CompileTimeout: time.Second,
+		WallTimeout:    time.Second,
+		CPUSeconds:     1.0,
+		Memory:         "256m",
+		IsolateBin:     "nonexistent-isolate-binary-for-test",
+		RequireIsolate: true,
+		WorkRoot:       t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("New runner: %v", err)
+	}
+
+	err = r.CheckHost(context.Background())
+	if err == nil {
+		t.Fatal("CheckHost should have failed when RequireIsolate=true and isolate binary is missing")
+	}
+
+	_, err = r.Run(context.Background(), Request{
+		Language: "python",
+		Code:     "print(1)",
+	})
+	if err == nil || !errors.Is(err, ErrSandboxUnavailable) {
+		t.Fatalf("Run expected ErrSandboxUnavailable, got: %v", err)
+	}
+
+	batchRes, err := r.RunBatch(context.Background(), BatchRequest{
+		Language: "python",
+		Code:     "print(1)",
+		Cases:    []BatchCase{{Ordinal: 1, Stdin: ""}},
+	})
+	if err == nil && batchRes.CompileError == "" {
+		t.Fatal("RunBatch should have failed when isolate is unavailable with RequireIsolate=true")
+	}
+}
