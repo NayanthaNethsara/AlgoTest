@@ -44,6 +44,7 @@ For desktop application installation, macOS Gatekeeper troubleshooting, building
 ```sh
 cp backend/.env.example backend/.env
 cp competitor-frontend/.env.example competitor-frontend/.env.local
+cp admin-frontend/.env.example admin-frontend/.env.local
 ```
 
 ### 2. Install Dependencies & Start Database
