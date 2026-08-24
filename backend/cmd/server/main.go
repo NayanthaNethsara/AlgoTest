@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/api"
@@ -38,6 +39,10 @@ func main() {
 	// Best-effort: load .env for local dev; real env vars still win in prod.
 	_ = godotenv.Load()
 	cfg := config.Load()
+
+	if cfg.IsProduction() {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

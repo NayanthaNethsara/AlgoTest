@@ -171,8 +171,8 @@ func (m *Manager) Start(ctx context.Context, durationMinutes int) error {
 }
 
 func (m *Manager) Pause(ctx context.Context) error {
-	snap := m.snapshot.Load()
-	if snap.status != StatusRunning {
+	state := m.GetState()
+	if state.Status != StatusRunning {
 		return ErrContestNotRunning
 	}
 
@@ -329,7 +329,14 @@ func (m *Manager) UpdateSettings(ctx context.Context, title string, durationMinu
 		updates["contest.title"] = trimmed
 	}
 	if durationMinutes > 0 {
-		updates["contest.duration_seconds"] = strconv.Itoa(durationMinutes * 60)
+		durSec := durationMinutes * 60
+		updates["contest.duration_seconds"] = strconv.Itoa(durSec)
+
+		snap := m.snapshot.Load()
+		if snap.status == StatusRunning && snap.startTime != nil {
+			newEndTime := snap.startTime.Add(time.Duration(durSec) * time.Second)
+			updates["contest.end_time"] = newEndTime.Format(time.RFC3339)
+		}
 	}
 	if freezeMinutes >= 0 {
 		updates["contest.freeze_minutes"] = strconv.Itoa(freezeMinutes)

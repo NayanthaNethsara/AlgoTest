@@ -96,6 +96,9 @@ var (
 func rateLimitMiddleware(store *LimiterStore, keyFunc func(c *gin.Context) string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		key := keyFunc(c)
+		if key == "" {
+			key = c.ClientIP()
+		}
 		if key != "" {
 			limiter := store.Get(key)
 			if !limiter.Allow() {

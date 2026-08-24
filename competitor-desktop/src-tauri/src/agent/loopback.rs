@@ -74,18 +74,21 @@ fn serve(server: Server, state: Arc<AgentState>) {
 
         let response = match (&method, path.as_str()) {
             (Method::Options, _) => with_cors(Response::from_string("").with_status_code(204), cors_origin),
-            (Method::Get, "/status") => {
+            (Method::Get, "/status") if cors_origin.is_some() => {
                 let body = status_json(&state);
                 with_cors(
                     Response::from_string(body).with_header(json_header()),
                     cors_origin,
                 )
             }
-            (Method::Post, "/shell") => {
+            (Method::Get, "/status") => {
+                with_cors(Response::from_string("").with_status_code(403), None)
+            }
+            (Method::Post, "/shell") if cors_origin.is_some() => {
                 state.mark_shell_alive();
                 with_cors(Response::from_string("").with_status_code(204), cors_origin)
             }
-            (Method::Post, "/setup") => {
+            (Method::Post, "/setup") if cors_origin.is_some() => {
                 if let Some(app) = state.app_handle() {
                     // Window creation must happen on the main thread; this handler
                     // runs on the loopback listener's thread.
