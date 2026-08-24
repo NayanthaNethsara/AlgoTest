@@ -195,7 +195,7 @@ export function SubmissionsClient({
 
                   return (
                     <tr
-                      key={sub.id || sub.submissionId || `submission-${index}`}
+                      key={sub.id || sub.submissionId || index}
                       className={`hover:bg-muted/40 transition-colors ${isRejected ? "opacity-60" : ""}`}
                     >
                       <td className="py-3 px-4 font-semibold text-xs text-foreground">

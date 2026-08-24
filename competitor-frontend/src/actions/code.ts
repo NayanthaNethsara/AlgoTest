@@ -165,41 +165,46 @@ export async function listSubmissionsAction(
     }
 
     const data = await res.json();
-    const rawSubmissions = Array.isArray(data.submissions) ? data.submissions : [];
+    const rawList: Record<string, unknown>[] = data.submissions || [];
 
-    return rawSubmissions.map((raw: Record<string, unknown>) => {
-      const id = String(raw.submissionId || raw.id || "");
-      const createdAtRaw = raw.createdAt || raw.created_at;
-      const createdAtDate = createdAtRaw ? new Date(String(createdAtRaw)) : undefined;
-      const timestamp =
-        createdAtDate && !isNaN(createdAtDate.getTime())
-          ? createdAtDate.getTime()
-          : typeof raw.timestamp === "number"
-            ? raw.timestamp
-            : 0;
-      const submittedAt =
-        createdAtDate && !isNaN(createdAtDate.getTime())
-          ? createdAtDate.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })
-          : String(raw.submittedAt || "Just now");
+    return rawList.map((item) => {
+      const id = String(item.submissionId || item.submission_id || item.id || "");
+      const createdAt = String(item.createdAt || item.created_at || "");
+      const timestamp = createdAt ? new Date(createdAt).getTime() : 0;
+      const submittedAt = createdAt
+        ? new Date(createdAt).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+        : "";
 
       return {
         id,
         submissionId: id,
-        problemTitle: String(raw.problemTitle || raw.problem_title || "Challenge"),
-        submittedBy: String(raw.userName || raw.user_name || raw.submittedBy || ""),
-        teamName: String(raw.teamName || raw.team_name || ""),
-        language: String(raw.language || "cpp"),
-        score: typeof raw.score === "number" ? raw.score : 0,
-        maxScore: typeof raw.maxScore === "number" ? raw.maxScore : typeof raw.max_score === "number" ? raw.max_score : 100,
-        status: String(raw.status || raw.verdict || "QUEUED"),
-        reviewStatus: (raw.reviewStatus || raw.review_status) as "accepted" | "rejected" | undefined,
-        reviewReason: (raw.reviewReason || raw.review_reason) as string | undefined,
-        submittedAt,
-        timestamp,
+        problemTitle: String(item.problemTitle || item.problem_title || ""),
+        submittedBy: String(item.userName || item.user_name || item.submittedBy || ""),
+        teamName: String(item.teamName || item.team_name || ""),
+        language: String(item.language || ""),
+        score: typeof item.score === "number" ? item.score : 0,
+        maxScore:
+          typeof item.maxScore === "number"
+            ? item.maxScore
+            : typeof item.max_score === "number"
+              ? item.max_score
+              : 100,
+        status: String(item.verdict || item.status || "queued"),
+        reviewStatus: (item.reviewStatus || item.review_status) as
+          | "accepted"
+          | "rejected"
+          | undefined,
+        reviewReason: item.reviewReason
+          ? String(item.reviewReason)
+          : item.review_reason
+            ? String(item.review_reason)
+            : undefined,
+        submittedAt: item.submittedAt ? String(item.submittedAt) : submittedAt,
+        timestamp: typeof item.timestamp === "number" ? item.timestamp : timestamp,
       };
     });
   } catch (err) {
