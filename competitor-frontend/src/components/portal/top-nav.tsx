@@ -3,11 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Loader2, Menu, Users, X } from "lucide-react";
+import { KeyRound, Loader2, Menu, Users, X } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
+import { ContestTimer } from "@/components/portal/contest-timer";
 import { ProctorPill } from "@/components/portal/proctor-status";
 import { useSubmissions } from "@/components/portal/submissions-provider";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DesktopWindowControls } from "./desktop-window-controls";
 import type { SessionUser } from "@/lib/auth/constants";
 import { NAV_LINKS } from "@/lib/constants";
@@ -16,6 +19,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
   const { activeSubmission } = useSubmissions();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   return (
     <header
@@ -59,9 +63,12 @@ export function TopNav({ user }: { user: SessionUser | null }) {
           </nav>
         </div>
 
-        {user && (
-          <div className="hidden md:flex items-center gap-3 lg:gap-3.5">
-            <ProctorPill />
+        <div className="flex items-center gap-3 lg:gap-3.5">
+          <ContestTimer />
+
+          {user && (
+            <div className="hidden md:flex items-center gap-3 lg:gap-3.5">
+              <ProctorPill />
 
             {activeSubmission && (
               <Badge
@@ -105,12 +112,23 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               </span>
             </div>
 
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPasswordDialogOpen(true)}
+              title="Change Password"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+            >
+              <KeyRound className="size-4" />
+            </Button>
+
             <SignOutButton />
             <DesktopWindowControls />
           </div>
         )}
+      </div>
 
-        <div className="flex md:hidden items-center gap-2">
+      <div className="flex md:hidden items-center gap-2">
           {user && <ProctorPill />}
           <DesktopWindowControls />
           <button
@@ -207,12 +225,31 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                     {user.displayName || user.username}
                   </span>
                 </div>
-                <SignOutButton />
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      setPasswordDialogOpen(true);
+                    }}
+                    className="h-8 px-2 text-xs"
+                  >
+                    <KeyRound className="size-3.5 mr-1" />
+                    Password
+                  </Button>
+                  <SignOutButton />
+                </div>
               </div>
             </div>
           )}
         </div>
       )}
+
+      <ChangePasswordDialog
+        open={passwordDialogOpen}
+        onClose={() => setPasswordDialogOpen(false)}
+      />
     </header>
   );
 }

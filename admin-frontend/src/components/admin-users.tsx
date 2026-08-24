@@ -7,6 +7,7 @@ import {
   bulkCreateUsersAction,
   resetPasswordAction,
   deleteUserAction,
+  suspendUserAction,
 } from "@/lib/actions/users";
 import { setProctorAccessAction, toggleProctorExemptionAction } from "@/actions/telemetry";
 import { addTeamMemberAction, removeTeamMemberAction } from "@/lib/actions/teams";
@@ -43,6 +44,7 @@ export function AdminUsers({
   const [creds, setCreds] = useState<Credential[]>([]);
   const [resetTarget, setResetTarget] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<User | null>(null);
   const [assignTeamTarget, setAssignTeamTarget] = useState<User | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -269,6 +271,23 @@ export function AdminUsers({
     }
   }
 
+  // Suspend / Unsuspend User Handler
+  async function confirmToggleSuspension() {
+    if (!suspendTarget) return;
+    const target = suspendTarget;
+    setSuspendTarget(null);
+    setError(null);
+    setPending(true);
+    try {
+      await suspendUserAction(target.id, !target.isSuspended);
+      onRefresh();
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Top Header */}
@@ -362,6 +381,7 @@ export function AdminUsers({
         onAssignTeam={(u) => setAssignTeamTarget(u)}
         onToggleExemption={handleToggleExemption}
         onToggleFallback={handleFallbackToggle}
+        onToggleSuspension={(u) => setSuspendTarget(u)}
       />
 
       {/* Team Assignment Modal */}
@@ -405,6 +425,31 @@ export function AdminUsers({
         actionLabel="Delete User"
         variant="destructive"
         onConfirm={confirmDeleteUser}
+      />
+
+      <ConfirmDialog
+        open={Boolean(suspendTarget)}
+        onOpenChange={(open) => !open && setSuspendTarget(null)}
+        title={suspendTarget?.isSuspended ? "Unsuspend User" : "Suspend User"}
+        description={
+          suspendTarget?.isSuspended ? (
+            <>
+              Are you sure you want to restore access for{" "}
+              <strong className="text-foreground">{suspendTarget?.username}</strong>? They will be
+              able to log in and make contest submissions again.
+            </>
+          ) : (
+            <>
+              Are you sure you want to temporarily suspend{" "}
+              <strong className="text-foreground">{suspendTarget?.username}</strong>? Their active
+              sessions will be terminated immediately and they will be blocked from accessing the
+              platform.
+            </>
+          )
+        }
+        actionLabel={suspendTarget?.isSuspended ? "Unsuspend" : "Suspend User"}
+        variant={suspendTarget?.isSuspended ? "default" : "destructive"}
+        onConfirm={confirmToggleSuspension}
       />
     </div>
   );

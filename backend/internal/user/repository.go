@@ -31,7 +31,7 @@ func (r *Repository) CreateWithTeam(ctx context.Context, username, displayName, 
 	query := `
 		INSERT INTO users (username, display_name, password_hash, role, team_id)
 		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, username, display_name, role, created_at, last_login_at, team_id
+		RETURNING id, username, display_name, role, created_at, last_login_at, team_id, is_suspended, suspended_reason, suspended_at
 	`
 	var u User
 	err := r.pool.QueryRow(ctx, query, username, displayName, passwordHash, role, teamID).Scan(
@@ -42,6 +42,9 @@ func (r *Repository) CreateWithTeam(ctx context.Context, username, displayName, 
 		&u.CreatedAt,
 		&u.LastLoginAt,
 		&u.TeamID,
+		&u.IsSuspended,
+		&u.SuspendedReason,
+		&u.SuspendedAt,
 	)
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -60,7 +63,8 @@ func (r *Repository) List(ctx context.Context) ([]User, error) {
 		       u.proctor_allow_web_with_agent AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now()),
 		       u.proctor_allow_web_only AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now()),
 		       CASE WHEN u.proctor_access_until IS NULL OR u.proctor_access_until > now()
-		            THEN u.proctor_access_reason ELSE '' END
+		            THEN u.proctor_access_reason ELSE '' END,
+		       u.is_suspended, u.suspended_reason, u.suspended_at
 		FROM users u
 		LEFT JOIN teams t ON u.team_id = t.id
 		ORDER BY u.created_at ASC
@@ -87,6 +91,9 @@ func (r *Repository) List(ctx context.Context) ([]User, error) {
 			&u.ProctorAllowWebAgent,
 			&u.ProctorAllowWebOnly,
 			&u.ProctorAccessReason,
+			&u.IsSuspended,
+			&u.SuspendedReason,
+			&u.SuspendedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan user: %w", err)
@@ -101,6 +108,7 @@ func (r *Repository) GetForLogin(ctx context.Context, username string) (User, st
 	query := `
 		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name,
 		       (u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())) AS proctor_exempt,
+		       u.is_suspended, u.suspended_reason, u.suspended_at,
 		       u.password_hash
 		FROM users u
 		LEFT JOIN teams t ON u.team_id = t.id
@@ -118,6 +126,9 @@ func (r *Repository) GetForLogin(ctx context.Context, username string) (User, st
 		&u.TeamID,
 		&u.TeamName,
 		&u.ProctorExempt,
+		&u.IsSuspended,
+		&u.SuspendedReason,
+		&u.SuspendedAt,
 		&hash,
 	)
 	if err != nil {
@@ -132,7 +143,8 @@ func (r *Repository) GetForLogin(ctx context.Context, username string) (User, st
 func (r *Repository) GetByID(ctx context.Context, id string) (User, error) {
 	query := `
 		SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.last_login_at, u.team_id, t.name,
-		       (u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())) AS proctor_exempt
+		       (u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())) AS proctor_exempt,
+		       u.is_suspended, u.suspended_reason, u.suspended_at
 		FROM users u
 		LEFT JOIN teams t ON u.team_id = t.id
 		WHERE u.id = $1
@@ -148,6 +160,9 @@ func (r *Repository) GetByID(ctx context.Context, id string) (User, error) {
 		&u.TeamID,
 		&u.TeamName,
 		&u.ProctorExempt,
+		&u.IsSuspended,
+		&u.SuspendedReason,
+		&u.SuspendedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -182,6 +197,24 @@ func (r *Repository) UpdateRole(ctx context.Context, id, role string) error {
 	return nil
 }
 
+func (r *Repository) UpdateSuspension(ctx context.Context, id string, suspended bool, reason string) error {
+	query := `
+		UPDATE users SET
+			is_suspended = $1,
+			suspended_reason = CASE WHEN $1 THEN $2 ELSE '' END,
+			suspended_at = CASE WHEN $1 THEN now() ELSE NULL END
+		WHERE id = $3
+	`
+	tag, err := r.pool.Exec(ctx, query, suspended, reason, id)
+	if err != nil {
+		return fmt.Errorf("update suspension: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *Repository) Delete(ctx context.Context, id string) error {
 	query := `DELETE FROM users WHERE id = $1`
 	tag, err := r.pool.Exec(ctx, query, id)
@@ -199,6 +232,46 @@ func (r *Repository) TouchLastLogin(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("touch last login: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) UpdateProctorExemption(ctx context.Context, id string, exempt bool, hoursValid int, reason string, granterID string) error {
+	query := `
+		UPDATE users SET
+			proctor_exempt            = $1,
+			proctor_exempt_reason     = CASE WHEN $1 THEN $2 ELSE '' END,
+			proctor_exempt_until      = CASE WHEN $1 THEN now() + make_interval(hours => $3) ELSE NULL END,
+			proctor_exempt_granted_by = CASE WHEN $1 THEN $4::uuid ELSE NULL END
+		WHERE id = $5;
+	`
+	tag, err := r.pool.Exec(ctx, query, exempt, reason, hoursValid, granterID, id)
+	if err != nil {
+		return fmt.Errorf("update proctor exemption: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *Repository) UpdateProctorAccess(ctx context.Context, id string, allowWebWithAgent, allowWebOnly bool, reason string, hoursValid int, granterID string) error {
+	query := `
+		UPDATE users SET
+			proctor_allow_web_with_agent = $1,
+			proctor_allow_web_only       = $2,
+			proctor_access_reason        = CASE WHEN $1 OR $2 THEN $3 ELSE '' END,
+			proctor_access_until         = CASE WHEN ($1 OR $2) AND $4 > 0
+			                                   THEN now() + make_interval(hours => $4) ELSE NULL END,
+			proctor_access_granted_by    = CASE WHEN $1 OR $2 THEN $5::uuid ELSE NULL END
+		WHERE id = $6 AND role = 'competitor';
+	`
+	tag, err := r.pool.Exec(ctx, query, allowWebWithAgent, allowWebOnly, reason, hoursValid, granterID, id)
+	if err != nil {
+		return fmt.Errorf("update proctor access: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
 	}
 	return nil
 }

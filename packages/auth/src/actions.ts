@@ -119,3 +119,50 @@ export const fetchSessionUser = cache(
     }
   }
 );
+
+export async function changeUserPassword(
+  currentPassword: string,
+  newPassword: string,
+  cookieName: string = SESSION_COOKIE
+): Promise<{ success: boolean; error?: string }> {
+  if (!currentPassword || !newPassword) {
+    return { success: false, error: "Both current and new passwords are required" };
+  }
+  if (newPassword.length < 8) {
+    return { success: false, error: "New password must be at least 8 characters" };
+  }
+
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(cookieName)?.value;
+  if (!sessionToken) {
+    return { success: false, error: "Unauthenticated" };
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/api/v1/me/password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `${SESSION_COOKIE}=${sessionToken}`,
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: errorData.error || "Failed to update password",
+      };
+    }
+
+    return { success: true };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Password update request failed",
+    };
+  }
+}

@@ -251,6 +251,49 @@ func (h *handler) deleteUser(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+type suspendRequest struct {
+	Suspended bool   `json:"suspended"`
+	Reason    string `json:"reason"`
+}
+
+// @Summary Admin Suspend User
+// @Description Temporarily block or unblock user access.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Param payload body suspendRequest true "Suspension payload"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/admin/users/{id}/suspend [patch]
+func (h *handler) suspendUser(c *gin.Context) {
+	var req suspendRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	id := c.Param("id")
+	if id == currentUser(c).ID && req.Suspended {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot suspend yourself"})
+		return
+	}
+
+	if err := h.users.UpdateSuspension(c.Request.Context(), id, req.Suspended, strings.TrimSpace(req.Reason)); err != nil {
+		writeUpdateError(c, err)
+		return
+	}
+
+	if req.Suspended {
+		if err := h.sessions.DeleteByUser(c.Request.Context(), id); err != nil {
+			log.Printf("failed to revoke sessions on suspension for user %s: %v", id, err)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "updated"})
+}
+
 func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, string, error) {
 	role := req.Role
 	if role == "" {

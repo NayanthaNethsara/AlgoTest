@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyRound, Trash2, ShieldCheck, ShieldOff, Users, Search } from "lucide-react";
+import { KeyRound, Trash2, ShieldCheck, ShieldOff, Users, Search, Ban, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,7 @@ interface UserTableProps {
   onAssignTeam: (user: User) => void;
   onToggleExemption: (user: User) => void;
   onToggleFallback: (user: User, key: keyof AccessGrant, enabled: boolean) => void;
+  onToggleSuspension: (user: User) => void;
 }
 
 export function UserTable({
@@ -35,6 +36,7 @@ export function UserTable({
   onAssignTeam,
   onToggleExemption,
   onToggleFallback,
+  onToggleSuspension,
 }: UserTableProps) {
   const [subTab, setSubTab] = useState<"competitors" | "admins">("competitors");
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,11 +121,20 @@ export function UserTable({
                 return (
                   <TableRow key={u.id}>
                     <TableCell>
-                      <div className="font-medium text-xs">
+                      <div className="flex items-center gap-1.5 font-medium text-xs">
                         {u.displayName || u.username}
                         {isSelf && (
-                          <Badge variant="outline" className="ml-1.5 text-[10px] py-0">
+                          <Badge variant="outline" className="text-[10px] py-0">
                             You
+                          </Badge>
+                        )}
+                        {u.isSuspended && (
+                          <Badge
+                            variant="destructive"
+                            className="text-[10px] py-0"
+                            title={u.suspendedReason ? `Reason: ${u.suspendedReason}` : "Suspended"}
+                          >
+                            Suspended
                           </Badge>
                         )}
                       </div>
@@ -219,6 +230,30 @@ export function UserTable({
                             <Users className="h-4 w-4" />
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onToggleSuspension(u)}
+                          disabled={pending || isSelf}
+                          title={
+                            isSelf
+                              ? "Cannot suspend yourself"
+                              : u.isSuspended
+                                ? "Unsuspend User"
+                                : "Suspend User"
+                          }
+                          className={`h-8 w-8 ${
+                            u.isSuspended
+                              ? "text-amber-500 hover:bg-amber-500/10"
+                              : "text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
+                          } disabled:opacity-30`}
+                        >
+                          {u.isSuspended ? (
+                            <UserCheck className="h-4 w-4" />
+                          ) : (
+                            <Ban className="h-4 w-4" />
+                          )}
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"

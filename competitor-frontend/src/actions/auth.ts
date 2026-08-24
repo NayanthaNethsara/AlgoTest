@@ -4,6 +4,7 @@ import {
   authenticateUser,
   revokeUserSession,
   fetchSessionUser,
+  changeUserPassword,
   SESSION_COOKIE,
   type AuthActionResult,
   type LoginCredentials,
@@ -22,4 +23,11 @@ export async function logoutAction(): Promise<void> {
 
 export async function getSessionUserAction(): Promise<SessionUser | null> {
   return fetchSessionUser(SESSION_COOKIE);
+}
+
+export async function changePasswordAction(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  return changeUserPassword(currentPassword, newPassword, SESSION_COOKIE);
 }
