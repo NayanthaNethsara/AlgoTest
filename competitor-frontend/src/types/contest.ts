@@ -1,9 +1,6 @@
-export const CONTEST_STATUS = {
-  NOT_STARTED: "NOT_STARTED",
-  RUNNING: "RUNNING",
-  PAUSED: "PAUSED",
-  ENDED: "ENDED",
-} as const;
+import { CONTEST_STATUS } from "@/lib/constants";
+
+export { CONTEST_STATUS };
 
 export type ContestStatus =
   (typeof CONTEST_STATUS)[keyof typeof CONTEST_STATUS];

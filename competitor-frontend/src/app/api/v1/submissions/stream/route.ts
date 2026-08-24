@@ -45,7 +45,37 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
-  return new Response(upstream.body, {
+  const transformStream = new TransformStream();
+  const writer = transformStream.writable.getWriter();
+  const reader = upstream.body.getReader();
+
+  const pump = async () => {
+    try {
+      while (true) {
+        if (request.signal.aborted) {
+          break;
+        }
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        await writer.write(value);
+      }
+    } catch {
+      // Client disconnected or upstream connection closed
+    } finally {
+      try {
+        await writer.close();
+      } catch {}
+      try {
+        await reader.cancel();
+      } catch {}
+    }
+  };
+
+  void pump();
+
+  return new Response(transformStream.readable, {
     status: 200,
     headers: {
       "Content-Type": "text/event-stream; charset=utf-8",

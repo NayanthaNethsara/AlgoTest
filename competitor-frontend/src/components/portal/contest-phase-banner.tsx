@@ -1,7 +1,7 @@
 "use client";
 
 import { useContest } from "@/components/portal/contest-provider";
-import { CONTEST_STATUS } from "@/types/contest";
+import { CONTEST_STATUS } from "@/lib/constants";
 import { CheckCircle2, PauseCircle, Snowflake, Timer } from "lucide-react";
 
 export function ContestPhaseBanner() {

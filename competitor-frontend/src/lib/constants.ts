@@ -3,6 +3,13 @@ import { CHALLENGE_STATUS, type ChallengeStatus } from "@/types/challenge";
 import type { SnapshotTrigger } from "@/types/history";
 import type { AccessMode } from "@/types/proctor";
 
+export const CONTEST_STATUS = {
+  NOT_STARTED: "NOT_STARTED",
+  RUNNING: "RUNNING",
+  PAUSED: "PAUSED",
+  ENDED: "ENDED",
+} as const;
+
 export const POLL_HEALTHY_MS = 15_000;
 export const POLL_DEGRADED_MS = 5_000;
 export const LEADERBOARD_POLL_INTERVAL_MS = 10_000;

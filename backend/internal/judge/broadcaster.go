@@ -7,12 +7,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const JudgeVerdictsChannel = "judge_verdicts"
 
+type broadcastEnvelope struct {
+	SourceID string `json:"source_id"`
+	Result   Result `json:"result"`
+}
+
 type Broadcaster struct {
+	instanceID  string
 	mu          sync.RWMutex
 	subscribers map[chan Result]string
 	pool        *pgxpool.Pool
@@ -21,6 +28,7 @@ type Broadcaster struct {
 
 func NewBroadcaster(pool *pgxpool.Pool, log *slog.Logger) *Broadcaster {
 	return &Broadcaster{
+		instanceID:  uuid.NewString(),
 		subscribers: make(map[chan Result]string),
 		pool:        pool,
 		log:         log,
@@ -74,14 +82,20 @@ func (b *Broadcaster) Broadcast(res Result) {
 	pool := b.pool
 	b.mu.RUnlock()
 
+	// Dispatch to local memory subscribers immediately
+	b.BroadcastLocal(res)
+
 	if pool == nil {
-		b.BroadcastLocal(res)
 		return
 	}
 
-	payload, err := json.Marshal(res)
+	env := broadcastEnvelope{
+		SourceID: b.instanceID,
+		Result:   res,
+	}
+
+	payload, err := json.Marshal(env)
 	if err != nil {
-		b.BroadcastLocal(res)
 		return
 	}
 
@@ -90,8 +104,6 @@ func (b *Broadcaster) Broadcast(res Result) {
 		defer cancel()
 		_, _ = pool.Exec(ctx, "SELECT pg_notify($1, $2)", JudgeVerdictsChannel, string(payload))
 	}()
-
-	b.BroadcastLocal(res)
 }
 
 // StartListener listens on the PostgreSQL notify channel and routes external worker events to local subscribers.
@@ -145,8 +157,20 @@ func (b *Broadcaster) StartListener(ctx context.Context) {
 					break
 				}
 
+				// If the notification carries an envelope, check source instance
+				var env broadcastEnvelope
+				if err := json.Unmarshal([]byte(notification.Payload), &env); err == nil && env.Result.SubmissionID != "" {
+					if env.SourceID != "" && env.SourceID == b.instanceID {
+						// Originated from this instance; already broadcast locally
+						continue
+					}
+					b.BroadcastLocal(env.Result)
+					continue
+				}
+
+				// Fallback for legacy raw Result notifications
 				var res Result
-				if err := json.Unmarshal([]byte(notification.Payload), &res); err == nil {
+				if err := json.Unmarshal([]byte(notification.Payload), &res); err == nil && res.SubmissionID != "" {
 					b.BroadcastLocal(res)
 				}
 			}
