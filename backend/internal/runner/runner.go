@@ -107,7 +107,7 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	}
 	defer release()
 
-	execCtx, execCancel := context.WithTimeout(context.Background(), r.OverallTimeout())
+	execCtx, execCancel := context.WithTimeout(ctx, r.OverallTimeout())
 	defer execCancel()
 
 	baseCPU := req.Limits.CPUSeconds
@@ -335,7 +335,7 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 
 	// Built from the resolved limits rather than the runner defaults, so a
 	// problem with its own time limit gets a ceiling that matches it.
-	execCtx, execCancel := context.WithTimeout(context.Background(),
+	execCtx, execCancel := context.WithTimeout(ctx,
 		batchTimeout(compileTimeout, effectiveWall, len(req.Cases)))
 	defer execCancel()
 
