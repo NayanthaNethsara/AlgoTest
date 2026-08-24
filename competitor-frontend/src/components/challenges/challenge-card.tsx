@@ -57,7 +57,7 @@ export function ChallengeCard({
   if (layout === "grid") {
     const cardContent = (
       <div
-        className={`group flex flex-col justify-between gap-4 pixel-raised bg-card p-5 transition-colors ${
+        className={`group flex flex-col justify-between h-full gap-4 pixel-raised bg-card p-5 transition-colors ${
           isLocked
             ? "opacity-75"
             : "hover:border-primary/50"
@@ -109,7 +109,7 @@ export function ChallengeCard({
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t-2 border-border pt-3 mt-1">
+        <div className="flex items-center justify-between border-t-2 border-border pt-3 mt-auto">
           <div className="flex items-center gap-1.5 text-xs text-amber-400 font-semibold">
             <Trophy className="h-3.5 w-3.5 text-amber-400" />
             <span className="text-foreground">{progress.bestScore}</span> /{" "}
@@ -138,7 +138,7 @@ export function ChallengeCard({
     }
 
     return (
-      <Link href={`/challenges/${problem.slug || problem.id}`}>
+      <Link href={`/challenges/${problem.slug || problem.id}`} className="flex flex-col h-full">
         {cardContent}
       </Link>
     );
