@@ -12,7 +12,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/algothon-server ./cmd/server \
-    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/algothon-usertool ./cmd/usertool
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/algothon-usertool ./cmd/usertool \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/algothon-worker ./cmd/worker
 
 FROM ubuntu:24.04
 
@@ -46,6 +47,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 COPY --from=build /out/algothon-server /usr/local/bin/algothon-server
 COPY --from=build /out/algothon-usertool /usr/local/bin/algothon-usertool
+COPY --from=build /out/algothon-worker /usr/local/bin/algothon-worker
 
 EXPOSE 8080
 

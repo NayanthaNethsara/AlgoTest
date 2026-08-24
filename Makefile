@@ -1,4 +1,4 @@
-.PHONY: install db-up db-down db-logs db-reset migrate admin backend backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test venue venue-tls venue-down venue-logs monitoring-up monitoring-down monitoring-logs monitoring-restart monitoring-tunnel grafana-remote
+.PHONY: install db-up db-down db-logs db-reset migrate admin backend worker backend-all backend-shell judgetest proctorsim competitor-frontend competitor-desktop desktop desktop-build desktop-reset frontend admin-frontend dev build test venue venue-tls venue-down venue-logs monitoring-up monitoring-down monitoring-logs monitoring-restart monitoring-tunnel grafana-remote
 
 # No local Go toolchain is needed: every backend command runs in the container
 # from backend/Dockerfile, which carries Go, isolate, and the language
@@ -43,10 +43,17 @@ admin:
 
 # --- App (run each in its own terminal) ---
 
-# Runs in a Linux container because the /run sandbox needs isolate; see
-# backend/Dockerfile. Postgres starts first via depends_on.
+# Runs the backend API server container.
 backend:
 	docker compose up --build backend
+
+# Runs the standalone worker container.
+worker:
+	docker compose up --build worker
+
+# Runs both the API server and worker in separate containers simultaneously.
+backend-all:
+	docker compose up --build backend worker
 
 # Shell inside the running backend container.
 backend-shell:
@@ -118,6 +125,7 @@ dev:
 
 build:
 	$(GO_OFFLINE) go build -o bin/server ./cmd/server
+	$(GO_OFFLINE) go build -o bin/worker ./cmd/worker
 	cd competitor-frontend && pnpm build
 
 test:

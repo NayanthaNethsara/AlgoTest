@@ -1,6 +1,12 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
+import {
+  reviewSubmissionSchema,
+  rejudgeSubmissionSchema,
+  rejudgeProblemSchema,
+  cancelSubmissionSchema,
+} from "@/lib/validation/submission";
 import type { AdminSubmission, ReviewStatus } from "@/types/submission";
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -36,8 +42,13 @@ export async function listAdminSubmissionsAction(
 export async function rejudgeSubmissionAction(
   submissionId: string
 ): Promise<{ success: boolean; error?: string }> {
+  const parsed = rejudgeSubmissionSchema.safeParse({ submissionId });
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || "Invalid submission ID" };
+  }
+
   try {
-    const res = await backendFetch(`/api/v1/admin/submissions/${submissionId}/rejudge`, {
+    const res = await backendFetch(`/api/v1/admin/submissions/${encodeURIComponent(parsed.data.submissionId)}/rejudge`, {
       method: "POST",
     });
     if (res.ok) {
@@ -50,11 +61,39 @@ export async function rejudgeSubmissionAction(
   }
 }
 
+export async function rejudgeProblemSubmissionsAction(
+  problemId: string
+): Promise<{ success: boolean; requeued?: number; error?: string }> {
+  const parsed = rejudgeProblemSchema.safeParse({ problemId });
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || "Invalid problem ID" };
+  }
+
+  try {
+    const res = await backendFetch(`/api/v1/admin/problems/${encodeURIComponent(parsed.data.problemId)}/rejudge`, {
+      method: "POST",
+    });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { success: true, requeued: data.requeued };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { success: false, error: data.error || "Failed to re-judge problem submissions" };
+  } catch (err: unknown) {
+    return { success: false, error: getErrorMessage(err, "Network error") };
+  }
+}
+
 export async function cancelSubmissionAction(
   submissionId: string
 ): Promise<{ success: boolean; error?: string }> {
+  const parsed = cancelSubmissionSchema.safeParse({ submissionId });
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || "Invalid submission ID" };
+  }
+
   try {
-    const res = await backendFetch(`/api/v1/admin/submissions/${submissionId}/cancel`, {
+    const res = await backendFetch(`/api/v1/admin/submissions/${encodeURIComponent(parsed.data.submissionId)}/cancel`, {
       method: "POST",
     });
     if (res.ok) {
@@ -70,17 +109,24 @@ export async function cancelSubmissionAction(
 export async function reviewSubmissionAction(
   submissionId: string,
   status: ReviewStatus,
-  reason: string
-): Promise<{ success: boolean; error?: string }> {
+  reason?: string
+): Promise<{ success: boolean; submission?: AdminSubmission; error?: string }> {
+  const parsed = reviewSubmissionSchema.safeParse({ status, reason });
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message || "Invalid review parameters" };
+  }
+
   try {
-    const res = await backendFetch(`/api/v1/admin/submissions/${submissionId}/review`, {
+    const res = await backendFetch(`/api/v1/admin/submissions/${encodeURIComponent(submissionId)}/review`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, reason }),
+      body: JSON.stringify(parsed.data),
     });
+
     if (res.ok) {
-      return { success: true };
+      const data = await res.json();
+      return { success: true, submission: data.submission };
     }
+
     const data = await res.json().catch(() => ({}));
     return { success: false, error: data.error || "Failed to review submission" };
   } catch (err: unknown) {
@@ -92,7 +138,7 @@ export async function unstickTeamAction(
   teamId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const res = await backendFetch(`/api/v1/admin/teams/${teamId}/unstick`, {
+    const res = await backendFetch(`/api/v1/admin/teams/${encodeURIComponent(teamId)}/unstick`, {
       method: "POST",
     });
     if (res.ok) {

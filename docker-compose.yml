@@ -48,6 +48,26 @@ services:
       postgres:
         condition: service_healthy
 
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: algothon-worker
+    command: ["go", "run", "./cmd/worker"]
+    privileged: true
+    environment:
+      DATABASE_URL: postgres://algothon:algothon@postgres:5432/algothon?sslmode=disable
+      RUN_MAX_CONCURRENT: "8"
+      RUN_WORK_ROOT: /judge-work
+    volumes:
+      - ./backend:/app
+      - algothon-gocache:/go
+    tmpfs:
+      - /judge-work:size=2g,mode=0700
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   algothon-pgdata:
     name: algothon-pgdata

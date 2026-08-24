@@ -20,7 +20,7 @@ import {
   rejudgeSubmissionAction,
   reviewSubmissionAction,
   unstickTeamAction,
-} from "@/actions/submissions";
+} from "@/lib/actions/submissions";
 import type { AdminSubmission } from "@/types/submission";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

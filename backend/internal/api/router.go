@@ -192,6 +192,7 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 	admin.DELETE("/problems/:id", h.deleteProblem)
 	admin.GET("/problems/:id/tests", h.getAdminProblemTests)
 	admin.PUT("/problems/:id/tests", h.replaceTestCases)
+	admin.POST("/problems/:id/rejudge", h.rejudgeProblem)
 
 	admin.GET("/submissions", h.listAdminSubmissions)
 	admin.POST("/submissions/:id/rejudge", h.rejudgeSubmission)

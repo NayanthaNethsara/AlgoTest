@@ -100,7 +100,7 @@ func TestTestCacheIsConcurrencySafe(t *testing.T) {
 }
 
 func TestBroadcastIsScopedToOneUser(t *testing.T) {
-	b := NewBroadcaster()
+	b := NewBroadcaster(nil, nil)
 	mine, unsubscribe := b.Subscribe("user-1")
 	defer unsubscribe()
 
