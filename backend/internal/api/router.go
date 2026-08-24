@@ -111,7 +111,7 @@ func NewRouter(
 		h.registerCompetitorRoutes(v1, gated)
 		h.registerAgentRoutes(v1)
 
-		admin := v1.Group("/admin", h.requireUser, h.requireAdmin, rateLimitMiddleware(adminLimiter, userIDKeyFunc))
+		admin := v1.Group("/admin", h.requireUser, h.requireAdmin, maxBodySizeMiddleware(8_000_000), rateLimitMiddleware(adminLimiter, userIDKeyFunc))
 		h.registerAdminRoutes(admin)
 	}
 

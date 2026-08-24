@@ -59,6 +59,12 @@ func (r *Repository) DeleteByUser(ctx context.Context, userID string) error {
 	return err
 }
 
+func (r *Repository) DeleteByUserExcept(ctx context.Context, userID, exceptToken string) error {
+	query := `DELETE FROM sessions WHERE user_id = $1 AND token != $2;`
+	_, err := r.pool.Exec(ctx, query, userID, hashToken(exceptToken))
+	return err
+}
+
 func (r *Repository) DeleteExpired(ctx context.Context) error {
 	query := `DELETE FROM sessions WHERE expires_at < now();`
 	_, err := r.pool.Exec(ctx, query)
