@@ -57,7 +57,7 @@ export function ContestPhaseBanner() {
       <div className="flex items-center gap-2.5 border-b-2 border-sky-400/30 bg-sky-400/10 px-4 py-1.5 text-xs text-sky-400">
         <Snowflake className="h-3.5 w-3.5 shrink-0" />
         <span>
-          <strong>Scoreboard Freeze:</strong> Public standings are now frozen for the final {state.freezeMinutes} minutes. Your personal submissions will continue to be evaluated.
+          <strong>Scoreboard Freeze:</strong> Public standings are currently frozen. Your personal submissions will continue to be evaluated.
         </span>
       </div>
     );

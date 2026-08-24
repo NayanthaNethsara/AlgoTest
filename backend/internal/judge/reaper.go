@@ -34,8 +34,15 @@ func (r *Repository) ReclaimExpiredLeases(ctx context.Context, log *slog.Logger)
 		return 0, fmt.Errorf("requeue expired submissions: %w", err)
 	}
 	requeuedCount := tag.RowsAffected()
-	if requeuedCount > 0 && log != nil {
-		log.Info("reaper requeued expired submissions", "count", requeuedCount)
+	if requeuedCount > 0 {
+		if log != nil {
+			log.Info("reaper requeued expired submissions", "count", requeuedCount)
+		}
+		go func() {
+			nCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_, _ = r.pool.Exec(nCtx, "SELECT pg_notify('judge_new_submission', '')")
+		}()
 	}
 
 	return requeuedCount + failedCount, nil
