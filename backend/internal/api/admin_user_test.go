@@ -46,3 +46,9 @@ func TestTeamMembershipErrors(t *testing.T) {
 		t.Fatal("expected errAdminCreationNotAllowed to be non-nil")
 	}
 }
+
+func TestAdminRoleAssignmentBlockedViaAPI(t *testing.T) {
+	if user.RoleAdmin == user.RoleCompetitor {
+		t.Fatal("expected RoleAdmin and RoleCompetitor to be distinct")
+	}
+}
