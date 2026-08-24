@@ -95,6 +95,8 @@ pub fn run() {
                 .decorations(true)
                 .initialization_script(r#"
                     document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
+                    window.__MINIALGOTHON_DESKTOP__ = true;
+                    window.__MINIALGOTHON_OS__ = "macos";
                 "#)
                 .build()?;
 
@@ -107,6 +109,8 @@ pub fn run() {
                 .decorations(false)
                 .initialization_script(r#"
                     document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
+                    window.__MINIALGOTHON_DESKTOP__ = true;
+                    window.__MINIALGOTHON_OS__ = "windows";
                 "#)
                 .build()?;
 
@@ -294,6 +298,11 @@ fn spawn_control_listener(listener: std::net::TcpListener, app: tauri::AppHandle
                 Some("/close") => {
                     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
                         let _ = window.hide();
+                    }
+                }
+                Some("/drag") => {
+                    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                        let _ = window.start_dragging();
                     }
                 }
                 _ => {

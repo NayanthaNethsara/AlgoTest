@@ -9,7 +9,10 @@ export default async function LoginPage() {
   if (user) redirect("/challenges");
 
   return (
-    <div className="relative flex h-dvh flex-col bg-background select-none">
+    <div
+      data-window-drag-region
+      className="relative flex h-dvh flex-col bg-background select-none"
+    >
       <div className="absolute top-3 right-4 z-50">
         <DesktopWindowControls />
       </div>

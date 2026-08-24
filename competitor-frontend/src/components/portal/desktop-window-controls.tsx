@@ -10,14 +10,51 @@ export function DesktopWindowControls() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const isClientDesktop =
-      new URLSearchParams(window.location.search).get("client") === "desktop";
-    const isMac = /(Mac|iPhone|iPod|iPad)/i.test(
-      navigator.userAgent || navigator.platform,
-    );
+    const checkIsWindowsDesktop = () => {
+      const hasDesktopCookie = document.cookie.includes(
+        "mini-algothon-client=desktop",
+      );
+      const hasDesktopParam =
+        new URLSearchParams(window.location.search).get("client") === "desktop";
+      const hasDesktopGlobal = Boolean(
+        (window as unknown as { __MINIALGOTHON_DESKTOP__?: boolean })
+          .__MINIALGOTHON_DESKTOP__,
+      );
+      const isMac =
+        (window as unknown as { __MINIALGOTHON_OS__?: string })
+          .__MINIALGOTHON_OS__ === "macos" ||
+        /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || navigator.platform);
 
-    // Only display custom window buttons when running inside the desktop client on Windows / Linux
-    setIsWindowsDesktop(Boolean(isClientDesktop && !isMac));
+      return Boolean((hasDesktopCookie || hasDesktopParam || hasDesktopGlobal) && !isMac);
+    };
+
+    const isWin = checkIsWindowsDesktop();
+    setIsWindowsDesktop(isWin);
+
+    if (!isWin) return;
+
+    // Attach dragging listener for regions marked with data-window-drag-region
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const dragRegion = target.closest("[data-window-drag-region]");
+      const isInteractive = target.closest(
+        "button, a, input, select, textarea, [data-no-drag]",
+      );
+
+      if (dragRegion && !isInteractive && e.buttons === 1) {
+        void fetch("http://127.0.0.1:47620/drag", {
+          method: "POST",
+          mode: "no-cors",
+        }).catch(() => {});
+      }
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+    };
   }, []);
 
   if (!isWindowsDesktop) return null;
