@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/contest"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
@@ -23,10 +24,10 @@ type createSubmissionRequest struct {
 var supportedLanguages = map[string]string{
 	"cpp":        "cpp",
 	"c++":        "cpp",
-	"c":          "cpp",
-	"python":     "python",
-	"py":         "python",
-	"python3":    "python",
+	"py":         "py",
+	"python":     "py",
+	"python3":    "py",
+	"java":       "java",
 	"js":         "js",
 	"javascript": "js",
 	"node":       "js",
@@ -48,6 +49,32 @@ func (h *handler) createSubmission(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	u := currentUser(c)
+
+	if h.contest != nil && u.Role != user.RoleAdmin {
+		cState := h.contest.GetState()
+		switch cState.Status {
+		case contest.StatusNotStarted:
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest has not started yet",
+				"code":  "CONTEST_NOT_STARTED",
+			})
+			return
+		case contest.StatusPaused:
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest is currently paused by administrators",
+				"code":  "CONTEST_PAUSED",
+			})
+			return
+		case contest.StatusEnded:
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest has ended; submissions are closed",
+				"code":  "CONTEST_ENDED",
+			})
+			return
+		}
 	}
 
 	problemID := req.ProblemID
@@ -76,8 +103,6 @@ func (h *handler) createSubmission(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "code size exceeds maximum limit (100KB)"})
 		return
 	}
-
-	u := currentUser(c)
 
 	if h.proctorGate != nil {
 		clientIP, ipTrusted := portalClientIP(c)

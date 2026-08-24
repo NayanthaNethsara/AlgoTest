@@ -318,6 +318,7 @@ func (h *handler) deleteProblem(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete problem"})
 		return
 	}
+	h.judge.InvalidateTests(id)
 
 	c.Status(http.StatusNoContent)
 }

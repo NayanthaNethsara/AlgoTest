@@ -8,7 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/contest"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
 const (
@@ -93,6 +95,25 @@ func (h *handler) runCode(c *gin.Context) {
 	}
 
 	u := currentUser(c)
+
+	if h.contest != nil && u.Role != user.RoleAdmin {
+		cState := h.contest.GetState()
+		switch cState.Status {
+		case contest.StatusNotStarted:
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest has not started yet",
+				"code":  "CONTEST_NOT_STARTED",
+			})
+			return
+		case contest.StatusPaused:
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest is currently paused by administrators",
+				"code":  "CONTEST_PAUSED",
+			})
+			return
+		}
+	}
+
 	acquired, reason := tryAcquireUserRun(u.ID)
 	if !acquired {
 		if reason == "COOLDOWN" {
