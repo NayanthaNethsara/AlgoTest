@@ -215,6 +215,8 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 	admin.POST("/contest/pause", h.adminPauseContest)
 	admin.POST("/contest/resume", h.adminResumeContest)
 	admin.POST("/contest/extend", h.adminExtendContest)
+	admin.POST("/contest/freeze", h.adminFreezeContest)
+	admin.POST("/contest/unfreeze", h.adminUnfreezeContest)
 	admin.POST("/contest/reset", h.adminResetContest)
 	admin.POST("/contest/end", h.adminEndContest)
 	admin.PUT("/contest/settings", h.adminUpdateContestSettings)

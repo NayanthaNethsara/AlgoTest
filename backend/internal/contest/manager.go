@@ -67,7 +67,6 @@ func (m *Manager) GetState() ContestState {
 	effectiveStatus := snap.status
 	remainingSec := 0
 	elapsedSec := 0
-	isFrozen := false
 
 	switch snap.status {
 	case StatusNotStarted:
@@ -92,13 +91,6 @@ func (m *Manager) GetState() ContestState {
 					elapsed = 0
 				}
 				elapsedSec = int(elapsed)
-
-				if snap.freezeMinutes > 0 {
-					freezeStart := snap.endTime.Add(-time.Duration(snap.freezeMinutes) * time.Minute)
-					if now.After(freezeStart) || now.Equal(freezeStart) {
-						isFrozen = true
-					}
-				}
 			}
 		} else {
 			remainingSec = snap.durationSeconds
@@ -126,6 +118,9 @@ func (m *Manager) GetState() ContestState {
 		elapsedSec = snap.durationSeconds
 	}
 
+	isFrozen := snap.isFrozen
+	freezeStartTime := snap.freezeStartTime
+
 	return ContestState{
 		Title:            snap.title,
 		Status:           effectiveStatus,
@@ -133,6 +128,7 @@ func (m *Manager) GetState() ContestState {
 		EndTime:          snap.endTime,
 		DurationSeconds:  snap.durationSeconds,
 		FreezeMinutes:    snap.freezeMinutes,
+		FreezeStartTime:  freezeStartTime,
 		PausedAt:         snap.pausedAt,
 		RemainingSeconds: remainingSec,
 		ElapsedSeconds:   elapsedSec,
@@ -263,12 +259,43 @@ func (m *Manager) Extend(ctx context.Context, minutes int) error {
 	return m.Reload(ctx)
 }
 
+func (m *Manager) Freeze(ctx context.Context) error {
+	now := time.Now().UTC()
+	updates := map[string]string{
+		"contest.is_frozen":         "true",
+		"contest.freeze_start_time": now.Format(time.RFC3339),
+	}
+
+	if m.repo != nil {
+		if err := m.repo.SaveSettings(ctx, updates); err != nil {
+			return err
+		}
+	}
+	return m.Reload(ctx)
+}
+
+func (m *Manager) Unfreeze(ctx context.Context) error {
+	updates := map[string]string{
+		"contest.is_frozen":         "false",
+		"contest.freeze_start_time": "",
+	}
+
+	if m.repo != nil {
+		if err := m.repo.SaveSettings(ctx, updates); err != nil {
+			return err
+		}
+	}
+	return m.Reload(ctx)
+}
+
 func (m *Manager) Reset(ctx context.Context) error {
 	updates := map[string]string{
-		"contest.status":     StatusNotStarted,
-		"contest.start_time": "",
-		"contest.end_time":   "",
-		"contest.paused_at":  "",
+		"contest.status":            StatusNotStarted,
+		"contest.start_time":        "",
+		"contest.end_time":          "",
+		"contest.paused_at":         "",
+		"contest.is_frozen":         "false",
+		"contest.freeze_start_time": "",
 	}
 
 	if m.repo != nil {

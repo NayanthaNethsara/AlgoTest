@@ -92,6 +92,38 @@ func (h *handler) adminExtendContest(c *gin.Context) {
 	c.JSON(http.StatusOK, h.contest.GetState())
 }
 
+// @Summary Admin Freeze Contest Scoreboard
+// @Description Manually freeze the leaderboard standings at the current moment.
+// @Tags Admin Contest
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} contest.ContestState
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/admin/contest/freeze [post]
+func (h *handler) adminFreezeContest(c *gin.Context) {
+	if err := h.contest.Freeze(c.Request.Context()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, h.contest.GetState())
+}
+
+// @Summary Admin Unfreeze Contest Scoreboard
+// @Description Manually unfreeze the leaderboard standings to reveal live scores.
+// @Tags Admin Contest
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} contest.ContestState
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/admin/contest/unfreeze [post]
+func (h *handler) adminUnfreezeContest(c *gin.Context) {
+	if err := h.contest.Unfreeze(c.Request.Context()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, h.contest.GetState())
+}
+
 // @Summary Admin Reset Contest
 // @Description Reset contest lifecycle back to NOT_STARTED.
 // @Tags Admin Contest
