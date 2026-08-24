@@ -34,6 +34,7 @@ type loginResponse struct {
 // @Success 200 {object} loginResponse
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
+// @Failure 403 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/auth/login [post]
 func (h *handler) login(c *gin.Context) {
@@ -62,6 +63,15 @@ func (h *handler) login(c *gin.Context) {
 	}
 	if !auth.CheckPassword(hash, req.Password) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid username or password"})
+		return
+	}
+
+	if u.IsSuspended {
+		msg := "Account has been suspended by an administrator."
+		if u.SuspendedReason != "" {
+			msg += " Reason: " + u.SuspendedReason
+		}
+		c.JSON(http.StatusForbidden, gin.H{"error": msg})
 		return
 	}
 
@@ -114,6 +124,61 @@ func (h *handler) me(c *gin.Context) {
 	c.JSON(http.StatusOK, c.MustGet(contextUserKey))
 }
 
+type changePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword" binding:"required"`
+	NewPassword     string `json:"newPassword" binding:"required"`
+}
+
+// @Summary Change Password
+// @Description Update user's own password after verifying current credentials.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param payload body changePasswordRequest true "Change Password Payload"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Router /api/v1/me/password [post]
+func (h *handler) changePassword(c *gin.Context) {
+	var req changePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "new password must be at least 8 characters"})
+		return
+	}
+
+	usr := currentUser(c)
+	ctx := c.Request.Context()
+
+	_, hash, err := h.users.GetForLogin(ctx, usr.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load user credentials"})
+		return
+	}
+
+	if !auth.CheckPassword(hash, req.CurrentPassword) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "current password is incorrect"})
+		return
+	}
+
+	newHash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash new password"})
+		return
+	}
+
+	if err := h.users.UpdatePassword(ctx, usr.ID, newHash); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update password"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "password updated"})
+}
+
 // requireUser validates the session cookie and loads the user into the context.
 func (h *handler) requireUser(c *gin.Context) {
 	var token string
@@ -148,6 +213,12 @@ func (h *handler) requireUser(c *gin.Context) {
 	u, err := h.users.GetByID(ctx, s.UserID)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+		return
+	}
+
+	if u.IsSuspended {
+		_ = h.sessions.Delete(ctx, token)
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Account has been suspended by an administrator."})
 		return
 	}
 

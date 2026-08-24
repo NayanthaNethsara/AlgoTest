@@ -27,4 +27,7 @@ type User struct {
 	ProctorAllowWebAgent bool       `json:"proctorAllowWebWithAgent"`
 	ProctorAllowWebOnly  bool       `json:"proctorAllowWebOnly"`
 	ProctorAccessReason  string     `json:"proctorAccessReason,omitempty"`
+	IsSuspended          bool       `json:"isSuspended"`
+	SuspendedReason      string     `json:"suspendedReason,omitempty"`
+	SuspendedAt          *time.Time `json:"suspendedAt,omitempty"`
 }

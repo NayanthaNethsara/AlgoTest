@@ -10,15 +10,12 @@ export interface SessionUser {
   teamId?: string;
   teamName?: string;
   proctorExempt?: boolean;
-  /**
-   * Which browser fallbacks this account may make scored submissions from. Two
-   * independent grants an organizer makes and signs; the desktop client has no flag
-   * because it is never withheld.
-   */
   proctorAllowWebWithAgent?: boolean;
   proctorAllowWebOnly?: boolean;
-  /** Why the grant exists. Present only where a grant is. */
   proctorAccessReason?: string;
+  isSuspended?: boolean;
+  suspendedReason?: string;
+  suspendedAt?: string;
 }
 
 /** How a submission reached the server — see the backend's agent.AccessMode. */

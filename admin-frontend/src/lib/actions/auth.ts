@@ -4,6 +4,7 @@ import {
   authenticateUser,
   revokeUserSession,
   fetchSessionUser,
+  changeUserPassword,
   ADMIN_SESSION_COOKIE,
   type SessionUser,
 } from "@mini-algothon/auth";
@@ -22,4 +23,11 @@ export async function getSessionUserAction(): Promise<SessionUser | null> {
     return null;
   }
   return user;
+}
+
+export async function changePasswordAction(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  return changeUserPassword(currentPassword, newPassword, ADMIN_SESSION_COOKIE);
 }

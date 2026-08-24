@@ -108,3 +108,23 @@ export async function deleteUserAction(userId: string): Promise<void> {
     throw new Error(getErrorMessage(err, "Failed to delete user"));
   }
 }
+
+export async function suspendUserAction(
+  userId: string,
+  suspended: boolean,
+  reason?: string
+): Promise<void> {
+  try {
+    const res = await backendFetch(`/api/v1/admin/users/${userId}/suspend`, {
+      method: "PATCH",
+      body: JSON.stringify({ suspended, reason: reason || "" }),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || "Failed to update user suspension");
+    }
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to update user suspension"));
+  }
+}
+
