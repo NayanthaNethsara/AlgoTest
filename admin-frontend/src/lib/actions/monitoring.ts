@@ -143,13 +143,17 @@ export async function toggleProctorExemptionAction(
   }
 
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/exempt/${encodeURIComponent(parsed.data.userId)}`, {
-      method: "POST",
+    const response = await backendFetch(`/api/v1/admin/users/${encodeURIComponent(parsed.data.userId)}/exemption`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ exempt: parsed.data.exempt, reason: parsed.data.reason }),
+      body: JSON.stringify({
+        exempt: parsed.data.exempt,
+        reason: parsed.data.reason || (parsed.data.exempt ? "Granted by administrator" : ""),
+      }),
     });
     if (!response.ok) {
-      return { error: "Failed to update exemption status" };
+      const errBody = await response.json().catch(() => ({}));
+      return { error: errBody.error || "Failed to update exemption status" };
     }
     return { status: "updated" };
   } catch (err: unknown) {
