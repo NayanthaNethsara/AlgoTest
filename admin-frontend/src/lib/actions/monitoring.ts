@@ -1,6 +1,12 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
+import {
+  proctorAccessSchema,
+  revokeAgentSchema,
+  toggleProctorExemptionSchema,
+  proctorUserQuerySchema,
+} from "@/lib/validation/monitoring";
 import type { EvidenceFinding, ProctorTimeline } from "@/types/proctor";
 import {
   MONITORING_SECTIONS,
@@ -8,9 +14,12 @@ import {
   type MonitoringSnapshot,
 } from "@/types/monitoring";
 
+function getErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 export async function getMonitoringSnapshotAction(sections: MonitoringSection[]): Promise<{
   snapshot?: MonitoringSnapshot;
-  /** Distinct from `error`: the page redirects rather than showing a banner. */
   unauthenticated?: boolean;
   error?: string;
 }> {
@@ -30,9 +39,8 @@ export async function getMonitoringSnapshotAction(sections: MonitoringSection[])
     }
     const data = (await response.json()) as MonitoringSnapshot;
     return { snapshot: data };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Monitoring service unreachable";
-    return { error: message };
+  } catch (err: unknown) {
+    return { error: getErrorMessage(err, "Monitoring service unreachable") };
   }
 }
 
@@ -42,15 +50,26 @@ export async function setProctorAccessAction(
   reason = "",
   hoursValid = 0
 ): Promise<{ status?: string; warning?: string; error?: string }> {
+  const parsed = proctorAccessSchema.safeParse({
+    userId,
+    webWithAgent: grant.webWithAgent,
+    webOnly: grant.webOnly,
+    reason,
+    hoursValid,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message || "Invalid proctor access parameters" };
+  }
+
   try {
-    const response = await backendFetch(`/api/v1/admin/users/${userId}/access`, {
+    const response = await backendFetch(`/api/v1/admin/users/${encodeURIComponent(parsed.data.userId)}/access`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        webWithAgent: grant.webWithAgent,
-        webOnly: grant.webOnly,
-        reason,
-        hoursValid,
+        webWithAgent: parsed.data.webWithAgent,
+        webOnly: parsed.data.webOnly,
+        reason: parsed.data.reason,
+        hoursValid: parsed.data.hoursValid,
       }),
     });
     if (!response.ok) {
@@ -59,9 +78,8 @@ export async function setProctorAccessAction(
     }
     const data = await response.json().catch(() => ({}));
     return { status: "updated", warning: data.warning };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { error: message };
+  } catch (err: unknown) {
+    return { error: getErrorMessage(err, "Network error") };
   }
 }
 
@@ -69,19 +87,23 @@ export async function revokeAgentAction(
   agentId: string,
   reason: string
 ): Promise<{ status?: string; error?: string }> {
+  const parsed = revokeAgentSchema.safeParse({ agentId, reason });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message || "Invalid revocation parameters" };
+  }
+
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/agents/${agentId}/revoke`, {
+    const response = await backendFetch(`/api/v1/admin/proctor/agents/${encodeURIComponent(parsed.data.agentId)}/revoke`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason: parsed.data.reason }),
     });
     if (!response.ok) {
       return { error: "Failed to revoke agent enrolment" };
     }
     return { status: "revoked" };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { error: message };
+  } catch (err: unknown) {
+    return { error: getErrorMessage(err, "Network error") };
   }
 }
 
@@ -91,8 +113,13 @@ export async function getAdminProctorFindingsAction(userId: string): Promise<{
   findings: EvidenceFinding[];
   error?: string;
 }> {
+  const parsed = proctorUserQuerySchema.safeParse({ userId });
+  if (!parsed.success) {
+    return { findings: [], error: parsed.error.issues[0]?.message || "Invalid user ID" };
+  }
+
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/findings/${userId}`, {
+    const response = await backendFetch(`/api/v1/admin/proctor/findings/${encodeURIComponent(parsed.data.userId)}`, {
       method: "GET",
     });
     if (!response.ok) {
@@ -100,9 +127,8 @@ export async function getAdminProctorFindingsAction(userId: string): Promise<{
     }
     const data = await response.json();
     return { findings: data.findings || [] };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { findings: [], error: message };
+  } catch (err: unknown) {
+    return { findings: [], error: getErrorMessage(err, "Network error") };
   }
 }
 
@@ -111,19 +137,23 @@ export async function toggleProctorExemptionAction(
   exempt: boolean,
   reason?: string
 ): Promise<{ status?: string; error?: string }> {
+  const parsed = toggleProctorExemptionSchema.safeParse({ userId, exempt, reason });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message || "Invalid exemption parameters" };
+  }
+
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/exempt/${userId}`, {
+    const response = await backendFetch(`/api/v1/admin/proctor/exempt/${encodeURIComponent(parsed.data.userId)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ exempt, reason }),
+      body: JSON.stringify({ exempt: parsed.data.exempt, reason: parsed.data.reason }),
     });
     if (!response.ok) {
       return { error: "Failed to update exemption status" };
     }
     return { status: "updated" };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return { error: message };
+  } catch (err: unknown) {
+    return { error: getErrorMessage(err, "Network error") };
   }
 }
 
@@ -131,8 +161,13 @@ export async function getAdminProctorTimelineAction(userId: string): Promise<{
   timeline?: ProctorTimeline;
   error?: string;
 }> {
+  const parsed = proctorUserQuerySchema.safeParse({ userId });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message || "Invalid user ID" };
+  }
+
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/timeline/${userId}`, {
+    const response = await backendFetch(`/api/v1/admin/proctor/timeline/${encodeURIComponent(parsed.data.userId)}`, {
       method: "GET",
     });
     if (!response.ok) {
@@ -140,8 +175,7 @@ export async function getAdminProctorTimelineAction(userId: string): Promise<{
     }
     const data = (await response.json()) as { timeline: ProctorTimeline };
     return { timeline: data.timeline };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Telemetry service unreachable";
-    return { error: message };
+  } catch (err: unknown) {
+    return { error: getErrorMessage(err, "Telemetry service unreachable") };
   }
 }

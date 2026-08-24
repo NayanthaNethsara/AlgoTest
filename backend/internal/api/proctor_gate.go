@@ -4,11 +4,28 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
+	"strings"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
+	"github.com/gin-gonic/gin"
 )
+
+const (
+	attestHeader = "X-Proctor-Attest"
+	clientHeader = "X-Proctor-Client"
+)
+
+func portalClaimsDesktop(c *gin.Context) bool {
+	return strings.ToLower(strings.TrimSpace(c.GetHeader(clientHeader))) == "desktop"
+}
+
+func portalClientIP(c *gin.Context) (string, bool) {
+	ipStr := c.ClientIP()
+	if ipStr == "" {
+		return "", false
+	}
+	return ipStr, true
+}
 
 // gateStatusFunc is the gate's read-only verdict for one contestant. Taken as a
 // function rather than the Gate itself so the middleware can be exercised without a

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { formatClock } from "@/lib/monitoring";
-import { revokeAgentAction } from "@/actions/telemetry";
+import { revokeAgentAction } from "@/lib/actions/monitoring";
 import type { EnrolledAgent } from "@/types/proctor";
 
 /**

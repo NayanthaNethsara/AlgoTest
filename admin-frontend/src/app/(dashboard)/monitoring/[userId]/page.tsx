@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, RefreshCw } from "lucide-react";
-import { getAdminProctorTimelineAction } from "@/actions/telemetry";
+import { getAdminProctorTimelineAction } from "@/lib/actions/monitoring";
 import { formatClock } from "@/lib/monitoring";
 import type { ProctorTimeline, TimelineEntry } from "@/types/proctor";
 
