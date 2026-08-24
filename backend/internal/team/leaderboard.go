@@ -44,7 +44,7 @@ func (r *Repository) GetLeaderboardWithCutoff(ctx context.Context, cutoff *time.
 					MAX(s.created_at) FILTER (WHERE s.score > 0) AS last_accepted_at
 				FROM submissions s
 				JOIN problems p ON p.id = s.problem_id AND p.published = true
-				WHERE s.created_at <= $1
+				WHERE s.created_at <= $1 AND (s.review_status IS NULL OR s.review_status != 'rejected')
 				GROUP BY s.team_id, s.problem_id
 			)
 			SELECT 
