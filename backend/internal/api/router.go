@@ -246,18 +246,28 @@ func agentIDKeyFunc(c *gin.Context) string {
 	return ""
 }
 
+func isTauriOrigin(origin string) bool {
+	return origin == "tauri://localhost" ||
+		strings.HasPrefix(origin, "tauri://") ||
+		origin == "http://tauri.localhost" ||
+		origin == "https://tauri.localhost"
+}
+
 func corsMiddleware(origins []string) gin.HandlerFunc {
+	allowedMap := make(map[string]bool, len(origins))
+	for _, o := range origins {
+		trimmed := strings.TrimSpace(o)
+		if trimmed != "" && trimmed != "*" {
+			allowedMap[trimmed] = true
+		}
+	}
+
 	c := cors.Config{
 		AllowOriginFunc: func(origin string) bool {
-			if strings.HasPrefix(origin, "tauri://") || strings.HasPrefix(origin, "http://tauri.localhost") || strings.HasPrefix(origin, "https://tauri.localhost") {
+			if isTauriOrigin(origin) {
 				return true
 			}
-			for _, o := range origins {
-				if o == origin || o == "*" {
-					return true
-				}
-			}
-			return false
+			return allowedMap[origin]
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With", attestHeader, clientHeader},
