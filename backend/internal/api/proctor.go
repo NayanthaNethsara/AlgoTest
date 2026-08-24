@@ -154,43 +154,34 @@ func formatTimePtr(t *time.Time) *string {
 	return &s
 }
 
-// listAgents is shared by the standalone agents endpoint and the monitoring
-// snapshot, so the console cannot drift from what a direct call returns.
 func (h *handler) listAgents(ctx context.Context) ([]agentItem, error) {
-	rows, err := h.db.Query(ctx, `
-		SELECT a.id, u.id, u.username, u.display_name, a.machine_id, a.platform,
-		       a.agent_version, a.loopback_port, a.enrolled_at, a.last_seen_at,
-		       a.stopped_at, a.stopped_reason, a.revoked_at, a.revoked_reason,
-		       EXISTS (SELECT 1 FROM telemetry_gaps g WHERE g.user_id = u.id AND g.ended_at IS NULL)
-		FROM proctor_agents a
-		JOIN users u ON u.id = a.user_id
-		ORDER BY a.revoked_at NULLS FIRST, a.last_seen_at DESC NULLS LAST;
-	`)
+	agents, err := h.agents.ListAgents(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	items := []agentItem{}
-	for rows.Next() {
-		var item agentItem
-		// Scanned as times, not strings: see formatTimePtr.
-		var enrolledAt time.Time
-		var lastSeenAt, stoppedAt, revokedAt *time.Time
-		if err := rows.Scan(&item.ID, &item.UserID, &item.Username, &item.DisplayName,
-			&item.MachineID, &item.Platform, &item.AgentVersion, &item.LoopbackPort,
-			&enrolledAt, &lastSeenAt, &stoppedAt, &item.StoppedReason,
-			&revokedAt, &item.RevokedReason, &item.InGap); err != nil {
-			return nil, err
+	items := make([]agentItem, len(agents))
+	for i, it := range agents {
+		items[i] = agentItem{
+			ID:            it.ID,
+			UserID:        it.UserID,
+			Username:      it.Username,
+			DisplayName:   it.DisplayName,
+			MachineID:     it.MachineID,
+			Platform:      it.Platform,
+			AgentVersion:  it.AgentVersion,
+			LoopbackPort:  it.LoopbackPort,
+			EnrolledAt:    it.EnrolledAt.UTC().Format(time.RFC3339Nano),
+			LastSeenAt:    formatTimePtr(it.LastSeenAt),
+			StoppedAt:     formatTimePtr(it.StoppedAt),
+			StoppedReason: it.StoppedReason,
+			RevokedAt:     formatTimePtr(it.RevokedAt),
+			RevokedReason: it.RevokedReason,
+			InGap:         it.InGap,
 		}
-		item.EnrolledAt = enrolledAt.UTC().Format(time.RFC3339Nano)
-		item.LastSeenAt = formatTimePtr(lastSeenAt)
-		item.StoppedAt = formatTimePtr(stoppedAt)
-		item.RevokedAt = formatTimePtr(revokedAt)
-		items = append(items, item)
 	}
 
-	return items, rows.Err()
+	return items, nil
 }
 
 // @Summary List Enrolled Agents

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-import { getAdminProctorFindingsAction, toggleProctorExemptionAction } from "@/actions/telemetry";
+import { getAdminProctorFindingsAction, toggleProctorExemptionAction } from "@/lib/actions/monitoring";
 import { SeverityBadge, formatTimeAgo } from "@/components/monitoring/badges";
 import { useMonitoring } from "@/components/monitoring/monitoring-context";
 import { MonitoringFilters } from "@/components/monitoring/monitoring-filters";

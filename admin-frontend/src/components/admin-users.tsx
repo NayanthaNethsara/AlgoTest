@@ -9,7 +9,7 @@ import {
   deleteUserAction,
   suspendUserAction,
 } from "@/lib/actions/users";
-import { setProctorAccessAction, toggleProctorExemptionAction } from "@/actions/telemetry";
+import { setProctorAccessAction, toggleProctorExemptionAction } from "@/lib/actions/monitoring";
 import { addTeamMemberAction, removeTeamMemberAction } from "@/lib/actions/teams";
 import type { User, CreateUserInput } from "@/types/user";
 import type { Team } from "@/types/team";

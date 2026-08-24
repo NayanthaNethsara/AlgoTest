@@ -11,7 +11,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 
-import { getMonitoringSnapshotAction } from "@/actions/telemetry";
+import { getMonitoringSnapshotAction } from "@/lib/actions/monitoring";
 import { MONITORING_SECTIONS, type MonitoringSection } from "@/types/monitoring";
 import type { CompetitorHeartbeat } from "@/types/telemetry";
 import type { CompetitorRisk, EnrolledAgent, ProctorOverview } from "@/types/proctor";
