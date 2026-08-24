@@ -88,8 +88,14 @@ func main() {
 
 	j := judge.New(pool, cfg.JudgeWorkers, log)
 	j.SetRunner(rn)
-	go j.Start(ctx)
-	log.Info("sandbox ready", "boxes", cfg.RunMaxConcurrent, "judge_workers", cfg.JudgeWorkers, "run_reserve", cfg.RunReserve)
+	j.Broadcaster().StartListener(ctx)
+
+	if cfg.JudgeWorkers > 0 {
+		go j.Start(ctx)
+		log.Info("in-process judge workers started", "workers", cfg.JudgeWorkers)
+	} else {
+		log.Info("server running in api-only mode (external judge worker handling submissions)")
+	}
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,

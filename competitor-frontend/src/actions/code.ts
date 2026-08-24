@@ -2,8 +2,11 @@
 
 import { getProblemAction } from "@/actions/problems";
 import { backendFetch } from "@/lib/api/server";
-import { MAX_CODE_LENGTH, MAX_STDIN_LENGTH } from "@/lib/constants";
 import { executeRun } from "@/lib/runner";
+import {
+  runCodeInputSchema,
+  submitCodeInputSchema,
+} from "@/lib/validation/submission";
 import type {
   RunResult,
   SubmissionStatusResponse,
@@ -11,31 +14,19 @@ import type {
 } from "@/types/code";
 import type { SubmissionItem } from "@/types/submission";
 
-function assertLength(value: string, max: number, name: string) {
-  if (typeof value !== "string" || value.length > max) {
-    throw new Error(`invalid ${name}`);
-  }
-}
-
 export async function runCode(
   language: string,
   code: string,
   stdin: string,
 ): Promise<RunResult> {
+  const parsed = runCodeInputSchema.safeParse({ language, code, stdin });
+  if (!parsed.success) {
+    const errorMsg = parsed.error.issues[0]?.message || "Invalid run parameters";
+    return { stdout: "", stderr: `Error: ${errorMsg}`, exitCode: 1, timeMs: 0 };
+  }
+
   try {
-    assertLength(code, MAX_CODE_LENGTH, "code");
-    assertLength(stdin, MAX_STDIN_LENGTH, "stdin");
-
-    if (!code.trim()) {
-      return {
-        stdout: "",
-        stderr: "error: empty program",
-        exitCode: 1,
-        timeMs: 0,
-      };
-    }
-
-    return await executeRun(language, code, stdin);
+    return await executeRun(parsed.data.language, parsed.data.code, parsed.data.stdin);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Execution failed";
     return { stdout: "", stderr: `Error: ${message}`, exitCode: 1, timeMs: 0 };
@@ -49,22 +40,45 @@ export async function submitCode(
   language = "cpp",
   attestNonce?: string | null,
 ): Promise<SubmitResult> {
+  const parsed = submitCodeInputSchema.safeParse({
+    problemId,
+    code,
+    language,
+    previousBest,
+    attestNonce,
+  });
+
+  if (!parsed.success) {
+    const errorMsg = parsed.error.issues[0]?.message || "Invalid submission parameters";
+    return {
+      error: errorMsg,
+      subtasks: [],
+      score: previousBest,
+      maxScore: 100,
+      improvedBest: false,
+      previousBest,
+    };
+  }
+
   try {
-    assertLength(code, MAX_CODE_LENGTH, "code");
-    const problem = await getProblemAction(problemId);
+    const problem = await getProblemAction(parsed.data.problemId);
     const maxScore = problem ? problem.points : 100;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (attestNonce) {
-      headers["X-Agent-Attest"] = attestNonce;
+    if (parsed.data.attestNonce) {
+      headers["X-Agent-Attest"] = parsed.data.attestNonce;
     }
 
     const res = await backendFetch("/api/v1/submissions", {
       method: "POST",
       headers,
-      body: JSON.stringify({ problem_id: problemId, language, code }),
+      body: JSON.stringify({
+        problem_id: parsed.data.problemId,
+        language: parsed.data.language,
+        code: parsed.data.code,
+      }),
     });
 
     if (!res.ok) {
@@ -112,65 +126,48 @@ export async function getSubmissionStatusAction(
   submissionId: string,
 ): Promise<SubmissionStatusResponse | null> {
   try {
-    const res = await backendFetch(
-      `/api/v1/submissions/${encodeURIComponent(submissionId)}`,
-      { method: "GET" },
-    );
-    if (res.ok) {
-      return res.json();
+    const res = await backendFetch(`/api/v1/submissions/${encodeURIComponent(submissionId)}`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return null;
     }
-  } catch {
-    // Ignore transient network errors
+
+    const data = await res.json();
+    return {
+      id: data.id,
+      status: data.state || data.status,
+      verdict: data.verdict,
+      score: data.score,
+      maxScore: data.max_score,
+      queuePosition: data.queue_position,
+      compileError: data.compile_error,
+      tests: data.tests,
+    };
+  } catch (err) {
+    console.error("getSubmissionStatusAction error:", err);
+    return null;
   }
-  return null;
 }
 
-type BackendSubmissionEntry = {
-  submissionId: string;
-  problemId?: string;
-  problemTitle?: string;
-  userName?: string;
-  teamName?: string;
-  language?: string;
-  score?: number;
-  maxScore?: number;
-  status?: string;
-  verdict?: string;
-  reviewStatus?: "accepted" | "rejected";
-  reviewReason?: string;
-  createdAt?: string;
-};
-
-export async function listSubmissionsAction(): Promise<SubmissionItem[]> {
+export async function listSubmissionsAction(
+  problemId?: string,
+): Promise<SubmissionItem[]> {
   try {
-    const res = await backendFetch("/api/v1/submissions", { method: "GET" });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.submissions)) {
-        return data.submissions.map(
-          (s: BackendSubmissionEntry): SubmissionItem => ({
-            id: s.submissionId,
-            problemTitle: s.problemTitle || s.problemId || "Challenge",
-            submittedBy: s.userName || "Competitor",
-            teamName: s.teamName || "Team",
-            language: s.language || "cpp",
-            score: s.score ?? 0,
-            maxScore: s.maxScore ?? 0,
-            status: s.verdict || s.status || "Pending",
-            reviewStatus: s.reviewStatus,
-            reviewReason: s.reviewReason,
-            submittedAt: s.createdAt
-              ? new Date(s.createdAt).toLocaleTimeString()
-              : "Just now",
-            timestamp: s.createdAt
-              ? new Date(s.createdAt).getTime()
-              : Date.now(),
-          }),
-        );
-      }
+    const url = problemId
+      ? `/api/v1/submissions?problem_id=${encodeURIComponent(problemId)}`
+      : "/api/v1/submissions";
+
+    const res = await backendFetch(url, { cache: "no-store" });
+    if (!res.ok) {
+      return [];
     }
+
+    const data = await res.json();
+    return data.submissions || [];
   } catch (err) {
-    console.error("Failed to fetch submissions:", err);
+    console.error("listSubmissionsAction error:", err);
+    return [];
   }
-  return [];
 }
