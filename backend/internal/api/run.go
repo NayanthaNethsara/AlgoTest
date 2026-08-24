@@ -26,19 +26,28 @@ func tryAcquireUserRun(userID string) (bool, string) {
 	activeRunsMu.Lock()
 	defer activeRunsMu.Unlock()
 
+	now := time.Now()
+	if len(userLastRunTimes) > 256 {
+		for uid, t := range userLastRunTimes {
+			if now.Sub(t) > 5*time.Minute {
+				delete(userLastRunTimes, uid)
+			}
+		}
+	}
+
 	if activeRunUsers[userID] {
 		return false, "ACTIVE_RUN"
 	}
 
 	const cooldown = 3 * time.Second
 	if last, ok := userLastRunTimes[userID]; ok {
-		if time.Since(last) < cooldown {
+		if now.Sub(last) < cooldown {
 			return false, "COOLDOWN"
 		}
 	}
 
 	activeRunUsers[userID] = true
-	userLastRunTimes[userID] = time.Now()
+	userLastRunTimes[userID] = now
 	return true, ""
 }
 
