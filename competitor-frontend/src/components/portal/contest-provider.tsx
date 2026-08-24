@@ -217,18 +217,15 @@ export function ContestProvider({
               setElapsedSeconds(elapsed);
             }
 
-            let nextFrozen = false;
-            if (current.freezeMinutes > 0) {
-              const freezeThresholdSec = current.freezeMinutes * 60;
-              nextFrozen = remaining > 0 && remaining <= freezeThresholdSec;
-            }
+            const nextFrozen = current.isFrozen;
             setIsFrozen(nextFrozen);
 
             if (!previousFrozenRef.current && nextFrozen) {
               setAlertToast({
                 id: `contest-frozen-${Date.now()}`,
                 title: "Scoreboard Frozen",
-                description: `Public standings are now frozen for the final ${current.freezeMinutes} minutes.`,
+                description:
+                  "Public standings are now frozen. Your submissions will continue to be evaluated.",
                 variant: "info",
               });
             }
