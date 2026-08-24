@@ -25,7 +25,7 @@ export const DESKTOP_CLIENT_VALUE = "desktop";
  * reports its shell process alive, which means forging it requires running the
  * desktop client, and therefore being proctored, anyway.
  */
-export const CLIENT_HEADER = "X-Algothon-Client";
+export const CLIENT_HEADER = "X-Proctor-Client";
 
 export const WEB_CLIENT_VALUE = "web";
 

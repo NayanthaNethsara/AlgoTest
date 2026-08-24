@@ -86,7 +86,7 @@ func (h *handler) createSubmission(c *gin.Context) {
 			ClaimsDesktop:   portalClaimsDesktop(c),
 			ClientIP:        clientIP,
 			ClientIPTrusted: ipTrusted,
-			AttestNonce:     c.GetHeader(attestHeader),
+			AttestNonce:     portalAttestNonce(c),
 		})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to evaluate proctor liveness"})
