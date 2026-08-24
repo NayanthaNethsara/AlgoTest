@@ -97,6 +97,17 @@ func (h *handler) login(c *gin.Context) {
 	})
 }
 
+func (h *handler) extractSessionToken(c *gin.Context) string {
+	authHeader := c.GetHeader("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		return strings.TrimPrefix(authHeader, "Bearer ")
+	}
+	if cookieToken, err := c.Cookie(h.cfg.SessionCookieName); err == nil && cookieToken != "" {
+		return cookieToken
+	}
+	return ""
+}
+
 // @Summary User Logout
 // @Description Delete current server-side session token.
 // @Tags Auth
@@ -104,7 +115,7 @@ func (h *handler) login(c *gin.Context) {
 // @Success 244 "No Content"
 // @Router /api/v1/auth/logout [post]
 func (h *handler) logout(c *gin.Context) {
-	if token, err := c.Cookie(h.cfg.SessionCookieName); err == nil && token != "" {
+	if token := h.extractSessionToken(c); token != "" {
 		if err := h.sessions.Delete(c.Request.Context(), token); err != nil {
 			log.Printf("failed to delete session during logout: %v", err)
 		}
@@ -181,16 +192,7 @@ func (h *handler) changePassword(c *gin.Context) {
 
 // requireUser validates the session cookie and loads the user into the context.
 func (h *handler) requireUser(c *gin.Context) {
-	var token string
-	authHeader := c.GetHeader("Authorization")
-	if strings.HasPrefix(authHeader, "Bearer ") {
-		token = strings.TrimPrefix(authHeader, "Bearer ")
-	}
-	if token == "" {
-		if cookieToken, err := c.Cookie(h.cfg.SessionCookieName); err == nil {
-			token = cookieToken
-		}
-	}
+	token := h.extractSessionToken(c)
 	if token == "" {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthenticated"})
 		return

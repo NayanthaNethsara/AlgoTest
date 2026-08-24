@@ -3,6 +3,8 @@
 import React, { useEffect } from "react";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { AccessBlockScreen } from "@/components/portal/access-block";
+import { ContestPhaseBanner } from "@/components/portal/contest-phase-banner";
+import { ContestProvider } from "@/components/portal/contest-provider";
 import { ProctorProvider } from "@/components/portal/proctor-provider";
 import { ProctorLockBanner } from "@/components/portal/proctor-status";
 import {
@@ -11,31 +13,37 @@ import {
 } from "@/components/portal/submissions-provider";
 import { TopNav } from "@/components/portal/top-nav";
 import type { SessionUser } from "@/lib/auth/constants";
+import type { ContestState } from "@/types/contest";
 import type { ProctorSelfStatus } from "@/types/proctor";
 
 export function PortalShell({
   user,
   initialProctor,
+  initialContest,
   children,
 }: {
   user: SessionUser | null;
   initialProctor: ProctorSelfStatus | null;
+  initialContest: ContestState;
   children: React.ReactNode;
 }) {
   return (
-    <ProctorProvider initialProctor={initialProctor}>
-      <SubmissionsProvider>
-        <div className="flex h-dvh flex-col">
-          <TopNav user={user} />
-          <div className="relative min-h-0 flex-1">
-            {children}
-            <ProctorLockBanner />
-            <AccessBlockScreen />
-            <ToastBanner />
+    <ContestProvider initialState={initialContest}>
+      <ProctorProvider initialProctor={initialProctor}>
+        <SubmissionsProvider>
+          <div className="flex h-dvh flex-col">
+            <TopNav user={user} />
+            <ContestPhaseBanner />
+            <div className="relative min-h-0 flex-1">
+              {children}
+              <ProctorLockBanner />
+              <AccessBlockScreen />
+              <ToastBanner />
+            </div>
           </div>
-        </div>
-      </SubmissionsProvider>
-    </ProctorProvider>
+        </SubmissionsProvider>
+      </ProctorProvider>
+    </ContestProvider>
   );
 }
 
