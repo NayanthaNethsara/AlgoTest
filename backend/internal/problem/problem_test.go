@@ -5,6 +5,64 @@ import (
 	"testing"
 )
 
+func TestValidateSlug(t *testing.T) {
+	validSlugs := []string{
+		"two-sum",
+		"problem1",
+		"a-plus-b-problem",
+		"graph-shortest-path-3",
+	}
+	for _, slug := range validSlugs {
+		if err := ValidateSlug(slug); err != nil {
+			t.Errorf("ValidateSlug(%q) unexpected error: %v", slug, err)
+		}
+	}
+
+	invalidSlugs := []string{
+		"Two-Sum",
+		"two sum",
+		"two_sum",
+		"-two-sum",
+		"two-sum-",
+		"two--sum",
+		"problem/1",
+		"slug!",
+		"",
+	}
+	for _, slug := range invalidSlugs {
+		if err := ValidateSlug(slug); err == nil {
+			t.Errorf("ValidateSlug(%q) expected error, got nil", slug)
+		}
+	}
+}
+
+func TestClampLimits(t *testing.T) {
+	cases := []struct {
+		name      string
+		timeIn    int32
+		memIn     int32
+		scoreIn   int32
+		wantTime  int32
+		wantMem   int32
+		wantScore int32
+	}{
+		{"defaults on zeros", 0, 0, 0, 4000, 256, 100},
+		{"within normal bounds", 2000, 512, 100, 2000, 512, 100},
+		{"clamped lower bounds", 50, 8, -10, 100, 16, 100},
+		{"clamped upper bounds", 20000, 2048, 500, 10000, 1024, 500},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotTime, gotMem, gotScore := ClampLimits(c.timeIn, c.memIn, c.scoreIn)
+			if gotTime != c.wantTime || gotMem != c.wantMem || gotScore != c.wantScore {
+				t.Errorf("ClampLimits(%d, %d, %d) = (%d, %d, %d), want (%d, %d, %d)",
+					c.timeIn, c.memIn, c.scoreIn, gotTime, gotMem, gotScore, c.wantTime, c.wantMem, c.wantScore)
+			}
+		})
+	}
+}
+
 func TestDistributePointsMatchesMaxScore(t *testing.T) {
 	cases := []struct {
 		name     string
