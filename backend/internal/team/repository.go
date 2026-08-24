@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -16,6 +17,7 @@ var (
 	ErrTeamNotFound      = errors.New("team not found")
 	ErrTeamFull          = errors.New("team capacity reached (max 3 members)")
 	ErrUserAlreadyInTeam = errors.New("user is already assigned to a team")
+	ErrDuplicateTeamName = errors.New("team name already exists")
 )
 
 type Repository struct {
@@ -27,10 +29,10 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 type CreateMemberParams struct {
-	Username    string
-	DisplayName string
+	Username     string
+	DisplayName  string
 	PasswordHash string
-	Role        string
+	Role         string
 }
 
 func (r *Repository) CreateTeam(ctx context.Context, name string) (*Team, error) {
@@ -42,12 +44,20 @@ func (r *Repository) CreateTeam(ctx context.Context, name string) (*Team, error)
 	t := &Team{}
 	err := r.pool.QueryRow(ctx, query, name).Scan(&t.ID, &t.Name, &t.CreatedAt)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, ErrDuplicateTeamName
+		}
 		return nil, fmt.Errorf("create team: %w", err)
 	}
 	return t, nil
 }
 
 func (r *Repository) CreateTeamWithMembers(ctx context.Context, name string, members []CreateMemberParams) (*Team, []user.User, error) {
+	if len(members) > MaxTeamMembers {
+		return nil, nil, ErrTeamFull
+	}
+
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("begin transaction: %w", err)
@@ -57,6 +67,10 @@ func (r *Repository) CreateTeamWithMembers(ctx context.Context, name string, mem
 	t := &Team{}
 	createTeamQuery := `INSERT INTO teams (name) VALUES ($1) RETURNING id, name, created_at`
 	if err := tx.QueryRow(ctx, createTeamQuery, name).Scan(&t.ID, &t.Name, &t.CreatedAt); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, nil, ErrDuplicateTeamName
+		}
 		return nil, nil, fmt.Errorf("create team: %w", err)
 	}
 
@@ -275,6 +289,10 @@ func (r *Repository) UpdateTeam(ctx context.Context, id string, name string) (*T
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrTeamNotFound
 		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, ErrDuplicateTeamName
+		}
 		return nil, fmt.Errorf("update team: %w", err)
 	}
 	members, err := r.GetTeamMembers(ctx, t.ID)
@@ -332,11 +350,31 @@ func (r *Repository) GetTeamMembers(ctx context.Context, teamID string) ([]user.
 	return members, nil
 }
 
+// List fetches all teams with their member rosters in a single query,
+// avoiding N+1 roundtrips.
 func (r *Repository) List(ctx context.Context) ([]*Team, error) {
 	query := `
-		SELECT id, name, created_at
-		FROM teams
-		ORDER BY name ASC
+		SELECT 
+			t.id, t.name, t.created_at,
+			COALESCE(
+				json_agg(
+					json_build_object(
+						'id', u.id,
+						'username', u.username,
+						'displayName', u.display_name,
+						'role', u.role,
+						'createdAt', u.created_at,
+						'lastLoginAt', u.last_login_at,
+						'teamId', u.team_id,
+						'teamName', t.name
+					) ORDER BY u.created_at ASC
+				) FILTER (WHERE u.id IS NOT NULL),
+				'[]'
+			) AS members
+		FROM teams t
+		LEFT JOIN users u ON t.id = u.team_id
+		GROUP BY t.id, t.name, t.created_at
+		ORDER BY t.name ASC;
 	`
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
@@ -347,56 +385,17 @@ func (r *Repository) List(ctx context.Context) ([]*Team, error) {
 	var teams []*Team
 	for rows.Next() {
 		t := &Team{}
-		if err := rows.Scan(&t.ID, &t.Name, &t.CreatedAt); err != nil {
+		var membersJSON []byte
+		if err := rows.Scan(&t.ID, &t.Name, &t.CreatedAt, &membersJSON); err != nil {
 			return nil, fmt.Errorf("scan team: %w", err)
+		}
+		if len(membersJSON) > 0 {
+			if err := json.Unmarshal(membersJSON, &t.Members); err != nil {
+				return nil, fmt.Errorf("unmarshal team members: %w", err)
+			}
 		}
 		teams = append(teams, t)
 	}
 
-	for _, t := range teams {
-		members, err := r.GetTeamMembers(ctx, t.ID)
-		if err != nil {
-			return nil, err
-		}
-		t.Members = members
-	}
-
 	return teams, nil
-}
-
-func (r *Repository) GetLeaderboard(ctx context.Context) ([]LeaderboardEntry, error) {
-	query := `
-		SELECT 
-			t.id AS team_id,
-			t.name AS team_name,
-			COALESCE(SUM(ps.best_score) FILTER (WHERE p.published), 0)::INT AS total_score,
-			COUNT(DISTINCT ps.problem_id) FILTER (WHERE p.published AND ps.best_score > 0)::INT AS problems_solved,
-			-- Only scoring rows. Zero-score rows record an attempt, and letting one
-			-- move the tiebreak would rank a team below an equal-scoring rival for
-			-- having tried an extra problem and failed.
-			MAX(ps.updated_at) FILTER (WHERE p.published AND ps.best_score > 0) AS last_submission_at
-		FROM teams t
-		LEFT JOIN problem_scores ps ON t.id = ps.team_id
-		LEFT JOIN problems p ON p.id = ps.problem_id
-		GROUP BY t.id, t.name
-		ORDER BY total_score DESC, last_submission_at ASC NULLS LAST, t.name ASC;
-	`
-	rows, err := r.pool.Query(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("query leaderboard: %w", err)
-	}
-	defer rows.Close()
-
-	var entries []LeaderboardEntry
-	rank := 1
-	for rows.Next() {
-		var entry LeaderboardEntry
-		if err := rows.Scan(&entry.TeamID, &entry.TeamName, &entry.TotalScore, &entry.ProblemsSolved, &entry.LastSubmissionAt); err != nil {
-			return nil, fmt.Errorf("scan leaderboard entry: %w", err)
-		}
-		entry.Rank = rank
-		rank++
-		entries = append(entries, entry)
-	}
-	return entries, rows.Err()
 }
