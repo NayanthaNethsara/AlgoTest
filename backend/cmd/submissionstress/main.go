@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -245,6 +246,10 @@ func startAPIResponsivenessProber(ctx context.Context, baseURL, token string) *l
 				latency := time.Since(t0)
 
 				stats.mu.Lock()
+				if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+					stats.mu.Unlock()
+					return
+				}
 				stats.totalRequests++
 				if err == nil && (resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted) {
 					stats.successCount++
