@@ -35,8 +35,8 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends \
     git make pkg-config libcap-dev libseccomp-dev libsystemd-dev asciidoc-base \
-    g++-13 \
-    python3.12 \
+    g++ \
+    python3 \
     nodejs
 
 # The sandbox resolves bare command names against its own PATH, so the
