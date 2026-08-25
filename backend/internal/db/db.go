@@ -33,6 +33,10 @@ func Connect(ctx context.Context, url string, maxConns, minConns int32) (*pgxpoo
 		cfg.MinConns = minConns
 	}
 
+	cfg.MaxConnLifetime = 30 * time.Minute
+	cfg.MaxConnIdleTime = 5 * time.Minute
+	cfg.HealthCheckPeriod = 1 * time.Minute
+
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create pool: %w", err)

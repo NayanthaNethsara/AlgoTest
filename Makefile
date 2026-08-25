@@ -67,6 +67,9 @@ judgetest:
 proctorsim:
 	$(GO_LIVE) go run ./cmd/proctorsim -api http://localhost:8080 $(ARGS)
 
+submissionstress:
+	$(GO_LIVE) go run ./cmd/submissionstress $(ARGS)
+
 competitor-frontend:
 	cd competitor-frontend && pnpm dev
 
