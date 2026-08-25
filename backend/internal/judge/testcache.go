@@ -43,3 +43,19 @@ func (c *testCache) invalidate(problemID string) {
 	delete(c.byID, problemID)
 	c.mu.Unlock()
 }
+
+// WarmAll bulk-populates the in-memory cache with test suites.
+func (c *testCache) warmAll(allTests map[string][]TestCase) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for pid, tests := range allTests {
+		c.byID[pid] = tests
+	}
+}
+
+// Len returns the number of problem test suites currently held in memory.
+func (c *testCache) len() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.byID)
+}

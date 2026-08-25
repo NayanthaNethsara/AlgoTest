@@ -189,3 +189,32 @@ func (r *Repository) GetProblemTests(ctx context.Context, problemID string) ([]T
 
 	return tests, nil
 }
+
+// GetAllProblemTests retrieves all configured test cases across all problems for startup cache prewarming.
+func (r *Repository) GetAllProblemTests(ctx context.Context) (map[string][]TestCase, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT problem_id, id, ordinal, input, expected, points
+		FROM problem_tests
+		ORDER BY problem_id, ordinal ASC;
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("query all problem tests: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]TestCase)
+	for rows.Next() {
+		var (
+			problemID string
+			t         TestCase
+		)
+		if err := rows.Scan(&problemID, &t.ID, &t.Ordinal, &t.Input, &t.Expected, &t.Points); err != nil {
+			return nil, fmt.Errorf("scan problem test: %w", err)
+		}
+		result[problemID] = append(result[problemID], t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read all problem tests: %w", err)
+	}
+	return result, nil
+}

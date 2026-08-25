@@ -79,10 +79,44 @@ func (j *Judge) Result(ctx context.Context, id string) (*Result, bool, error) {
 	return j.repo.GetSubmission(ctx, id)
 }
 
+// PreloadTests queries and warms the in-memory cache with all problem test cases.
+func (j *Judge) PreloadTests(ctx context.Context) error {
+	allTests, err := j.repo.GetAllProblemTests(ctx)
+	if err != nil {
+		return err
+	}
+	j.tests.warmAll(allTests)
+	if j.log != nil {
+		j.log.Info("in-memory problem test cases prewarmed", "problems_cached", len(allTests))
+	}
+	return nil
+}
+
 func (j *Judge) Start(ctx context.Context) {
 	metrics.JudgeWorkersActive.Set(float64(j.workers))
 
+	// Prewarm all problem test cases into RAM immediately on boot
+	if err := j.PreloadTests(ctx); err != nil && j.log != nil {
+		j.log.Warn("initial test cache prewarm had errors (will lazy load on demand)", "error", err)
+	}
+
 	var wg sync.WaitGroup
+
+	// Background periodic cache sync to prewarm any newly added problems
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_ = j.PreloadTests(ctx)
+			}
+		}
+	}()
 
 	wg.Add(1)
 	go func() {
