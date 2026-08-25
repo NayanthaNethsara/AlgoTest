@@ -85,10 +85,12 @@ func main() {
 		log.Error("runner configuration invalid", "error", err)
 		os.Exit(1)
 	}
-	// Fail at boot rather than serving 500s once traffic arrives.
-	if err := rn.CheckHost(ctx); err != nil {
-		log.Error("sandbox host not ready", "error", err)
-		os.Exit(1)
+	if cfg.JudgeWorkers > 0 {
+		// Fail at boot rather than serving 500s once traffic arrives.
+		if err := rn.CheckHost(ctx); err != nil {
+			log.Error("sandbox host not ready", "error", err)
+			os.Exit(1)
+		}
 	}
 
 	j := judge.New(pool, cfg.JudgeWorkers, log)
