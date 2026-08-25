@@ -1,0 +1,20 @@
+name: algothon-worker
+
+services:
+  judge-worker:
+    image: ghcr.io/nayanthanethsara/algotest/backend:latest
+    container_name: algothon-judge-worker
+    privileged: true
+    restart: unless-stopped
+    command: ["algothon-worker"]
+    env_file:
+      - ./backend/.env
+    volumes:
+      - /var/local/lib/algothon-work:/var/local/lib/algothon-work
+    networks:
+      - algothon-worker-net
+
+networks:
+  algothon-worker-net:
+    name: algothon-worker-net
+    driver: bridge

@@ -1,0 +1,165 @@
+name: Deploy Judge Worker to VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Branch, Tag, or Commit SHA to deploy'
+        required: true
+        default: 'dev/v1-beta'
+      worker_instance:
+        description: 'GCP Worker VM Instance Name'
+        required: false
+        default: 'mini-algothon-worker'
+      worker_zone:
+        description: 'GCP Worker VM Zone'
+        required: false
+        default: 'asia-southeast1-b'
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    name: Build & Push Image to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.git_ref }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: backend/go.sum
+
+      - name: Run Backend Tests
+        working-directory: backend
+        run: go test ./internal/...
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Lowercase Image Name
+        id: image
+        run: |
+          IMAGE_LOWER=$(echo "${{ github.repository }}/backend" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=$IMAGE_LOWER" >> $GITHUB_ENV
+
+      - name: Derive Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile.prod
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy Worker via Docker Compose
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+      GCE_WORKER_INSTANCE: ${{ github.event.inputs.worker_instance || vars.GCE_WORKER_INSTANCE || 'mini-algothon-worker' }}
+      GCE_WORKER_ZONE: ${{ github.event.inputs.worker_zone || vars.GCE_WORKER_ZONE || vars.GCE_ZONE || 'asia-southeast1-b' }}
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+
+      - name: Verify deploy config is present
+        run: |
+          for VAR in GCP_PROJECT DEPLOY_USER DEPLOY_DIR; do
+            if [ -z "${!VAR}" ]; then
+              echo "::error::$VAR is empty -- set it in Settings > Secrets and variables > Actions"
+              exit 1
+            fi
+          done
+
+      - name: Compose remote worker deploy script
+        env:
+          GIT_REF: ${{ github.event.inputs.git_ref }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT || secrets.GITHUB_TOKEN }}
+          REPO_SLUG: ${{ github.repository }}
+        run: |
+          {
+            printf 'export GIT_REF=%q\n' "$GIT_REF"
+            printf 'export GHCR_USER=%q\n' "$GHCR_USER"
+            printf 'export GHCR_TOKEN=%q\n' "$GHCR_TOKEN"
+            printf 'export GHCR_IMAGE=%q\n' "$(echo "$REPO_SLUG/backend" | tr '[:upper:]' '[:lower:]')"
+            printf 'export DEPLOY_DIR=%q\n' "$DEPLOY_DIR"
+            cat <<'REMOTE'
+          set -euo pipefail
+
+          echo "==> Navigating to project directory on Worker VM"
+          cd "$DEPLOY_DIR"
+
+          echo "==> Syncing branch: $GIT_REF"
+          git fetch --all
+          git checkout "$GIT_REF"
+          git pull origin "$GIT_REF"
+
+          echo "==> Logging into GHCR"
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+          echo "==> Pulling latest worker image"
+          docker compose -f docker-compose.worker.yml pull judge-worker
+
+          echo "==> Starting / Updating Judge Worker Service"
+          docker compose -f docker-compose.worker.yml up -d --remove-orphans
+
+          echo "==> Cleaning up dangling old images"
+          docker image prune -f
+
+          echo "==> Judge Worker Status:"
+          docker compose -f docker-compose.worker.yml ps
+          REMOTE
+          } > "$RUNNER_TEMP/deploy_worker.sh"
+
+      - name: Deploy Worker over IAP tunnel
+        run: |
+          gcloud compute ssh "$GCE_WORKER_INSTANCE" \
+            --zone="$GCE_WORKER_ZONE" \
+            --project="$GCP_PROJECT" \
+            --tunnel-through-iap \
+            --quiet \
+            --ssh-key-expire-after=10m \
+            --command="sudo -u $DEPLOY_USER -H bash -s" < "$RUNNER_TEMP/deploy_worker.sh"

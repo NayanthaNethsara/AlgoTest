@@ -4,12 +4,11 @@ services:
   backend:
     image: ghcr.io/nayanthanethsara/algotest/backend:latest
     container_name: algothon-backend
-    privileged: true
     restart: unless-stopped
     env_file:
       - ./backend/.env
-    volumes:
-      - /var/local/lib/algothon-work:/var/local/lib/algothon-work
+    environment:
+      - JUDGE_WORKERS=0
     networks:
       - algothon-net
 
