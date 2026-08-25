@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/metrics"
 )
 
 // ErrBusy means the node is at capacity: either the wait-queue is full, or a
@@ -115,7 +117,9 @@ func (l *limiter) acquireRun(ctx context.Context) (Slot, func(), error) {
 
 	select {
 	case slot := <-l.free:
+		metrics.RunnerBoxesActive.Inc()
 		return slot, func() {
+			metrics.RunnerBoxesActive.Dec()
 			l.free <- slot
 			<-l.admit
 		}, nil
@@ -150,7 +154,9 @@ func (l *limiter) acquireSubmit(ctx context.Context) (Slot, func(), error) {
 
 	select {
 	case slot := <-l.free:
+		metrics.RunnerBoxesActive.Inc()
 		return slot, func() {
+			metrics.RunnerBoxesActive.Dec()
 			l.free <- slot
 			<-l.submitCap
 			<-l.admit

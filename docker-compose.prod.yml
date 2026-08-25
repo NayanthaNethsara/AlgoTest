@@ -1,6 +1,37 @@
 name: algothon-prod
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: algothon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: algothon
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-algothon_local_secure_2026}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - algothon-net
+    command: >
+      postgres -c max_connections=200
+               -c shared_buffers=1024MB
+               -c effective_cache_size=3072MB
+               -c maintenance_work_mem=256MB
+               -c checkpoint_completion_target=0.9
+               -c wal_buffers=16MB
+               -c default_statistics_target=100
+               -c random_page_cost=1.1
+               -c effective_io_concurrency=200
+               -c work_mem=16MB
+               -c min_wal_size=1GB
+               -c max_wal_size=4GB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d algothon"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
   backend:
     image: ghcr.io/nayanthanethsara/algotest/backend:latest
     container_name: algothon-backend
@@ -10,6 +41,9 @@ services:
       - ./backend/.env
     volumes:
       - /var/local/lib/algothon-work:/var/local/lib/algothon-work
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - algothon-net
 
@@ -29,6 +63,10 @@ services:
       - backend
     networks:
       - algothon-net
+
+volumes:
+  postgres-data:
+    name: algothon-postgres-data
 
 networks:
   algothon-net:

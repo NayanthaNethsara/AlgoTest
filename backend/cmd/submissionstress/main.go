@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/csv"
@@ -57,10 +58,21 @@ type contestStateResponse struct {
 	Status string `json:"status"`
 }
 
+type latencyStats struct {
+	totalRequests int64
+	successCount  int64
+	failCount     int64
+	minLatency    time.Duration
+	maxLatency    time.Duration
+	totalLatency  time.Duration
+	mu            sync.Mutex
+}
+
 func main() {
 	var (
 		baseURL      = flag.String("url", "http://localhost:8080", "Backend API base URL")
 		usersCSV     = flag.String("users", "", "Path to CSV file containing username,password")
+		saveUsers    = flag.String("save-users", "", "Path to save newly provisioned users CSV for future instant reuse")
 		adminUser    = flag.String("admin", "", "Admin username to auto-provision test users")
 		adminPass    = flag.String("admin-pass", "", "Admin password to auto-provision test users")
 		userCount    = flag.Int("count", 20, "Number of test users to auto-create if -users is not specified")
@@ -99,6 +111,11 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to auto-provision users: %v\n", err)
 			os.Exit(1)
+		}
+		if *saveUsers != "" {
+			if saveErr := saveCredentials(*saveUsers, creds); saveErr == nil {
+				fmt.Printf("  Saved %d test user credentials to '%s' for future instant reuse\n", len(creds), *saveUsers)
+			}
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "Error: You must provide either:")
@@ -156,6 +173,11 @@ func main() {
 
 	codePayload := sampleCodeForLanguage(*language)
 
+	// Start Background API Responsiveness Prober
+	probeCtx, probeCancel := context.WithCancel(context.Background())
+	defer probeCancel()
+	apiProbe := startAPIResponsivenessProber(probeCtx, cleanBaseURL, sessions[0].token)
+
 	// 3. Fire submissions
 	fmt.Printf("Step 3: Submitting code concurrently for %d users...\n", len(sessions))
 	subStart := time.Now()
@@ -174,12 +196,71 @@ func main() {
 	}
 
 	// 4. Poll / Wait for judge evaluations
-	fmt.Printf("Step 4: Waiting for judge workers to evaluate %d submissions...\n", len(submissionIDs))
+	fmt.Printf("Step 4: Waiting for judge workers to evaluate %d submissions (with concurrent API health probe)...\n", len(submissionIDs))
 	results := waitForVerdicts(httpClient, cleanBaseURL, sessions, submissionIDs, *pollInterval, *maxWait)
 	totalDuration := time.Since(subStart)
+	probeCancel()
 
 	// 5. Output summary metrics
-	summarizeResults(results, len(sessions), submissionFireDuration, totalDuration)
+	summarizeResults(results, len(sessions), submissionFireDuration, totalDuration, apiProbe)
+}
+
+func startAPIResponsivenessProber(ctx context.Context, baseURL, token string) *latencyStats {
+	stats := &latencyStats{minLatency: 999 * time.Second}
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	endpoints := []string{
+		"/healthz",
+		"/api/v1/contest/state",
+		"/api/v1/problems",
+	}
+
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		var epIdx int
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				ep := endpoints[epIdx%len(endpoints)]
+				epIdx++
+
+				req, _ := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+ep, nil)
+				if token != "" && ep != "/healthz" {
+					req.Header.Set("Cookie", "session="+token)
+				}
+
+				t0 := time.Now()
+				resp, err := client.Do(req)
+				latency := time.Since(t0)
+
+				stats.mu.Lock()
+				stats.totalRequests++
+				if err == nil && (resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusAccepted) {
+					stats.successCount++
+					stats.totalLatency += latency
+					if latency < stats.minLatency {
+						stats.minLatency = latency
+					}
+					if latency > stats.maxLatency {
+						stats.maxLatency = latency
+					}
+					resp.Body.Close()
+				} else {
+					stats.failCount++
+					if resp != nil {
+						resp.Body.Close()
+					}
+				}
+				stats.mu.Unlock()
+			}
+		}
+	}()
+
+	return stats
 }
 
 func ensureContestStarted(client *http.Client, baseURL, adminToken string) error {
@@ -380,6 +461,23 @@ func loadCredentials(path string) ([]userCredential, error) {
 	return creds, nil
 }
 
+func saveCredentials(path string, creds []userCredential) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+	defer w.Flush()
+
+	_ = w.Write([]string{"username", "password"})
+	for _, c := range creds {
+		_ = w.Write([]string{c.username, c.password})
+	}
+	return nil
+}
+
 func authenticateUsers(client *http.Client, baseURL string, creds []userCredential) []userSession {
 	var (
 		sessions []userSession
@@ -480,14 +578,16 @@ func findFirstPublishedProblem(client *http.Client, baseURL, token string) (stri
 		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(b))
 	}
 
-	var problems []problemListItem
-	if err := json.NewDecoder(resp.Body).Decode(&problems); err != nil {
+	var out struct {
+		Problems []problemListItem `json:"problems"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return "", err
 	}
-	if len(problems) == 0 {
+	if len(out.Problems) == 0 {
 		return "", fmt.Errorf("no published problems found in contest")
 	}
-	return problems[0].ID, nil
+	return out.Problems[0].ID, nil
 }
 
 func sampleCodeForLanguage(lang string) string {
@@ -595,11 +695,89 @@ func waitForVerdicts(client *http.Client, baseURL string, sessions []userSession
 
 	var completedCount int64
 
+	// Live progress reporter
+	progressDone := make(chan struct{})
+	go func() {
+		defer close(progressDone)
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		start := time.Now()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				done := atomic.LoadInt64(&completedCount)
+				pct := float64(done) / float64(len(jobs)) * 100.0
+				elapsed := time.Since(start).Round(time.Second)
+				fmt.Printf("  [%3s] Graded %d / %d submissions (%.1f%%)\n", elapsed, done, len(jobs), pct)
+				if int(done) == len(jobs) {
+					return
+				}
+			}
+		}
+	}()
+
 	for i, j := range jobs {
 		wg.Add(1)
 		go func(idx int, job submittedJob) {
 			defer wg.Done()
 			start := time.Now()
+
+			// First, try SSE stream listener for instant verdict push
+			sseDone := make(chan bool, 1)
+			go func() {
+				sseReq, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/v1/submissions/stream", nil)
+				if err != nil {
+					sseDone <- false
+					return
+				}
+				sseReq.Header.Set("Cookie", "session="+job.token)
+				sseResp, err := client.Do(sseReq)
+				if err != nil {
+					sseDone <- false
+					return
+				}
+				defer sseResp.Body.Close()
+
+				reader := bufio.NewReader(sseResp.Body)
+				for {
+					line, readErr := reader.ReadString('\n')
+					if readErr != nil {
+						sseDone <- false
+						return
+					}
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(line, "data:") {
+						data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+						var st submissionStatusResponse
+						if json.Unmarshal([]byte(data), &st) == nil {
+							if st.SubmissionID == job.submissionID && (st.Status == "passed" || st.Status == "failed" || st.Verdict != nil) {
+								v := "UNKNOWN"
+								if st.Verdict != nil {
+									v = *st.Verdict
+								}
+								results[idx] = judgedResult{
+									username:     job.username,
+									submissionID: job.submissionID,
+									state:        st.Status,
+									verdict:      v,
+									score:        st.Score,
+									duration:     time.Since(start),
+								}
+								if atomic.AddInt64(&completedCount, 1) == int64(len(jobs)) {
+									cancel()
+								}
+								sseDone <- true
+								return
+							}
+						}
+					}
+				}
+			}()
+
+			// Lightweight fallback polling
 			ticker := time.NewTicker(pollInterval)
 			defer ticker.Stop()
 
@@ -613,8 +791,12 @@ func waitForVerdicts(client *http.Client, baseURL string, sessions []userSession
 						err:          ctx.Err(),
 					}
 					return
+				case finishedViaSSE := <-sseDone:
+					if finishedViaSSE {
+						return
+					}
 				case <-ticker.C:
-					req, _ := http.NewRequest(http.MethodGet, baseURL+"/api/v1/submissions/"+job.submissionID, nil)
+					req, _ := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/v1/submissions/"+job.submissionID, nil)
 					req.Header.Set("Cookie", "session="+job.token)
 
 					resp, err := client.Do(req)
@@ -626,21 +808,27 @@ func waitForVerdicts(client *http.Client, baseURL string, sessions []userSession
 					decodeErr := json.NewDecoder(resp.Body).Decode(&status)
 					resp.Body.Close()
 
-					if decodeErr == nil && (status.Status == "passed" || status.Status == "failed" || status.Verdict != nil) {
-						v := "UNKNOWN"
-						if status.Verdict != nil {
-							v = *status.Verdict
+					if decodeErr == nil {
+						if status.Status == "passed" || status.Status == "failed" || status.Verdict != nil {
+							v := "UNKNOWN"
+							if status.Verdict != nil {
+								v = *status.Verdict
+							}
+							results[idx] = judgedResult{
+								username:     job.username,
+								submissionID: job.submissionID,
+								state:        status.Status,
+								verdict:      v,
+								score:        status.Score,
+								duration:     time.Since(start),
+							}
+							if atomic.AddInt64(&completedCount, 1) == int64(len(jobs)) {
+								cancel()
+							}
+							return
+						} else if time.Since(start) > 6*time.Second && time.Since(start) < 8*time.Second {
+							fmt.Printf("  [DIAG] Trailing sub %s (user %s): status='%s', score=%d\n", job.submissionID, job.username, status.Status, status.Score)
 						}
-						results[idx] = judgedResult{
-							username:     job.username,
-							submissionID: job.submissionID,
-							state:        status.Status,
-							verdict:      v,
-							score:        status.Score,
-							duration:     time.Since(start),
-						}
-						atomic.AddInt64(&completedCount, 1)
-						return
 					}
 				}
 			}
@@ -648,10 +836,12 @@ func waitForVerdicts(client *http.Client, baseURL string, sessions []userSession
 	}
 
 	wg.Wait()
+	cancel()
+	<-progressDone
 	return results
 }
 
-func summarizeResults(results []judgedResult, totalUsers int, ingestDuration, totalDuration time.Duration) {
+func summarizeResults(results []judgedResult, totalUsers int, ingestDuration, totalDuration time.Duration, apiProbe *latencyStats) {
 	verdictCounts := make(map[string]int)
 	var completed int
 	var totalJudgeLatency time.Duration
@@ -666,7 +856,7 @@ func summarizeResults(results []judgedResult, totalUsers int, ingestDuration, to
 		}
 	}
 
-	fmt.Printf("==================== STRESS TEST SUMMARY ====================\n")
+	fmt.Printf("\n==================== STRESS TEST SUMMARY ====================\n")
 	fmt.Printf("  Total Contestant Accounts : %d\n", totalUsers)
 	fmt.Printf("  Submissions Graded        : %d / %d (%.1f%%)\n", completed, len(results), float64(completed)/float64(len(results))*100)
 	fmt.Printf("  Submission Ingest Time    : %s\n", ingestDuration.Round(time.Millisecond))
@@ -682,6 +872,21 @@ func summarizeResults(results []judgedResult, totalUsers int, ingestDuration, to
 	fmt.Printf("\nVerdict Breakdown:\n")
 	for v, count := range verdictCounts {
 		fmt.Printf("  %-15s : %d\n", v, count)
+	}
+
+	if apiProbe != nil {
+		apiProbe.mu.Lock()
+		defer apiProbe.mu.Unlock()
+		fmt.Printf("\n--- Concurrent API Responsiveness Under Peak Judging Load ---\n")
+		fmt.Printf("  Probed API Calls Tested   : %d requests (/healthz, /contest/state, /problems)\n", apiProbe.totalRequests)
+		fmt.Printf("  Successful HTTP Responses : %d / %d\n", apiProbe.successCount, apiProbe.totalRequests)
+		fmt.Printf("  Failed / Stalled Requests : %d\n", apiProbe.failCount)
+		if apiProbe.successCount > 0 {
+			avgAPI := apiProbe.totalLatency / time.Duration(apiProbe.successCount)
+			fmt.Printf("  Min API Response Latency  : %s\n", apiProbe.minLatency.Round(time.Millisecond))
+			fmt.Printf("  Avg API Response Latency  : %s\n", avgAPI.Round(time.Millisecond))
+			fmt.Printf("  Max API Response Latency  : %s\n", apiProbe.maxLatency.Round(time.Millisecond))
+		}
 	}
 	fmt.Printf("=============================================================\n")
 }
