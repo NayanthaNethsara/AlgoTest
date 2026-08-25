@@ -82,6 +82,85 @@ func TestExitCodeOrSignal(t *testing.T) {
 	}
 }
 
+func TestMetaVerdict(t *testing.T) {
+	cases := []struct {
+		name string
+		meta meta
+		mem  int64
+		want Verdict
+	}{
+		{
+			name: "clean exit zero",
+			meta: meta{status: "", exitCode: 0},
+			want: VerdictAC,
+		},
+		{
+			name: "status timed out",
+			meta: meta{status: statusTimedOut},
+			want: VerdictTLE,
+		},
+		{
+			name: "sigxcpu signal 24",
+			meta: meta{status: statusSignalled, exitSig: 24},
+			want: VerdictTLE,
+		},
+		{
+			name: "sigkill signal 9",
+			meta: meta{status: statusSignalled, exitSig: 9},
+			want: VerdictTLE,
+		},
+		{
+			name: "exit code 128+24",
+			meta: meta{status: statusRuntimeError, exitCode: 152},
+			want: VerdictTLE,
+		},
+		{
+			name: "message contains time limit",
+			meta: meta{status: statusRuntimeError, message: "Time limit exceeded"},
+			want: VerdictTLE,
+		},
+		{
+			name: "message contains wall clock",
+			meta: meta{status: statusRuntimeError, message: "Wall clock time exceeded"},
+			want: VerdictTLE,
+		},
+		{
+			name: "cgroup oom killed",
+			meta: meta{cgOOMKilled: true},
+			want: VerdictMLE,
+		},
+		{
+			name: "memory limit threshold reached",
+			meta: meta{status: statusRuntimeError, exitCode: 1, cgMemKB: 250 * 1024},
+			mem:  256 * 1024,
+			want: VerdictMLE,
+		},
+		{
+			name: "output limit exceeded signal 25",
+			meta: meta{status: statusSignalled, exitSig: 25},
+			want: VerdictOLE,
+		},
+		{
+			name: "generic runtime error",
+			meta: meta{status: statusRuntimeError, exitCode: 1},
+			want: VerdictRTE,
+		},
+		{
+			name: "isolate internal error",
+			meta: meta{status: statusInternal},
+			want: VerdictIE,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.meta.verdict(tc.mem); got != tc.want {
+				t.Errorf("verdict = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 // Every concurrent holder must get a distinct box ID: two runs sharing one
 // would collide inside isolate.
 func TestLimiterHandsOutDistinctBoxes(t *testing.T) {

@@ -205,16 +205,34 @@ func wallFloor(wall time.Duration, cpuSeconds float64) time.Duration {
 	return wall
 }
 
-// explainedStderr reports how isolate ended a run when the program was killed
-// before it could print anything itself.
 func explainedStderr(stderr string, m meta) string {
-	if strings.TrimSpace(stderr) != "" || m.message == "" {
+	if strings.TrimSpace(stderr) != "" {
 		return stderr
 	}
-	if m.status == "" {
-		return stderr
+	if m.message != "" {
+		return m.message
 	}
-	return m.message
+	if m.status == statusTimedOut {
+		return "Time limit exceeded"
+	}
+	if m.cgOOMKilled {
+		return "Memory limit exceeded"
+	}
+	if m.status == statusSignalled {
+		if m.exitSig == 24 || m.exitSig == 9 {
+			return "Time limit exceeded"
+		}
+		if m.exitSig == 25 {
+			return "Output limit exceeded"
+		}
+		if m.exitSig > 0 {
+			return fmt.Sprintf("Process terminated by signal %d", m.exitSig)
+		}
+	}
+	if m.status == statusRuntimeError && m.exitCode != 0 {
+		return fmt.Sprintf("Process exited with status code %d", m.exitCode)
+	}
+	return ""
 }
 
 // formatSeconds renders a duration for isolate's fractional-second time flags.

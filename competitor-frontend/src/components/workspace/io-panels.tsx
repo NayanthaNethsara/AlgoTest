@@ -39,7 +39,11 @@ export function IoPanels({
                   className={
                     result.verdict === "AC"
                       ? "font-semibold text-success"
-                      : "font-semibold text-destructive"
+                      : result.verdict === "TLE" ||
+                          result.verdict === "MLE" ||
+                          result.verdict === "SK"
+                        ? "font-semibold text-warning"
+                        : "font-semibold text-destructive"
                   }
                 >
                   {result.verdict}
@@ -87,6 +91,10 @@ function OutputBody({
       </span>
     );
 
+  const hasOutput = Boolean(
+    result.stdout || result.stderr || result.compileError,
+  );
+
   return (
     <div className="flex flex-col gap-3 font-mono text-xs">
       {result.compileError && (
@@ -105,10 +113,21 @@ function OutputBody({
       {result.stderr && !result.compileError && (
         <div className="badge-destructive border p-2.5">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide">
-            Stderr output
+            {result.verdict === "TLE"
+              ? "Time limit exceeded"
+              : result.verdict === "MLE"
+                ? "Memory limit exceeded"
+                : result.verdict === "OLE"
+                  ? "Output limit exceeded"
+                  : "Stderr output"}
           </div>
           <pre className="whitespace-pre-wrap">{result.stderr}</pre>
         </div>
+      )}
+      {!hasOutput && (
+        <span className="text-muted-foreground italic text-xs">
+          (Program produced no output)
+        </span>
       )}
     </div>
   );

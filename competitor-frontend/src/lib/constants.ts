@@ -64,7 +64,11 @@ export const VERDICT_DETAILS: Record<
   WA: { label: "Wrong answer (WA)", variant: "destructive" },
   TLE: { label: "Time limit exceeded (TLE)", variant: "warning" },
   RTE: { label: "Runtime error (RTE)", variant: "destructive" },
+  MLE: { label: "Memory limit exceeded (MLE)", variant: "warning" },
+  OLE: { label: "Output limit exceeded (OLE)", variant: "destructive" },
   CE: { label: "Compilation error (CE)", variant: "destructive" },
+  IE: { label: "Internal sandbox error (IE)", variant: "destructive" },
+  SK: { label: "Skipped (SK)", variant: "warning" },
 };
 
 export const SNAPSHOT_TRIGGER_LABELS: Record<SnapshotTrigger, string> = {

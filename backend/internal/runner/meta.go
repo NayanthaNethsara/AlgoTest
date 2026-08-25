@@ -51,7 +51,6 @@ func (m meta) exitCodeOrSignal() int {
 	return m.exitCode
 }
 
-// verdict maps isolate meta flags to a formal Verdict status.
 func (m meta) verdict(memLimitKB int64) Verdict {
 	if m.cgOOMKilled {
 		return VerdictMLE
@@ -59,19 +58,24 @@ func (m meta) verdict(memLimitKB int64) Verdict {
 	if m.status == statusTimedOut {
 		return VerdictTLE
 	}
+	if (m.status == statusSignalled && (m.exitSig == 24 || m.exitSig == 9)) || m.exitCode == 128+24 || m.exitCode == 128+9 {
+		return VerdictTLE
+	}
+	msgLower := strings.ToLower(m.message)
+	if strings.Contains(msgLower, "time limit") || strings.Contains(msgLower, "timed out") || strings.Contains(msgLower, "wall clock") {
+		return VerdictTLE
+	}
 	if m.status == statusInternal {
 		return VerdictIE
 	}
-	if m.status == statusSignalled && m.exitSig == 25 {
+	if (m.status == statusSignalled && m.exitSig == 25) || m.exitCode == 128+25 {
 		return VerdictOLE
 	}
-	if m.status == statusSignalled || m.status == statusRuntimeError {
-		// Memory threshold check catches unhandled OutOfMemory exceptions in languages like Java/Python
-		// that exit non-zero before triggering a hard cgroup kill.
+	if m.status == statusSignalled || m.status == statusRuntimeError || m.exitCode != 0 {
 		if memLimitKB > 0 && m.memoryKB() >= int64(float64(memLimitKB)*0.95) {
 			return VerdictMLE
 		}
-		return VerdictRE
+		return VerdictRTE
 	}
 	return VerdictAC
 }

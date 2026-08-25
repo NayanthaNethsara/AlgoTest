@@ -13,6 +13,7 @@ import {
   contestLocked,
   useProctor,
 } from "@/components/portal/proctor-provider";
+import { VERDICT_DETAILS } from "@/lib/constants";
 import type { SubmitResult } from "@/types/code";
 import type {
   ActiveSubmission,
@@ -143,14 +144,18 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
 
             setLastResult(parsed);
 
+            const verdictLabel = parsed.verdict
+              ? (VERDICT_DETAILS[parsed.verdict]?.label || parsed.verdict)
+              : "Failed";
+
             setToast({
               id: parsed.submissionId,
               title: passed ? "Submission Accepted!" : "Submission Failed",
               description: passed
                 ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
                 : parsed.compileError
-                  ? "Compilation Error"
-                  : `Verdict: ${parsed.verdict || "Failed"}`,
+                  ? parsed.compileError
+                  : `Verdict: ${verdictLabel}`,
               variant: passed ? "success" : "error",
             });
           }
@@ -194,14 +199,18 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
 
         setLastResult(parsed);
 
+        const verdictLabel = parsed.verdict
+          ? (VERDICT_DETAILS[parsed.verdict]?.label || parsed.verdict)
+          : "Failed";
+
         setToast({
           id: parsed.submissionId || activeSubmission.id,
           title: passed ? "Submission Accepted!" : "Submission Failed",
           description: passed
             ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
             : parsed.compileError
-              ? "Compilation Error"
-              : `Verdict: ${parsed.verdict || "Failed"}`,
+              ? parsed.compileError
+              : `Verdict: ${verdictLabel}`,
           variant: passed ? "success" : "error",
         });
       }

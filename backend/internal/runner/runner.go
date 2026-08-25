@@ -260,6 +260,9 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	}
 
 	verdict := m.verdict(reqMemKB + sp.memoryBonusKB)
+	if m.timeCPU >= effectiveCPU || (effectiveWall > 0 && m.timeWall >= effectiveWall.Seconds()) {
+		verdict = VerdictTLE
+	}
 	stdout := readCapped(filepath.Join(work, "run.out"))
 
 	var cpuMs int64
@@ -268,8 +271,9 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	} else if m.timeWall > 0 && verdict == VerdictTLE {
 		cpuMs = int64(m.timeWall * 1000)
 	}
-	if cpuMs <= 0 && (verdict == VerdictTLE || m.status == statusTimedOut) {
-		cpuMs = int64(effectiveCPU * 1000)
+	limitMs := int64(effectiveCPU * 1000)
+	if verdict == VerdictTLE && (cpuMs > limitMs || cpuMs <= 0) {
+		cpuMs = limitMs
 	}
 
 	return Result{
@@ -455,18 +459,31 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 			if errors.Is(err, ErrSandboxUnavailable) {
 				return BatchResult{}, err
 			}
-			// A judge-side failure, not the submission's fault.
 			verdict = VerdictIE
 		} else {
 			verdict = m.verdict(reqMemKB + sp.memoryBonusKB)
+			if m.timeCPU >= effectiveCPU || (effectiveWall > 0 && m.timeWall >= effectiveWall.Seconds()) {
+				verdict = VerdictTLE
+			}
+		}
+
+		var timeMs int64
+		if m.timeCPU > 0 {
+			timeMs = int64(m.timeCPU * 1000)
+		} else if m.timeWall > 0 && verdict == VerdictTLE {
+			timeMs = int64(m.timeWall * 1000)
+		}
+		limitMs := int64(effectiveCPU * 1000)
+		if verdict == VerdictTLE && (timeMs > limitMs || timeMs <= 0) {
+			timeMs = limitMs
 		}
 
 		res := BatchCaseResult{
 			Ordinal:  c.Ordinal,
 			Stdout:   stdout,
-			Stderr:   stderr,
+			Stderr:   explainedStderr(stderr, m),
 			ExitCode: m.exitCodeOrSignal(),
-			TimeMs:   int64(m.timeCPU * 1000),
+			TimeMs:   timeMs,
 			MemoryKB: m.memoryKB(),
 			Verdict:  verdict,
 		}

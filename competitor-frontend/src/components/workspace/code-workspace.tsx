@@ -91,6 +91,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   }, [lastResult, best, bestKey, language.id, code, record]);
 
   const [runCooldown, setRunCooldown] = useState(0);
+  const [submitCooldown, setSubmitCooldown] = useState(0);
 
   useEffect(() => {
     if (runCooldown <= 0) return;
@@ -99,6 +100,14 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     }, 1000);
     return () => clearInterval(timer);
   }, [runCooldown]);
+
+  useEffect(() => {
+    if (submitCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setSubmitCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [submitCooldown]);
 
   function handleLanguageChange(id: string | null) {
     const next = LANGUAGES.find((lang) => lang.id === id) ?? LANGUAGES[0];
@@ -127,12 +136,13 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   }
 
   async function handleSubmit() {
-    if (isCurrentProblemSubmitting || isPaused || isEnded || isNotStarted) return;
+    if (isCurrentProblemSubmitting || submitCooldown > 0 || isPaused || isEnded || isNotStarted) return;
     setTab("submission");
     setSubmitting(true);
     try {
       const res = await submitFast(problem.id, code, best, language.id);
       setSubmitResult(res);
+      setSubmitCooldown(3);
       if (res.submissionId) {
         record("submitted", language.id, code, {
           submissionId: res.submissionId,
@@ -143,6 +153,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
       }
     } finally {
       setSubmitting(false);
+      setSubmitCooldown(3);
     }
   }
 
@@ -163,7 +174,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
 
   const isRunDisabled = running || runCooldown > 0 || isPaused || isNotStarted;
   const isSubmitDisabled =
-    Boolean(isCurrentProblemSubmitting) || isPaused || isEnded || isNotStarted;
+    Boolean(isCurrentProblemSubmitting) || submitCooldown > 0 || isPaused || isEnded || isNotStarted;
 
   return (
     <div className="flex h-full flex-col">
@@ -256,7 +267,9 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
                         ? "Not Started"
                         : isCurrentProblemSubmitting
                           ? "Submitting..."
-                          : "Submit"}
+                          : submitCooldown > 0
+                            ? `Submit (${submitCooldown}s)`
+                            : "Submit"}
                 </Button>
               </div>
             </div>
