@@ -129,6 +129,11 @@ jobs:
             cat <<'REMOTE'
           set -euo pipefail
 
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            echo "==> Fresh VM detected: Cloning repository into $DEPLOY_DIR"
+            git clone -b "$GIT_REF" "https://github.com/${REPO_SLUG}.git" "$DEPLOY_DIR"
+          fi
+
           echo "==> Navigating to project directory on Worker VM"
           cd "$DEPLOY_DIR"
 
@@ -136,6 +141,15 @@ jobs:
           git fetch --all
           git checkout "$GIT_REF"
           git pull origin "$GIT_REF"
+
+          echo "==> Ensuring isolate work directory exists"
+          sudo mkdir -p /var/local/lib/algothon-work
+          sudo chown -R "$GHCR_USER:$GHCR_USER" /var/local/lib/algothon-work 2>/dev/null || true
+
+          if [ ! -f backend/.env ]; then
+            echo "::error::backend/.env is missing on the worker VM. Please create it manually before deploying."
+            exit 1
+          fi
 
           echo "==> Logging into GHCR"
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
