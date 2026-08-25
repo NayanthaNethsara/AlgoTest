@@ -142,10 +142,6 @@ jobs:
           git checkout "$GIT_REF"
           git pull origin "$GIT_REF"
 
-          echo "==> Ensuring isolate work directory exists"
-          sudo mkdir -p /var/local/lib/algothon-work
-          sudo chown -R "$GHCR_USER:$GHCR_USER" /var/local/lib/algothon-work 2>/dev/null || true
-
           if [ ! -f backend/.env ]; then
             echo "::error::backend/.env is missing on the worker VM. Please create it manually before deploying."
             exit 1
