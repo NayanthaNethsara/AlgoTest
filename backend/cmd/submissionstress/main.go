@@ -171,6 +171,13 @@ func main() {
 		fmt.Printf("Step 2: Using target problem: %s\n\n", targetProblemID)
 	}
 
+	// Ensure contest is active now that problem exists
+	if adminToken != "" {
+		if err := ensureContestStarted(httpClient, cleanBaseURL, adminToken); err != nil {
+			fmt.Fprintf(os.Stderr, "Notice: could not auto-start contest: %v\n", err)
+		}
+	}
+
 	codePayload := sampleCodeForLanguage(*language)
 
 	// Start Background API Responsiveness Prober
@@ -269,33 +276,51 @@ func ensureContestStarted(client *http.Client, baseURL, adminToken string) error
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("query contest state: %w", err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("query contest state HTTP %d: %s", resp.StatusCode, string(b))
+	}
+
 	var state contestStateResponse
-	if err := json.NewDecoder(resp.Body).Decode(&state); err == nil {
-		if state.Status == "ended" {
-			resetReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/admin/contest/reset", nil)
-			resetReq.Header.Set("Cookie", "session="+adminToken)
-			if resetResp, err := client.Do(resetReq); err == nil {
-				resetResp.Body.Close()
-			}
-			state.Status = "not_started"
-		}
+	if err := json.NewDecoder(resp.Body).Decode(&state); err != nil {
+		return fmt.Errorf("decode contest state: %w", err)
+	}
 
-		if state.Status == "not_started" || state.Status == "paused" {
-			startBody, _ := json.Marshal(map[string]int{"durationMinutes": 180})
-			startReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/admin/contest/start", bytes.NewReader(startBody))
-			startReq.Header.Set("Content-Type", "application/json")
-			startReq.Header.Set("Cookie", "session="+adminToken)
+	statusUpper := strings.ToUpper(strings.TrimSpace(state.Status))
 
-			startResp, startErr := client.Do(startReq)
-			if startErr == nil {
-				startResp.Body.Close()
-				fmt.Printf("  Contest was '%s' -- automatically started timer for stress testing\n", state.Status)
-			}
+	if statusUpper == "ENDED" {
+		resetReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/admin/contest/reset", nil)
+		resetReq.Header.Set("Cookie", "session="+adminToken)
+		if resetResp, err := client.Do(resetReq); err == nil {
+			resetResp.Body.Close()
 		}
+		statusUpper = "NOT_STARTED"
+	}
+
+	if statusUpper == "NOT_STARTED" || statusUpper == "PAUSED" {
+		startBody, _ := json.Marshal(map[string]int{"durationMinutes": 180})
+		startReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/admin/contest/start", bytes.NewReader(startBody))
+		startReq.Header.Set("Content-Type", "application/json")
+		startReq.Header.Set("Cookie", "session="+adminToken)
+
+		startResp, startErr := client.Do(startReq)
+		if startErr != nil {
+			return fmt.Errorf("start contest request: %w", startErr)
+		}
+		defer startResp.Body.Close()
+
+		if startResp.StatusCode == http.StatusOK {
+			fmt.Printf("  Contest was '%s' -- automatically started timer\n", state.Status)
+		} else {
+			b, _ := io.ReadAll(startResp.Body)
+			return fmt.Errorf("start contest HTTP %d: %s", startResp.StatusCode, string(b))
+		}
+	} else {
+		fmt.Printf("  Contest state is '%s' (active)\n", state.Status)
 	}
 	return nil
 }
@@ -560,7 +585,57 @@ func findFirstPublishedProblemAdmin(client *http.Client, baseURL, adminToken str
 	if len(out.Problems) > 0 {
 		return out.Problems[0].ID, nil
 	}
-	return "", fmt.Errorf("no problems found in admin portal")
+
+	// Auto-create a sample problem on fresh database
+	return createSampleProblem(client, baseURL, adminToken)
+}
+
+func createSampleProblem(client *http.Client, baseURL, adminToken string) (string, error) {
+	fmt.Printf("  No problems found in fresh database -- auto-creating test problem 'Sum of Two Numbers'...\n")
+	probBody, _ := json.Marshal(map[string]any{
+		"title":         "Sum of Two Numbers",
+		"slug":          fmt.Sprintf("sum-numbers-%d", time.Now().Unix()%10000),
+		"statement":     "Given two integers A and B, compute and print their sum.",
+		"difficulty":    "easy",
+		"timeLimitMs":   2000,
+		"memoryLimitMb": 256,
+		"published":     true,
+		"samples": []map[string]any{
+			{"ordinal": 1, "input": "2 3\n", "output": "5\n"},
+		},
+		"tests": []map[string]any{
+			{"ordinal": 1, "input": "10 20\n", "expected": "30\n", "points": 20},
+			{"ordinal": 2, "input": "100 250\n", "expected": "350\n", "points": 20},
+			{"ordinal": 3, "input": "999 1\n", "expected": "1000\n", "points": 20},
+			{"ordinal": 4, "input": "50 50\n", "expected": "100\n", "points": 20},
+			{"ordinal": 5, "input": "123 456\n", "expected": "579\n", "points": 20},
+		},
+	})
+	probReq, _ := http.NewRequest(http.MethodPost, baseURL+"/api/v1/admin/problems", bytes.NewReader(probBody))
+	probReq.Header.Set("Content-Type", "application/json")
+	probReq.Header.Set("Cookie", "session="+adminToken)
+
+	probResp, err := client.Do(probReq)
+	if err != nil {
+		return "", fmt.Errorf("create sample problem: %w", err)
+	}
+	defer probResp.Body.Close()
+
+	if probResp.StatusCode != http.StatusCreated && probResp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(probResp.Body)
+		return "", fmt.Errorf("create problem HTTP %d: %s", probResp.StatusCode, string(b))
+	}
+
+	var probOut struct {
+		Problem struct {
+			ID string `json:"id"`
+		} `json:"problem"`
+	}
+	if err := json.NewDecoder(probResp.Body).Decode(&probOut); err != nil || probOut.Problem.ID == "" {
+		return "", fmt.Errorf("could not decode created problem ID")
+	}
+
+	return probOut.Problem.ID, nil
 }
 
 func findFirstPublishedProblem(client *http.Client, baseURL, token string) (string, error) {

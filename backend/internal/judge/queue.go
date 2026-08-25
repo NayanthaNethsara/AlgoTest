@@ -85,6 +85,22 @@ func (r *Repository) RenewLease(ctx context.Context, submissionID, workerID stri
 }
 
 func (r *Repository) CompleteSubmission(ctx context.Context, res Result, workerID string) error {
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		err := r.completeSubmissionTx(ctx, res, workerID)
+		if err == nil {
+			return nil
+		}
+		if errors.Is(err, ErrLeaseLost) {
+			return err
+		}
+		lastErr = err
+		time.Sleep(50 * time.Millisecond)
+	}
+	return lastErr
+}
+
+func (r *Repository) completeSubmissionTx(ctx context.Context, res Result, workerID string) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -135,14 +151,7 @@ type scoreWriter interface {
 }
 
 func recomputeProblemScore(ctx context.Context, w scoreWriter, teamID, problemID string) error {
-	if _, err := w.Exec(ctx, `
-		DELETE FROM problem_scores ps
-		WHERE ps.team_id = $1 AND ps.problem_id = $2;
-	`, teamID, problemID); err != nil {
-		return fmt.Errorf("clear problem score: %w", err)
-	}
-
-	if _, err := w.Exec(ctx, `
+	_, err := w.Exec(ctx, `
 		INSERT INTO problem_scores (team_id, problem_id, user_id, best_score, best_submission_id, updated_at)
 		SELECT s.team_id, s.problem_id, s.user_id,
 		       CASE WHEN s.review_status = 'accepted' THEN s.score ELSE 0 END,
@@ -152,8 +161,14 @@ func recomputeProblemScore(ctx context.Context, w scoreWriter, teamID, problemID
 		WHERE s.team_id = $1 AND s.problem_id = $2
 		  AND s.finished_at IS NOT NULL
 		ORDER BY (s.review_status = 'accepted') DESC, s.score DESC, s.finished_at ASC
-		LIMIT 1;
-	`, teamID, problemID); err != nil {
+		LIMIT 1
+		ON CONFLICT (team_id, problem_id) DO UPDATE
+		SET user_id = EXCLUDED.user_id,
+		    best_score = EXCLUDED.best_score,
+		    best_submission_id = EXCLUDED.best_submission_id,
+		    updated_at = EXCLUDED.updated_at;
+	`, teamID, problemID)
+	if err != nil {
 		return fmt.Errorf("recompute problem score: %w", err)
 	}
 	return nil
