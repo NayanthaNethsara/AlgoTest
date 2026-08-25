@@ -805,6 +805,23 @@ func waitForVerdicts(client *http.Client, baseURL string, sessions []userSession
 			defer wg.Done()
 			start := time.Now()
 
+			var once sync.Once
+			recordResult := func(status, verdict string, score int, dur time.Duration) {
+				once.Do(func() {
+					results[idx] = judgedResult{
+						username:     job.username,
+						submissionID: job.submissionID,
+						state:        status,
+						verdict:      verdict,
+						score:        score,
+						duration:     dur,
+					}
+					if atomic.AddInt64(&completedCount, 1) == int64(len(jobs)) {
+						cancel()
+					}
+				})
+			}
+
 			// First, try SSE stream listener for instant verdict push
 			sseDone := make(chan bool, 1)
 			go func() {
@@ -838,17 +855,7 @@ func waitForVerdicts(client *http.Client, baseURL string, sessions []userSession
 								if st.Verdict != nil {
 									v = *st.Verdict
 								}
-								results[idx] = judgedResult{
-									username:     job.username,
-									submissionID: job.submissionID,
-									state:        st.Status,
-									verdict:      v,
-									score:        st.Score,
-									duration:     time.Since(start),
-								}
-								if atomic.AddInt64(&completedCount, 1) == int64(len(jobs)) {
-									cancel()
-								}
+								recordResult(st.Status, v, st.Score, time.Since(start))
 								sseDone <- true
 								return
 							}
@@ -864,12 +871,14 @@ func waitForVerdicts(client *http.Client, baseURL string, sessions []userSession
 			for {
 				select {
 				case <-ctx.Done():
-					results[idx] = judgedResult{
-						username:     job.username,
-						submissionID: job.submissionID,
-						state:        "timed_out",
-						err:          ctx.Err(),
-					}
+					once.Do(func() {
+						results[idx] = judgedResult{
+							username:     job.username,
+							submissionID: job.submissionID,
+							state:        "timed_out",
+							err:          ctx.Err(),
+						}
+					})
 					return
 				case finishedViaSSE := <-sseDone:
 					if finishedViaSSE {
@@ -894,17 +903,7 @@ func waitForVerdicts(client *http.Client, baseURL string, sessions []userSession
 							if status.Verdict != nil {
 								v = *status.Verdict
 							}
-							results[idx] = judgedResult{
-								username:     job.username,
-								submissionID: job.submissionID,
-								state:        status.Status,
-								verdict:      v,
-								score:        status.Score,
-								duration:     time.Since(start),
-							}
-							if atomic.AddInt64(&completedCount, 1) == int64(len(jobs)) {
-								cancel()
-							}
+							recordResult(status.Status, v, status.Score, time.Since(start))
 							return
 						} else if time.Since(start) > 6*time.Second && time.Since(start) < 8*time.Second {
 							fmt.Printf("  [DIAG] Trailing sub %s (user %s): status='%s', score=%d\n", job.submissionID, job.username, status.Status, status.Score)
