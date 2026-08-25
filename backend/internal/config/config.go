@@ -62,7 +62,7 @@ func Load() Config {
 		DatabaseURL:    getenv("DATABASE_URL", "postgres://algothon:algothon@localhost:5432/algothon?sslmode=disable"),
 		DBMaxConns:     int32(getenvInt("DB_MAX_CONNS", 25)),
 		DBMinConns:     int32(getenvInt("DB_MIN_CONNS", 5)),
-		JudgeWorkers:   getenvInt("JUDGE_WORKERS", 0),
+		JudgeWorkers:   getenvInt("JUDGE_WORKERS", -1),
 		QueueSize:      getenvInt("JUDGE_QUEUE_SIZE", 64),
 
 		SessionCookieName: getenv("SESSION_COOKIE_NAME", "session"),
@@ -84,11 +84,11 @@ func Load() Config {
 		RunRequireIsolate:        getenvBool("RUN_REQUIRE_ISOLATE", false),
 	}
 
-	if c.JudgeWorkers <= 0 {
+	if c.JudgeWorkers < 0 {
 		c.JudgeWorkers = c.RunMaxConcurrent - c.RunReserve
-	}
-	if c.JudgeWorkers < 1 {
-		c.JudgeWorkers = 1
+		if c.JudgeWorkers < 1 {
+			c.JudgeWorkers = 1
+		}
 	}
 
 	return c
