@@ -14,6 +14,7 @@ import {
 } from "@/components/portal/submissions-provider";
 import { TopNav } from "@/components/portal/top-nav";
 import type { SessionUser } from "@/lib/auth/constants";
+import { isDesktopClient } from "@/lib/desktop";
 import type { ContestState } from "@/types/contest";
 import type { ProctorSelfStatus } from "@/types/proctor";
 
@@ -100,7 +101,13 @@ function NetworkStatusBanner() {
         </div>
         <button
           type="button"
-          onClick={() => window.location.reload()}
+          onClick={() => {
+            if (isDesktopClient()) {
+              void fetch("http://127.0.0.1:47620/offline", { method: "POST", mode: "no-cors" });
+            } else {
+              window.location.reload();
+            }
+          }}
           className="pixel-flat bg-destructive text-white px-2.5 py-1 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer shrink-0"
         >
           Retry

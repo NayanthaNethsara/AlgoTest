@@ -25,6 +25,7 @@ struct ShellState {
 /// in here costs a contestant a window, not their ability to submit.
 pub fn run() {
     let config = crate::config::load_client();
+    let configured_server_url = config.server_url.clone();
 
     if config.server_url.parse::<tauri::Url>().is_err() {
         log::error!("configured portal address is not a valid URL: {}", config.server_url);
@@ -103,6 +104,11 @@ pub fn run() {
                         style.textContent = 'html, body { overscroll-behavior: none !important; overscroll-behavior-y: none !important; -ms-scroll-chaining: none !important; } header, [data-tauri-drag-region], [data-window-drag-region] { overscroll-behavior: none !important; -ms-scroll-chaining: none !important; }';
                         (document.head || document.documentElement).appendChild(style);
                     })();
+                    window.addEventListener('offline', function() {
+                        try {
+                            fetch("http://127.0.0.1:47620/offline", { method: "POST", mode: "no-cors" });
+                        } catch(e) {}
+                    });
                     document.addEventListener('mousedown', function(e) {
                         if (e.buttons === 1 && e.target && e.target.closest) {
                             var dragRegion = e.target.closest('[data-tauri-drag-region], [data-window-drag-region]');
@@ -136,6 +142,11 @@ pub fn run() {
                         style.textContent = 'html, body { overscroll-behavior: none !important; overscroll-behavior-y: none !important; -ms-scroll-chaining: none !important; } header, [data-tauri-drag-region], [data-window-drag-region] { overscroll-behavior: none !important; -ms-scroll-chaining: none !important; }';
                         (document.head || document.documentElement).appendChild(style);
                     })();
+                    window.addEventListener('offline', function() {
+                        try {
+                            fetch("http://127.0.0.1:47620/offline", { method: "POST", mode: "no-cors" });
+                        } catch(e) {}
+                    });
                     document.addEventListener('mousedown', async function(e) {
                         if (e.buttons === 1 && e.target && e.target.closest) {
                             var dragRegion = e.target.closest('[data-tauri-drag-region], [data-window-drag-region]');
@@ -158,6 +169,7 @@ pub fn run() {
 
             spawn_control_listener(listener, app.handle().clone());
             spawn_agent_watchdog();
+            spawn_portal_watchdog(app.handle().clone(), configured_server_url.clone());
 
             let _ = window.set_focus();
             Ok(())
@@ -350,6 +362,11 @@ fn spawn_control_listener(listener: std::net::TcpListener, app: tauri::AppHandle
                         let _ = window.start_dragging();
                     }
                 }
+                Some("/offline") | Some("/unreachable") => {
+                    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                        let _ = window.navigate(local_app_url("unreachable.html"));
+                    }
+                }
                 _ => {
                     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
                         let _ = window.show();
@@ -450,4 +467,60 @@ fn request_show() {
         .build()
         .ok()
         .and_then(|client| client.post(crate::loopback_url(SHELL_PORT, "/show")).send().ok());
+}
+
+/// Continuously probes the portal address. If the server becomes unreachable while
+/// the webview is pointing to it, navigates to the offline recovery screen before
+/// the browser displays a native connection failure page.
+fn spawn_portal_watchdog(app: tauri::AppHandle, server_url: String) {
+    if server_url.is_empty() {
+        return;
+    }
+
+    std::thread::spawn(move || {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_millis(1500))
+            .build()
+            .unwrap_or_default();
+        let mut consecutive_failures = 0u32;
+
+        loop {
+            std::thread::sleep(Duration::from_secs(4));
+
+            if QUITTING.load(Ordering::Relaxed) {
+                break;
+            }
+
+            let reachable = client
+                .get(&server_url)
+                .send()
+                .map(|r| !r.status().is_server_error())
+                .unwrap_or(false);
+
+            if reachable {
+                consecutive_failures = 0;
+            } else {
+                consecutive_failures += 1;
+                if consecutive_failures >= 2 {
+                    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                        if let Ok(url) = window.url() {
+                            if !url.as_str().contains("unreachable.html") {
+                                log::warn!("portal server unreachable ({consecutive_failures} failed checks); showing offline screen");
+                                let _ = window.navigate(local_app_url("unreachable.html"));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+fn local_app_url(file: &str) -> tauri::Url {
+    #[cfg(target_os = "windows")]
+    let base = "http://tauri.localhost/";
+    #[cfg(not(target_os = "windows"))]
+    let base = "tauri://localhost/";
+    tauri::Url::parse(&format!("{base}{file}"))
+        .unwrap_or_else(|_| tauri::Url::parse("tauri://localhost/").unwrap())
 }
