@@ -5,24 +5,45 @@
     <title>MiniAlgothon — cannot reach the contest server</title>
     <link rel="stylesheet" href="shared.css" />
     <script src="bridge.js"></script>
+  </head>
   <body>
+    <!-- Top Titlebar with Drag Region & Window Controls for Windows -->
+    <div class="desktop-titlebar" data-tauri-drag-region data-window-drag-region>
+      <div class="desktop-titlebar-title" data-tauri-drag-region data-window-drag-region>
+        MiniAlgothon — Offline
+      </div>
+      <div class="desktop-controls" data-no-drag>
+        <button id="win-min" class="win-btn" type="button" title="Minimize">_</button>
+        <button id="win-max" class="win-btn" type="button" title="Maximize">□</button>
+        <button id="win-close" class="win-btn close" type="button" title="Close">✕</button>
+      </div>
+    </div>
+
+    <div class="pulse-badge">
+      <span class="pulse-dot"></span>
+      <span>OFFLINE · RECONNECTING</span>
+    </div>
+
     <h1>CANNOT REACH CONTEST SERVER</h1>
     <p class="lede">
-      Proctoring is unaffected and keeps running. This window just cannot load the contest portal
-      yet.
+      Proctoring is unaffected and keeps running. This window will automatically connect to the contest portal as soon as the server responds.
     </p>
 
     <div class="card">
       <div class="grid">
         <dt>Portal address</dt>
         <dd id="server">—</dd>
-        <dt>Problem</dt>
+        <dt>Status</dt>
         <dd id="message">—</dd>
       </div>
 
-      <div class="row">
-        <button id="retry" type="button">Try again</button>
+      <div class="row" style="margin-top: 18px">
+        <button id="retry" type="button">Try again now</button>
         <button id="setup" type="button" class="secondary">Change server address</button>
+      </div>
+
+      <div class="countdown-text" id="countdown-msg">
+        Auto-retrying in <span id="countdown" style="font-family: monospace; font-weight: 700; color: var(--accent);">10</span>s...
       </div>
     </div>
 
@@ -30,32 +51,43 @@
 
     <h2>WHAT TO CHECK</h2>
     <ul class="tight">
-      <li>You are connected to the contest network, not another Wi-Fi.</li>
-      <li>The address above matches the one the organizers gave you.</li>
-      <li>If everyone in the room is affected, the organizers already know — wait for the retry.</li>
+      <li>You are connected to the venue WiFi / contest network.</li>
+      <li>The address above matches the portal URL provided by contest organizers.</li>
+      <li>If organizers are updating contest servers or phases, wait for the automatic retry.</li>
     </ul>
-
-    <p class="lede" style="margin-top: 20px">
-      This window retries on its own every 10 seconds and opens the portal the moment the server
-      answers.
-    </p>
 
     <script>
       const invoke = window.appInvoke;
       const el = (id) => document.getElementById(id);
 
+      // Window Control Handlers
+      el("win-min")?.addEventListener("click", () => invoke("minimize_window").catch(() => {}));
+      el("win-max")?.addEventListener("click", () => invoke("toggle_maximize_window").catch(() => {}));
+      el("win-close")?.addEventListener("click", () => invoke("close_window").catch(() => {}));
+
+      let countdownSeconds = 10;
+      let countdownTimer = null;
+
       async function load() {
-        const target = await invoke("get_shell_target");
-        el("server").textContent = target.server_url || "not configured";
-        el("message").textContent = target.message || "unknown";
+        try {
+          const target = await invoke("get_shell_target");
+          el("server").textContent = target.server_url || "not configured";
+          el("message").textContent = target.message || "Connecting to server...";
+        } catch (e) {
+          el("server").textContent = "Local desktop shell";
+          el("message").textContent = "Awaiting server connection";
+        }
       }
 
       async function retry(manual) {
         const button = el("retry");
         if (manual) {
           button.disabled = true;
-          button.textContent = "Trying…";
+          button.textContent = "Connecting…";
         }
+        countdownSeconds = 10;
+        updateCountdownUI();
+
         try {
           // Resolves by navigating this window to the portal, so nothing after
           // this line runs on success.
@@ -66,7 +98,23 @@
           el("message").textContent = String(err);
         } finally {
           button.disabled = false;
-          button.textContent = "Try again";
+          button.textContent = "Try again now";
+        }
+      }
+
+      function updateCountdownUI() {
+        const countdownEl = el("countdown");
+        if (countdownEl) {
+          countdownEl.textContent = String(countdownSeconds);
+        }
+      }
+
+      function tickCountdown() {
+        countdownSeconds -= 1;
+        if (countdownSeconds <= 0) {
+          retry(false);
+        } else {
+          updateCountdownUI();
         }
       }
 
@@ -81,7 +129,7 @@
       });
 
       load();
-      setInterval(() => retry(false), 10_000);
+      countdownTimer = setInterval(tickCountdown, 1000);
     </script>
   </body>
 </html>

@@ -25,18 +25,18 @@ export function TopNav({ user }: { user: SessionUser | null }) {
     <header
       data-tauri-drag-region
       data-window-drag-region
-      className="relative z-20 border-b-2 border-black bg-card px-3 sm:px-6 lg:px-7 py-2 sm:py-2.5 lg:py-3 shadow-[0px_4px_0px_var(--edge)] select-none overscroll-none shrink-0"
+      className="relative z-20 border-b-2 border-black bg-card px-2.5 sm:px-4 lg:px-6 py-2 sm:py-2.5 shadow-[0px_4px_0px_var(--edge)] select-none overscroll-none shrink-0"
     >
       <div
         data-tauri-drag-region
         data-window-drag-region
-        className="flex items-center justify-between gap-2 sm:gap-4"
+        className="flex items-center justify-between gap-1.5 sm:gap-3"
       >
         {/* Left Side: Logo & Navigation */}
         <div
           data-tauri-drag-region
           data-window-drag-region
-          className="flex items-center gap-3 md:gap-6 lg:gap-7 shrink-0 min-w-0"
+          className="flex items-center gap-2 sm:gap-4 md:gap-5 lg:gap-6 shrink-0 min-w-0"
         >
           <Link
             href="/challenges"
@@ -47,11 +47,11 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             <img
               src="/logo/mini-algothon.svg"
               alt="MiniAlgothon"
-              className="h-5.5 sm:h-6 w-auto max-w-[140px] sm:max-w-none object-contain shrink-0"
+              className="h-5 sm:h-6 w-auto max-w-[130px] sm:max-w-none object-contain shrink-0"
             />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1 lg:gap-1.5 border-l-2 border-black pl-3 lg:pl-5">
+          <nav className="hidden md:flex items-center gap-1 lg:gap-1.5 border-l-2 border-black pl-2.5 sm:pl-3 lg:pl-5">
             {NAV_LINKS.map((link) => {
               const active = pathname.startsWith(link.href);
               const Icon = link.icon;
@@ -78,12 +78,12 @@ export function TopNav({ user }: { user: SessionUser | null }) {
         <div
           data-tauri-drag-region
           data-window-drag-region
-          className="flex-1 self-stretch min-h-6 min-w-4 cursor-default"
+          className="flex-1 self-stretch min-h-6 min-w-2 cursor-default"
           aria-hidden="true"
         />
 
         {/* Right Side: Timer, User Info, Mobile Toggle & Desktop Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5 shrink-0">
           <ContestTimer />
 
           {user && (

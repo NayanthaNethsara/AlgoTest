@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { AlertCircle, CheckCircle2, Info, Wifi, WifiOff, X } from "lucide-react";
 import { AccessBlockScreen } from "@/components/portal/access-block";
 import { ContestPhaseBanner } from "@/components/portal/contest-phase-banner";
 import { ContestProvider } from "@/components/portal/contest-provider";
@@ -34,6 +34,7 @@ export function PortalShell({
         <SubmissionsProvider>
           <div className="flex h-dvh flex-col overflow-hidden overscroll-none">
             <TopNav user={user} />
+            <NetworkStatusBanner />
             <ContestPhaseBanner />
             <div className="relative min-h-0 flex-1 overflow-hidden overscroll-contain">
               {children}
@@ -46,6 +47,81 @@ export function PortalShell({
       </ProctorProvider>
     </ContestProvider>
   );
+}
+
+function subscribeOnline(callback: () => void) {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+}
+
+function getOnlineSnapshot(): boolean {
+  return navigator.onLine;
+}
+
+function getServerOnlineSnapshot(): boolean {
+  return true;
+}
+
+function NetworkStatusBanner() {
+  const isOnline = React.useSyncExternalStore(
+    subscribeOnline,
+    getOnlineSnapshot,
+    getServerOnlineSnapshot,
+  );
+  const isOffline = !isOnline;
+  const [showRestored, setShowRestored] = useState(false);
+  const wasOfflineRef = React.useRef(false);
+
+  useEffect(() => {
+    if (wasOfflineRef.current && isOnline) {
+      setShowRestored(true);
+      const timer = setTimeout(() => setShowRestored(false), 4000);
+      return () => clearTimeout(timer);
+    }
+    wasOfflineRef.current = !isOnline;
+  }, [isOnline]);
+
+  if (isOffline) {
+    return (
+      <div
+        role="alert"
+        className="z-50 flex items-center justify-between gap-3 border-b-2 border-destructive bg-destructive/20 px-4 py-2 text-xs text-destructive animate-in slide-in-from-top-1 shrink-0"
+      >
+        <div className="flex items-center gap-2">
+          <WifiOff className="h-4 w-4 shrink-0 animate-pulse" />
+          <span className="font-semibold">Network Connection Lost.</span>
+          <span className="text-muted-foreground hidden sm:inline">
+            Reconnecting to the contest server...
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="pixel-flat bg-destructive text-white px-2.5 py-1 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer shrink-0"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (showRestored) {
+    return (
+      <div
+        role="status"
+        className="z-50 flex items-center gap-2 border-b-2 border-success bg-success/20 px-4 py-1.5 text-xs text-success animate-in slide-in-from-top-1 shrink-0"
+      >
+        <Wifi className="h-4 w-4 shrink-0" />
+        <span className="font-semibold">Connection Restored.</span>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function ToastBanner() {

@@ -425,3 +425,38 @@ code {
   color: #ffffff;
 }
 
+.pulse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 2px solid var(--warning);
+  color: var(--warning);
+  font-family: var(--font-header);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--warning);
+  animation: pulse-glow 1.2s infinite;
+}
+
+@keyframes pulse-glow {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.countdown-text {
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 14px;
+}
+
