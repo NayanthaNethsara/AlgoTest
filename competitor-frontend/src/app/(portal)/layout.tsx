@@ -4,6 +4,8 @@ import { PortalShell } from "@/components/portal/portal-shell";
 import { getSessionUser } from "@/lib/auth/session";
 import { readProctorGate } from "@/lib/proctor-gate";
 
+export const dynamic = "force-dynamic";
+
 export default async function PortalLayout({
   children,
 }: {
