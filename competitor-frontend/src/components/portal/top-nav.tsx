@@ -93,11 +93,11 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               {activeSubmission && (
                 <Badge
                   variant="outline"
-                  className="gap-1 border-primary bg-primary/20 text-primary text-xs h-7 px-1.5 sm:px-2 animate-pulse hidden sm:flex shrink-0"
+                  className="gap-1 border-primary bg-primary/20 text-primary text-xs h-7 px-1.5 sm:px-2 animate-pulse hidden lg:flex shrink-0"
                   title={activeSubmission.status === "queued" ? `Queued #${activeSubmission.queuePosition ?? 1}` : "Judging..."}
                 >
                   <Loader2 className="h-3 w-3 pixel-spin" />
-                  <span className="hidden lg:inline">
+                  <span>
                     {activeSubmission.status === "queued"
                       ? `#${activeSubmission.queuePosition ?? 1}`
                       : "Judging"}
@@ -108,7 +108,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               {user.teamName ? (
                 <Badge
                   variant="secondary"
-                  className="gap-1 text-xs h-7 px-1.5 sm:px-2 bg-muted max-w-[80px] sm:max-w-[120px] truncate hidden md:flex shrink-0"
+                  className="gap-1 text-xs h-7 px-1.5 sm:px-2 bg-muted max-w-[120px] truncate hidden lg:flex shrink-0"
                   title={user.teamName}
                 >
                   <Users className="h-3 w-3 text-primary shrink-0" />

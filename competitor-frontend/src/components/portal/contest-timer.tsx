@@ -25,11 +25,11 @@ export function ContestTimer() {
 
   if (state.status === CONTEST_STATUS.NOT_STARTED) {
     return (
-      <div className="flex items-center gap-1.5 pixel-flat bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 pixel-flat bg-muted px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs text-muted-foreground shrink-0">
         <Timer className="h-3.5 w-3.5 text-primary" />
         {startsInSeconds > 0 ? (
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold uppercase text-[10px] tracking-wider text-primary">
+            <span className="font-semibold uppercase text-[10px] tracking-wider text-primary hidden sm:inline">
               Starts In
             </span>
             <span className="font-mono font-bold text-foreground">
@@ -38,7 +38,7 @@ export function ContestTimer() {
           </div>
         ) : (
           <span className="font-semibold uppercase text-[11px] tracking-wide text-muted-foreground">
-            Contest Not Started
+            <span className="hidden sm:inline">Contest </span>Not Started
           </span>
         )}
       </div>
@@ -47,7 +47,7 @@ export function ContestTimer() {
 
   if (state.status === CONTEST_STATUS.PAUSED) {
     return (
-      <div className="flex items-center gap-2 pixel-flat bg-amber-500/10 border-amber-500/30 px-2.5 py-1 text-xs text-amber-500">
+      <div className="flex items-center gap-1.5 sm:gap-2 pixel-flat bg-amber-500/10 border-amber-500/30 px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs text-amber-500 shrink-0">
         <PauseCircle className="h-3.5 w-3.5 animate-pulse" />
         <span className="font-bold uppercase text-[11px] tracking-wider">
           Paused
@@ -61,10 +61,10 @@ export function ContestTimer() {
 
   if (state.status === CONTEST_STATUS.ENDED || remainingSeconds === 0) {
     return (
-      <div className="flex items-center gap-1.5 pixel-flat bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 pixel-flat bg-muted px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs text-muted-foreground shrink-0">
         <Clock className="h-3.5 w-3.5" />
         <span className="font-semibold uppercase text-[11px] tracking-wide">
-          Contest Ended
+          <span className="hidden sm:inline">Contest </span>Ended
         </span>
       </div>
     );
@@ -72,7 +72,7 @@ export function ContestTimer() {
 
   return (
     <div
-      className={`flex items-center gap-2 pixel-flat px-2.5 py-1 text-xs transition-colors ${
+      className={`flex items-center gap-1.5 sm:gap-2 pixel-flat px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs transition-colors shrink-0 ${
         isCritical
           ? "border-destructive/60 bg-destructive/15 text-destructive animate-pulse"
           : isWarning

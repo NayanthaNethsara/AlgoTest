@@ -24,7 +24,11 @@ function checkIsWindowsDesktop(): boolean {
   return Boolean((hasDesktopCookie || hasDesktopParam || hasDesktopGlobal) && !isMac);
 }
 
-export function DesktopWindowControls() {
+export function DesktopWindowControls({
+  className,
+}: {
+  className?: string;
+} = {}) {
   const [isWindowsDesktop] = useState(checkIsWindowsDesktop);
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -130,7 +134,10 @@ export function DesktopWindowControls() {
 
   return (
     <div
-      className="flex items-center gap-1 border-l-2 border-black pl-3 ml-0.5 select-none shrink-0"
+      className={
+        className ??
+        "flex items-center gap-1 border-l-2 border-black pl-2.5 ml-0.5 select-none shrink-0"
+      }
       data-no-drag
     >
       <button
