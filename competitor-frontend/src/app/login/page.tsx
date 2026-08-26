@@ -10,6 +10,7 @@ export default async function LoginPage() {
 
   return (
     <div
+      data-tauri-drag-region
       data-window-drag-region
       className="relative flex h-dvh flex-col bg-background select-none"
     >

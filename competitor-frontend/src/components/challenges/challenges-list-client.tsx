@@ -103,19 +103,6 @@ export function ChallengesListClient({
   });
 
   const sortedProblems = [...filteredProblems].sort((a, b) => {
-    const aProg = (a.id ? progress[a.id] : undefined) ||
-      (a.slug ? progress[a.slug] : undefined) || {
-        problemId: a.id,
-        status: CHALLENGE_STATUS.NOT_ATTEMPTED,
-        bestScore: 0,
-      };
-    const bProg = (b.id ? progress[b.id] : undefined) ||
-      (b.slug ? progress[b.slug] : undefined) || {
-        problemId: b.id,
-        status: CHALLENGE_STATUS.NOT_ATTEMPTED,
-        bestScore: 0,
-      };
-
     if (sortBy === "POINTS_DESC") return b.points - a.points;
     if (sortBy === "POINTS_ASC") return a.points - b.points;
     if (sortBy === "TITLE_ASC") return a.title.localeCompare(b.title);

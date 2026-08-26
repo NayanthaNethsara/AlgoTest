@@ -26,57 +26,104 @@ export function DesktopWindowControls() {
   const [isWindowsDesktop] = useState(checkIsWindowsDesktop);
   const [isMaximized, setIsMaximized] = useState(false);
 
+  const handleMinimize = async () => {
+    try {
+      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+      await getCurrentWebviewWindow().minimize();
+    } catch {
+      void fetch("http://127.0.0.1:47620/minimize", {
+        method: "POST",
+        mode: "no-cors",
+      }).catch(() => {});
+    }
+  };
+
+  const handleToggleMaximize = async () => {
+    try {
+      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+      const appWindow = getCurrentWebviewWindow();
+      const maximized = await appWindow.isMaximized();
+      if (maximized) {
+        await appWindow.unmaximize();
+        setIsMaximized(false);
+      } else {
+        await appWindow.maximize();
+        setIsMaximized(true);
+      }
+    } catch {
+      void fetch("http://127.0.0.1:47620/toggle-maximize", {
+        method: "POST",
+        mode: "no-cors",
+      })
+        .then(() => setIsMaximized((prev) => !prev))
+        .catch(() => {});
+    }
+  };
+
+  const handleClose = async () => {
+    try {
+      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+      await getCurrentWebviewWindow().hide();
+    } catch {
+      void fetch("http://127.0.0.1:47620/close", {
+        method: "POST",
+        mode: "no-cors",
+      }).catch(() => {});
+    }
+  };
+
   useEffect(() => {
     if (!isWindowsDesktop) return;
 
-    // Attach dragging listener for regions marked with data-window-drag-region
-    const handleMouseDown = (e: MouseEvent) => {
+    // Attach dragging listener for regions marked with data-tauri-drag-region or data-window-drag-region
+    const handleMouseDown = async (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
-      const dragRegion = target.closest("[data-window-drag-region]");
+      const dragRegion = target.closest("[data-tauri-drag-region], [data-window-drag-region]");
       const isInteractive = target.closest(
         "button, a, input, select, textarea, [data-no-drag]",
       );
 
       if (dragRegion && !isInteractive && e.buttons === 1) {
-        void fetch("http://127.0.0.1:47620/drag", {
-          method: "POST",
-          mode: "no-cors",
-        }).catch(() => {});
+        try {
+          const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+          const appWindow = getCurrentWebviewWindow();
+          await appWindow.startDragging();
+          return;
+        } catch {
+          void fetch("http://127.0.0.1:47620/drag", {
+            method: "POST",
+            mode: "no-cors",
+          }).catch(() => {});
+        }
+      }
+    };
+
+    // Double click to toggle maximize on drag regions
+    const handleDoubleClick = async (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const dragRegion = target.closest("[data-tauri-drag-region], [data-window-drag-region]");
+      const isInteractive = target.closest(
+        "button, a, input, select, textarea, [data-no-drag]",
+      );
+
+      if (dragRegion && !isInteractive) {
+        void handleToggleMaximize();
       }
     };
 
     document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("dblclick", handleDoubleClick);
     return () => {
       document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("dblclick", handleDoubleClick);
     };
   }, [isWindowsDesktop]);
 
   if (!isWindowsDesktop) return null;
-
-  const handleMinimize = () => {
-    void fetch("http://127.0.0.1:47620/minimize", {
-      method: "POST",
-      mode: "no-cors",
-    }).catch(() => {});
-  };
-
-  const handleToggleMaximize = () => {
-    void fetch("http://127.0.0.1:47620/toggle-maximize", {
-      method: "POST",
-      mode: "no-cors",
-    })
-      .then(() => setIsMaximized((prev) => !prev))
-      .catch(() => {});
-  };
-
-  const handleClose = () => {
-    void fetch("http://127.0.0.1:47620/close", {
-      method: "POST",
-      mode: "no-cors",
-    }).catch(() => {});
-  };
 
   return (
     <div
