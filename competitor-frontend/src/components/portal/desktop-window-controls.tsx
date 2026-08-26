@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Copy, Minus, Square, X } from "lucide-react";
 
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+
 function checkIsWindowsDesktop(): boolean {
   if (typeof window === "undefined") return false;
   const hasDesktopCookie = document.cookie.includes(
@@ -28,8 +30,8 @@ export function DesktopWindowControls() {
 
   const handleMinimize = async () => {
     try {
-      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-      await getCurrentWebviewWindow().minimize();
+      const appWindow = getCurrentWebviewWindow();
+      await appWindow.minimize();
     } catch {
       void fetch("http://127.0.0.1:47620/minimize", {
         method: "POST",
@@ -40,7 +42,6 @@ export function DesktopWindowControls() {
 
   const handleToggleMaximize = async () => {
     try {
-      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
       const appWindow = getCurrentWebviewWindow();
       const maximized = await appWindow.isMaximized();
       if (maximized) {
@@ -62,8 +63,8 @@ export function DesktopWindowControls() {
 
   const handleClose = async () => {
     try {
-      const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
-      await getCurrentWebviewWindow().hide();
+      const appWindow = getCurrentWebviewWindow();
+      await appWindow.hide();
     } catch {
       void fetch("http://127.0.0.1:47620/close", {
         method: "POST",
@@ -76,7 +77,8 @@ export function DesktopWindowControls() {
     if (!isWindowsDesktop) return;
 
     // Attach dragging listener for regions marked with data-tauri-drag-region or data-window-drag-region
-    const handleMouseDown = async (e: MouseEvent) => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.buttons !== 1) return;
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
@@ -85,12 +87,10 @@ export function DesktopWindowControls() {
         "button, a, input, select, textarea, [data-no-drag]",
       );
 
-      if (dragRegion && !isInteractive && e.buttons === 1) {
+      if (dragRegion && !isInteractive) {
         try {
-          const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
           const appWindow = getCurrentWebviewWindow();
-          await appWindow.startDragging();
-          return;
+          void appWindow.startDragging();
         } catch {
           void fetch("http://127.0.0.1:47620/drag", {
             method: "POST",
@@ -101,7 +101,7 @@ export function DesktopWindowControls() {
     };
 
     // Double click to toggle maximize on drag regions
-    const handleDoubleClick = async (e: MouseEvent) => {
+    const handleDoubleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
 
@@ -115,11 +115,11 @@ export function DesktopWindowControls() {
       }
     };
 
-    document.addEventListener("mousedown", handleMouseDown);
-    document.addEventListener("dblclick", handleDoubleClick);
+    document.addEventListener("mousedown", handleMouseDown, true);
+    document.addEventListener("dblclick", handleDoubleClick, true);
     return () => {
-      document.removeEventListener("mousedown", handleMouseDown);
-      document.removeEventListener("dblclick", handleDoubleClick);
+      document.removeEventListener("mousedown", handleMouseDown, true);
+      document.removeEventListener("dblclick", handleDoubleClick, true);
     };
   }, [isWindowsDesktop]);
 

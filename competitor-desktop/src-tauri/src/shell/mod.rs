@@ -97,6 +97,19 @@ pub fn run() {
                     document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
                     window.__MINIALGOTHON_DESKTOP__ = true;
                     window.__MINIALGOTHON_OS__ = "macos";
+                    document.addEventListener('mousedown', function(e) {
+                        if (e.buttons === 1 && e.target && e.target.closest) {
+                            var dragRegion = e.target.closest('[data-tauri-drag-region], [data-window-drag-region]');
+                            var interactive = e.target.closest('button, a, input, select, textarea, [data-no-drag]');
+                            if (dragRegion && !interactive) {
+                                try {
+                                    if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+                                        window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging');
+                                    }
+                                } catch (err) {}
+                            }
+                        }
+                    }, true);
                 "#)
                 .build()?;
 
@@ -111,6 +124,19 @@ pub fn run() {
                     document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
                     window.__MINIALGOTHON_DESKTOP__ = true;
                     window.__MINIALGOTHON_OS__ = "windows";
+                    document.addEventListener('mousedown', function(e) {
+                        if (e.buttons === 1 && e.target && e.target.closest) {
+                            var dragRegion = e.target.closest('[data-tauri-drag-region], [data-window-drag-region]');
+                            var interactive = e.target.closest('button, a, input, select, textarea, [data-no-drag]');
+                            if (dragRegion && !interactive) {
+                                try {
+                                    if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+                                        window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging');
+                                    }
+                                } catch (err) {}
+                            }
+                        }
+                    }, true);
                 "#)
                 .build()?;
 
