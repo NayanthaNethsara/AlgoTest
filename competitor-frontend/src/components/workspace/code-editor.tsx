@@ -113,11 +113,8 @@ export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
       }
       options={{
         fontSize: 14,
-        fontFamily:
-          mode === "pixel"
-            ? "var(--font-mono), ui-monospace, monospace"
-            : "Menlo, Monaco, Consolas, 'Fira Code', var(--font-mono), monospace",
-        fontLigatures: mode !== "pixel",
+        fontFamily: "var(--font-mono), ui-monospace, monospace",
+        fontLigatures: true,
         lineNumbers: "on",
         minimap: { enabled: false },
         scrollBeyondLastLine: false,
@@ -126,11 +123,11 @@ export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
         padding: { top: 12, bottom: 12 },
         automaticLayout: true,
         scrollbar: { verticalScrollbarSize: 12, horizontalScrollbarSize: 12 },
-        cursorStyle: mode === "pixel" ? "block" : "line",
-        cursorBlinking: mode === "pixel" ? "blink" : "smooth",
-        cursorSmoothCaretAnimation: mode === "pixel" ? "off" : "on",
-        smoothScrolling: mode !== "pixel",
-        roundedSelection: mode !== "pixel",
+        cursorStyle: "line",
+        cursorBlinking: "smooth",
+        cursorSmoothCaretAnimation: "on",
+        smoothScrolling: true,
+        roundedSelection: true,
       }}
     />
   );

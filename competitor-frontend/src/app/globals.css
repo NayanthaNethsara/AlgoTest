@@ -460,14 +460,9 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
    Challenge Workspace Mode Overrides (Dark & Light)
    ========================================================================== */
 
-/* Clean Dark Mode: Preserves original dark background/palette, normalizes fonts */
+/* Dark Mode: Uses Geist Mono (var(--font-mono)) for all text and UI */
 .challenge-mode-dark {
-  font-family:
-    var(--font-inter),
-    Inter,
-    system-ui,
-    -apple-system,
-    sans-serif !important;
+  font-family: var(--font-mono), monospace !important;
 }
 
 .challenge-mode-dark *,
@@ -481,12 +476,7 @@ body:has(.challenge-mode-light) .pixel-noise-overlay {
 .challenge-mode-dark .pixel-label,
 .challenge-mode-dark .font-pixel-header,
 .challenge-mode-dark .font-pixel-body {
-  font-family:
-    var(--font-inter),
-    Inter,
-    system-ui,
-    -apple-system,
-    sans-serif !important;
+  font-family: var(--font-mono), monospace !important;
   text-shadow: none !important;
   letter-spacing: normal !important;
 }
@@ -511,7 +501,7 @@ body:has(.challenge-mode-dark) ::-webkit-scrollbar-track {
   background: var(--background);
 }
 
-/* Clean Light Mode: Full modern light theme with scoped CSS variables */
+/* Clean Light Mode: Full modern light theme with Geist Mono font */
 .challenge-mode-light {
   --background: #f8fafc;
   --foreground: #0f172a;
@@ -549,12 +539,7 @@ body:has(.challenge-mode-dark) ::-webkit-scrollbar-track {
   --teal: #0891b2;
   --teal-deep: #0e7490;
 
-  font-family:
-    var(--font-inter),
-    Inter,
-    system-ui,
-    -apple-system,
-    sans-serif !important;
+  font-family: var(--font-mono), monospace !important;
   background-color: var(--background) !important;
   color: var(--foreground) !important;
 }
@@ -570,12 +555,7 @@ body:has(.challenge-mode-dark) ::-webkit-scrollbar-track {
 .challenge-mode-light .pixel-label,
 .challenge-mode-light .font-pixel-header,
 .challenge-mode-light .font-pixel-body {
-  font-family:
-    var(--font-inter),
-    Inter,
-    system-ui,
-    -apple-system,
-    sans-serif !important;
+  font-family: var(--font-mono), monospace !important;
   text-shadow: none !important;
   letter-spacing: normal !important;
 }

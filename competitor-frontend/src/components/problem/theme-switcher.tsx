@@ -1,32 +1,18 @@
 "use client";
 
 import { useChallengeTheme } from "@/components/problem/challenge-theme-provider";
-import { Gamepad2, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 
 export function ChallengeThemeSwitcher() {
   const { mode, setMode } = useChallengeTheme();
 
   return (
-    <div className="flex items-center gap-1 pixel-flat bg-card p-1">
-      <button
-        type="button"
-        onClick={() => setMode("pixel")}
-        title="Pixel Retro Mode"
-        className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
-          mode === "pixel"
-            ? "bg-primary font-semibold text-primary-foreground"
-            : "text-muted-foreground hover:text-foreground"
-        }`}
-      >
-        <Gamepad2 className="h-3.5 w-3.5" />
-        <span>Pixel</span>
-      </button>
-
+    <div className="flex items-center gap-1 pixel-flat bg-card p-1 font-mono">
       <button
         type="button"
         onClick={() => setMode("dark")}
-        title="Clean Dark Mode"
-        className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-sans transition-colors ${
+        title="Dark Mode"
+        className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
           mode === "dark"
             ? "bg-primary font-semibold text-primary-foreground"
             : "text-muted-foreground hover:text-foreground"
@@ -39,8 +25,8 @@ export function ChallengeThemeSwitcher() {
       <button
         type="button"
         onClick={() => setMode("light")}
-        title="Clean Light Mode"
-        className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-sans transition-colors ${
+        title="Light Mode"
+        className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium transition-colors ${
           mode === "light"
             ? "bg-primary font-semibold text-primary-foreground"
             : "text-muted-foreground hover:text-foreground"

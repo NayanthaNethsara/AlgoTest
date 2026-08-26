@@ -62,7 +62,7 @@ export function HistoryPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex h-screen max-h-screen w-full flex-col gap-0 p-0 overflow-hidden sm:w-[85vw] sm:max-w-[1200px] 2xl:max-w-[1400px]"
+        className="flex h-screen max-h-screen w-full flex-col gap-0 p-0 overflow-hidden sm:w-[85vw] sm:max-w-[1200px] 2xl:max-w-[1400px] font-mono"
       >
         <SheetHeader className="shrink-0 border-b-2 border-border px-5 py-3.5 pr-14 bg-card">
           <div className="flex items-center gap-2.5">

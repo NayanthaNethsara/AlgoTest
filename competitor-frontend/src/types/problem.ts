@@ -28,4 +28,4 @@ export type Problem = {
   subtasks?: { id: number; points: number; constraints: string }[];
 };
 
-export type ChallengeThemeMode = "pixel" | "dark" | "light";
+export type ChallengeThemeMode = "dark" | "light";

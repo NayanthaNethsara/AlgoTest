@@ -54,7 +54,7 @@ export function SubmissionResult({
     : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4 pb-16">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4 pb-16 font-mono">
       <div className="flex items-center justify-between pixel-raised bg-card p-4">
         <div className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">

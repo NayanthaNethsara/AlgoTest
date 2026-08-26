@@ -8,7 +8,7 @@ import type { Problem, Sample } from "@/types/problem";
 
 export function ProblemPanel({ problem }: { problem: Problem }) {
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="h-full font-mono">
       <div className="flex flex-col gap-6 p-6">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-2.5">

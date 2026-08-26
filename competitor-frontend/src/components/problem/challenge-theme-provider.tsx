@@ -14,10 +14,9 @@ type ChallengeThemeContextType = {
   setMode: (mode: ChallengeThemeMode) => void;
 };
 
-const DEFAULT_MODE: ChallengeThemeMode = "pixel";
+const DEFAULT_MODE: ChallengeThemeMode = "dark";
 
 const MODE_CLASS: Record<ChallengeThemeMode, string> = {
-  pixel: "challenge-mode-pixel",
   dark: "challenge-mode-dark",
   light: "challenge-mode-light",
 };
@@ -39,7 +38,7 @@ function subscribe(onStoreChange: () => void) {
 function readMode(): ChallengeThemeMode {
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
-    if (saved === "pixel" || saved === "dark" || saved === "light") {
+    if (saved === "dark" || saved === "light") {
       return saved;
     }
   } catch {

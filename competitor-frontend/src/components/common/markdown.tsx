@@ -8,7 +8,7 @@ import "katex/dist/katex.min.css";
 
 export function Markdown({ children }: { children: string }) {
   return (
-    <div className="markdown text-sm leading-relaxed">
+    <div className="markdown text-sm leading-relaxed font-mono">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
