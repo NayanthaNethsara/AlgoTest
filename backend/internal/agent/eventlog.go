@@ -180,12 +180,26 @@ func stateSummary(s Signals) string {
 	return strings.Join(parts, " · ")
 }
 
-// appName trims a bundle identifier to the part a human recognises, keeping the
-// full identifier in the entry's payload for anyone matching against a denylist.
 func appName(id string) string {
-	if i := strings.LastIndex(id, "."); i >= 0 && i < len(id)-1 {
-		return id[i+1:]
+	if id == "" {
+		return ""
 	}
+
+	if i := strings.LastIndexAny(id, `/\`); i >= 0 && i < len(id)-1 {
+		id = id[i+1:]
+	}
+
+	lower := strings.ToLower(id)
+	if strings.HasSuffix(lower, ".exe") || strings.HasSuffix(lower, ".app") {
+		id = id[:len(id)-4]
+	}
+
+	if strings.Contains(id, ".") {
+		if i := strings.LastIndex(id, "."); i >= 0 && i < len(id)-1 {
+			id = id[i+1:]
+		}
+	}
+
 	return id
 }
 

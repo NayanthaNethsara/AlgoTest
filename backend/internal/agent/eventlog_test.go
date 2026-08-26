@@ -107,3 +107,27 @@ func TestDescribeGapStillOpen(t *testing.T) {
 		t.Errorf("open gap detail = %q", e.Detail)
 	}
 }
+
+func TestAppNameFormatting(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"chrome.exe", "chrome"},
+		{"Code.exe", "Code"},
+		{"MiniAlgothon.exe", "MiniAlgothon"},
+		{`C:\Program Files\Google\Chrome\Application\chrome.exe`, "chrome"},
+		{`/usr/bin/google-chrome`, "google-chrome"},
+		{"com.google.Chrome", "Chrome"},
+		{"com.microsoft.VSCode", "VSCode"},
+		{"ai.ollama", "ollama"},
+		{"", ""},
+	}
+
+	for _, c := range cases {
+		got := appName(c.input)
+		if got != c.want {
+			t.Errorf("appName(%q) = %q, want %q", c.input, got, c.want)
+		}
+	}
+}

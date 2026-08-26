@@ -26,9 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { CONTEST_STATUS, type ContestState } from "@/types/contest";
 import {
-  AlertTriangle,
   Clock,
-  FastForward,
   Loader2,
   Pause,
   Play,
@@ -69,10 +67,12 @@ export function ContestControlBar() {
   const [settingsDuration, setSettingsDuration] = useState("120");
 
   const stateRef = useRef(state);
-  stateRef.current = state;
-
   const clockOffsetRef = useRef(clockOffset);
-  clockOffsetRef.current = clockOffset;
+
+  useEffect(() => {
+    stateRef.current = state;
+    clockOffsetRef.current = clockOffset;
+  });
 
   const loadState = useCallback(async () => {
     try {
