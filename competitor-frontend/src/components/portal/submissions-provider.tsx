@@ -270,37 +270,55 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     previousBest: number,
     language = "cpp",
   ): Promise<SubmitResult> {
-    const result = await submitCode(
-      problemId,
-      code,
-      previousBest,
-      language,
-      attestNonce,
-    );
+    try {
+      const result = await submitCode(
+        problemId,
+        code,
+        previousBest,
+        language,
+        attestNonce,
+      );
 
-    if (result.error) {
-      const gateRefusal =
-        result.errorCode?.startsWith("AGENT_") ||
-        result.errorCode === "NOT_ATTESTED";
+      if (result.error) {
+        const gateRefusal =
+          result.errorCode?.startsWith("AGENT_") ||
+          result.errorCode === "NOT_ATTESTED";
+        setToast({
+          id: Date.now().toString(),
+          title: gateRefusal ? "Submissions are locked" : "Submission Error",
+          description: result.error,
+          variant: "error",
+        });
+        return result;
+      }
+
+      if (result.submissionId) {
+        setActiveSubmission({
+          id: result.submissionId,
+          problemId,
+          status: "queued",
+          queuePosition: result.queuePosition,
+        });
+      }
+
+      return result;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to process submission";
       setToast({
         id: Date.now().toString(),
-        title: gateRefusal ? "Submissions are locked" : "Submission Error",
-        description: result.error,
+        title: "Submission Error",
+        description: msg,
         variant: "error",
       });
-      return result;
+      return {
+        error: msg,
+        subtasks: [],
+        score: previousBest,
+        maxScore: 100,
+        improvedBest: false,
+        previousBest,
+      };
     }
-
-    if (result.submissionId) {
-      setActiveSubmission({
-        id: result.submissionId,
-        problemId,
-        status: "queued",
-        queuePosition: result.queuePosition,
-      });
-    }
-
-    return result;
   }
 
   return (

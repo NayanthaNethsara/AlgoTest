@@ -65,6 +65,11 @@ location / {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 
+    # Rewrite Origin, Referer, and X-Forwarded-Host to match Host for Next.js Server Action CSRF validation
+    proxy_set_header Origin "${PORTAL_SCHEME}://${PORTAL_HOST}";
+    proxy_set_header Referer "${PORTAL_SCHEME}://${PORTAL_HOST}$request_uri";
+    proxy_set_header X-Forwarded-Host ${PORTAL_HOST};
+
     # Strip Secure flag on cookies so contestant browsers accept session cookies over plain LAN HTTP
     proxy_cookie_flags ~ nosecure;
 }
