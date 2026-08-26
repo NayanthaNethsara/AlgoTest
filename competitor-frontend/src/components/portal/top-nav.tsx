@@ -51,7 +51,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1 lg:gap-1.5 border-l-2 border-black pl-4 lg:pl-6">
+          <nav className="hidden md:flex items-center gap-1 lg:gap-1.5 border-l-2 border-black pl-3 lg:pl-5">
             {NAV_LINKS.map((link) => {
               const active = pathname.startsWith(link.href);
               const Icon = link.icon;
@@ -59,14 +59,15 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-1.5 border-b-2 px-2.5 lg:px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                  title={link.label}
+                  className={`flex items-center gap-1.5 border-b-2 px-2 lg:px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
                     active
                       ? "border-primary text-primary"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <Icon className="h-3.5 w-3.5" />
-                  {link.label}
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="hidden xl:inline">{link.label}</span>
                 </Link>
               );
             })}
@@ -77,61 +78,61 @@ export function TopNav({ user }: { user: SessionUser | null }) {
         <div
           data-tauri-drag-region
           data-window-drag-region
-          className="flex-1 self-stretch min-h-6 min-w-8 cursor-default"
+          className="flex-1 self-stretch min-h-6 min-w-4 cursor-default"
           aria-hidden="true"
         />
 
         {/* Right Side: Timer, User Info, Mobile Toggle & Desktop Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           <ContestTimer />
 
           {user && (
             <>
-              <div className="hidden lg:flex items-center gap-2.5">
-                <ProctorPill />
+              <ProctorPill />
 
-                {activeSubmission && (
-                  <Badge
-                    variant="outline"
-                    className="gap-1.5 border-primary bg-primary/20 text-primary text-xs h-7.5 px-2 animate-pulse"
-                  >
-                    <Loader2 className="h-3 w-3 pixel-spin" />
-                    <span>
-                      {activeSubmission.status === "queued"
-                        ? `#${activeSubmission.queuePosition ?? 1}`
-                        : "Judging"}
-                    </span>
-                  </Badge>
-                )}
+              {activeSubmission && (
+                <Badge
+                  variant="outline"
+                  className="gap-1 border-primary bg-primary/20 text-primary text-xs h-7 px-1.5 sm:px-2 animate-pulse hidden sm:flex shrink-0"
+                  title={activeSubmission.status === "queued" ? `Queued #${activeSubmission.queuePosition ?? 1}` : "Judging..."}
+                >
+                  <Loader2 className="h-3 w-3 pixel-spin" />
+                  <span className="hidden lg:inline">
+                    {activeSubmission.status === "queued"
+                      ? `#${activeSubmission.queuePosition ?? 1}`
+                      : "Judging"}
+                  </span>
+                </Badge>
+              )}
 
-                {user.teamName ? (
-                  <Badge
-                    variant="secondary"
-                    className="gap-1 text-xs h-7.5 px-2 bg-muted max-w-[120px] truncate"
-                  >
-                    <Users className="h-3 w-3 text-primary shrink-0" />
-                    <span className="font-semibold text-foreground truncate">
-                      {user.teamName}
-                    </span>
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="outline"
-                    className="text-xs text-muted-foreground h-7.5 px-2"
-                  >
-                    Solo
-                  </Badge>
-                )}
-              </div>
+              {user.teamName ? (
+                <Badge
+                  variant="secondary"
+                  className="gap-1 text-xs h-7 px-1.5 sm:px-2 bg-muted max-w-[80px] sm:max-w-[120px] truncate hidden md:flex shrink-0"
+                  title={user.teamName}
+                >
+                  <Users className="h-3 w-3 text-primary shrink-0" />
+                  <span className="font-semibold text-foreground truncate">
+                    {user.teamName}
+                  </span>
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="text-xs text-muted-foreground h-7 px-2 hidden lg:flex shrink-0"
+                >
+                  Solo
+                </Badge>
+              )}
 
-              <div className="flex items-center gap-1 sm:gap-1.5 border-l-2 border-black pl-1.5 sm:pl-2.5 shrink-0">
+              <div className="flex items-center gap-1 sm:gap-1.5 border-l-2 border-black pl-1.5 sm:pl-2 shrink-0">
                 <div
                   className="flex h-6 w-6 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-xs shrink-0"
                   title={user.displayName || user.username}
                 >
                   {(user.displayName || user.username || "U")[0].toUpperCase()}
                 </div>
-                <span className="text-xs font-semibold text-foreground max-w-[90px] truncate hidden xl:inline">
+                <span className="text-xs font-semibold text-foreground max-w-[80px] truncate hidden 2xl:inline">
                   {user.displayName || user.username}
                 </span>
 
@@ -140,16 +141,12 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                   size="sm"
                   onClick={() => setPasswordDialogOpen(true)}
                   title="Change Password"
-                  className="h-7.5 w-7.5 p-0 text-muted-foreground hover:text-foreground shrink-0 hidden sm:flex items-center justify-center"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0 hidden sm:flex items-center justify-center"
                 >
                   <KeyRound className="size-3.5" />
                 </Button>
 
                 <SignOutButton />
-              </div>
-
-              <div className="flex lg:hidden items-center">
-                <ProctorPill />
               </div>
             </>
           )}
@@ -160,12 +157,12 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle navigation menu"
             aria-expanded={mobileOpen}
-            className="flex md:hidden h-7.5 w-7.5 items-center justify-center pixel-raised pixel-press bg-card text-foreground cursor-pointer shrink-0"
+            className="flex md:hidden h-7 w-7 items-center justify-center pixel-raised pixel-press bg-card text-foreground cursor-pointer shrink-0"
           >
             {mobileOpen ? (
-              <X className="h-4 w-4 text-destructive" />
+              <X className="h-3.5 w-3.5 text-destructive" />
             ) : (
-              <Menu className="h-4 w-4" />
+              <Menu className="h-3.5 w-3.5" />
             )}
           </button>
 
