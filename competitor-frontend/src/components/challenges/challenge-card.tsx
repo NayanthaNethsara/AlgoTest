@@ -138,7 +138,11 @@ export function ChallengeCard({
     }
 
     return (
-      <Link href={`/challenges/${problem.slug || problem.id}`} className="flex flex-col h-full">
+      <Link
+        href={`/challenges/${problem.slug || problem.id}`}
+        prefetch={true}
+        className="flex flex-col h-full"
+      >
         {cardContent}
       </Link>
     );
@@ -226,7 +230,7 @@ export function ChallengeCard({
   }
 
   return (
-    <Link href={`/challenges/${problem.slug || problem.id}`}>
+    <Link href={`/challenges/${problem.slug || problem.id}`} prefetch={true}>
       {listCardContent}
     </Link>
   );
