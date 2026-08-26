@@ -29,11 +29,10 @@ export function ProctorPill() {
     return (
       <Badge
         variant="outline"
-        className="gap-1 sm:gap-1.5 border-warning bg-warning/20 text-warning text-xs h-7 px-1.5 sm:px-2.5 shrink-0"
+        className="border-warning bg-warning/20 text-warning text-xs h-7 w-7 p-0 flex items-center justify-center shrink-0 cursor-default"
         title="Proctor starting..."
       >
         <Loader2 className="h-3.5 w-3.5 pixel-spin" />
-        <span className="hidden xl:inline">Proctor starting...</span>
       </Badge>
     );
   }
@@ -42,11 +41,10 @@ export function ProctorPill() {
     return (
       <Badge
         variant="outline"
-        className="gap-1 sm:gap-1.5 text-xs h-7 px-1.5 sm:px-2.5 shrink-0"
+        className="text-xs h-7 w-7 p-0 flex items-center justify-center shrink-0 cursor-default"
         title="Proctor exempt"
       >
         <ShieldOff className="h-3.5 w-3.5" />
-        <span className="hidden xl:inline">Proctor exempt</span>
       </Badge>
     );
   }
@@ -55,14 +53,14 @@ export function ProctorPill() {
     const cutOff = Boolean(local && local.healthy === false);
     const notAllowed = code === "CLIENT_NOT_ALLOWED";
     const label = notAllowed
-      ? "Window not allowed"
+      ? "Window not allowed for scored submissions"
       : cutOff
         ? "Proctor off-grid"
         : "Proctor inactive";
     return (
       <Badge
         variant="destructive"
-        className="gap-1 sm:gap-1.5 text-xs h-7 px-1.5 sm:px-2.5 shrink-0"
+        className="text-xs h-7 w-7 p-0 flex items-center justify-center shrink-0 cursor-default"
         title={
           notAllowed
             ? "Scored submissions from this window are not enabled for your account."
@@ -72,7 +70,6 @@ export function ProctorPill() {
         }
       >
         <ShieldOff className="h-3.5 w-3.5" />
-        <span className="hidden xl:inline">{label}</span>
       </Badge>
     );
   }
@@ -81,11 +78,10 @@ export function ProctorPill() {
     return (
       <Badge
         variant="outline"
-        className="gap-1 sm:gap-1.5 border-warning bg-warning/20 text-warning text-xs h-7 px-1.5 sm:px-2.5 shrink-0"
+        className="border-warning bg-warning/20 text-warning text-xs h-7 w-7 p-0 flex items-center justify-center shrink-0 cursor-default"
         title="The portal could not reach the contest server on the last check."
       >
         <AlertTriangle className="h-3.5 w-3.5" />
-        <span className="hidden xl:inline">Net unstable</span>
       </Badge>
     );
   }
@@ -94,11 +90,10 @@ export function ProctorPill() {
     return (
       <Badge
         variant="outline"
-        className="gap-1 sm:gap-1.5 text-xs h-7 px-1.5 sm:px-2.5 shrink-0"
+        className="text-xs h-7 w-7 p-0 flex items-center justify-center shrink-0 cursor-default"
         title="An organizer allowed this account to submit from a browser without the proctor client."
       >
         <ShieldOff className="h-3.5 w-3.5" />
-        <span className="hidden xl:inline">Browser access</span>
       </Badge>
     );
   }
@@ -106,7 +101,7 @@ export function ProctorPill() {
   return (
     <Badge
       variant="outline"
-      className="gap-1 sm:gap-1.5 border-success bg-success/20 text-success text-xs h-7 px-1.5 sm:px-2.5 shrink-0"
+      className="border-success bg-success/20 text-success text-xs h-7 w-7 p-0 flex items-center justify-center shrink-0 cursor-default"
       title={
         local?.agent_version
           ? `Proctor agent ${local.agent_version} · support code ${local.support_code}`
@@ -114,7 +109,6 @@ export function ProctorPill() {
       }
     >
       <ShieldCheck className="h-3.5 w-3.5" />
-      <span className="hidden xl:inline">Proctor active</span>
     </Badge>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { KeyRound, Loader2, Menu, Users, X } from "lucide-react";
+import { KeyRound, Loader2, Menu, RotateCw, Users, X } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
 import { ContestTimer } from "@/components/portal/contest-timer";
@@ -11,6 +11,7 @@ import { ProctorPill } from "@/components/portal/proctor-status";
 import { useSubmissions } from "@/components/portal/submissions-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { UserAccountMenu } from "@/components/portal/user-account-menu";
 import { DesktopWindowControls } from "./desktop-window-controls";
 import type { SessionUser } from "@/lib/auth/constants";
 import { NAV_LINKS } from "@/lib/constants";
@@ -20,6 +21,12 @@ export function TopNav({ user }: { user: SessionUser | null }) {
   const { activeSubmission } = useSubmissions();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [isReloading, setIsReloading] = useState(false);
+
+  const handleReload = () => {
+    setIsReloading(true);
+    window.location.reload();
+  };
 
   return (
     <header
@@ -105,48 +112,20 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                 </Badge>
               )}
 
-              {user.teamName ? (
-                <Badge
-                  variant="secondary"
-                  className="gap-1 text-xs h-7 px-1.5 sm:px-2 bg-muted max-w-[120px] truncate hidden lg:flex shrink-0"
-                  title={user.teamName}
-                >
-                  <Users className="h-3 w-3 text-primary shrink-0" />
-                  <span className="font-semibold text-foreground truncate">
-                    {user.teamName}
-                  </span>
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="text-xs text-muted-foreground h-7 px-2 hidden lg:flex shrink-0"
-                >
-                  Solo
-                </Badge>
-              )}
-
-              <div className="flex items-center gap-1 sm:gap-1.5 border-l-2 border-black pl-1.5 sm:pl-2 shrink-0">
-                <div
-                  className="flex h-6 w-6 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-xs shrink-0"
-                  title={user.displayName || user.username}
-                >
-                  {(user.displayName || user.username || "U")[0].toUpperCase()}
-                </div>
-                <span className="text-xs font-semibold text-foreground max-w-[80px] truncate hidden 2xl:inline">
-                  {user.displayName || user.username}
-                </span>
-
+              <div className="flex items-center gap-1 border-l-2 border-black pl-1.5 sm:pl-2 shrink-0">
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setPasswordDialogOpen(true)}
-                  title="Change Password"
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0 hidden sm:flex items-center justify-center"
+                  onClick={handleReload}
+                  disabled={isReloading}
+                  title="Reload Portal"
+                  aria-label="Reload Portal"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0 flex items-center justify-center pixel-flat bg-card hover:bg-muted cursor-pointer"
                 >
-                  <KeyRound className="size-3.5" />
+                  <RotateCw className={`size-3.5 ${isReloading ? "pixel-spin" : ""}`} />
                 </Button>
 
-                <SignOutButton />
+                <UserAccountMenu user={user} />
               </div>
             </>
           )}
@@ -251,6 +230,17 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleReload}
+                    disabled={isReloading}
+                    title="Reload Portal"
+                    className="h-8 px-2 text-xs"
+                  >
+                    <RotateCw className={`size-3.5 mr-1 ${isReloading ? "pixel-spin" : ""}`} />
+                    Reload
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
