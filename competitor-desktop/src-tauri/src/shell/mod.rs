@@ -98,6 +98,11 @@ pub fn run() {
                     document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
                     window.__MINIALGOTHON_DESKTOP__ = true;
                     window.__MINIALGOTHON_OS__ = "macos";
+                    (function() {
+                        var style = document.createElement('style');
+                        style.textContent = 'html, body { overscroll-behavior: none !important; overscroll-behavior-y: none !important; -ms-scroll-chaining: none !important; } header, [data-tauri-drag-region], [data-window-drag-region] { overscroll-behavior: none !important; -ms-scroll-chaining: none !important; }';
+                        (document.head || document.documentElement).appendChild(style);
+                    })();
                     document.addEventListener('mousedown', function(e) {
                         if (e.buttons === 1 && e.target && e.target.closest) {
                             var dragRegion = e.target.closest('[data-tauri-drag-region], [data-window-drag-region]');
@@ -126,6 +131,11 @@ pub fn run() {
                     document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
                     window.__MINIALGOTHON_DESKTOP__ = true;
                     window.__MINIALGOTHON_OS__ = "windows";
+                    (function() {
+                        var style = document.createElement('style');
+                        style.textContent = 'html, body { overscroll-behavior: none !important; overscroll-behavior-y: none !important; -ms-scroll-chaining: none !important; } header, [data-tauri-drag-region], [data-window-drag-region] { overscroll-behavior: none !important; -ms-scroll-chaining: none !important; }';
+                        (document.head || document.documentElement).appendChild(style);
+                    })();
                     document.addEventListener('mousedown', async function(e) {
                         if (e.buttons === 1 && e.target && e.target.closest) {
                             var dragRegion = e.target.closest('[data-tauri-drag-region], [data-window-drag-region]');

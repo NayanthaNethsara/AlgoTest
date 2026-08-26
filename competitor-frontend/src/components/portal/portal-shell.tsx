@@ -32,10 +32,10 @@ export function PortalShell({
     <ContestProvider initialState={initialContest}>
       <ProctorProvider initialProctor={initialProctor}>
         <SubmissionsProvider>
-          <div className="flex h-dvh flex-col">
+          <div className="flex h-dvh flex-col overflow-hidden overscroll-none">
             <TopNav user={user} />
             <ContestPhaseBanner />
-            <div className="relative min-h-0 flex-1">
+            <div className="relative min-h-0 flex-1 overflow-hidden overscroll-contain">
               {children}
               <ProctorLockBanner />
               <AccessBlockScreen />

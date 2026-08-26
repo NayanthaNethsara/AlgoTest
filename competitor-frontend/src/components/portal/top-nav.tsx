@@ -25,7 +25,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
     <header
       data-tauri-drag-region
       data-window-drag-region
-      className="relative z-20 border-b-2 border-black bg-card px-3 sm:px-6 lg:px-7 py-2 sm:py-2.5 lg:py-3 shadow-[0px_4px_0px_var(--edge)] select-none"
+      className="relative z-20 border-b-2 border-black bg-card px-3 sm:px-6 lg:px-7 py-2 sm:py-2.5 lg:py-3 shadow-[0px_4px_0px_var(--edge)] select-none overscroll-none shrink-0"
     >
       <div
         data-tauri-drag-region

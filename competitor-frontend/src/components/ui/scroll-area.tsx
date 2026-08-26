@@ -18,7 +18,7 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full outline-none"
+        className="size-full outline-none overscroll-contain"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

@@ -166,6 +166,12 @@
   body {
     min-width: 620px;
     min-height: 380px;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: none;
+    -ms-scroll-chaining: none;
     background-color: var(--background);
     color: var(--foreground);
     font-family:
@@ -174,6 +180,29 @@
       system-ui,
       -apple-system,
       sans-serif;
+  }
+
+  /* Prevent rubber-band elastic bouncing on fixed navigation headers and window drag handles */
+  header,
+  nav,
+  [data-tauri-drag-region],
+  [data-window-drag-region] {
+    overscroll-behavior: none;
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: none;
+    -ms-scroll-chaining: none;
+  }
+
+  /* Prevent nested scroll areas from cascading boundary scroll events to the root window */
+  [data-slot="scroll-area-viewport"],
+  [data-radix-scroll-area-viewport],
+  .overflow-y-auto,
+  .overflow-x-auto,
+  .overflow-auto {
+    overscroll-behavior: contain;
+    overscroll-behavior-y: contain;
+    overscroll-behavior-x: contain;
+    -ms-scroll-chaining: none;
   }
 
   h1,

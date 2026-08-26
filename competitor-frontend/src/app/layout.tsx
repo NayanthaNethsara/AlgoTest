@@ -47,10 +47,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${inter.variable} ${pixelHeader.variable} ${pixelBody.variable} ${geistMono.variable} h-full antialiased`}
-      style={{ colorScheme: "dark" }}
+      className={`dark ${inter.variable} ${pixelHeader.variable} ${pixelBody.variable} ${geistMono.variable} h-full antialiased overscroll-none`}
+      style={{ colorScheme: "dark", overscrollBehavior: "none" }}
     >
-      <body className="min-h-full flex flex-col font-sans relative">
+      <body className="h-full flex flex-col font-sans relative overflow-hidden overscroll-none">
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{if(new URLSearchParams(window.location.search).get("client")==="desktop"){document.cookie="mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";}}catch(e){}})();`,
