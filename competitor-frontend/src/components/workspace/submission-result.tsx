@@ -15,18 +15,30 @@ export function SubmissionResult({
   submitting: boolean;
   statusMessage?: string;
 }) {
-  if (submitting) {
+  const isEvaluating =
+    submitting ||
+    result?.status === "queued" ||
+    result?.status === "running";
+
+  if (isEvaluating) {
+    const queueMsg =
+      typeof result?.queuePosition === "number" && result.queuePosition > 1
+        ? `In evaluation queue (Position: #${result.queuePosition})...`
+        : result?.status === "running"
+          ? "Judging test cases on runner sandbox..."
+          : "Submitting to evaluation queue...";
+
     return (
-      <div className="flex flex-col items-center justify-center gap-3 p-8 text-center text-xs text-muted-foreground">
+      <div className="flex flex-col items-center justify-center gap-3 p-8 text-center text-xs text-muted-foreground font-mono">
         <Loader2 className="size-6 pixel-spin text-primary" />
-        <span>{statusMessage || "Submitting to evaluation queue..."}</span>
+        <span>{statusMessage || queueMsg}</span>
       </div>
     );
   }
 
   if (!result) {
     return (
-      <div className="p-4 text-xs text-muted-foreground">
+      <div className="p-4 text-xs text-muted-foreground font-mono">
         Submit your code to evaluate it against the hidden contest test cases.
       </div>
     );
