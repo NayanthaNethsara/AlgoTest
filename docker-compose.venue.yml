@@ -1,12 +1,3 @@
-# Portal on this machine, backend wherever API_URL points, served to the contest
-# LAN on port 80. Settings come from .env -- see .env.example. `make venue` wraps
-# this; `make venue-tls` adds docker-compose.venue-tls.yml on top.
-#
-# nginx is not optional: the portal opens the live submission feed at the relative
-# path /api/v1/submissions/stream, so publishing the Next container alone gives a
-# working portal whose results never arrive.
-
-# Its own project, so `down` here never touches the dev stack in docker-compose.yml.
 name: algothon-venue
 
 services:
