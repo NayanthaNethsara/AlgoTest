@@ -74,10 +74,8 @@ export function DesktopWindowControls() {
   };
 
   useEffect(() => {
-    if (!isWindowsDesktop) return;
-
     // Attach dragging listener for regions marked with data-tauri-drag-region or data-window-drag-region
-    const handleMouseDown = (e: MouseEvent) => {
+    const handleMouseDown = async (e: MouseEvent) => {
       if (e.buttons !== 1) return;
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -90,7 +88,12 @@ export function DesktopWindowControls() {
       if (dragRegion && !isInteractive) {
         try {
           const appWindow = getCurrentWebviewWindow();
-          void appWindow.startDragging();
+          const isMax = await appWindow.isMaximized();
+          if (isMax) {
+            await appWindow.unmaximize();
+            setIsMaximized(false);
+          }
+          await appWindow.startDragging();
         } catch {
           void fetch("http://127.0.0.1:47620/drag", {
             method: "POST",
@@ -121,7 +124,7 @@ export function DesktopWindowControls() {
       document.removeEventListener("mousedown", handleMouseDown, true);
       document.removeEventListener("dblclick", handleDoubleClick, true);
     };
-  }, [isWindowsDesktop]);
+  }, []);
 
   if (!isWindowsDesktop) return null;
 

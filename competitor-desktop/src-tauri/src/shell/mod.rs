@@ -124,13 +124,17 @@ pub fn run() {
                     document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
                     window.__MINIALGOTHON_DESKTOP__ = true;
                     window.__MINIALGOTHON_OS__ = "windows";
-                    document.addEventListener('mousedown', function(e) {
+                    document.addEventListener('mousedown', async function(e) {
                         if (e.buttons === 1 && e.target && e.target.closest) {
                             var dragRegion = e.target.closest('[data-tauri-drag-region], [data-window-drag-region]');
                             var interactive = e.target.closest('button, a, input, select, textarea, [data-no-drag]');
                             if (dragRegion && !interactive) {
                                 try {
                                     if (window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke) {
+                                        var isMax = await window.__TAURI_INTERNALS__.invoke('plugin:window|is_maximized');
+                                        if (isMax) {
+                                            await window.__TAURI_INTERNALS__.invoke('plugin:window|unmaximize');
+                                        }
                                         window.__TAURI_INTERNALS__.invoke('plugin:window|start_dragging');
                                     }
                                 } catch (err) {}
@@ -328,6 +332,9 @@ fn spawn_control_listener(listener: std::net::TcpListener, app: tauri::AppHandle
                 }
                 Some("/drag") => {
                     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                        if window.is_maximized().unwrap_or(false) {
+                            let _ = window.unmaximize();
+                        }
                         let _ = window.start_dragging();
                     }
                 }
