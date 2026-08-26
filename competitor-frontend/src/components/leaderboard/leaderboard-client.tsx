@@ -111,7 +111,7 @@ export function LeaderboardClient({
   );
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 font-mono">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pixel-raised bg-card p-3.5">
         <div className="flex flex-wrap items-center gap-3 flex-1 max-w-lg">
           <div className="relative flex-1 min-w-[200px]">

@@ -121,7 +121,7 @@ export function ChallengesListClient({
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 font-mono">
       <div className="flex flex-col gap-3 border-b-2 border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2.5">

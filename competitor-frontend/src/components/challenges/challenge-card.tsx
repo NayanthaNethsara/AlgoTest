@@ -57,7 +57,7 @@ export function ChallengeCard({
   if (layout === "grid") {
     const cardContent = (
       <div
-        className={`group flex flex-col justify-between h-full gap-4 pixel-raised bg-card p-5 transition-colors ${
+        className={`group flex flex-col justify-between h-full gap-4 pixel-raised bg-card p-5 transition-colors font-mono ${
           isLocked
             ? "opacity-75"
             : "hover:border-primary/50"
@@ -146,7 +146,7 @@ export function ChallengeCard({
 
   const listCardContent = (
     <div
-      className={`group flex items-center justify-between gap-4 pixel-raised bg-card p-4 transition-colors ${
+      className={`group flex items-center justify-between gap-4 pixel-raised bg-card p-4 transition-colors font-mono ${
         isLocked
           ? "opacity-75"
           : "hover:border-primary/50"
