@@ -26,6 +26,7 @@ pub fn open_setup(app: &AppHandle) {
     let built = WebviewWindowBuilder::new(app, SETUP_WINDOW, WebviewUrl::App("index.html".into()))
         .title("MiniAlgothon — proctoring setup")
         .inner_size(760.0, 820.0)
+        .min_inner_size(600.0, 500.0)
         .resizable(true)
         .center()
         .build();
@@ -61,6 +62,7 @@ pub fn open_diagnostics(app: &AppHandle) {
     )
     .title("MiniAlgothon — proctoring diagnostics")
     .inner_size(720.0, 780.0)
+    .min_inner_size(600.0, 500.0)
     .resizable(true)
     .center()
     .build();
