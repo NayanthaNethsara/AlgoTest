@@ -22,7 +22,8 @@ export default async function ChallengePage({
 }) {
   const { id } = await params;
 
-  if (proctorLocksContest(await readProctorGate())) return null;
+  const proctor = await readProctorGate();
+  if (proctorLocksContest(proctor)) return null;
 
   const contestState = await getContestStateAction();
   if (contestState.status === CONTEST_STATUS.PAUSED) {
@@ -70,7 +71,10 @@ export default async function ChallengePage({
   }
 
   const problem = await getProblemAction(id);
-  if (!problem) notFound();
+  if (!problem) {
+    if (proctor && !proctor.allowed) return null;
+    notFound();
+  }
 
   return (
     <ChallengeThemeProvider>

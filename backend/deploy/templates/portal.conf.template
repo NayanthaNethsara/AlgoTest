@@ -11,7 +11,7 @@ upstream contest_api {
 }
 
 upstream portal {
-    server frontend:3000;
+    server ${PORTAL_HOST}:${PORTAL_PORT};
     keepalive 16;
 }
 
