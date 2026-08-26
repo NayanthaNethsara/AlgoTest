@@ -17,17 +17,6 @@ int main() {
 `,
   },
   {
-    id: "c",
-    label: "C",
-    monaco: "cpp",
-    starter: `#include <stdio.h>
-
-int main() {
-    return 0;
-}
-`,
-  },
-  {
     id: "python",
     label: "Python",
     monaco: "python",

@@ -30,6 +30,10 @@ import type { Language, RunResult, SubmitResult } from "@/types/code";
 import type { Snapshot } from "@/types/history";
 import type { Problem } from "@/types/problem";
 
+const isRunFeatureEnabled =
+  process.env.NEXT_PUBLIC_ENABLE_RUN !== "false" &&
+  process.env.NEXT_PUBLIC_DISABLE_RUN !== "true";
+
 export function CodeWorkspace({ problem }: { problem: Problem }) {
   const { isNotStarted, isPaused, isEnded } = useContest();
   const [language, setLanguage] = useState<Language>(LANGUAGES[0]);
@@ -44,7 +48,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   const [appliedResultId, setAppliedResultId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [tab, setTab] = useState("test");
+  const [tab, setTab] = useState(() => (isRunFeatureEnabled ? "test" : "submission"));
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const { snapshots, record } = useHistory(problem.id);
@@ -116,7 +120,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   }
 
   async function handleRun() {
-    if (running || runCooldown > 0 || isPaused || isNotStarted) return;
+    if (!isRunFeatureEnabled || running || runCooldown > 0 || isPaused || isNotStarted) return;
     if (!code.trim()) {
       setTab("test");
       setRunResult({ stdout: "", stderr: "Error: Cannot run empty code", exitCode: 1, timeMs: 0 });
@@ -172,7 +176,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
         activeSubmission.id === submitResult?.submissionId),
     );
 
-  const isRunDisabled = running || runCooldown > 0 || isPaused || isNotStarted;
+  const isRunDisabled = !isRunFeatureEnabled || running || runCooldown > 0 || isPaused || isNotStarted;
   const isSubmitDisabled =
     Boolean(isCurrentProblemSubmitting) || submitCooldown > 0 || isPaused || isEnded || isNotStarted;
 
@@ -224,7 +228,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
           >
             <div className="flex items-center justify-between gap-3 border-b-2 border-border bg-card px-3 py-1.5">
               <TabsList>
-                <TabsTrigger value="test">Test</TabsTrigger>
+                {isRunFeatureEnabled && <TabsTrigger value="test">Test</TabsTrigger>}
                 <TabsTrigger value="submission">Submission</TabsTrigger>
               </TabsList>
 
@@ -236,23 +240,27 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
                       ? "Contest ended · Practice mode active (Submissions closed)"
                       : isNotStarted
                         ? "Contest not started · Submissions locked"
-                        : "Run uses your test input · Submit scores against hidden tests"}
+                        : isRunFeatureEnabled
+                          ? "Run uses your test input · Submit scores against hidden tests"
+                          : "Submit scores against hidden tests"}
                 </span>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleRun}
-                  disabled={isRunDisabled}
-                >
-                  <Play className="size-3.5" />
-                  {isPaused
-                    ? "Paused"
-                    : running
-                      ? "Running..."
-                      : runCooldown > 0
-                        ? `Run (${runCooldown}s)`
-                        : "Run"}
-                </Button>
+                {isRunFeatureEnabled && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleRun}
+                    disabled={isRunDisabled}
+                  >
+                    <Play className="size-3.5" />
+                    {isPaused
+                      ? "Paused"
+                      : running
+                        ? "Running..."
+                        : runCooldown > 0
+                          ? `Run (${runCooldown}s)`
+                          : "Run"}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   onClick={handleSubmit}
@@ -274,14 +282,16 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
               </div>
             </div>
 
-            <TabsContent value="test" className="flex min-h-0 flex-1 flex-col">
-              <IoPanels
-                stdin={stdin}
-                onStdinChange={setStdin}
-                result={runResult}
-                running={running}
-              />
-            </TabsContent>
+            {isRunFeatureEnabled && (
+              <TabsContent value="test" className="flex min-h-0 flex-1 flex-col">
+                <IoPanels
+                  stdin={stdin}
+                  onStdinChange={setStdin}
+                  result={runResult}
+                  running={running}
+                />
+              </TabsContent>
+            )}
 
             <TabsContent
               value="submission"
