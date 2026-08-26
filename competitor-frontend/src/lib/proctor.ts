@@ -16,12 +16,12 @@ export async function readLocalAgent(
   preferredPort?: number,
   exhaustive = false,
 ): Promise<AgentLocalStatus | null> {
-  const ports = preferredPort
-    ? [preferredPort]
-    : exhaustive
-      ? [...LOOPBACK_PORTS]
-      : [LOOPBACK_PORTS[0]];
+  if (preferredPort && !exhaustive) {
+    const status = await probe(preferredPort);
+    if (status) return status;
+  }
 
+  const ports = orderedPorts(preferredPort);
   for (const port of ports) {
     const status = await probe(port);
     if (status) return status;

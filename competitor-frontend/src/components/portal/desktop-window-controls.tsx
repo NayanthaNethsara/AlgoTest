@@ -50,6 +50,7 @@ export function DesktopWindowControls({
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
+    if (!isWindowsDesktop) return;
     let active = true;
     let unlistenResize: (() => void) | null = null;
     let unlistenMove: (() => void) | null = null;
@@ -107,7 +108,7 @@ export function DesktopWindowControls({
       window.removeEventListener("resize", handleResize);
       clearInterval(interval);
     };
-  }, []);
+  }, [isWindowsDesktop]);
 
   const handleMinimize = async () => {
     try {
