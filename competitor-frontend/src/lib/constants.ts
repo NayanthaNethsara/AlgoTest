@@ -1,4 +1,4 @@
-import { Code2, History, Trophy } from "lucide-react";
+import { BookOpen, Code2, History, Trophy } from "lucide-react";
 import { CHALLENGE_STATUS, type ChallengeStatus } from "@/types/challenge";
 import type { SnapshotTrigger } from "@/types/history";
 import type { AccessMode } from "@/types/proctor";
@@ -30,6 +30,7 @@ export const NAV_LINKS = [
   { href: "/challenges", label: "Challenges", icon: Code2 },
   { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { href: "/submissions", label: "Submissions", icon: History },
+  { href: "/docs", label: "Docs", icon: BookOpen },
 ] as const;
 
 export const CHALLENGE_STATUS_LABELS: Record<ChallengeStatus, string> = {
