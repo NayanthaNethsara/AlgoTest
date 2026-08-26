@@ -14,6 +14,13 @@ function loadSnapshots(problemId: string): Snapshot[] {
   return raw ? (JSON.parse(raw) as Snapshot[]) : [];
 }
 
+function generateSnapshotId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 export function useHistory(problemId: string) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>(() =>
     loadSnapshots(problemId),
@@ -70,7 +77,7 @@ export function useHistory(problemId: string) {
         }
 
         const snapshot: Snapshot = {
-          id: crypto.randomUUID(),
+          id: generateSnapshotId(),
           at: Date.now(),
           trigger,
           language,
