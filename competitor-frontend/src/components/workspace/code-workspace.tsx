@@ -15,17 +15,11 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useHistory } from "@/hooks/use-history";
 import { BEST_SCORE_STORAGE_PREFIX } from "@/lib/constants";
-import { LANGUAGES } from "@/lib/languages";
+import { LANGUAGE_OPTIONS, LANGUAGES } from "@/lib/languages";
 import type { Language, RunResult, SubmitResult } from "@/types/code";
 import type { Snapshot } from "@/types/history";
 import type { Problem } from "@/types/problem";
@@ -183,18 +177,14 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-2 border-b-2 border-border bg-card px-3 py-2">
-        <Select value={language.id} onValueChange={handleLanguageChange}>
-          <SelectTrigger className="w-36 bg-input text-xs" size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="text-xs">
-            {LANGUAGES.map((lang) => (
-              <SelectItem key={lang.id} value={lang.id}>
-                {lang.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <CustomSelect
+          value={language.id}
+          onValueChange={handleLanguageChange}
+          options={LANGUAGE_OPTIONS}
+          size="sm"
+          triggerClassName="w-36 bg-input text-xs"
+          aria-label="Select programming language"
+        />
 
         <Button
           variant="ghost"

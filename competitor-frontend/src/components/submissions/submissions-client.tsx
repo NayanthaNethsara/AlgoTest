@@ -12,7 +12,9 @@ import {
   XCircle,
 } from "lucide-react";
 import { Mascot } from "@/components/common/mascot";
+import { SUBMISSION_SORT_OPTIONS } from "@/lib/constants";
 import type { SubmissionItem, SubmissionSortOption } from "@/types/submission";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export function SubmissionsClient({
   submissions,
@@ -90,22 +92,16 @@ export function SubmissionsClient({
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 pixel-flat bg-card px-2.5 py-1.5">
-            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-            <select
-              value={sortBy}
-              onChange={(e) =>
-                setSortBy(e.target.value as SubmissionSortOption)
-              }
-              className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
-            >
-              <option value="NEWEST">Newest first</option>
-              <option value="OLDEST">Oldest first</option>
-              <option value="SCORE_DESC">Score: highest first</option>
-              <option value="STATUS_ASC">Status: verdict A-Z</option>
-              <option value="TITLE_ASC">Challenge: A to Z</option>
-            </select>
-          </div>
+          <CustomSelect
+            value={sortBy}
+            onValueChange={(val) =>
+              setSortBy(val as SubmissionSortOption)
+            }
+            options={SUBMISSION_SORT_OPTIONS}
+            icon={<ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
+            size="sm"
+            aria-label="Sort submissions"
+          />
         </div>
       </div>
 

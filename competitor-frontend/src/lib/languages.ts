@@ -46,3 +46,9 @@ main();
 `,
   },
 ];
+
+export const LANGUAGE_OPTIONS = LANGUAGES.map((lang) => ({
+  value: lang.id,
+  label: lang.label,
+}));
+

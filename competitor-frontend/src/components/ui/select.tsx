@@ -203,3 +203,7 @@ export {
   SelectTrigger,
   SelectValue,
 };
+
+export { CustomSelect } from "./custom-select";
+export type { CustomSelectOption, CustomSelectProps } from "./custom-select";
+

@@ -9,7 +9,10 @@ import {
 import { useSubmissions } from "@/components/portal/submissions-provider";
 import { Badge } from "@/components/ui/badge";
 import type { SessionUser } from "@/lib/auth/constants";
-import { LEADERBOARD_POLL_INTERVAL_MS } from "@/lib/constants";
+import {
+  LEADERBOARD_POLL_INTERVAL_MS,
+  LEADERBOARD_SORT_OPTIONS,
+} from "@/lib/constants";
 import type {
   LeaderboardEntry,
   LeaderboardSortOption,
@@ -23,6 +26,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export function LeaderboardClient({
   leaderboard: initialLeaderboard,
@@ -121,22 +125,16 @@ export function LeaderboardClient({
             />
           </div>
 
-          <div className="flex items-center gap-1.5 pixel-flat bg-card px-2.5 py-1.5 shrink-0">
-            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-            <select
-              value={sortBy}
-              onChange={(e) =>
-                setSortBy(e.target.value as LeaderboardSortOption)
-              }
-              className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
-            >
-              <option value="RANK_ASC">Rank: #1 to last</option>
-              <option value="SCORE_DESC">Score: high to low</option>
-              <option value="SCORE_ASC">Score: low to high</option>
-              <option value="SOLVED_DESC">Solved: most to least</option>
-              <option value="NAME_ASC">Team: A to Z</option>
-            </select>
-          </div>
+          <CustomSelect
+            value={sortBy}
+            onValueChange={(val) =>
+              setSortBy(val as LeaderboardSortOption)
+            }
+            options={LEADERBOARD_SORT_OPTIONS}
+            icon={<ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
+            size="sm"
+            aria-label="Sort leaderboard"
+          />
         </div>
 
         <div className="flex items-center gap-4 text-xs shrink-0">

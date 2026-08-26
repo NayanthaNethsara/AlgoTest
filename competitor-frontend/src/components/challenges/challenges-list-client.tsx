@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChallengeCard } from "@/components/challenges/challenge-card";
 import { ContestWaitingRoom } from "@/components/challenges/contest-waiting-room";
 import { useContest } from "@/components/portal/contest-provider";
-import { DIFFICULTY_RANKS } from "@/lib/constants";
+import { CHALLENGE_SORT_OPTIONS, DIFFICULTY_RANKS } from "@/lib/constants";
 import {
   CHALLENGE_STATUS,
   type ChallengeLayout,
@@ -22,6 +22,7 @@ import {
   SlidersHorizontal,
   Zap,
 } from "lucide-react";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export function ChallengesListClient({
   problems,
@@ -197,21 +198,14 @@ export function ChallengesListClient({
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 pixel-flat bg-card px-2.5 py-1">
-            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as ChallengeSortOption)}
-              className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer"
-            >
-              <option value="DEFAULT">Default order</option>
-              <option value="POINTS_DESC">XP: high to low</option>
-              <option value="POINTS_ASC">XP: low to high</option>
-              <option value="DIFFICULTY_ASC">Difficulty: easy to hard</option>
-              <option value="DIFFICULTY_DESC">Difficulty: hard to easy</option>
-              <option value="TITLE_ASC">Title: A to Z</option>
-            </select>
-          </div>
+          <CustomSelect
+            value={sortBy}
+            onValueChange={(val) => setSortBy(val as ChallengeSortOption)}
+            options={CHALLENGE_SORT_OPTIONS}
+            icon={<ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
+            size="sm"
+            aria-label="Sort challenges"
+          />
 
           <div className="flex items-center gap-1 pixel-flat bg-card p-1 shrink-0">
             <button

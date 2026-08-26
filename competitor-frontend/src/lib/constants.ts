@@ -82,3 +82,29 @@ export const DIFFICULTY_RANKS: Record<string, number> = {
   MEDIUM: 2,
   HARD: 3,
 };
+
+export const CHALLENGE_SORT_OPTIONS = [
+  { value: "DEFAULT", label: "Default order" },
+  { value: "POINTS_DESC", label: "XP: high to low" },
+  { value: "POINTS_ASC", label: "XP: low to high" },
+  { value: "DIFFICULTY_ASC", label: "Difficulty: easy to hard" },
+  { value: "DIFFICULTY_DESC", label: "Difficulty: hard to easy" },
+  { value: "TITLE_ASC", label: "Title: A to Z" },
+] as const;
+
+export const SUBMISSION_SORT_OPTIONS = [
+  { value: "NEWEST", label: "Newest first" },
+  { value: "OLDEST", label: "Oldest first" },
+  { value: "SCORE_DESC", label: "Score: highest first" },
+  { value: "STATUS_ASC", label: "Status: verdict A-Z" },
+  { value: "TITLE_ASC", label: "Challenge: A to Z" },
+] as const;
+
+export const LEADERBOARD_SORT_OPTIONS = [
+  { value: "RANK_ASC", label: "Rank: #1 to last" },
+  { value: "SCORE_DESC", label: "Score: high to low" },
+  { value: "SCORE_ASC", label: "Score: low to high" },
+  { value: "SOLVED_DESC", label: "Solved: most to least" },
+  { value: "NAME_ASC", label: "Team: A to Z" },
+] as const;
+

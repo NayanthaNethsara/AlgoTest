@@ -3,35 +3,31 @@
 import { useEffect, useState } from "react";
 import { Copy, Minus, Square, X } from "lucide-react";
 
+function checkIsWindowsDesktop(): boolean {
+  if (typeof window === "undefined") return false;
+  const hasDesktopCookie = document.cookie.includes(
+    "mini-algothon-client=desktop",
+  );
+  const hasDesktopParam =
+    new URLSearchParams(window.location.search).get("client") === "desktop";
+  const hasDesktopGlobal = Boolean(
+    (window as unknown as { __MINIALGOTHON_DESKTOP__?: boolean })
+      .__MINIALGOTHON_DESKTOP__,
+  );
+  const isMac =
+    (window as unknown as { __MINIALGOTHON_OS__?: string })
+      .__MINIALGOTHON_OS__ === "macos" ||
+    /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || navigator.platform);
+
+  return Boolean((hasDesktopCookie || hasDesktopParam || hasDesktopGlobal) && !isMac);
+}
+
 export function DesktopWindowControls() {
-  const [isWindowsDesktop, setIsWindowsDesktop] = useState(false);
+  const [isWindowsDesktop] = useState(checkIsWindowsDesktop);
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const checkIsWindowsDesktop = () => {
-      const hasDesktopCookie = document.cookie.includes(
-        "mini-algothon-client=desktop",
-      );
-      const hasDesktopParam =
-        new URLSearchParams(window.location.search).get("client") === "desktop";
-      const hasDesktopGlobal = Boolean(
-        (window as unknown as { __MINIALGOTHON_DESKTOP__?: boolean })
-          .__MINIALGOTHON_DESKTOP__,
-      );
-      const isMac =
-        (window as unknown as { __MINIALGOTHON_OS__?: string })
-          .__MINIALGOTHON_OS__ === "macos" ||
-        /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || navigator.platform);
-
-      return Boolean((hasDesktopCookie || hasDesktopParam || hasDesktopGlobal) && !isMac);
-    };
-
-    const isWin = checkIsWindowsDesktop();
-    setIsWindowsDesktop(isWin);
-
-    if (!isWin) return;
+    if (!isWindowsDesktop) return;
 
     // Attach dragging listener for regions marked with data-window-drag-region
     const handleMouseDown = (e: MouseEvent) => {
@@ -55,7 +51,7 @@ export function DesktopWindowControls() {
     return () => {
       document.removeEventListener("mousedown", handleMouseDown);
     };
-  }, []);
+  }, [isWindowsDesktop]);
 
   if (!isWindowsDesktop) return null;
 
