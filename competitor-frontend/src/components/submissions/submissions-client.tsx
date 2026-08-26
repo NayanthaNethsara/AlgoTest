@@ -16,6 +16,15 @@ import { Mascot } from "@/components/common/mascot";
 import { SUBMISSION_SORT_OPTIONS } from "@/lib/constants";
 import type { SubmissionItem, SubmissionSortOption } from "@/types/submission";
 import { CustomSelect } from "@/components/ui/custom-select";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
+import { Pagination } from "@/components/ui/pagination";
 
 export function SubmissionsClient({
   submissions,
@@ -25,6 +34,23 @@ export function SubmissionsClient({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState<SubmissionSortOption>("NEWEST");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (st: string) => {
+    setStatusFilter(st);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (val: SubmissionSortOption) => {
+    setSortBy(val);
+    setCurrentPage(1);
+  };
 
   const filteredSubmissions = submissions.filter((sub) => {
     if (
@@ -61,6 +87,14 @@ export function SubmissionsClient({
     return 0;
   });
 
+  const totalItems = sortedSubmissions.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedSubmissions = sortedSubmissions.slice(
+    (validCurrentPage - 1) * pageSize,
+    validCurrentPage * pageSize,
+  );
+
   return (
     <div className="space-y-5 font-mono">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pixel-raised bg-card p-3.5">
@@ -69,14 +103,14 @@ export function SubmissionsClient({
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by challenge, team, or lang..."
             className="w-full pixel-inset bg-background pl-8 pr-8 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
           {search && (
             <button
               type="button"
-              onClick={() => setSearch("")}
+              onClick={() => handleSearchChange("")}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               title="Clear search"
             >
@@ -91,7 +125,7 @@ export function SubmissionsClient({
               <button
                 key={st}
                 type="button"
-                onClick={() => setStatusFilter(st)}
+                onClick={() => handleStatusFilterChange(st)}
                 className={`border border-transparent px-2.5 py-1 text-[11px] uppercase font-medium transition-colors ${
                   statusFilter === st
                     ? "bg-primary font-bold text-primary-foreground"
@@ -105,9 +139,7 @@ export function SubmissionsClient({
 
           <CustomSelect
             value={sortBy}
-            onValueChange={(val) =>
-              setSortBy(val as SubmissionSortOption)
-            }
+            onValueChange={(val) => handleSortChange(val as SubmissionSortOption)}
             options={SUBMISSION_SORT_OPTIONS}
             icon={<ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
             size="sm"
@@ -117,7 +149,7 @@ export function SubmissionsClient({
       </div>
 
       <div className="pixel-raised bg-card overflow-hidden">
-        {sortedSubmissions.length === 0 ? (
+        {totalItems === 0 ? (
           <div className="p-10 text-center">
             {search ? (
               <History className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
@@ -134,64 +166,64 @@ export function SubmissionsClient({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
-              <thead>
-                <tr className="border-b-2 border-black bg-muted/80 text-foreground uppercase tracking-wider font-bold">
-                  <th
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b-2 border-black bg-muted/80 text-foreground uppercase tracking-wider font-bold">
+                  <TableHead
                     onClick={() =>
-                      setSortBy(sortBy === "TITLE_ASC" ? "NEWEST" : "TITLE_ASC")
+                      handleSortChange(sortBy === "TITLE_ASC" ? "NEWEST" : "TITLE_ASC")
                     }
-                    className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
+                    className="cursor-pointer hover:bg-muted"
                   >
                     <div className="inline-flex items-center gap-1">
                       <span>CHALLENGE</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
-                  </th>
-                  <th className="py-3 px-4">TEAM / CONTESTANT</th>
-                  <th className="py-3 px-4">LANGUAGE</th>
-                  <th
+                  </TableHead>
+                  <TableHead>TEAM / CONTESTANT</TableHead>
+                  <TableHead>LANGUAGE</TableHead>
+                  <TableHead
                     onClick={() =>
-                      setSortBy(
+                      handleSortChange(
                         sortBy === "SCORE_DESC" ? "NEWEST" : "SCORE_DESC",
                       )
                     }
-                    className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
+                    className="cursor-pointer hover:bg-muted"
                   >
                     <div className="inline-flex items-center gap-1">
                       <span>SCORE</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
-                  </th>
-                  <th
+                  </TableHead>
+                  <TableHead
                     onClick={() =>
-                      setSortBy(
+                      handleSortChange(
                         sortBy === "STATUS_ASC" ? "NEWEST" : "STATUS_ASC",
                       )
                     }
-                    className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
+                    className="cursor-pointer hover:bg-muted"
                   >
                     <div className="inline-flex items-center gap-1">
                       <span>STATUS</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
-                  </th>
-                  <th
+                  </TableHead>
+                  <TableHead
                     onClick={() =>
-                      setSortBy(sortBy === "NEWEST" ? "OLDEST" : "NEWEST")
+                      handleSortChange(sortBy === "NEWEST" ? "OLDEST" : "NEWEST")
                     }
-                    className="py-3 px-4 text-right cursor-pointer hover:bg-muted select-none"
+                    className="text-right cursor-pointer hover:bg-muted"
                   >
                     <div className="inline-flex items-center gap-1 justify-end">
                       <span>SUBMITTED</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {sortedSubmissions.map((sub, index) => {
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedSubmissions.map((sub, index) => {
                   const isAc =
                     sub.status.toLowerCase().includes("accepted") ||
                     sub.status.toLowerCase() === "ac";
@@ -201,14 +233,14 @@ export function SubmissionsClient({
                   const isRejected = sub.reviewStatus === "rejected";
 
                   return (
-                    <tr
+                    <TableRow
                       key={sub.id || sub.submissionId || index}
-                      className={`hover:bg-muted/40 transition-colors ${isRejected ? "opacity-60" : ""}`}
+                      className={isRejected ? "opacity-60" : undefined}
                     >
-                      <td className="py-3 px-4 font-semibold text-xs text-foreground">
+                      <TableCell className="font-semibold text-xs text-foreground">
                         {sub.problemTitle}
-                      </td>
-                      <td className="py-3 px-4 text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
                         <span className="font-semibold text-foreground">
                           {sub.teamName}
                         </span>
@@ -217,23 +249,23 @@ export function SubmissionsClient({
                             ({sub.submittedBy})
                           </span>
                         )}
-                      </td>
-                      <td className="py-3 px-4 text-xs">
+                      </TableCell>
+                      <TableCell className="text-xs">
                         <Badge
                           variant="outline"
                           className="font-mono text-[10px] uppercase bg-muted"
                         >
                           {sub.language}
                         </Badge>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
                         <span
                           className={isRejected ? "line-through" : undefined}
                         >
                           {sub.score} / {sub.maxScore}
                         </span>
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <div className="flex flex-col items-start gap-1">
                           <Badge
                             variant={
@@ -267,16 +299,26 @@ export function SubmissionsClient({
                             </Badge>
                           )}
                         </div>
-                      </td>
-                      <td className="py-3 px-4 text-right text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground">
                         {sub.submittedAt}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+
+            <Pagination
+              currentPage={validCurrentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              pageSizeOptions={[10, 15, 25, 50]}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
+          </>
         )}
       </div>
     </div>

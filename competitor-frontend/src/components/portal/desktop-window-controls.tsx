@@ -51,6 +51,8 @@ export function DesktopWindowControls({
 
   useEffect(() => {
     let active = true;
+    let unlistenResize: (() => void) | null = null;
+    let unlistenMove: (() => void) | null = null;
 
     const syncMaximized = async () => {
       try {
@@ -58,20 +60,52 @@ export function DesktopWindowControls({
         const max = await appWindow.isMaximized();
         if (active) setIsMaximized(max);
       } catch {
-        // Non-Tauri fallback
+        // Fallback to loopback check
+        try {
+          const res = await fetch("http://127.0.0.1:47620/is-maximized");
+          if (res.ok) {
+            const data = (await res.json()) as { maximized: boolean };
+            if (active && typeof data.maximized === "boolean") {
+              setIsMaximized(data.maximized);
+            }
+          }
+        } catch {}
       }
     };
 
     void syncMaximized();
+
+    const setupListeners = async () => {
+      try {
+        const appWindow = getCurrentWebviewWindow();
+        unlistenResize = await appWindow.onResized(async () => {
+          if (!active) return;
+          const max = await appWindow.isMaximized();
+          setIsMaximized(max);
+        });
+        unlistenMove = await appWindow.onMoved(async () => {
+          if (!active) return;
+          const max = await appWindow.isMaximized();
+          setIsMaximized(max);
+        });
+      } catch {}
+    };
+
+    void setupListeners();
 
     const handleResize = () => {
       void syncMaximized();
     };
 
     window.addEventListener("resize", handleResize);
+    const interval = setInterval(syncMaximized, 1000);
+
     return () => {
       active = false;
+      if (unlistenResize) unlistenResize();
+      if (unlistenMove) unlistenMove();
       window.removeEventListener("resize", handleResize);
+      clearInterval(interval);
     };
   }, []);
 

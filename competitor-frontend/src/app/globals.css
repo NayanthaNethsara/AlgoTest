@@ -197,11 +197,17 @@
   [data-slot="scroll-area-viewport"],
   [data-radix-scroll-area-viewport],
   .overflow-y-auto,
-  .overflow-x-auto,
   .overflow-auto {
     overscroll-behavior: contain;
     overscroll-behavior-y: contain;
+    -ms-scroll-chaining: none;
+  }
+
+  /* Horizontal table overflow containers must allow vertical page scrolling */
+  .overflow-x-auto,
+  [data-slot="table-container"] {
     overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
     -ms-scroll-chaining: none;
   }
 

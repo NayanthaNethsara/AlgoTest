@@ -320,6 +320,22 @@ fn spawn_control_listener(listener: std::net::TcpListener, app: tauri::AppHandle
             let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
             let read = stream.read(&mut scratch).unwrap_or(0);
             let path = request_path(&scratch[..read]);
+            let is_max = app
+                .get_webview_window(MAIN_WINDOW)
+                .and_then(|w| w.is_maximized().ok())
+                .unwrap_or(false);
+
+            if path.as_deref() == Some("/is-maximized") {
+                let body = format!("{{\"maximized\":{}}}", is_max);
+                let reply = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(reply.as_bytes());
+                let _ = stream.flush();
+                continue;
+            }
 
             let reply = b"HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: *\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
             let _ = stream.write_all(reply);

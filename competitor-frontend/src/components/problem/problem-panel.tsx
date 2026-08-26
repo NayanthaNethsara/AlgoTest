@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Clock, Copy, Cpu, Trophy } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Check, Clock, Copy, Cpu, Trophy } from "lucide-react";
 import { Markdown } from "@/components/common/markdown";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,8 +14,20 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
   return (
     <ScrollArea className="h-full font-mono">
       <div className="flex flex-col gap-6 p-6">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-2.5">
+        <header className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <Link
+              href="/challenges"
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground pixel-flat bg-card hover:bg-muted px-2.5 py-1 transition-colors select-none"
+              title="Return to challenge list"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back to Challenges</span>
+            </Link>
+            <ChallengeThemeSwitcher />
+          </div>
+
+          <div className="flex flex-col gap-2.5 pt-1">
             <h1 className="text-lg font-semibold leading-snug text-foreground">
               {problem.title}
             </h1>
@@ -30,7 +43,6 @@ export function ProblemPanel({ problem }: { problem: Problem }) {
               </Meta>
             </div>
           </div>
-          <ChallengeThemeSwitcher />
         </header>
 
         <Separator />

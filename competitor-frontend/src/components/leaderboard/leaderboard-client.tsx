@@ -28,6 +28,15 @@ import {
   Zap,
 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/custom-select";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
+import { Pagination } from "@/components/ui/pagination";
 
 export function LeaderboardClient({
   leaderboard: initialLeaderboard,
@@ -41,9 +50,21 @@ export function LeaderboardClient({
   const [leaderboard, setLeaderboard] = useState(initialLeaderboard);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const proctor = useProctor();
   const locked = contestLocked(proctor);
+
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setCurrentPage(1);
+  };
+
+  const handleSortChange = (val: LeaderboardSortOption) => {
+    setSortBy(val);
+    setCurrentPage(1);
+  };
 
   const inFlight = useRef(false);
   const refresh = useCallback(async () => {
@@ -105,6 +126,14 @@ export function LeaderboardClient({
     return 0;
   });
 
+  const totalItems = sortedLeaderboard.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedLeaderboard = sortedLeaderboard.slice(
+    (validCurrentPage - 1) * pageSize,
+    validCurrentPage * pageSize,
+  );
+
   const currentUserStanding = leaderboard.find(
     (e) =>
       (currentUser?.teamId && e.teamId === currentUser.teamId) ||
@@ -120,14 +149,14 @@ export function LeaderboardClient({
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search teams..."
               className="w-full pixel-inset bg-background pl-8 pr-8 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {search && (
               <button
                 type="button"
-                onClick={() => setSearch("")}
+                onClick={() => handleSearchChange("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 title="Clear search"
               >
@@ -138,9 +167,7 @@ export function LeaderboardClient({
 
           <CustomSelect
             value={sortBy}
-            onValueChange={(val) =>
-              setSortBy(val as LeaderboardSortOption)
-            }
+            onValueChange={(val) => handleSortChange(val as LeaderboardSortOption)}
             options={LEADERBOARD_SORT_OPTIONS}
             icon={<ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
             size="sm"
@@ -188,97 +215,99 @@ export function LeaderboardClient({
       </div>
 
       <div className="pixel-raised bg-card overflow-hidden">
-        {sortedLeaderboard.length === 0 ? (
+        {totalItems === 0 ? (
           <div className="p-10 text-center text-xs text-muted-foreground">
             {search ? "No matching teams found." : "No standings recorded yet."}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
-              <thead>
-                <tr className="border-b-2 border-black bg-muted/80 text-foreground uppercase tracking-wider font-bold">
-                  <th
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b-2 border-black bg-muted/80 text-foreground uppercase tracking-wider font-bold">
+                  <TableHead
                     onClick={() =>
-                      setSortBy(
+                      handleSortChange(
                         sortBy === "RANK_ASC" ? "SCORE_ASC" : "RANK_ASC",
                       )
                     }
-                    className="py-3 px-4 w-20 text-center cursor-pointer hover:bg-muted select-none"
+                    className="w-20 text-center cursor-pointer hover:bg-muted"
                   >
                     <div className="inline-flex items-center gap-1 justify-center">
                       <span>RANK</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
-                  </th>
-                  <th
+                  </TableHead>
+                  <TableHead
                     onClick={() =>
-                      setSortBy(sortBy === "NAME_ASC" ? "RANK_ASC" : "NAME_ASC")
+                      handleSortChange(
+                        sortBy === "NAME_ASC" ? "RANK_ASC" : "NAME_ASC",
+                      )
                     }
-                    className="py-3 px-4 cursor-pointer hover:bg-muted select-none"
+                    className="cursor-pointer hover:bg-muted"
                   >
                     <div className="inline-flex items-center gap-1">
                       <span>TEAM NAME</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
-                  </th>
-                  <th
+                  </TableHead>
+                  <TableHead
                     onClick={() =>
-                      setSortBy(
+                      handleSortChange(
                         sortBy === "SOLVED_DESC" ? "RANK_ASC" : "SOLVED_DESC",
                       )
                     }
-                    className="py-3 px-4 text-center cursor-pointer hover:bg-muted select-none"
+                    className="text-center cursor-pointer hover:bg-muted"
                   >
                     <div className="inline-flex items-center gap-1 justify-center">
                       <span>SOLVED</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
-                  </th>
-                  <th
+                  </TableHead>
+                  <TableHead
                     onClick={() =>
-                      setSortBy(
+                      handleSortChange(
                         sortBy === "RANK_ASC" ? "SCORE_ASC" : "RANK_ASC",
                       )
                     }
-                    className="py-3 px-4 text-right cursor-pointer hover:bg-muted select-none"
+                    className="text-right cursor-pointer hover:bg-muted"
                   >
                     <div className="inline-flex items-center gap-1 justify-end">
                       <span>TOTAL XP</span>
                       <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
                     </div>
-                  </th>
-                  <th className="py-3 px-4 text-right">
+                  </TableHead>
+                  <TableHead className="text-right">
                     <div className="inline-flex items-center gap-1 justify-end">
                       <Clock className="h-3 w-3 text-muted-foreground" />
                       <span>LAST SOLVED</span>
                     </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {sortedLeaderboard.map((row) => {
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedLeaderboard.map((row) => {
                   const isCurrentTeam =
                     Boolean(
                       currentUser?.teamId && row.teamId === currentUser.teamId,
                     ) ||
                     Boolean(
                       currentUser?.teamName &&
-                      row.teamName === currentUser.teamName,
+                        row.teamName === currentUser.teamName,
                     );
                   const isTop1 = row.rank === 1;
                   const isTop2 = row.rank === 2;
                   const isTop3 = row.rank === 3;
 
                   return (
-                    <tr
+                    <TableRow
                       key={row.teamId || row.rank}
-                      className={`transition-colors ${
+                      className={
                         isCurrentTeam
                           ? "bg-primary/20 font-bold border-l-4 border-l-primary"
-                          : "hover:bg-muted/40"
-                      }`}
+                          : undefined
+                      }
                     >
-                      <td className="py-3 px-4 text-center font-semibold">
+                      <TableCell className="text-center font-semibold">
                         {isTop1 ? (
                           <span className="inline-flex h-6 w-6 items-center justify-center pixel-flat bg-amber-400 text-black text-xs font-bold">
                             1
@@ -296,8 +325,8 @@ export function LeaderboardClient({
                             #{row.rank}
                           </span>
                         )}
-                      </td>
-                      <td className="py-3 px-4">
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center gap-2">
                           <Users className="h-3.5 w-3.5 text-primary shrink-0" />
                           <span className="font-semibold text-foreground">
@@ -312,17 +341,17 @@ export function LeaderboardClient({
                             </Badge>
                           )}
                         </div>
-                      </td>
-                      <td className="py-3 px-4 text-center font-bold text-xs">
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-xs">
                         <span className="inline-flex items-center gap-1">
                           <Zap className="h-3.5 w-3.5 text-primary" />
                           {row.problemsSolved}
                         </span>
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-xs text-amber-400">
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-xs text-amber-400">
                         {row.totalScore} XP
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
                         {row.lastSubmissionAt ? (
                           <span
                             title={`Last scoring submission: ${new Date(row.lastSubmissionAt).toLocaleString()}`}
@@ -339,13 +368,23 @@ export function LeaderboardClient({
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+
+            <Pagination
+              currentPage={validCurrentPage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              pageSizeOptions={[10, 20, 50, 100]}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
+          </>
         )}
       </div>
     </div>
