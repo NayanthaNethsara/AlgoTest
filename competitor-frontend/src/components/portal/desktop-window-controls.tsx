@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Minus, Square, X } from "lucide-react";
+import { Minus, X } from "lucide-react";
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
@@ -24,6 +24,23 @@ function checkIsWindowsDesktop(): boolean {
   return Boolean((hasDesktopCookie || hasDesktopParam || hasDesktopGlobal) && !isMac);
 }
 
+function MaximizeBoxIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="size-3">
+      <rect x="0.75" y="0.75" width="8.5" height="8.5" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function RestoreBoxIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="size-3">
+      <path d="M2.5 2.5V0.75H9.25V7.5H7.5" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="0.75" y="2.5" width="6.75" height="6.75" stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.1" />
+    </svg>
+  );
+}
+
 export function DesktopWindowControls({
   className,
 }: {
@@ -31,6 +48,32 @@ export function DesktopWindowControls({
 } = {}) {
   const [isWindowsDesktop] = useState(checkIsWindowsDesktop);
   const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncMaximized = async () => {
+      try {
+        const appWindow = getCurrentWebviewWindow();
+        const max = await appWindow.isMaximized();
+        if (active) setIsMaximized(max);
+      } catch {
+        // Non-Tauri fallback
+      }
+    };
+
+    void syncMaximized();
+
+    const handleResize = () => {
+      void syncMaximized();
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      active = false;
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
 
   const handleMinimize = async () => {
     try {
@@ -78,7 +121,6 @@ export function DesktopWindowControls({
   };
 
   useEffect(() => {
-    // Attach dragging listener for regions marked with data-tauri-drag-region or data-window-drag-region
     const handleMouseDown = async (e: MouseEvent) => {
       if (e.buttons !== 1) return;
       const target = e.target as HTMLElement | null;
@@ -92,11 +134,6 @@ export function DesktopWindowControls({
       if (dragRegion && !isInteractive) {
         try {
           const appWindow = getCurrentWebviewWindow();
-          const isMax = await appWindow.isMaximized();
-          if (isMax) {
-            await appWindow.unmaximize();
-            setIsMaximized(false);
-          }
           await appWindow.startDragging();
         } catch {
           void fetch("http://127.0.0.1:47620/drag", {
@@ -107,7 +144,6 @@ export function DesktopWindowControls({
       }
     };
 
-    // Double click to toggle maximize on drag regions
     const handleDoubleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -159,11 +195,7 @@ export function DesktopWindowControls({
         aria-label={isMaximized ? "Restore window" : "Maximize window"}
         className="flex h-7 w-7.5 sm:w-8 items-center justify-center pixel-flat bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
       >
-        {isMaximized ? (
-          <Copy className="h-3 w-3" />
-        ) : (
-          <Square className="h-3 w-3 stroke-[2.5]" />
-        )}
+        {isMaximized ? <RestoreBoxIcon /> : <MaximizeBoxIcon />}
       </button>
 
       <button

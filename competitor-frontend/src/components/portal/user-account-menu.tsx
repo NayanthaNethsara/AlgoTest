@@ -72,27 +72,23 @@ export function UserAccountMenu({ user }: { user: SessionUser }) {
   const displayName = user.displayName || user.username;
 
   return (
-    <div className="relative shrink-0" ref={menuRef}>
+    <div className="relative shrink-0" ref={menuRef} data-no-drag>
       <button
         type="button"
-        id="user-menu-trigger"
-        onClick={() => {
-          setIsOpen((prev) => !prev);
-          setIsConfirmingSignOut(false);
-        }}
+        onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        title={`Signed in as ${displayName}`}
-        className="flex items-center gap-1.5 p-0.5 pixel-flat bg-card hover:bg-muted text-foreground transition-colors cursor-pointer select-none shrink-0"
+        data-no-drag
+        className="flex items-center gap-1.5 h-7 pl-1 pr-1.5 pixel-flat bg-card hover:bg-muted text-foreground transition-colors cursor-pointer select-none shrink-0"
       >
-        <div className="flex h-6 w-6 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-xs shrink-0">
+        <div className="flex h-5 w-5 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-[10px] shrink-0">
           {initialLetter}
         </div>
         <span className="text-xs font-semibold text-foreground max-w-[90px] truncate hidden 2xl:inline pl-0.5">
           {displayName}
         </span>
         <ChevronDown
-          className={`h-3 w-3 text-muted-foreground transition-transform duration-150 mr-1 ${
+          className={`h-3 w-3 text-muted-foreground transition-transform duration-150 mr-0.5 ${
             isOpen ? "rotate-180 text-foreground" : ""
           }`}
         />
@@ -102,10 +98,11 @@ export function UserAccountMenu({ user }: { user: SessionUser }) {
         <div
           role="menu"
           aria-orientation="vertical"
-          className="absolute right-0 top-full mt-1.5 z-50 w-56 pixel-raised bg-card p-2 text-xs shadow-xl animate-in fade-in-50 zoom-in-95 duration-100"
+          data-no-drag
+          className="absolute right-0 top-full mt-1.5 z-50 w-56 pixel-raised bg-card p-2 text-xs shadow-xl animate-in fade-in-50 zoom-in-95 duration-100 select-none"
         >
           {/* User Profile Header */}
-          <div className="flex items-center gap-2.5 p-2 border-b-2 border-black/40 pb-2.5 mb-1.5">
+          <div data-no-drag className="flex items-center gap-2.5 p-2 border-b-2 border-black/40 pb-2.5 mb-1.5">
             <div className="flex h-7 w-7 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-xs shrink-0">
               {initialLetter}
             </div>
@@ -122,23 +119,22 @@ export function UserAccountMenu({ user }: { user: SessionUser }) {
           </div>
 
           {/* User Team / Solo Status Info */}
-          <div className="px-2 py-1.5 flex items-center justify-between gap-2 bg-muted/40 pixel-flat mb-1.5">
-            <span className="text-[11px] text-muted-foreground font-semibold">Team:</span>
+          <div data-no-drag className="px-2 py-1.5 flex items-center justify-between gap-2 bg-muted/40 pixel-flat mb-1.5">
+            <span className="text-[11px] text-muted-foreground font-semibold shrink-0">
+              Team:
+            </span>
             {user.teamName ? (
-              <Badge
-                variant="secondary"
-                className="gap-1 text-[11px] h-6 px-2 bg-card border border-border truncate max-w-[140px]"
+              <div
+                className="flex items-center gap-1 min-w-0 max-w-[130px] px-1.5 py-0.5 pixel-flat bg-card text-[11px] font-semibold text-foreground border border-border shrink-0"
                 title={user.teamName}
               >
                 <Users className="h-3 w-3 text-primary shrink-0" />
-                <span className="font-semibold text-foreground truncate">
-                  {user.teamName}
-                </span>
-              </Badge>
+                <span className="truncate">{user.teamName}</span>
+              </div>
             ) : (
               <Badge
                 variant="outline"
-                className="text-[11px] text-muted-foreground h-6 px-2"
+                className="text-[11px] text-muted-foreground h-5.5 px-2 shrink-0"
               >
                 Solo
               </Badge>
