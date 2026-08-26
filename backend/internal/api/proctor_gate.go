@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	attestHeader = "X-Proctor-Attest"
-	clientHeader = "X-Proctor-Client"
+	attestHeader  = "X-Proctor-Attest"
+	clientHeader  = "X-Proctor-Client"
+	desktopCookie = "mini-algothon-client"
 )
 
 func portalAttestNonce(c *gin.Context) string {
@@ -20,7 +21,13 @@ func portalAttestNonce(c *gin.Context) string {
 }
 
 func portalClaimsDesktop(c *gin.Context) bool {
-	return strings.ToLower(strings.TrimSpace(c.GetHeader(clientHeader))) == "desktop"
+	if strings.ToLower(strings.TrimSpace(c.GetHeader(clientHeader))) == "desktop" {
+		return true
+	}
+	if cookie, err := c.Cookie(desktopCookie); err == nil && strings.ToLower(strings.TrimSpace(cookie)) == "desktop" {
+		return true
+	}
+	return false
 }
 
 func portalClientIP(c *gin.Context) (string, bool) {

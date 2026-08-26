@@ -21,8 +21,12 @@ services:
       # Browsers do not store a Secure cookie from an insecure origin, so over
       # plain HTTP this must stay false or nobody can log in.
       COOKIE_SECURE: "false"
+      NODE_OPTIONS: "--dns-result-order=ipv4first"
     expose:
       - "3000"
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
     # nginx resolves `frontend` once, at startup, and refuses to boot if the name
     # is not there yet.
     healthcheck:
@@ -38,6 +42,9 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.default.disable_ipv6=1
     environment:
       # The cloud API this venue relays to. Contestants have no route of their own,
       # so every API call and every agent report goes through here.

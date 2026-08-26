@@ -118,7 +118,18 @@ func TestPortalHeaderExtraction(t *testing.T) {
 			t.Errorf("portalAttestNonce() = %q, want %q", nonce, "nonce-12345")
 		}
 		if !portalClaimsDesktop(c) {
-			t.Error("portalClaimsDesktop() should be true")
+			t.Error("portalClaimsDesktop() should be true for header")
+		}
+	})
+
+	t.Run("extracts desktop client claim from cookie", func(t *testing.T) {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		req, _ := http.NewRequest(http.MethodGet, "/test", nil)
+		req.AddCookie(&http.Cookie{Name: "mini-algothon-client", Value: "desktop"})
+		c.Request = req
+
+		if !portalClaimsDesktop(c) {
+			t.Error("portalClaimsDesktop() should be true for cookie")
 		}
 	})
 

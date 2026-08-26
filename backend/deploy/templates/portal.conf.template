@@ -15,6 +15,11 @@ upstream portal {
     keepalive 16;
 }
 
+map $http_x_proctor_client $proctor_client_claim {
+    default $http_x_proctor_client;
+    ""      $cookie_mini_algothon_client;
+}
+
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
@@ -23,3 +28,4 @@ server {
     include /etc/nginx/common-locations.conf;
     include /etc/nginx/conf.d/portal-locations.inc;
 }
+
