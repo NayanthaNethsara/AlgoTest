@@ -124,8 +124,11 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                 )}
               </div>
 
-              <div className="hidden md:flex items-center gap-1.5 border-l-2 border-black pl-2.5">
-                <div className="flex h-6 w-6 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-xs shrink-0">
+              <div className="flex items-center gap-1 sm:gap-1.5 border-l-2 border-black pl-1.5 sm:pl-2.5 shrink-0">
+                <div
+                  className="flex h-6 w-6 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-xs shrink-0"
+                  title={user.displayName || user.username}
+                >
                   {(user.displayName || user.username || "U")[0].toUpperCase()}
                 </div>
                 <span className="text-xs font-semibold text-foreground max-w-[90px] truncate hidden xl:inline">
@@ -137,7 +140,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                   size="sm"
                   onClick={() => setPasswordDialogOpen(true)}
                   title="Change Password"
-                  className="h-7.5 w-7.5 p-0 text-muted-foreground hover:text-foreground"
+                  className="h-7.5 w-7.5 p-0 text-muted-foreground hover:text-foreground shrink-0 hidden sm:flex items-center justify-center"
                 >
                   <KeyRound className="size-3.5" />
                 </Button>
@@ -166,7 +169,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             )}
           </button>
 
-          {/* Desktop Window Controls (Minimize, Maximize/Restore, Close) - Always visible & anchored to top right */}
+          {/* Desktop Window Controls (Minimize, Maximize/Restore, Close) - ALWAYS visible & anchored to top right */}
           <DesktopWindowControls />
         </div>
       </div>
