@@ -32,6 +32,7 @@ export type SubtaskResult = {
 
 export type SubmitResult = {
   submissionId?: string;
+  problemId?: string;
   status?: SubmissionStatus;
   queuePosition?: number;
   error?: string;

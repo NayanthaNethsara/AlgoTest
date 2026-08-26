@@ -39,7 +39,6 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
 
   const { activeSubmission, lastResult, submitFast } = useSubmissions();
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
-  const [appliedResultId, setAppliedResultId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [tab, setTab] = useState(() => (isRunFeatureEnabled ? "test" : "submission"));
@@ -47,11 +46,21 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
 
   const { snapshots, record } = useHistory(problem.id);
   const bestKey = `${BEST_SCORE_STORAGE_PREFIX}${problem.id}`;
-  const [best, setBest] = useState(() =>
+  const storedBest =
     typeof window === "undefined"
       ? 0
-      : Number(localStorage.getItem(bestKey) ?? 0),
-  );
+      : Number(localStorage.getItem(bestKey) ?? 0);
+
+  const activeResult =
+    lastResult &&
+    (!lastResult.problemId ||
+      lastResult.problemId === problem.id ||
+      lastResult.problemId === problem.slug ||
+      lastResult.submissionId === submitResult?.submissionId)
+      ? lastResult
+      : submitResult;
+
+  const best = Math.max(storedBest, activeResult?.score ?? 0);
 
   const firstRender = useRef(true);
   useEffect(() => {
@@ -63,30 +72,22 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     return () => clearTimeout(timer);
   }, [code, language.id, record]);
 
-  if (lastResult?.submissionId && lastResult.submissionId !== appliedResultId) {
-    setAppliedResultId(lastResult.submissionId);
-    setSubmitResult(lastResult);
-    if (lastResult.score > best) {
-      setBest(lastResult.score);
-    }
-  }
-
   const recordedResult = useRef<string | null>(null);
   useEffect(() => {
-    const id = lastResult?.submissionId;
+    const id = activeResult?.submissionId;
     if (!id || recordedResult.current === id) return;
     recordedResult.current = id;
 
-    if (lastResult.score > best) {
-      localStorage.setItem(bestKey, String(lastResult.score));
+    if (activeResult.score > storedBest) {
+      localStorage.setItem(bestKey, String(activeResult.score));
     }
     record("submitted", language.id, code, {
       submissionId: id,
-      verdict: lastResult.verdict,
-      score: lastResult.score,
-      maxScore: lastResult.maxScore,
+      verdict: activeResult.verdict,
+      score: activeResult.score,
+      maxScore: activeResult.maxScore,
     });
-  }, [lastResult, best, bestKey, language.id, code, record]);
+  }, [activeResult, storedBest, bestKey, language.id, code, record]);
 
   const [runCooldown, setRunCooldown] = useState(0);
   const [submitCooldown, setSubmitCooldown] = useState(0);
@@ -313,7 +314,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
               <SubmissionResult
-                result={submitResult}
+                result={activeResult}
                 submitting={Boolean(isCurrentProblemSubmitting)}
                 statusMessage={
                   activeSubmission

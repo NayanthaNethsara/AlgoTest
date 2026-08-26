@@ -15,10 +15,14 @@ export function SubmissionResult({
   submitting: boolean;
   statusMessage?: string;
 }) {
+  const hasFinalVerdict =
+    Boolean(result?.verdict) ||
+    result?.status === "passed" ||
+    result?.status === "failed";
+
   const isEvaluating =
-    submitting ||
-    result?.status === "queued" ||
-    result?.status === "running";
+    !hasFinalVerdict &&
+    (submitting || result?.status === "queued" || result?.status === "running");
 
   if (isEvaluating) {
     const queueMsg =
