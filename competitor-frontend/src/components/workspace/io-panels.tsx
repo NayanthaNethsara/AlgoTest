@@ -19,7 +19,18 @@ export function IoPanels({
   return (
     <div className="grid min-h-0 flex-1 gap-px overflow-hidden bg-border sm:grid-cols-2">
       <div className="flex min-h-0 flex-col bg-background">
-        <PanelLabel>Custom input (stdin)</PanelLabel>
+        <PanelLabel>
+          <span>Custom input (stdin)</span>
+          {stdin && (
+            <button
+              type="button"
+              onClick={() => onStdinChange("")}
+              className="text-[10px] text-muted-foreground hover:text-foreground font-normal transition-colors"
+            >
+              Clear
+            </button>
+          )}
+        </PanelLabel>
         <Textarea
           value={stdin}
           onChange={(e) => onStdinChange(e.target.value)}

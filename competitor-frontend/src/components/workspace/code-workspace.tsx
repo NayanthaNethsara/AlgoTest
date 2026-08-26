@@ -155,6 +155,29 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     }
   }
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            void handleSubmit();
+          } else if (isRunFeatureEnabled) {
+            void handleRun();
+          } else {
+            void handleSubmit();
+          }
+        } else if (e.key.toLowerCase() === "s") {
+          e.preventDefault();
+          record("autosave", language.id, code);
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   function handleRestore(snapshot: Snapshot) {
     const lang = LANGUAGES.find((l) => l.id === snapshot.language) ?? language;
     setLanguage(lang);
@@ -240,6 +263,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
                     size="sm"
                     onClick={handleRun}
                     disabled={isRunDisabled}
+                    title="Run Code (Ctrl+Enter / Cmd+Enter)"
                   >
                     <Play className="size-3.5" />
                     {isPaused
@@ -255,6 +279,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
                   size="sm"
                   onClick={handleSubmit}
                   disabled={isSubmitDisabled}
+                  title="Submit Solution (Ctrl+Shift+Enter / Cmd+Shift+Enter)"
                 >
                   <Send className="size-3.5" />
                   {isEnded

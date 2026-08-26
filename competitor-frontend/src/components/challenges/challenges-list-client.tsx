@@ -20,6 +20,7 @@ import {
   List,
   Search,
   SlidersHorizontal,
+  X,
   Zap,
 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -102,21 +103,32 @@ export function ChallengesListClient({
   });
 
   const sortedProblems = [...filteredProblems].sort((a, b) => {
+    const aProg = (a.id ? progress[a.id] : undefined) ||
+      (a.slug ? progress[a.slug] : undefined) || {
+        problemId: a.id,
+        status: CHALLENGE_STATUS.NOT_ATTEMPTED,
+        bestScore: 0,
+      };
+    const bProg = (b.id ? progress[b.id] : undefined) ||
+      (b.slug ? progress[b.slug] : undefined) || {
+        problemId: b.id,
+        status: CHALLENGE_STATUS.NOT_ATTEMPTED,
+        bestScore: 0,
+      };
+
     if (sortBy === "POINTS_DESC") return b.points - a.points;
     if (sortBy === "POINTS_ASC") return a.points - b.points;
+    if (sortBy === "TITLE_ASC") return a.title.localeCompare(b.title);
     if (sortBy === "DIFFICULTY_ASC") {
-      return (
-        (DIFFICULTY_RANKS[a.difficulty.toUpperCase()] || 0) -
-        (DIFFICULTY_RANKS[b.difficulty.toUpperCase()] || 0)
-      );
+      const rankA = DIFFICULTY_RANKS[a.difficulty] ?? 99;
+      const rankB = DIFFICULTY_RANKS[b.difficulty] ?? 99;
+      return rankA - rankB;
     }
     if (sortBy === "DIFFICULTY_DESC") {
-      return (
-        (DIFFICULTY_RANKS[b.difficulty.toUpperCase()] || 0) -
-        (DIFFICULTY_RANKS[a.difficulty.toUpperCase()] || 0)
-      );
+      const rankA = DIFFICULTY_RANKS[a.difficulty] ?? 99;
+      const rankB = DIFFICULTY_RANKS[b.difficulty] ?? 99;
+      return rankB - rankA;
     }
-    if (sortBy === "TITLE_ASC") return a.title.localeCompare(b.title);
     return 0;
   });
 
@@ -159,8 +171,18 @@ export function ChallengesListClient({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search challenges..."
-            className="w-full pixel-inset bg-background pl-9 pr-3.5 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full pixel-inset bg-background pl-9 pr-8 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 text-xs">

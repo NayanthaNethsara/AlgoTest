@@ -9,6 +9,7 @@ import {
   Clock,
   History,
   Search,
+  X,
   XCircle,
 } from "lucide-react";
 import { Mascot } from "@/components/common/mascot";
@@ -70,8 +71,18 @@ export function SubmissionsClient({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by challenge, team, or lang..."
-            className="w-full pixel-inset bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full pixel-inset bg-background pl-8 pr-8 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-xs">

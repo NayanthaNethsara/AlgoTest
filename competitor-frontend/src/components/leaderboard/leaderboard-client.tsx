@@ -24,6 +24,7 @@ import {
   Search,
   Trophy,
   Users,
+  X,
   Zap,
 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -121,8 +122,18 @@ export function LeaderboardClient({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search teams..."
-              className="w-full pixel-inset bg-background pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full pixel-inset bg-background pl-8 pr-8 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                title="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           <CustomSelect
@@ -162,10 +173,14 @@ export function LeaderboardClient({
                 ? `Updated ${updatedAt.toLocaleTimeString()} - refreshes automatically`
                 : "Refreshes automatically"
             }
-            className="flex items-center gap-1.5 pixel-flat bg-card px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60"
+            className="flex items-center gap-1.5 pixel-flat bg-card px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-60 select-none"
           >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
             <RefreshCw
-              className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`}
+              className={`h-3 w-3 ${refreshing ? "animate-spin text-primary" : ""}`}
             />
             <span>{refreshing ? "Syncing" : "Live"}</span>
           </button>

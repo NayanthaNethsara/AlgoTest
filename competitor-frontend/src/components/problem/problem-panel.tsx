@@ -1,4 +1,7 @@
-import { Clock, Cpu, Trophy } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { Check, Clock, Copy, Cpu, Trophy } from "lucide-react";
 import { Markdown } from "@/components/common/markdown";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -115,12 +118,44 @@ function SampleBlock({ index, sample }: { index: number; sample: Sample }) {
 }
 
 function IoCell({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
-    <div className="bg-card p-3">
-      <div className="mb-1 text-[11px] uppercase tracking-wider text-muted-foreground">
-        {label}
+    <div className="bg-card p-3 group relative">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="flex items-center gap-1 pixel-flat bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          title={`Copy sample ${label.toLowerCase()}`}
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3 text-emerald-400" />
+              <span className="text-emerald-400">Copied</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
       </div>
-      <pre className="overflow-x-auto font-mono text-xs leading-relaxed">
+      <pre className="overflow-x-auto font-mono text-xs leading-relaxed select-all">
         {value}
       </pre>
     </div>
