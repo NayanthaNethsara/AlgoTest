@@ -52,7 +52,7 @@ func TestDescribeEventsNamesWhatChanged(t *testing.T) {
 	if entries[0].Label != "Switched to Chrome" {
 		t.Errorf("headline = %q", entries[0].Label)
 	}
-	want := "opened ollama (3s) · internet became reachable · process ollama appeared"
+	want := "opened ollama (3s) · Network reconnected (internet restored) · process ollama appeared"
 	if entries[0].Detail != want {
 		t.Errorf("detail = %q, want %q", entries[0].Detail, want)
 	}
@@ -92,10 +92,10 @@ func TestDescribeEventsRendersDisconnectAndStop(t *testing.T) {
 	if entries[0].Label != "Proctor client stopped" {
 		t.Errorf("stop label = %q", entries[0].Label)
 	}
-	if entries[1].Label != "Proctor client disconnected" {
+	if entries[1].Label != "Blackout Disconnect Gap" {
 		t.Errorf("gap label = %q", entries[1].Label)
 	}
-	if entries[1].Detail != "dark for 3m 12s, reconnected 14:03:00" {
+	if entries[1].Detail != "Offline for 3m 12s · Reconnected at 14:03:00" {
 		t.Errorf("gap detail = %q", entries[1].Detail)
 	}
 }
@@ -103,7 +103,7 @@ func TestDescribeEventsRendersDisconnectAndStop(t *testing.T) {
 func TestDescribeGapStillOpen(t *testing.T) {
 	e := Entry{Kind: KindGap, At: time.Now(), Label: "agent_unreachable"}
 	describeGap(&e)
-	if e.Detail != "still dark" {
+	if e.Detail != "Proctor client went dark — currently offline / disconnected" {
 		t.Errorf("open gap detail = %q", e.Detail)
 	}
 }

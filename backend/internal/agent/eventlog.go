@@ -96,16 +96,16 @@ func describeEvents(entries []Entry) {
 // the client went dark, and whether it ever came back.
 func describeGap(e *Entry) {
 	reason := e.Label
-	e.Label = "Proctor client disconnected"
+	e.Label = "Blackout Disconnect Gap"
 	if reason != "" && reason != "agent_unreachable" {
-		e.Label = fmt.Sprintf("Proctor client disconnected (%s)", reason)
+		e.Label = fmt.Sprintf("Blackout Disconnect Gap (%s)", reason)
 	}
 
 	if e.EndedAt == nil {
-		e.Detail = "still dark"
+		e.Detail = "Proctor client went dark — currently offline / disconnected"
 		return
 	}
-	e.Detail = fmt.Sprintf("dark for %s, reconnected %s",
+	e.Detail = fmt.Sprintf("Offline for %s · Reconnected at %s",
 		humanSeconds(e.Count), e.EndedAt.Format("15:04:05"))
 }
 
@@ -134,9 +134,9 @@ func diffSignals(prev *Signals, cur Signals) []string {
 
 	if cur.InternetReachable != prev.InternetReachable {
 		if cur.InternetReachable {
-			changes = append(changes, "internet became reachable")
+			changes = append(changes, "Network reconnected (internet restored)")
 		} else {
-			changes = append(changes, "internet no longer reachable")
+			changes = append(changes, "Network disconnected (internet lost)")
 		}
 	}
 

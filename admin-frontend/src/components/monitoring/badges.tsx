@@ -6,7 +6,7 @@ import type { CompetitorHeartbeat, TelemetryStatus } from "@/types/telemetry";
 export function StatusBadge({ status, inGap }: { status: TelemetryStatus; inGap?: boolean }) {
   if (inGap) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 border border-destructive/30 px-2.5 py-0.5 text-[11px] font-semibold text-destructive">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/20 border border-destructive px-2.5 py-0.5 text-[11px] font-bold text-destructive animate-pulse">
         <WifiOff className="size-3" /> BLACKOUT
       </span>
     );
@@ -26,7 +26,7 @@ export function StatusBadge({ status, inGap }: { status: TelemetryStatus; inGap?
       );
     case "OFFLINE":
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 border border-border px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 border border-destructive/40 px-2.5 py-0.5 text-[11px] font-semibold text-destructive">
           <WifiOff className="size-3" /> OFFLINE
         </span>
       );
