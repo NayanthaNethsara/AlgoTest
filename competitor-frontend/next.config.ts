@@ -21,7 +21,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
       "worker-src 'self' blob:",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https: http:",
       "font-src 'self' data:",
       // Loopback is the proctor agent's attestation nonce.
       "connect-src 'self' http://127.0.0.1:* http://localhost:*",

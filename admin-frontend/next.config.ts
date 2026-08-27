@@ -21,7 +21,7 @@ const securityHeaders = [
         : "script-src 'self' 'unsafe-inline'",
       // Tailwind and KaTeX both emit inline styles.
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https: http:",
       "font-src 'self' data:",
       "connect-src 'self'",
       "frame-ancestors 'none'",
