@@ -12,12 +12,28 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
+async function handleResponseError(res: Response, fallback: string): Promise<never> {
+  const errText = await res.text().catch(() => "");
+  let errMessage = `${fallback} (${res.status})`;
+  try {
+    const errJson = JSON.parse(errText);
+    if (errJson.error) {
+      errMessage = errJson.error;
+    }
+  } catch {
+    if (errText && errText.length < 300) {
+      errMessage = errText;
+    }
+  }
+  console.error(`[Admin Problems Action] Error ${res.status}:`, errMessage);
+  throw new Error(errMessage);
+}
+
 export async function listProblemsAction(): Promise<ProblemDetail[]> {
   try {
     const res = await backendFetch("/api/v1/admin/problems");
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to fetch problems");
+      return handleResponseError(res, "Failed to fetch problems");
     }
     const data = await res.json();
     return data.problems || [];
@@ -30,8 +46,7 @@ export async function getProblemDetailAction(id: string): Promise<ProblemDetail>
   try {
     const res = await backendFetch(`/api/v1/admin/problems/${id}`);
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to fetch problem detail");
+      return handleResponseError(res, "Failed to fetch problem detail");
     }
     const data = await res.json();
     return data.problem;
@@ -55,8 +70,7 @@ export async function createProblemAction(input: ProblemInput): Promise<ProblemD
       body: JSON.stringify(validatedData),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to create problem");
+      return handleResponseError(res, "Failed to create problem");
     }
     const data = await res.json();
     return data.problem;
@@ -80,8 +94,7 @@ export async function updateProblemAction(id: string, input: ProblemInput): Prom
       body: JSON.stringify(validatedData),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to update problem");
+      return handleResponseError(res, "Failed to update problem");
     }
     const data = await res.json();
     return data.problem;
@@ -97,8 +110,7 @@ export async function togglePublishAction(id: string, published: boolean): Promi
       body: JSON.stringify({ published }),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to update published status");
+      return handleResponseError(res, "Failed to update published status");
     }
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to update published status"));
@@ -111,8 +123,7 @@ export async function deleteProblemAction(id: string): Promise<void> {
       method: "DELETE",
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to delete problem");
+      return handleResponseError(res, "Failed to delete problem");
     }
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to delete problem"));
@@ -123,8 +134,7 @@ export async function getProblemTestsAction(id: string): Promise<TestCaseInput[]
   try {
     const res = await backendFetch(`/api/v1/admin/problems/${id}/tests`);
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to fetch test cases");
+      return handleResponseError(res, "Failed to fetch test cases");
     }
     const data = await res.json();
     return data.tests || [];
@@ -146,8 +156,7 @@ export async function replaceTestCasesAction(id: string, tests: TestCaseInput[])
       body: JSON.stringify({ tests: parsed.data.tests }),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to update test cases");
+      return handleResponseError(res, "Failed to update test cases");
     }
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to update test cases"));
