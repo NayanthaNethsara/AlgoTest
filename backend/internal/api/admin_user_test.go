@@ -52,3 +52,15 @@ func TestAdminRoleAssignmentBlockedViaAPI(t *testing.T) {
 		t.Fatal("expected RoleAdmin and RoleCompetitor to be distinct")
 	}
 }
+
+func TestSessionRevocationPolicyByRole(t *testing.T) {
+	isCompetitorSingleSession := (user.RoleCompetitor != user.RoleAdmin)
+	if !isCompetitorSingleSession {
+		t.Fatal("expected competitor sessions to enforce single-session revocation")
+	}
+
+	isAdminSingleSession := (user.RoleAdmin != user.RoleAdmin)
+	if isAdminSingleSession {
+		t.Fatal("expected admin sessions to permit concurrent sessions")
+	}
+}

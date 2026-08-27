@@ -82,7 +82,8 @@ func (h *handler) login(c *gin.Context) {
 	}
 
 	expiresAt := time.Now().Add(h.cfg.SessionTTL())
-	if err := h.sessions.Create(ctx, token, u.ID, expiresAt); err != nil {
+	shouldRevokePriorSessions := u.Role != user.RoleAdmin
+	if err := h.sessions.Create(ctx, token, u.ID, expiresAt, shouldRevokePriorSessions); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
 		return
 	}
