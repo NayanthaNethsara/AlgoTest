@@ -143,6 +143,9 @@ jobs:
           echo "==> Starting / Updating services with Docker Compose"
           docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
+          echo "==> Reloading Nginx with updated configurations"
+          docker compose -f docker-compose.prod.yml restart nginx || docker exec algothon-nginx nginx -s reload || true
+
           echo "==> Starting / Updating Monitoring stack (Prometheus, Loki, Promtail, Node Exporter)"
           # Grafana is behind the "local" profile and deliberately not started here.
           docker compose -f monitoring/docker-compose.monitoring.yml up -d
