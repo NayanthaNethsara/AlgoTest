@@ -233,10 +233,7 @@ func (r *Repository) Create(ctx context.Context, input CreateProblemInput) (Prob
 		RETURNING id, problem_id, ordinal, input, output, explanation;
 	`
 	for i, s := range input.Samples {
-		ord := s.Ordinal
-		if ord <= 0 {
-			ord = int32(i + 1)
-		}
+		ord := int32(i + 1)
 		var createdSample Sample
 		err := tx.QueryRow(ctx, insertSample, p.ID, ord, s.Input, s.Output, s.Explanation).Scan(
 			&createdSample.ID, &createdSample.ProblemID, &createdSample.Ordinal, &createdSample.Input, &createdSample.Output, &createdSample.Explanation,
@@ -294,10 +291,7 @@ func (r *Repository) Update(ctx context.Context, id string, input CreateProblemI
 		RETURNING id, problem_id, ordinal, input, output, explanation;
 	`
 	for i, s := range input.Samples {
-		ord := s.Ordinal
-		if ord <= 0 {
-			ord = int32(i + 1)
-		}
+		ord := int32(i + 1)
 		var createdSample Sample
 		err := tx.QueryRow(ctx, insertSample, p.ID, ord, s.Input, s.Output, s.Explanation).Scan(
 			&createdSample.ID, &createdSample.ProblemID, &createdSample.Ordinal, &createdSample.Input, &createdSample.Output, &createdSample.Explanation,
@@ -353,10 +347,7 @@ func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests [
 		VALUES ($1, $2, $3, $4, $5, $6, $7);
 	`
 	for i, t := range tests {
-		ord := t.Ordinal
-		if ord <= 0 {
-			ord = int32(i + 1)
-		}
+		ord := int32(i + 1)
 		inSha := sha256Hex(t.Input)
 		expSha := sha256Hex(t.Expected)
 		pts := t.Points

@@ -151,7 +151,7 @@ func (h *handler) createProblem(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "problem slug already exists"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create problem"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create problem: %v", err)})
 		return
 	}
 
@@ -159,7 +159,7 @@ func (h *handler) createProblem(c *gin.Context) {
 		inputs := make([]problem.TestInput, len(req.Tests))
 		for i, t := range req.Tests {
 			inputs[i] = problem.TestInput{
-				Ordinal:  t.Ordinal,
+				Ordinal:  int32(i + 1),
 				Input:    []byte(t.Input),
 				Expected: []byte(t.Expected),
 				Points:   t.Points,
@@ -170,7 +170,7 @@ func (h *handler) createProblem(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save evaluation test cases"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save evaluation test cases: %v", err)})
 			return
 		}
 		h.judge.InvalidateTests(created.ID)
@@ -234,7 +234,7 @@ func (h *handler) updateProblem(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update problem"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to update problem: %v", err)})
 		return
 	}
 
@@ -242,7 +242,7 @@ func (h *handler) updateProblem(c *gin.Context) {
 		inputs := make([]problem.TestInput, len(req.Tests))
 		for i, t := range req.Tests {
 			inputs[i] = problem.TestInput{
-				Ordinal:  t.Ordinal,
+				Ordinal:  int32(i + 1),
 				Input:    []byte(t.Input),
 				Expected: []byte(t.Expected),
 				Points:   t.Points,
@@ -253,7 +253,7 @@ func (h *handler) updateProblem(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save evaluation test cases"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save evaluation test cases: %v", err)})
 			return
 		}
 		h.judge.InvalidateTests(id)
