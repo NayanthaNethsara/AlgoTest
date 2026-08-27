@@ -9,12 +9,24 @@ import {
   CheckCircle2,
   HelpCircle,
   FileText,
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
+  Maximize2,
+  HardDrive,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { Sample, TestCaseInput } from "@/types/problem";
 import {
   MIN_EVALUATION_TEST_CASES,
@@ -22,6 +34,8 @@ import {
   parseBulkTestCases,
   parseFilePairs,
   calculateScoringSummary,
+  getTextStats,
+  getTextSnippet,
 } from "@/lib/testcase-utils";
 
 interface TestCasesTabProps {
@@ -47,9 +61,47 @@ export function TestCasesTab({
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportError, setBulkImportError] = useState<string | null>(null);
   const [fileImportNotice, setFileImportNotice] = useState<string | null>(null);
-  const batchFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [collapsedIndices, setCollapsedIndices] = useState<Record<number, boolean>>({});
 
+  // Fullscreen inspector modal state for massive testcases
+  const [inspectModal, setInspectModal] = useState<{
+    open: boolean;
+    caseIndex: number;
+    field: "input" | "expected";
+    title: string;
+    value: string;
+  }>({
+    open: false,
+    caseIndex: 0,
+    field: "input",
+    title: "",
+    value: "",
+  });
+
+  const batchFileInputRef = useRef<HTMLInputElement | null>(null);
   const scoring = calculateScoringSummary(tests, maxScore);
+
+  const areAllCollapsed =
+    tests.length > 0 && tests.every((_, idx) => collapsedIndices[idx] === true);
+
+  function toggleCollapse(idx: number) {
+    setCollapsedIndices((prev) => ({
+      ...prev,
+      [idx]: !prev[idx],
+    }));
+  }
+
+  function handleToggleAllCollapse() {
+    if (areAllCollapsed) {
+      setCollapsedIndices({});
+    } else {
+      const next: Record<number, boolean> = {};
+      tests.forEach((_, idx) => {
+        next[idx] = true;
+      });
+      setCollapsedIndices(next);
+    }
+  }
 
   function handleApplyBulkImport() {
     setBulkImportError(null);
@@ -62,6 +114,14 @@ export function TestCasesTab({
       onBulkAddTests(testCases);
       setBulkImportText("");
       setShowBulkImport(false);
+      // Auto-collapse imported large test cases if there are many
+      if (testCases.length > 3) {
+        const next = { ...collapsedIndices };
+        testCases.forEach((_, i) => {
+          next[tests.length + i] = true;
+        });
+        setCollapsedIndices(next);
+      }
     }
   }
 
@@ -79,6 +139,13 @@ export function TestCasesTab({
           notice += ` ${unmatched.length} file(s) had no matching pair: ${unmatched.join(", ")}`;
         }
         setFileImportNotice(notice);
+
+        // Auto-collapse imported test cases to keep UI clean and manageable
+        const next = { ...collapsedIndices };
+        testCases.forEach((_, i) => {
+          next[tests.length + i] = true;
+        });
+        setCollapsedIndices(next);
       } else {
         setFileImportNotice(
           "Could not match input/output pairs. Ensure files are named e.g. t1in.txt & t1out.txt or 1.in & 1.out."
@@ -110,6 +177,24 @@ export function TestCasesTab({
     }
   }
 
+  function openInspector(idx: number, field: "input" | "expected") {
+    const t = tests[idx];
+    if (!t) return;
+    const isInput = field === "input";
+    setInspectModal({
+      open: true,
+      caseIndex: idx,
+      field,
+      title: `Case #${idx + 1} ${isInput ? "Standard Input (stdin)" : "Expected Output (stdout)"}`,
+      value: isInput ? t.input : t.expected,
+    });
+  }
+
+  function handleSaveInspector() {
+    onTestChange(inspectModal.caseIndex, inspectModal.field, inspectModal.value);
+    setInspectModal((prev) => ({ ...prev, open: false }));
+  }
+
   return (
     <Card className="p-5 flex flex-col gap-4 shadow-sm border border-border">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
@@ -133,6 +218,20 @@ export function TestCasesTab({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {tests.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleToggleAllCollapse}
+              className="h-8 text-xs gap-1.5"
+              title="Expand or collapse all test case cards"
+            >
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+              <span>{areAllCollapsed ? "Expand All" : "Collapse All"}</span>
+            </Button>
+          )}
+
           <input
             type="file"
             ref={batchFileInputRef}
@@ -222,7 +321,7 @@ export function TestCasesTab({
             onChange={(e) => setBulkImportText(e.target.value)}
             rows={5}
             placeholder={`[\n  {\n    "input": "100\\n...",\n    "expected": "4950",\n    "points": 20\n  }\n]`}
-            className="font-mono text-xs"
+            className="font-mono text-xs max-h-48"
           />
 
           {bulkImportError && (
@@ -251,7 +350,7 @@ export function TestCasesTab({
       )}
 
       {/* Test cases list */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {tests.length === 0 ? (
           <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
             <HelpCircle className="h-8 w-8 text-muted-foreground/60 mx-auto" />
@@ -270,33 +369,73 @@ export function TestCasesTab({
           tests.map((t, idx) => {
             const matchedSample = findMatchingSample(t, samples);
             const isDuplicate = Boolean(matchedSample);
+            const isCollapsed = Boolean(collapsedIndices[idx]);
+
+            const inStats = getTextStats(t.input);
+            const outStats = getTextStats(t.expected);
 
             return (
               <div
                 key={idx}
-                className={`rounded-lg border p-4 bg-muted/10 relative space-y-3 ${
-                  isDuplicate ? "border-destructive/60 bg-destructive/5" : ""
+                className={`rounded-lg border transition-all ${
+                  isDuplicate
+                    ? "border-destructive/60 bg-destructive/5"
+                    : "border-border bg-muted/10 hover:border-border/80"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {/* Header Row (Click to Collapse / Expand) */}
+                <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 select-none">
+                  <button
+                    type="button"
+                    onClick={() => toggleCollapse(idx)}
+                    className="flex items-center gap-2 sm:gap-3 text-left flex-1 min-w-0 cursor-pointer group"
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                    )}
+
+                    <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
                       Case #{idx + 1}
                     </span>
-                    <Badge variant="outline" className="text-[10px] font-mono">
+
+                    <Badge variant="outline" className="text-[10px] font-mono shrink-0">
                       {Number(t.points) > 0 ? `${t.points} pts` : "Auto-pts"}
                     </Badge>
+
+                    {/* Data Size / Line Badge */}
+                    <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground shrink-0">
+                      <HardDrive className="h-3 w-3" />
+                      <span>
+                        In: {inStats.formattedSize} ({inStats.lines}L) • Out: {outStats.formattedSize} ({outStats.lines}L)
+                      </span>
+                    </div>
+
+                    {/* Collapsed single-line preview snippet */}
+                    {isCollapsed && (
+                      <div className="hidden md:flex items-center gap-2 text-[11px] font-mono text-muted-foreground truncate max-w-md">
+                        <span className="truncate">
+                          In: &quot;{getTextSnippet(t.input, 25)}&quot;
+                        </span>
+                        <span>→</span>
+                        <span className="truncate">
+                          Out: &quot;{getTextSnippet(t.expected, 20)}&quot;
+                        </span>
+                      </div>
+                    )}
+
                     {isDuplicate && (
-                      <Badge variant="destructive" className="text-[10px] gap-1">
-                        <AlertCircle className="h-3 w-3" /> Duplicate of Public Sample #
-                        {matchedSample?.ordinal}
+                      <Badge variant="destructive" className="text-[10px] gap-1 shrink-0">
+                        <AlertCircle className="h-3 w-3" /> Duplicate
                       </Badge>
                     )}
-                  </div>
+                  </button>
 
-                  <div className="flex items-center gap-2">
+                  {/* Actions Row */}
+                  <div className="flex items-center gap-2 shrink-0">
                     <div className="flex items-center gap-1.5">
-                      <label className="text-[11px] text-muted-foreground whitespace-nowrap">
+                      <label className="text-[11px] text-muted-foreground whitespace-nowrap hidden sm:inline">
                         Points:
                       </label>
                       <Input
@@ -304,86 +443,184 @@ export function TestCasesTab({
                         min={0}
                         value={t.points || 0}
                         onChange={(e) => onTestChange(idx, "points", Number(e.target.value))}
-                        placeholder="0 (auto)"
-                        className="h-7 w-20 text-xs font-mono"
+                        placeholder="0"
+                        className="h-7 w-16 sm:w-20 text-xs font-mono"
                       />
                     </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleCollapse(idx)}
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground hidden sm:flex"
+                    >
+                      {isCollapsed ? "Expand" : "Collapse"}
+                    </Button>
+
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
                       onClick={() => onRemoveTest(idx)}
                       className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                      title="Delete test case"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
 
-                {isDuplicate && (
-                  <div className="rounded border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive">
-                    Evaluation test cases cannot be identical to public sample test cases. Please
-                    provide a distinct test case for judging.
+                {/* Collapsible Content Body */}
+                {!isCollapsed && (
+                  <div className="px-3 sm:px-4 pb-4 pt-1 border-t border-border/50 space-y-3">
+                    {isDuplicate && (
+                      <div className="rounded border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive">
+                        Evaluation test cases cannot be identical to public sample test cases. Please
+                        provide a distinct test case for judging.
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Input (stdin) Box */}
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              Input (stdin) *
+                            </label>
+                            <span className="text-[10px] font-mono text-muted-foreground/80">
+                              ({inStats.lines} lines, {inStats.formattedSize})
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openInspector(idx, "input")}
+                              className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
+                              title="Open full-screen editor for large input"
+                            >
+                              <Maximize2 className="h-3 w-3" />
+                              <span>View Full</span>
+                            </button>
+
+                            <label className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+                              <FileText className="h-3 w-3" />
+                              <span>Upload File</span>
+                              <input
+                                type="file"
+                                accept=".txt,.in,.dat"
+                                onChange={(e) => handleSingleFileUpload(idx, "input", e)}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        </div>
+
+                        <Textarea
+                          value={t.input}
+                          onChange={(e) => onTestChange(idx, "input", e.target.value)}
+                          placeholder="Input data supplied to student code..."
+                          className="font-mono text-xs leading-relaxed h-36 max-h-52 overflow-y-auto resize-y"
+                          required
+                        />
+                      </div>
+
+                      {/* Expected Output (stdout) Box */}
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              Expected Output (stdout) *
+                            </label>
+                            <span className="text-[10px] font-mono text-muted-foreground/80">
+                              ({outStats.lines} lines, {outStats.formattedSize})
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openInspector(idx, "expected")}
+                              className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
+                              title="Open full-screen editor for large output"
+                            >
+                              <Maximize2 className="h-3 w-3" />
+                              <span>View Full</span>
+                            </button>
+
+                            <label className="cursor-pointer inline-flex items-center gap-1 text-primary hover:underline text-[11px]">
+                              <FileText className="h-3 w-3" />
+                              <span>Upload File</span>
+                              <input
+                                type="file"
+                                accept=".txt,.out,.ans,.dat"
+                                onChange={(e) => handleSingleFileUpload(idx, "expected", e)}
+                                className="hidden"
+                              />
+                            </label>
+                          </div>
+                        </div>
+
+                        <Textarea
+                          value={t.expected}
+                          onChange={(e) => onTestChange(idx, "expected", e.target.value)}
+                          placeholder="Exact output expected from program..."
+                          className="font-mono text-xs leading-relaxed h-36 max-h-52 overflow-y-auto resize-y"
+                          required
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Input (stdin) *
-                      </label>
-                      <label className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-                        <FileText className="h-3 w-3" />
-                        <span>Upload .txt / .in</span>
-                        <input
-                          type="file"
-                          accept=".txt,.in,.dat"
-                          onChange={(e) => handleSingleFileUpload(idx, "input", e)}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                    <Textarea
-                      value={t.input}
-                      onChange={(e) => onTestChange(idx, "input", e.target.value)}
-                      rows={4}
-                      placeholder="Input data supplied to student code..."
-                      className="font-mono text-xs leading-relaxed"
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        Expected Output (stdout) *
-                      </label>
-                      <label className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-                        <FileText className="h-3 w-3" />
-                        <span>Upload .txt / .out</span>
-                        <input
-                          type="file"
-                          accept=".txt,.out,.ans,.dat"
-                          onChange={(e) => handleSingleFileUpload(idx, "expected", e)}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                    <Textarea
-                      value={t.expected}
-                      onChange={(e) => onTestChange(idx, "expected", e.target.value)}
-                      rows={4}
-                      placeholder="Exact output expected from program..."
-                      className="font-mono text-xs leading-relaxed"
-                      required
-                    />
-                  </div>
-                </div>
               </div>
             );
           })
         )}
       </div>
+
+      {/* Large Content Inspector Modal */}
+      <Dialog
+        open={inspectModal.open}
+        onOpenChange={(open) => setInspectModal((prev) => ({ ...prev, open }))}
+      >
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold flex items-center justify-between pr-6">
+              <span>{inspectModal.title}</span>
+              <span className="text-xs font-mono text-muted-foreground font-normal">
+                {getTextStats(inspectModal.value).lines} lines • {getTextStats(inspectModal.value).formattedSize}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 py-2">
+            <Textarea
+              value={inspectModal.value}
+              onChange={(e) =>
+                setInspectModal((prev) => ({ ...prev, value: e.target.value }))
+              }
+              placeholder="Content..."
+              className="font-mono text-xs leading-relaxed h-[55vh] resize-none overflow-y-auto w-full"
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setInspectModal((prev) => ({ ...prev, open: false }))}
+            >
+              Cancel
+            </Button>
+            <Button type="button" size="sm" onClick={handleSaveInspector}>
+              Save & Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

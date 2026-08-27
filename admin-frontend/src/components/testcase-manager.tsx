@@ -1,7 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Cpu, AlertCircle, CheckCircle2, ShieldAlert, Upload } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Cpu,
+  AlertCircle,
+  CheckCircle2,
+  ShieldAlert,
+  Upload,
+  ChevronDown,
+  ChevronRight,
+  ChevronsUpDown,
+  HardDrive,
+} from "lucide-react";
 import {
   getProblemDetailAction,
   getProblemTestsAction,
@@ -25,6 +37,8 @@ import {
   findMatchingSample,
   parseBulkTestCases,
   calculateScoringSummary,
+  getTextStats,
+  getTextSnippet,
 } from "@/lib/testcase-utils";
 
 type TestCaseManagerProps = {
@@ -39,6 +53,7 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
   const [saving, setSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [collapsedIndices, setCollapsedIndices] = useState<Record<number, boolean>>({});
 
   const [testCases, setTestCases] = useState<TestCaseInput[]>([
     { ordinal: 1, input: "", expected: "", points: 0 },
@@ -220,6 +235,34 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                   </span>
 
                   <div className="flex items-center gap-2">
+                    {testCases.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const allCollapsed = testCases.every((_, i) => collapsedIndices[i]);
+                          if (allCollapsed) {
+                            setCollapsedIndices({});
+                          } else {
+                            const next: Record<number, boolean> = {};
+                            testCases.forEach((_, i) => {
+                              next[i] = true;
+                            });
+                            setCollapsedIndices(next);
+                          }
+                        }}
+                        className="h-8 text-xs gap-1.5"
+                      >
+                        <ChevronsUpDown className="h-3.5 w-3.5" />
+                        <span>
+                          {testCases.every((_, i) => collapsedIndices[i])
+                            ? "Expand All"
+                            : "Collapse All"}
+                        </span>
+                      </Button>
+                    )}
+
                     <Button
                       type="button"
                       variant="outline"
@@ -257,7 +300,7 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                       onChange={(e) => setBulkImportText(e.target.value)}
                       rows={5}
                       placeholder={`[\n  {\n    "input": "100\\n...",\n    "expected": "4950",\n    "points": 20\n  }\n]`}
-                      className="font-mono text-xs"
+                      className="font-mono text-xs max-h-44"
                     />
 
                     {bulkImportError && (
@@ -291,7 +334,7 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                 )}
 
                 {/* Test Cases List */}
-                <div className="flex flex-col gap-4 max-h-[460px] overflow-y-auto pr-1.5">
+                <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-1.5">
                   {testCases.length === 0 ? (
                     <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
                       <p className="text-xs font-medium text-foreground">No Test Cases Added</p>
@@ -304,33 +347,73 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                     testCases.map((t, idx) => {
                       const matchedSample = findMatchingSample(t, samples);
                       const isDuplicate = Boolean(matchedSample);
+                      const isCollapsed = Boolean(collapsedIndices[idx]);
+
+                      const inStats = getTextStats(t.input);
+                      const outStats = getTextStats(t.expected);
 
                       return (
                         <div
                           key={idx}
-                          className={`rounded-lg border p-4 bg-muted/10 space-y-3 ${
-                            isDuplicate ? "border-destructive/60 bg-destructive/5" : ""
+                          className={`rounded-lg border transition-all ${
+                            isDuplicate
+                              ? "border-destructive/60 bg-destructive/5"
+                              : "border-border bg-muted/10"
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
+                          {/* Header row with toggle */}
+                          <div className="p-3 flex items-center justify-between gap-2 select-none">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCollapsedIndices((prev) => ({
+                                  ...prev,
+                                  [idx]: !prev[idx],
+                                }))
+                              }
+                              className="flex items-center gap-2 text-left flex-1 min-w-0 cursor-pointer group"
+                            >
+                              {isCollapsed ? (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
+                              )}
+
                               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                 Case #{idx + 1}
                               </span>
-                              <Badge variant="outline" className="text-[10px] font-mono">
+
+                              <Badge variant="outline" className="text-[10px] font-mono shrink-0">
                                 {Number(t.points) > 0 ? `${t.points} pts` : "Auto-pts"}
                               </Badge>
+
+                              {/* Size badge */}
+                              <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground shrink-0">
+                                <HardDrive className="h-3 w-3" />
+                                <span>
+                                  In: {inStats.formattedSize} ({inStats.lines}L) • Out: {outStats.formattedSize} ({outStats.lines}L)
+                                </span>
+                              </div>
+
+                              {/* Collapsed preview */}
+                              {isCollapsed && (
+                                <div className="hidden md:flex items-center gap-2 text-[11px] font-mono text-muted-foreground truncate max-w-sm">
+                                  <span className="truncate">In: &quot;{getTextSnippet(t.input, 20)}&quot;</span>
+                                  <span>→</span>
+                                  <span className="truncate">Out: &quot;{getTextSnippet(t.expected, 15)}&quot;</span>
+                                </div>
+                              )}
+
                               {isDuplicate && (
-                                <Badge variant="destructive" className="text-[10px] gap-1">
-                                  <AlertCircle className="h-3 w-3" /> Matches Public Sample #
-                                  {matchedSample?.ordinal}
+                                <Badge variant="destructive" className="text-[10px] gap-1 shrink-0">
+                                  <AlertCircle className="h-3 w-3" /> Duplicate
                                 </Badge>
                               )}
-                            </div>
+                            </button>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 shrink-0">
                               <div className="flex items-center gap-1.5">
-                                <label className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                <label className="text-[11px] text-muted-foreground whitespace-nowrap hidden sm:inline">
                                   Points:
                                 </label>
                                 <Input
@@ -340,57 +423,87 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
                                   onChange={(e) =>
                                     handleChangeTest(idx, "points", Number(e.target.value))
                                   }
-                                  placeholder="0 (auto)"
-                                  className="w-20 h-7 text-xs font-mono"
+                                  placeholder="0"
+                                  className="w-16 sm:w-20 h-7 text-xs font-mono"
                                 />
                               </div>
+
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setCollapsedIndices((prev) => ({
+                                    ...prev,
+                                    [idx]: !prev[idx],
+                                  }))
+                                }
+                                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground hidden sm:flex"
+                              >
+                                {isCollapsed ? "Expand" : "Collapse"}
+                              </Button>
+
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleRemoveTest(idx)}
                                 className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                title="Delete test case"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </div>
 
-                          {isDuplicate && (
-                            <div className="rounded border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive">
-                              Evaluation test cases cannot be identical to public sample test cases.
-                              Please provide a distinct test case for judging.
+                          {/* Expanded content */}
+                          {!isCollapsed && (
+                            <div className="px-3 pb-3 pt-1 border-t border-border/50 space-y-3">
+                              {isDuplicate && (
+                                <div className="rounded border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive">
+                                  Evaluation test cases cannot be identical to public sample test cases.
+                                  Please provide a distinct test case for judging.
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-xs font-medium text-muted-foreground">
+                                      Standard Input (stdin) *
+                                    </label>
+                                    <span className="text-[10px] font-mono text-muted-foreground/80">
+                                      ({inStats.lines} lines, {inStats.formattedSize})
+                                    </span>
+                                  </div>
+                                  <Textarea
+                                    value={t.input}
+                                    onChange={(e) => handleChangeTest(idx, "input", e.target.value)}
+                                    placeholder="Input data supplied to student code..."
+                                    className="font-mono text-xs leading-relaxed h-32 max-h-48 overflow-y-auto resize-y"
+                                    required
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-xs font-medium text-muted-foreground">
+                                      Expected Output (stdout) *
+                                    </label>
+                                    <span className="text-[10px] font-mono text-muted-foreground/80">
+                                      ({outStats.lines} lines, {outStats.formattedSize})
+                                    </span>
+                                  </div>
+                                  <Textarea
+                                    value={t.expected}
+                                    onChange={(e) => handleChangeTest(idx, "expected", e.target.value)}
+                                    placeholder="Expected standard output..."
+                                    className="font-mono text-xs leading-relaxed h-32 max-h-48 overflow-y-auto resize-y"
+                                    required
+                                  />
+                                </div>
+                              </div>
                             </div>
                           )}
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-xs font-medium text-muted-foreground">
-                                Standard Input (stdin) *
-                              </label>
-                              <Textarea
-                                value={t.input}
-                                onChange={(e) => handleChangeTest(idx, "input", e.target.value)}
-                                rows={4}
-                                placeholder="Input data supplied to student code..."
-                                className="font-mono text-xs leading-relaxed"
-                                required
-                              />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <label className="text-xs font-medium text-muted-foreground">
-                                Expected Output (stdout) *
-                              </label>
-                              <Textarea
-                                value={t.expected}
-                                onChange={(e) => handleChangeTest(idx, "expected", e.target.value)}
-                                rows={4}
-                                placeholder="Expected standard output..."
-                                className="font-mono text-xs leading-relaxed"
-                                required
-                              />
-                            </div>
-                          </div>
                         </div>
                       );
                     })

@@ -165,3 +165,30 @@ export async function parseFilePairs(
 
   return { testCases, unmatched };
 }
+
+/**
+ * Calculates byte size and line count for a testcase payload.
+ */
+export function getTextStats(text: string) {
+  const str = text || "";
+  const lines = str ? str.split("\n").length : 0;
+  const bytes = new Blob([str]).size;
+  const formattedSize =
+    bytes > 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+      : bytes > 1024
+        ? `${(bytes / 1024).toFixed(1)} KB`
+        : `${bytes} B`;
+  return { lines, bytes, formattedSize };
+}
+
+/**
+ * Creates a clean single-line snippet preview for collapsed testcases.
+ */
+export function getTextSnippet(text: string, maxLength: number = 45): string {
+  if (!text || !text.trim()) return "(empty)";
+  const singleLine = text.replace(/\s+/g, " ").trim();
+  if (singleLine.length <= maxLength) return singleLine;
+  return `${singleLine.slice(0, maxLength)}...`;
+}
+
