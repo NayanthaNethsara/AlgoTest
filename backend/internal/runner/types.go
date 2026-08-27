@@ -94,7 +94,7 @@ var specs = map[string]spec{
 	"java": {
 		filename:      "Main.java",
 		compileCmd:    []string{"javac", "Main.java"},
-		runCmd:        []string{"java", "-Xmx256m", "-Xss64m", "Main"},
+		runCmd:        []string{"java", "-XX:+UseSerialGC", "-Xss32m", "-Xmx{mem}m", "Main"},
 		timeFactor:    2.0,
 		memoryBonusKB: 128 * 1024,
 	},
