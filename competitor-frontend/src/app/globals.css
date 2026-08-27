@@ -471,6 +471,13 @@
 .markdown > :first-child {
   margin-top: 0;
 }
+.markdown img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin-block: 0.8rem;
+  border-radius: 4px;
+}
 
 /* Pixel noise texture overlay effect */
 /* A faint grain, not visible static — dialed back from a blocky 8-bit overlay
