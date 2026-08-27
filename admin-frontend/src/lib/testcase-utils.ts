@@ -83,3 +83,85 @@ export function calculateScoringSummary(tests: TestCaseInput[], maxScore: number
     hasMinimumCases: tests.length >= MIN_EVALUATION_TEST_CASES,
   };
 }
+
+/**
+ * Matches and reads input/output file pairs (e.g. t1in.txt & t1out.txt, 1.in & 1.out).
+ */
+export async function parseFilePairs(
+  files: File[],
+  existingCount: number = 0
+): Promise<{ testCases: TestCaseInput[]; unmatched: string[]; error?: string }> {
+  if (files.length === 0) {
+    return { testCases: [], unmatched: [] };
+  }
+
+  const groups = new Map<string, { key: string; input?: File; expected?: File; sortKey: number }>();
+
+  function normalizeKey(filename: string) {
+    const lower = filename.toLowerCase();
+    const isInput =
+      lower.includes("in") && !lower.includes("out") && !lower.includes("ans");
+    const isOutput =
+      lower.includes("out") || lower.includes("ans") || lower.includes("expected");
+
+    const numMatch = lower.match(/\d+/);
+    const num = numMatch ? parseInt(numMatch[0], 10) : 999999;
+
+    let base = lower
+      .replace(/\.(txt|in|out|ans|dat)$/i, "")
+      .replace(/(?:^|[._-])(input|output|expected|answer|in|out|ans)(?:[._-]|$)/gi, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
+    if (!base && numMatch) {
+      base = `case_${numMatch[0]}`;
+    } else if (!base) {
+      base = filename;
+    }
+
+    return { base, isInput, isOutput, num };
+  }
+
+  for (const file of files) {
+    const { base, isInput, isOutput, num } = normalizeKey(file.name);
+    if (!groups.has(base)) {
+      groups.set(base, { key: base, sortKey: num });
+    }
+    const entry = groups.get(base)!;
+    if (isInput && !entry.input) {
+      entry.input = file;
+    } else if (isOutput && !entry.expected) {
+      entry.expected = file;
+    } else if (!entry.input) {
+      entry.input = file;
+    } else if (!entry.expected) {
+      entry.expected = file;
+    }
+  }
+
+  const sortedGroups = Array.from(groups.values()).sort(
+    (a, b) => a.sortKey - b.sortKey || a.key.localeCompare(b.key)
+  );
+  const testCases: TestCaseInput[] = [];
+  const unmatched: string[] = [];
+
+  for (const group of sortedGroups) {
+    if (group.input && group.expected) {
+      const [inputText, expectedText] = await Promise.all([
+        group.input.text(),
+        group.expected.text(),
+      ]);
+      testCases.push({
+        ordinal: existingCount + testCases.length + 1,
+        input: inputText,
+        expected: expectedText,
+        points: 0,
+      });
+    } else {
+      if (group.input) unmatched.push(group.input.name);
+      if (group.expected) unmatched.push(group.expected.name);
+    }
+  }
+
+  return { testCases, unmatched };
+}

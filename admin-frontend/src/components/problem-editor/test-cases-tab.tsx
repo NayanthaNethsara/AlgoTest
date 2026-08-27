@@ -1,5 +1,15 @@
-import { useState } from "react";
-import { Cpu, Plus, Trash2, Upload, AlertCircle, CheckCircle2, HelpCircle } from "lucide-react";
+import { useState, useRef } from "react";
+import {
+  Cpu,
+  Plus,
+  Trash2,
+  Upload,
+  FileUp,
+  AlertCircle,
+  CheckCircle2,
+  HelpCircle,
+  FileText,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +20,7 @@ import {
   MIN_EVALUATION_TEST_CASES,
   findMatchingSample,
   parseBulkTestCases,
+  parseFilePairs,
   calculateScoringSummary,
 } from "@/lib/testcase-utils";
 
@@ -35,6 +46,8 @@ export function TestCasesTab({
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [bulkImportText, setBulkImportText] = useState("");
   const [bulkImportError, setBulkImportError] = useState<string | null>(null);
+  const [fileImportNotice, setFileImportNotice] = useState<string | null>(null);
+  const batchFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const scoring = calculateScoringSummary(tests, maxScore);
 
@@ -49,6 +62,51 @@ export function TestCasesTab({
       onBulkAddTests(testCases);
       setBulkImportText("");
       setShowBulkImport(false);
+    }
+  }
+
+  async function handleBatchFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    setFileImportNotice(null);
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    try {
+      const { testCases, unmatched } = await parseFilePairs(files, tests.length);
+      if (testCases.length > 0) {
+        onBulkAddTests(testCases);
+        let notice = `Imported ${testCases.length} test case pair(s) from files.`;
+        if (unmatched.length > 0) {
+          notice += ` ${unmatched.length} file(s) had no matching pair: ${unmatched.join(", ")}`;
+        }
+        setFileImportNotice(notice);
+      } else {
+        setFileImportNotice(
+          "Could not match input/output pairs. Ensure files are named e.g. t1in.txt & t1out.txt or 1.in & 1.out."
+        );
+      }
+    } catch {
+      setFileImportNotice("Failed to read files. Please try again.");
+    } finally {
+      if (batchFileInputRef.current) {
+        batchFileInputRef.current.value = "";
+      }
+    }
+  }
+
+  async function handleSingleFileUpload(
+    idx: number,
+    field: "input" | "expected",
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const content = await file.text();
+      onTestChange(idx, field, content);
+    } catch {
+      // Ignore read errors
+    } finally {
+      e.target.value = "";
     }
   }
 
@@ -75,6 +133,26 @@ export function TestCasesTab({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="file"
+            ref={batchFileInputRef}
+            multiple
+            accept=".txt,.in,.out,.ans,.dat"
+            onChange={handleBatchFileUpload}
+            className="hidden"
+          />
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => batchFileInputRef.current?.click()}
+            className="h-8 text-xs gap-1.5"
+            title="Select matching .in / .out or .txt files (e.g. t1in.txt & t1out.txt)"
+          >
+            <FileUp className="h-3.5 w-3.5" /> Batch Upload Files
+          </Button>
+
           <Button
             type="button"
             variant="outline"
@@ -90,6 +168,21 @@ export function TestCasesTab({
           </Button>
         </div>
       </div>
+
+      {fileImportNotice && (
+        <div className="rounded-md border border-primary/30 bg-primary/10 px-3.5 py-2 flex items-center justify-between gap-2 text-xs">
+          <span className="text-primary font-medium">{fileImportNotice}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setFileImportNotice(null)}
+            className="h-6 px-2 text-xs"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       {/* Requirements and Scoring Banner */}
       <div className="rounded-md border bg-muted/20 px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
@@ -236,9 +329,21 @@ export function TestCasesTab({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Input (stdin) *
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Input (stdin) *
+                      </label>
+                      <label className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+                        <FileText className="h-3 w-3" />
+                        <span>Upload .txt / .in</span>
+                        <input
+                          type="file"
+                          accept=".txt,.in,.dat"
+                          onChange={(e) => handleSingleFileUpload(idx, "input", e)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                     <Textarea
                       value={t.input}
                       onChange={(e) => onTestChange(idx, "input", e.target.value)}
@@ -249,9 +354,21 @@ export function TestCasesTab({
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      Expected Output (stdout) *
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Expected Output (stdout) *
+                      </label>
+                      <label className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
+                        <FileText className="h-3 w-3" />
+                        <span>Upload .txt / .out</span>
+                        <input
+                          type="file"
+                          accept=".txt,.out,.ans,.dat"
+                          onChange={(e) => handleSingleFileUpload(idx, "expected", e)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                     <Textarea
                       value={t.expected}
                       onChange={(e) => onTestChange(idx, "expected", e.target.value)}
