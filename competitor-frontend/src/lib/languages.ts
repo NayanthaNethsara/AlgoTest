@@ -17,6 +17,31 @@ int main() {
 `,
   },
   {
+    id: "c",
+    label: "C",
+    monaco: "c",
+    starter: `#include <stdio.h>
+#include <stdlib.h>
+
+int main(void) {
+    return 0;
+}
+`,
+  },
+  {
+    id: "java",
+    label: "Java",
+    monaco: "java",
+    starter: `import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+    }
+}
+`,
+  },
+  {
     id: "python",
     label: "Python",
     monaco: "python",

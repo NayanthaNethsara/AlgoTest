@@ -682,3 +682,34 @@ func TestRequireIsolateBlocksUnsandboxedExecution(t *testing.T) {
 		t.Fatal("RunBatch should have failed when isolate is unavailable with RequireIsolate=true")
 	}
 }
+
+func TestNormalizeLanguage(t *testing.T) {
+	testCases := []struct {
+		input string
+		want  string
+	}{
+		{"c", "c"},
+		{"C", "c"},
+		{"cpp", "cpp"},
+		{"c++", "cpp"},
+		{"C++", "cpp"},
+		{"py", "python"},
+		{"python", "python"},
+		{"python3", "python"},
+		{"java", "java"},
+		{"JAVA", "java"},
+		{"js", "js"},
+		{"javascript", "js"},
+		{"node", "js"},
+	}
+
+	for _, tc := range testCases {
+		got := normalizeLanguage(tc.input)
+		if got != tc.want {
+			t.Errorf("normalizeLanguage(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+		if _, ok := specs[got]; !ok {
+			t.Errorf("normalized language %q has no corresponding spec in specs map", got)
+		}
+	}
+}

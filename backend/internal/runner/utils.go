@@ -41,10 +41,14 @@ func clearSandboxFile(path string) error {
 func normalizeLanguage(lang string) string {
 	l := strings.ToLower(strings.TrimSpace(lang))
 	switch l {
-	case "c", "c++", "cpp":
+	case "c":
+		return "c"
+	case "c++", "cpp":
 		return "cpp"
 	case "py", "python", "python3":
 		return "python"
+	case "java":
+		return "java"
 	case "js", "javascript", "node":
 		return "js"
 	default:

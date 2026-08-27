@@ -17,12 +17,12 @@ ARG ISOLATE_REF=v2.1
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Toolchains match runner's specs and Dockerfile.prod: g++ for cpp, python3 for
-# python, node for js.
+# Toolchains match runner's specs and Dockerfile.prod: gcc/g++ for c/cpp,
+# python3 for python, node for js, default-jdk for java.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl git make pkg-config \
         libcap-dev libseccomp-dev libsystemd-dev \
-        g++-13 python3.12 nodejs \
+        g++-13 python3.12 nodejs default-jdk-headless \
     && rm -rf /var/lib/apt/lists/* \
     && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 \
     && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 \

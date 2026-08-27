@@ -73,6 +73,12 @@ type spec struct {
 
 // Toolchains installed on host
 var specs = map[string]spec{
+	"c": {
+		filename:   "main.c",
+		compileCmd: []string{"gcc", "-O2", "-std=c17", "-o", "main", "main.c", "-lm"},
+		runCmd:     []string{"./main"},
+		timeFactor: 1.0,
+	},
 	"cpp": {
 		filename:   "main.cpp",
 		compileCmd: []string{"g++", "-O2", "-std=c++17", "-o", "main", "main.cpp"},
@@ -84,6 +90,13 @@ var specs = map[string]spec{
 		runCmd:        []string{"python3", "main.py"},
 		timeFactor:    3.0,
 		memoryBonusKB: 64 * 1024,
+	},
+	"java": {
+		filename:      "Main.java",
+		compileCmd:    []string{"javac", "Main.java"},
+		runCmd:        []string{"java", "-Xmx256m", "-Xss64m", "Main"},
+		timeFactor:    2.0,
+		memoryBonusKB: 128 * 1024,
 	},
 	"js": {
 		filename:      "main.js",

@@ -22,6 +22,7 @@ type createSubmissionRequest struct {
 }
 
 var supportedLanguages = map[string]string{
+	"c":          "c",
 	"cpp":        "cpp",
 	"c++":        "cpp",
 	"py":         "py",
