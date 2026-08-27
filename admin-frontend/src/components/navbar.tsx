@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   RefreshCw,
+  Timer,
   Users,
   Users2,
   X,
@@ -34,6 +35,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
   const isTeamsActive = pathname.startsWith("/teams");
   const isSubmissionsActive = pathname.startsWith("/submissions");
   const isMonitoringActive = pathname.startsWith("/monitoring");
+  const isTimerActive = pathname === "/timer" || pathname.startsWith("/timer");
 
   const navLinks = [
     { href: "/", label: "Problems", icon: FileCode2, active: isProblemsActive },
@@ -46,6 +48,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
       active: isSubmissionsActive,
     },
     { href: "/monitoring", label: "Onsite Monitoring", icon: Activity, active: isMonitoringActive },
+    { href: "/timer", label: "Contest Timer", icon: Timer, active: isTimerActive },
   ];
 
   return (

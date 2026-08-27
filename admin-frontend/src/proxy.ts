@@ -19,5 +19,7 @@ export const config = {
     "/users/:path*",
     "/submissions/:path*",
     "/monitoring/:path*",
+    "/timer",
+    "/timer/:path*",
   ],
 };

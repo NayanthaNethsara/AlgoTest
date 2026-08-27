@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   endContestAction,
   extendContestAction,
@@ -54,6 +55,7 @@ function formatDuration(totalSeconds: number): string {
 }
 
 export function ContestControlBar() {
+  const pathname = usePathname();
   const [state, setState] = useState<ContestState | null>(null);
   const [loading, setLoading] = useState(false);
   const [clockOffset, setClockOffset] = useState<number>(0);
@@ -169,7 +171,7 @@ export function ContestControlBar() {
     }
   }
 
-  if (!state) return null;
+  if (!state || pathname === "/timer" || pathname.startsWith("/timer")) return null;
 
   const isRunning = state.status === CONTEST_STATUS.RUNNING;
   const isPaused = state.status === CONTEST_STATUS.PAUSED;
