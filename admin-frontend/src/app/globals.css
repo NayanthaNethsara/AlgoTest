@@ -80,6 +80,22 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.7 0.15 240);
+
+  /* Pixel Design System Tokens */
+  --edge: #000000;
+  --bevel-light: oklch(0.42 0.08 160);
+  --bevel-dark: oklch(0.07 0.015 155);
+  --pixel-teal: oklch(0.72 0.13 185);
+  --pixel-teal-deep: oklch(0.42 0.09 185);
+  --success-bg: oklch(0.24 0.07 155);
+  --success-fg: oklch(0.88 0.14 155);
+  --success-border: oklch(0.55 0.14 155);
+  --warning-bg: oklch(0.27 0.07 85);
+  --warning-fg: oklch(0.90 0.14 85);
+  --warning-border: oklch(0.65 0.14 85);
+  --destructive-bg: oklch(0.27 0.09 25);
+  --destructive-fg: oklch(0.88 0.16 25);
+  --destructive-border: oklch(0.60 0.16 25);
 }
 
 @layer base {
@@ -157,3 +173,82 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
 }
+
+/* ==========================================================================
+   Pixel Art & Arcade Components (for Contest Timer & Retro Screens)
+   ========================================================================== */
+
+.font-pixel-header {
+  font-family: var(--font-pixel-header), monospace, sans-serif;
+}
+
+.font-pixel-body {
+  font-family: var(--font-pixel-body), sans-serif;
+}
+
+.pixel-raised {
+  border: 2px solid var(--edge);
+  box-shadow:
+    inset 2px 2px 0 var(--bevel-light),
+    inset -2px -2px 0 var(--bevel-dark),
+    0 4px 0 var(--edge);
+}
+
+.pixel-inset {
+  border: 2px solid var(--edge);
+  box-shadow:
+    inset 2px 2px 0 var(--edge),
+    inset -2px -2px 0 var(--bevel-light);
+}
+
+.pixel-flat {
+  border: 2px solid var(--edge);
+  box-shadow: none;
+}
+
+.pixel-press {
+  transition:
+    transform 0.05s ease,
+    box-shadow 0.05s ease;
+}
+
+.pixel-press:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(2px);
+  box-shadow:
+    inset -2px -2px 0 var(--bevel-light),
+    inset 2px 2px 0 var(--bevel-dark),
+    0 1px 0 var(--edge);
+}
+
+.pixel-btn {
+  font-family: var(--font-pixel-header), monospace, sans-serif;
+  border: 2px solid #000000;
+  box-shadow:
+    inset 2px 2px 0px oklch(0.85 0.16 172),
+    inset -2px -2px 0px oklch(0.45 0.16 172),
+    0 3px 0px #000000;
+  transition:
+    transform 0.05s ease,
+    box-shadow 0.05s ease;
+}
+
+.pixel-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset -2px -2px 0px oklch(0.85 0.16 172),
+    inset 2px 2px 0px oklch(0.45 0.16 172),
+    0 1px 0px #000000;
+}
+
+.pixel-text-shadow {
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.85);
+}
+
+.pixel-scanlines {
+  background-image: linear-gradient(
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.35) 50%
+  );
+  background-size: 100% 4px;
+}
+

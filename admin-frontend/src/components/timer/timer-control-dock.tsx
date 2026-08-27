@@ -99,344 +99,328 @@ export function TimerControlDock({
     <>
       {/* If Clean Mode is active, show only a discreet floating restore button on hover */}
       {isCleanMode ? (
-        <div className="fixed bottom-4 right-4 z-50 transition-opacity duration-300 opacity-20 hover:opacity-100">
+        <div className="fixed bottom-4 right-4 z-50 transition-opacity duration-300 opacity-25 hover:opacity-100">
           <Button
             size="sm"
-            variant="outline"
             onClick={onToggleCleanMode}
-            className="gap-2 bg-black/80 border-white/20 text-xs backdrop-blur-md hover:bg-black/95 text-foreground shadow-2xl"
+            className="gap-2 pixel-raised bg-card text-foreground font-pixel-header text-[10px] px-3 py-2 cursor-pointer shadow-[0_4px_0_#000000]"
           >
-            <Eye className="h-4 w-4" />
-            <span>Show Dock</span>
+            <Eye className="h-3.5 w-3.5" />
+            <span>SHOW DOCK</span>
           </Button>
         </div>
       ) : (
         <div className="w-full max-w-5xl px-4 mt-6">
-          <div className="rounded-2xl border border-white/10 bg-card/70 backdrop-blur-2xl p-3 sm:p-4 shadow-2xl flex flex-col gap-3">
+          <div className="pixel-raised bg-card/90 p-3 sm:p-4 shadow-[0px_6px_0px_#000000] flex flex-col gap-3">
             {/* Top Toolbar Row */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b border-white/10">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b-2 border-black">
               {/* Live Sync Status */}
-              <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+              <div className="flex items-center gap-2 text-xs font-pixel-header text-muted-foreground">
                 <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-none bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-none h-2 w-2 bg-emerald-500" />
                 </span>
                 <Radio className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="text-[11px] hidden sm:inline">Real-Time Sync</span>
+                <span className="text-[9px] sm:text-[10px] hidden sm:inline">LIVE SYNC</span>
                 {lastSyncedAt && (
-                  <span className="text-[10px] text-muted-foreground/80">
+                  <span className="text-[9px] text-muted-foreground/80 font-mono">
                     ({lastSyncedAt.toLocaleTimeString([], { hour12: false })})
                   </span>
                 )}
               </div>
 
               {/* Auxiliary Toggles (Audio, Fullscreen, Clean Mode) */}
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
+              <div className="flex items-center gap-1.5 font-pixel-header text-[10px]">
+                <button
+                  type="button"
                   onClick={onToggleAudio}
-                  className={`h-8 gap-1.5 text-xs border-white/10 ${
+                  className={`pixel-press px-2.5 py-1.5 text-[9px] border-2 border-black flex items-center gap-1.5 cursor-pointer shadow-[0_2px_0_#000000] ${
                     isAudioEnabled
-                      ? "text-emerald-400 bg-emerald-950/20 border-emerald-500/30"
-                      : "text-muted-foreground bg-white/5"
+                      ? "bg-emerald-950/40 text-emerald-300"
+                      : "bg-muted text-muted-foreground"
                   }`}
-                  title={isAudioEnabled ? "Mute Timer Audio" : "Enable Timer Audio"}
+                  title={isAudioEnabled ? "Mute Timer Audio (M)" : "Enable Timer Audio (M)"}
                 >
                   {isAudioEnabled ? (
-                    <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+                    <Volume2 className="h-3 w-3 text-emerald-400" />
                   ) : (
-                    <VolumeX className="h-3.5 w-3.5" />
+                    <VolumeX className="h-3 w-3" />
                   )}
                   <span className="hidden sm:inline">
-                    {isAudioEnabled ? "Audio On" : "Audio Muted"}
+                    {isAudioEnabled ? "AUDIO ON" : "MUTED"}
                   </span>
-                </Button>
+                </button>
 
-                <Button
-                  size="sm"
-                  variant="outline"
+                <button
+                  type="button"
                   onClick={onToggleCleanMode}
-                  className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground border-white/10 bg-white/5"
-                  title="Hide controls for clean projector display"
+                  className="pixel-press px-2.5 py-1.5 text-[9px] border-2 border-black bg-muted text-muted-foreground hover:text-foreground flex items-center gap-1.5 cursor-pointer shadow-[0_2px_0_#000000]"
+                  title="Hide controls for clean projector display (C)"
                 >
-                  <EyeOff className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Clean View</span>
-                </Button>
+                  <EyeOff className="h-3 w-3" />
+                  <span className="hidden sm:inline">CLEAN VIEW</span>
+                </button>
 
-                <Button
-                  size="sm"
-                  variant="default"
+                <button
+                  type="button"
                   onClick={onToggleFullscreen}
-                  className="h-8 gap-1.5 text-xs font-semibold bg-primary text-primary-foreground shadow-sm"
-                  title={isProjectorFullscreen ? "Exit Fullscreen" : "Enter Projector Fullscreen (F)"}
+                  className="pixel-press px-3 py-1.5 text-[9px] border-2 border-black bg-primary text-primary-foreground font-bold flex items-center gap-1.5 cursor-pointer shadow-[0_2px_0_#000000]"
+                  title={isProjectorFullscreen ? "Exit Fullscreen (F)" : "Enter Projector Fullscreen (F)"}
                 >
                   {isProjectorFullscreen ? (
                     <>
-                      <Minimize2 className="h-3.5 w-3.5" />
-                      <span>Exit Fullscreen</span>
+                      <Minimize2 className="h-3 w-3" />
+                      <span>EXIT FULLSCREEN</span>
                     </>
                   ) : (
                     <>
-                      <Maximize2 className="h-3.5 w-3.5" />
-                      <span>Fullscreen Projector</span>
+                      <Maximize2 className="h-3 w-3" />
+                      <span>FULLSCREEN (F)</span>
                     </>
                   )}
-                </Button>
+                </button>
               </div>
             </div>
 
             {/* Primary Action Controls Row */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               {/* Primary Lifecycle Actions (Start, Pause, Resume, End) */}
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 font-pixel-header text-[10px]">
                 {isNotStarted && (
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      size="default"
-                      onClick={() => setStartModalOpen(true)}
-                      disabled={isLoading}
-                      className="gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-5 py-2 shadow-lg shadow-emerald-950/40"
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Play className="h-4 w-4 fill-current" />
-                      )}
-                      <span>Start Contest</span>
-                    </Button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStartModalOpen(true)}
+                    disabled={isLoading}
+                    className="pixel-press flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 border-2 border-black shadow-[0_4px_0_#000000] cursor-pointer"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                    )}
+                    <span>START CONTEST</span>
+                  </button>
                 )}
 
                 {isRunning && (
-                  <Button
-                    size="default"
-                    variant="outline"
+                  <button
+                    type="button"
                     onClick={onPauseContest}
                     disabled={isLoading}
-                    className="gap-2 text-amber-400 border-amber-500/40 bg-amber-950/20 hover:bg-amber-950/40 font-semibold text-sm px-4"
+                    className="pixel-press flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-4 py-2 border-2 border-black shadow-[0_4px_0_#000000] cursor-pointer"
                   >
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
-                    <span>Pause Contest</span>
-                  </Button>
+                    {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pause className="h-3.5 w-3.5" />}
+                    <span>PAUSE CONTEST</span>
+                  </button>
                 )}
 
                 {isPaused && (
-                  <Button
-                    size="default"
+                  <button
+                    type="button"
                     onClick={onResumeContest}
                     disabled={isLoading}
-                    className="gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-5 py-2 shadow-lg shadow-emerald-950/40"
+                    className="pixel-press flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 border-2 border-black shadow-[0_4px_0_#000000] cursor-pointer"
                   >
                     {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <Play className="h-4 w-4 fill-current" />
+                      <Play className="h-3.5 w-3.5 fill-current" />
                     )}
-                    <span>Resume Contest</span>
-                  </Button>
+                    <span>RESUME CONTEST</span>
+                  </button>
                 )}
 
                 {/* Scoreboard Freeze Toggle */}
                 {(isRunning || isPaused) && (
                   isFrozen ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <button
+                      type="button"
                       onClick={onUnfreezeContest}
                       disabled={isLoading}
-                      className="gap-1.5 bg-sky-500/20 text-sky-300 border-sky-400/50 hover:bg-sky-500/30 text-xs font-semibold h-9"
+                      className="pixel-press flex items-center gap-1.5 bg-sky-950/60 text-sky-300 border-2 border-black px-3 py-2 text-[9px] shadow-[0_3px_0_#000000] cursor-pointer"
                       title="Unfreeze scoreboard standings"
                     >
                       {isLoading ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        <Snowflake className="h-3.5 w-3.5 animate-pulse" />
+                        <Snowflake className="h-3 w-3 animate-pulse" />
                       )}
-                      <span>Unfreeze Scoreboard</span>
-                    </Button>
+                      <span>UNFREEZE SCOREBOARD</span>
+                    </button>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <button
+                      type="button"
                       onClick={onFreezeContest}
                       disabled={isLoading}
-                      className="gap-1.5 text-sky-400 border-sky-400/40 bg-sky-950/20 hover:bg-sky-950/40 text-xs font-semibold h-9"
+                      className="pixel-press flex items-center gap-1.5 bg-sky-950/30 text-sky-400 border-2 border-black px-3 py-2 text-[9px] shadow-[0_3px_0_#000000] cursor-pointer"
                       title="Freeze scoreboard standings"
                     >
                       {isLoading ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        <Snowflake className="h-3.5 w-3.5" />
+                        <Snowflake className="h-3 w-3" />
                       )}
-                      <span>Freeze Scoreboard</span>
-                    </Button>
+                      <span>FREEZE SCOREBOARD</span>
+                    </button>
                   )
                 )}
 
                 {/* End Contest Button */}
                 {(isRunning || isPaused) && (
-                  <Button
-                    size="default"
-                    variant="destructive"
+                  <button
+                    type="button"
                     onClick={onOpenEndConfirm}
                     disabled={isLoading}
-                    className="gap-2 font-bold text-sm px-4 bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-md shadow-destructive/20"
+                    className="pixel-press flex items-center gap-1.5 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold text-xs px-3.5 py-2 border-2 border-black shadow-[0_4px_0_#000000] cursor-pointer"
                   >
-                    <StopCircle className="h-4 w-4" />
-                    <span>End Contest</span>
-                  </Button>
+                    <StopCircle className="h-3.5 w-3.5" />
+                    <span>END CONTEST</span>
+                  </button>
                 )}
               </div>
 
               {/* Time Extension Shortcuts (+5m, +10m, +15m, +30m, Custom) */}
               {(isRunning || isPaused || isEnded) && (
-                <div className="flex flex-wrap items-center gap-1.5 border-t sm:border-t-0 sm:border-l border-white/10 pt-2 sm:pt-0 sm:pl-3">
-                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted-foreground mr-1">
-                    Add Time:
+                <div className="flex flex-wrap items-center gap-1.5 border-t sm:border-t-0 sm:border-l-2 border-black pt-2 sm:pt-0 sm:pl-3 font-pixel-header text-[9px]">
+                  <span className="text-muted-foreground mr-1">
+                    ADD:
                   </span>
                   {[5, 10, 15, 30, 60].map((mins) => (
-                    <Button
+                    <button
                       key={mins}
-                      size="sm"
-                      variant="outline"
+                      type="button"
                       onClick={() => onExtendContest(mins)}
                       disabled={isLoading}
-                      className="h-8 px-2.5 text-xs font-mono font-semibold border-white/15 bg-white/5 hover:border-emerald-500 hover:text-emerald-400 hover:bg-emerald-950/20 transition-all"
+                      className="pixel-press px-2 py-1 border-2 border-black bg-muted text-foreground hover:bg-emerald-950/40 hover:text-emerald-300 shadow-[0_2px_0_#000000] cursor-pointer"
                     >
-                      +{mins}m
-                    </Button>
+                      +{mins}M
+                    </button>
                   ))}
-                  <Button
-                    size="sm"
-                    variant="outline"
+                  <button
+                    type="button"
                     onClick={() => setCustomExtendOpen(true)}
                     disabled={isLoading}
-                    className="h-8 px-2 text-xs font-mono border-white/15 bg-white/5 hover:border-primary"
+                    className="pixel-press px-2 py-1 border-2 border-black bg-muted text-foreground shadow-[0_2px_0_#000000] cursor-pointer flex items-center gap-1"
                     title="Custom extension minutes"
                   >
-                    <Plus className="h-3 w-3 mr-0.5" />
-                    Custom
-                  </Button>
+                    <Plus className="h-2.5 w-2.5" />
+                    CUSTOM
+                  </button>
                 </div>
               )}
 
               {/* Maintenance Actions (Settings, Reset) */}
-              <div className="flex items-center gap-1.5 ml-auto">
-                <Button
-                  size="sm"
-                  variant="ghost"
+              <div className="flex items-center gap-1.5 ml-auto font-pixel-header text-[9px]">
+                <button
+                  type="button"
                   onClick={onOpenSettings}
                   disabled={isLoading}
-                  className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                  className="pixel-press px-2 py-1 text-muted-foreground hover:text-foreground border-2 border-black bg-muted flex items-center gap-1 cursor-pointer shadow-[0_2px_0_#000000]"
                   title="Configure Contest Title and Duration"
                 >
-                  <Settings2 className="h-3.5 w-3.5" />
-                  <span className="hidden md:inline">Settings</span>
-                </Button>
+                  <Settings2 className="h-3 w-3" />
+                  <span className="hidden md:inline">CONFIG</span>
+                </button>
 
-                <Button
-                  size="sm"
-                  variant="ghost"
+                <button
+                  type="button"
                   onClick={onOpenResetConfirm}
                   disabled={isLoading}
-                  className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5"
+                  className="pixel-press px-2 py-1 text-muted-foreground hover:text-destructive border-2 border-black bg-muted flex items-center gap-1 cursor-pointer shadow-[0_2px_0_#000000]"
                   title="Reset contest lifecycle back to NOT_STARTED"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span className="hidden md:inline">Reset</span>
-                </Button>
+                  <RotateCcw className="h-3 w-3" />
+                  <span className="hidden md:inline">RESET</span>
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Start Contest Modal with Duration Selector */}
+      {/* Start Contest Modal in Pixel Raised Style */}
       <Dialog open={startModalOpen} onOpenChange={setStartModalOpen}>
-        <DialogContent className="max-w-md bg-card/95 border-white/10 backdrop-blur-2xl">
+        <DialogContent className="max-w-md pixel-raised bg-card border-2 border-black shadow-[0_8px_0_#000000] rounded-none">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground">
-              Start Contest Timer
+            <DialogTitle className="font-pixel-header text-sm text-foreground">
+              START CONTEST TIMER
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 py-3">
-            <p className="text-xs text-muted-foreground">
+          <div className="flex flex-col gap-4 py-3 font-pixel-body">
+            <p className="text-sm text-muted-foreground">
               Starting the contest will unlock challenge access and start the countdown timer immediately for all competitors.
             </p>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Contest Duration (Minutes)
+              <label className="font-pixel-header text-[10px] text-foreground">
+                CONTEST DURATION (MINUTES)
               </label>
               <Input
                 type="number"
                 value={startDurationInput}
                 onChange={(e) => setStartDurationInput(e.target.value)}
                 min={1}
-                className="text-sm font-mono"
+                className="text-sm font-mono pixel-inset bg-input border-2 border-black rounded-none"
               />
             </div>
 
             {/* Quick Duration Presets */}
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 font-pixel-header text-[9px]">
               {[
-                { label: "1 Hour", mins: "60" },
-                { label: "1.5 Hours", mins: "90" },
-                { label: "2 Hours", mins: "120" },
-                { label: "2.5 Hours", mins: "150" },
-                { label: "3 Hours", mins: "180" },
-                { label: "4 Hours", mins: "240" },
+                { label: "1 HR", mins: "60" },
+                { label: "1.5 HRS", mins: "90" },
+                { label: "2 HRS", mins: "120" },
+                { label: "2.5 HRS", mins: "150" },
+                { label: "3 HRS", mins: "180" },
+                { label: "4 HRS", mins: "240" },
               ].map((preset) => (
-                <Button
+                <button
                   key={preset.mins}
                   type="button"
-                  size="sm"
-                  variant="outline"
                   onClick={() => setStartDurationInput(preset.mins)}
-                  className={`h-7 px-2 text-xs font-mono ${
+                  className={`pixel-press px-2 py-1 border-2 border-black cursor-pointer shadow-[0_2px_0_#000000] ${
                     startDurationInput === preset.mins
-                      ? "border-emerald-500 text-emerald-400 bg-emerald-950/20"
-                      : "border-white/10"
+                      ? "bg-emerald-950/60 text-emerald-300 border-emerald-500"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {preset.label}
-                </Button>
+                </button>
               ))}
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
+          <DialogFooter className="font-pixel-header text-[10px] gap-2">
+            <button
+              type="button"
               onClick={() => setStartModalOpen(false)}
+              className="pixel-press px-3 py-1.5 border-2 border-black bg-muted text-foreground cursor-pointer shadow-[0_2px_0_#000000]"
             >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
+              CANCEL
+            </button>
+            <button
+              type="button"
               onClick={handleConfirmStart}
               disabled={isLoading}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+              className="pixel-press px-3.5 py-1.5 border-2 border-black bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer shadow-[0_3px_0_#000000] flex items-center gap-1.5"
             >
-              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Play className="h-3.5 w-3.5 fill-current mr-1.5" />}
-              Start Contest Now
-            </Button>
+              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />}
+              <span>START NOW</span>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Custom Extend Minutes Modal */}
+      {/* Custom Extend Minutes Modal in Pixel Style */}
       <Dialog open={customExtendOpen} onOpenChange={setCustomExtendOpen}>
-        <DialogContent className="max-w-xs bg-card/95 border-white/10 backdrop-blur-2xl">
+        <DialogContent className="max-w-xs pixel-raised bg-card border-2 border-black shadow-[0_8px_0_#000000] rounded-none">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-foreground">
-              Add More Time
+            <DialogTitle className="font-pixel-header text-xs text-foreground">
+              ADD MORE TIME
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-3 py-2">
-            <label className="text-xs font-semibold text-foreground">
-              Minutes to Add
+          <div className="flex flex-col gap-3 py-2 font-pixel-body">
+            <label className="font-pixel-header text-[9px] text-foreground">
+              MINUTES TO EXTEND
             </label>
             <Input
               type="number"
@@ -444,26 +428,26 @@ export function TimerControlDock({
               onChange={(e) => setCustomExtendMinutes(e.target.value)}
               min={1}
               autoFocus
-              className="text-sm font-mono"
+              className="text-sm font-mono pixel-inset bg-input border-2 border-black rounded-none"
             />
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
+          <DialogFooter className="font-pixel-header text-[10px] gap-2">
+            <button
+              type="button"
               onClick={() => setCustomExtendOpen(false)}
+              className="pixel-press px-2.5 py-1 border-2 border-black bg-muted text-foreground cursor-pointer shadow-[0_2px_0_#000000]"
             >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
+              CANCEL
+            </button>
+            <button
+              type="button"
               onClick={handleConfirmCustomExtend}
               disabled={isLoading}
-              className="bg-primary text-primary-foreground font-bold"
+              className="pixel-press px-3 py-1 border-2 border-black bg-primary text-primary-foreground font-bold cursor-pointer shadow-[0_2px_0_#000000] flex items-center gap-1"
             >
-              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-              Extend Time
-            </Button>
+              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              <span>EXTEND</span>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

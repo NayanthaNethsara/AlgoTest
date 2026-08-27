@@ -21,7 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CONTEST_STATUS, type ContestState } from "@/types/contest";
 import { CountdownDisplay } from "./countdown-display";
@@ -402,68 +401,68 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
 
       {/* Contest Settings Dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-md bg-card/95 border-white/10 backdrop-blur-2xl">
+        <DialogContent className="max-w-md pixel-raised bg-card border-2 border-black shadow-[0_8px_0_#000000] rounded-none">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold text-foreground">
-              Contest Settings
+            <DialogTitle className="font-pixel-header text-xs sm:text-sm text-foreground">
+              CONTEST SETTINGS
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-4 py-3">
+          <div className="flex flex-col gap-4 py-3 font-pixel-body">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Contest Title
+              <label className="font-pixel-header text-[9px] text-foreground">
+                CONTEST TITLE
               </label>
               <Input
                 value={settingsTitle}
                 onChange={(e) => setSettingsTitle(e.target.value)}
                 placeholder="e.g. MiniAlgothon 2026 Finals"
-                className="text-xs"
+                className="text-xs pixel-inset bg-input border-2 border-black rounded-none"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Total Duration (Minutes)
+              <label className="font-pixel-header text-[9px] text-foreground">
+                TOTAL DURATION (MINUTES)
               </label>
               <Input
                 type="number"
                 value={settingsDuration}
                 onChange={(e) => setSettingsDuration(e.target.value)}
                 min={1}
-                className="text-xs font-mono"
+                className="text-xs font-mono pixel-inset bg-input border-2 border-black rounded-none"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Scoreboard Freeze Window (Minutes before end)
+              <label className="font-pixel-header text-[9px] text-foreground">
+                SCOREBOARD FREEZE WINDOW (MINS BEFORE END)
               </label>
               <Input
                 type="number"
                 value={settingsFreeze}
                 onChange={(e) => setSettingsFreeze(e.target.value)}
                 min={0}
-                className="text-xs font-mono"
+                className="text-xs font-mono pixel-inset bg-input border-2 border-black rounded-none"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
+          <DialogFooter className="font-pixel-header text-[10px] gap-2">
+            <button
+              type="button"
               onClick={() => setSettingsOpen(false)}
+              className="pixel-press px-3 py-1.5 border-2 border-black bg-muted text-foreground cursor-pointer shadow-[0_2px_0_#000000]"
             >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
+              CANCEL
+            </button>
+            <button
+              type="button"
               onClick={handleSaveSettings}
               disabled={isLoading}
-              className="bg-primary text-primary-foreground font-bold"
+              className="pixel-press px-3.5 py-1.5 border-2 border-black bg-primary text-primary-foreground font-bold cursor-pointer shadow-[0_3px_0_#000000] flex items-center gap-1.5"
             >
-              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-              Save Settings
-            </Button>
+              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+              <span>SAVE CONFIG</span>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
