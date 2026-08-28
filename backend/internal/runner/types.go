@@ -12,7 +12,7 @@ var ErrSandboxUnavailable = errors.New("sandbox unavailable")
 
 // outputLimit caps how much stdout/stderr we hand back per run, to keep a
 // runaway program (e.g. an infinite print loop) from ballooning a response.
-const outputLimit = 128 * 1024
+const outputLimit = 16 * 1024 * 1024 // 16 MB limit (supports 100k+ lines)
 
 // sandboxDir is where the per-run workspace is bind-mounted inside the sandbox.
 const sandboxDir = "/sandbox"
