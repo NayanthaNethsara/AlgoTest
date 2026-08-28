@@ -329,11 +329,35 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
         )}
 
         {error && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-xs font-medium text-destructive flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-semibold">Unable to save problem:</p>
-              <p className="mt-0.5">{error}</p>
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-xs font-medium text-destructive flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5 flex-1 min-w-0">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-xs text-destructive">Unable to save problem</p>
+                <p className="mt-1 font-mono text-[11px] break-words text-destructive/90 leading-relaxed">
+                  {error}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => navigator.clipboard.writeText(error)}
+                className="h-7 px-2 text-[11px] border-destructive/30 hover:bg-destructive/10 text-destructive"
+              >
+                Copy Error
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setError(null)}
+                className="h-7 px-2 text-[11px] text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+              >
+                Dismiss
+              </Button>
             </div>
           </div>
         )}

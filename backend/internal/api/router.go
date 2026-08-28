@@ -40,7 +40,7 @@ func NewRouter(
 	log *slog.Logger,
 ) *gin.Engine {
 	r := gin.New()
-	r.Use(metrics.GinRequestIDMiddleware(), metrics.GinMetricsMiddleware(), metrics.GinStructuredLoggingMiddleware(log), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins))
+	r.Use(metrics.GinRequestIDMiddleware(), metrics.GinMetricsMiddleware(), metrics.GinStructuredLoggingMiddleware(log), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins), requestDecompressMiddleware())
 
 	metrics.RegisterDBPoolCollector(pool)
 
@@ -111,7 +111,7 @@ func NewRouter(
 		h.registerCompetitorRoutes(v1, gated)
 		h.registerAgentRoutes(v1)
 
-		admin := v1.Group("/admin", h.requireUser, h.requireAdmin, maxBodySizeMiddleware(50_000_000), rateLimitMiddleware(adminLimiter, userIDKeyFunc))
+		admin := v1.Group("/admin", h.requireUser, h.requireAdmin, maxBodySizeMiddleware(200_000_000), rateLimitMiddleware(adminLimiter, userIDKeyFunc))
 		h.registerAdminRoutes(admin)
 	}
 
@@ -145,9 +145,9 @@ func (h *handler) registerCompetitorRoutes(v1 *gin.RouterGroup, gated gin.Handle
 	v1.GET("/telemetry/self", h.requireUser, rateLimitMiddleware(proctorSelfLimiter, userIDKeyFunc), h.getProctorSelfStatus)
 
 	v1.GET("/contest/state", h.getContestState)
-	v1.POST("/run", h.requireUser, maxBodySizeMiddleware(5_000_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), gated, contestActive, h.runCode)
+	v1.POST("/run", h.requireUser, maxBodySizeMiddleware(20_000_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), gated, contestActive, h.runCode)
 
-	v1.POST("/submissions", h.requireUser, maxBodySizeMiddleware(500_000), rateLimitMiddleware(submissionLimiter, userIDKeyFunc), submissionsAllowed, h.createSubmission)
+	v1.POST("/submissions", h.requireUser, maxBodySizeMiddleware(2_000_000), rateLimitMiddleware(submissionLimiter, userIDKeyFunc), submissionsAllowed, h.createSubmission)
 	v1.GET("/submissions", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.listUserSubmissions)
 	v1.GET("/submissions/stream", h.requireUser, rateLimitMiddleware(streamLimiter, userIDKeyFunc), gated, h.streamSubmissions)
 	v1.GET("/submissions/:id", h.requireUser, rateLimitMiddleware(submissionStatusLimiter, userIDKeyFunc), gated, h.getSubmission)

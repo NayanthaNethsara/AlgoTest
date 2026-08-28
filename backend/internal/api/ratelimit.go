@@ -1,6 +1,8 @@
 package api
 
 import (
+	"compress/gzip"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -119,3 +121,17 @@ func maxBodySizeMiddleware(maxBytes int64) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func requestDecompressMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetHeader("Content-Encoding") == "gzip" {
+			reader, err := gzip.NewReader(c.Request.Body)
+			if err == nil {
+				defer reader.Close()
+				c.Request.Body = io.NopCloser(reader)
+			}
+		}
+		c.Next()
+	}
+}
+

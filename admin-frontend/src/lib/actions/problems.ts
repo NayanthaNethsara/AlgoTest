@@ -12,21 +12,51 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
 
+function extractHtmlError(html: string): string {
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  if (titleMatch && titleMatch[1]) {
+    return titleMatch[1].trim();
+  }
+  const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+  if (h1Match && h1Match[1]) {
+    return h1Match[1].trim();
+  }
+  const clean = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return clean.slice(0, 200);
+}
+
 async function handleResponseError(res: Response, fallback: string): Promise<never> {
   const errText = await res.text().catch(() => "");
-  let errMessage = `${fallback} (${res.status})`;
-  try {
-    const errJson = JSON.parse(errText);
-    if (errJson.error) {
-      errMessage = errJson.error;
-    }
-  } catch {
-    if (errText && errText.length < 300) {
-      errMessage = errText;
+  let errDetail = "";
+
+  if (errText) {
+    try {
+      const errJson = JSON.parse(errText);
+      errDetail = errJson.error || errJson.message || errJson.detail || "";
+    } catch {
+      if (errText.includes("<html") || errText.includes("<!DOCTYPE")) {
+        errDetail = extractHtmlError(errText);
+      } else {
+        errDetail = errText.slice(0, 300).trim();
+      }
     }
   }
-  console.error(`[Admin Problems Action] Error ${res.status}:`, errMessage);
-  throw new Error(errMessage);
+
+  let finalMessage = "";
+  if (res.status === 413) {
+    finalMessage = `Payload Too Large (HTTP 413): The problem or test cases exceed the server upload buffer. ${errDetail}`.trim();
+  } else if (res.status === 502) {
+    finalMessage = `Bad Gateway (HTTP 502): The backend API server is unreachable. ${errDetail}`.trim();
+  } else if (res.status === 504) {
+    finalMessage = `Gateway Timeout (HTTP 504): The server timed out processing the request. ${errDetail}`.trim();
+  } else if (errDetail) {
+    finalMessage = `${fallback} (${res.status}): ${errDetail}`;
+  } else {
+    finalMessage = `${fallback} (HTTP ${res.status})`;
+  }
+
+  console.error(`[Admin Problems Action] Error ${res.status}:`, finalMessage);
+  throw new Error(finalMessage);
 }
 
 export async function listProblemsAction(): Promise<ProblemDetail[]> {

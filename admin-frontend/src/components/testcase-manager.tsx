@@ -196,9 +196,33 @@ export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseMa
 
           <div className="flex flex-col gap-5 pt-2">
             {error && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3.5 py-2.5 text-xs font-medium text-destructive flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>{error}</span>
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3.5 text-xs font-medium text-destructive flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2 flex-1 min-w-0">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span className="font-mono text-[11px] break-words flex-1 leading-relaxed">
+                    {error}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigator.clipboard.writeText(error)}
+                    className="h-6 px-2 text-[10px] border-destructive/30 hover:bg-destructive/10 text-destructive"
+                  >
+                    Copy Error
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setError(null)}
+                    className="h-6 px-1.5 text-[10px] text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+                  >
+                    Dismiss
+                  </Button>
+                </div>
               </div>
             )}
 
