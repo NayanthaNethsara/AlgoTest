@@ -73,6 +73,29 @@ pub struct Enrollment {
 pub const AUTOSTART_NAME: &str = "mini-algothon-competitor";
 
 pub fn config_dir() -> Option<PathBuf> {
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            let candidate = if cfg!(target_os = "macos") && exe_dir.ends_with("MacOS") {
+                exe_dir
+                    .parent()
+                    .and_then(|p| p.parent())
+                    .and_then(|p| p.parent())
+                    .map(|p| p.join(".minialgothon_data"))
+                    .unwrap_or_else(|| exe_dir.join(".minialgothon_data"))
+            } else {
+                exe_dir.join(".minialgothon_data")
+            };
+
+            if std::fs::create_dir_all(&candidate).is_ok() {
+                let probe_file = candidate.join(".writable");
+                if std::fs::write(&probe_file, b"1").is_ok() {
+                    let _ = std::fs::remove_file(probe_file);
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+
     let base = if cfg!(target_os = "windows") {
         std::env::var_os("APPDATA").map(PathBuf::from)
     } else if cfg!(target_os = "macos") {
@@ -366,6 +389,11 @@ mod tests {
         assert!(reqwest::Url::parse(&config.server_url).is_ok());
         assert!(reqwest::Url::parse(&config.api_url).is_ok());
         assert!(!portal_origin(&config.server_url).is_empty());
+    }
+
+    #[test]
+    fn config_dir_is_available() {
+        assert!(config_dir().is_some());
     }
 }
 
