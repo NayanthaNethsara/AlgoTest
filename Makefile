@@ -77,6 +77,7 @@ competitor-desktop:
 	cd competitor-desktop && pnpm dev
 
 desktop: competitor-desktop
+desktop-dev: competitor-desktop
 
 desktop-build:
 	cd competitor-desktop && pnpm build
