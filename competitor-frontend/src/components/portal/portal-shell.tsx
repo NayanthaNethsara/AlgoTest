@@ -6,6 +6,7 @@ import { AccessBlockScreen } from "@/components/portal/access-block";
 import { ContestPhaseBanner } from "@/components/portal/contest-phase-banner";
 import { ContestProvider } from "@/components/portal/contest-provider";
 import { ProctorProvider } from "@/components/portal/proctor-provider";
+import { MultiDisplayGate } from "@/components/portal/multi-display-gate";
 import { ProctorLockBanner } from "@/components/portal/proctor-status";
 import { useContest } from "@/components/portal/contest-provider";
 import {
@@ -41,6 +42,7 @@ export function PortalShell({
               {children}
               <ProctorLockBanner />
               <AccessBlockScreen />
+              <MultiDisplayGate />
               <ToastBanner />
             </div>
           </div>

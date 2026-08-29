@@ -19,11 +19,6 @@ export const DESKTOP_CLIENT_VALUE = "desktop";
  * Header the portal's server side uses to pass the marker on to the API, which
  * needs it to tell "working in the client" from "working in a browser while the
  * client runs" — two access modes an organizer grants separately.
- *
- * The API treats it as a claim, not proof: the cookie above is readable, so a
- * browser can be made to send it. It is believed only where the agent independently
- * reports its shell process alive, which means forging it requires running the
- * desktop client, and therefore being proctored, anyway.
  */
 export const CLIENT_HEADER = "X-Proctor-Client";
 
@@ -33,12 +28,26 @@ export function isDesktopClient(): boolean {
   if (typeof document === "undefined") {
     return false;
   }
-  return document.cookie
+  const hasCookie = document.cookie
     .split(";")
     .some(
       (entry) =>
         entry.trim() === `${DESKTOP_CLIENT_COOKIE}=${DESKTOP_CLIENT_VALUE}`,
     );
+  const hasGlobal = Boolean(
+    (window as unknown as { __MINIALGOTHON_DESKTOP__?: boolean })
+      .__MINIALGOTHON_DESKTOP__,
+  );
+  return hasCookie || hasGlobal;
+}
+
+export function isDesktopLockdown(): boolean {
+  if (typeof window === "undefined") return false;
+  const hasLockdownGlobal = Boolean(
+    (window as unknown as { __MINIALGOTHON_LOCKDOWN__?: boolean })
+      .__MINIALGOTHON_LOCKDOWN__,
+  );
+  return hasLockdownGlobal || isDesktopClient();
 }
 
 export function ensureDesktopClientCookie(): void {
@@ -50,3 +59,24 @@ export function ensureDesktopClientCookie(): void {
   }
 }
 
+/**
+ * Sends an authorized competition exit request to the desktop client loopback server.
+ */
+export async function exitDesktopCompetition(): Promise<boolean> {
+  const ports = [47615, 47616, 47617, 47618, 47619, 47620];
+  for (const port of ports) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1000);
+      const res = await fetch(`http://127.0.0.1:${port}/exit-competition`, {
+        method: "POST",
+        signal: controller.signal,
+      }).catch(() => null);
+      clearTimeout(timer);
+      if (res && res.ok) return true;
+    } catch {
+      // Continue to next port
+    }
+  }
+  return false;
+}

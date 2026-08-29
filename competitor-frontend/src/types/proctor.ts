@@ -42,6 +42,9 @@ export type AgentLocalStatus = {
   loopback_port: number;
   support_code: string;
   status: string;
+  lockdown?: boolean;
+  monitor_count?: number;
+  multiple_monitors_detected?: boolean;
 };
 
 export type ProctorState = {
