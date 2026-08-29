@@ -22,13 +22,14 @@ export function LoginForm() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function handleFormSubmit(event: React.FormEvent) {
+  async function handleFormSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsAuthenticating(true);
     setErrorMessage(null);
 
+    const formData = new FormData(event.currentTarget);
     try {
-      const result = await loginAction({ username, password });
+      const result = await loginAction(formData);
       if (!result.success) {
         setErrorMessage(result.error || "Invalid username or password.");
         return;
@@ -46,6 +47,7 @@ export function LoginForm() {
     <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
       <FormField label="Username">
         <Input
+          name="username"
           type="text"
           autoComplete="username"
           value={username}
@@ -56,6 +58,7 @@ export function LoginForm() {
       </FormField>
       <FormField label="Password">
         <Input
+          name="password"
           type="password"
           autoComplete="current-password"
           value={password}

@@ -12,9 +12,14 @@ import {
 } from "@mini-algothon/auth";
 
 export async function loginAction(
-  credentials: LoginCredentials
+  input: LoginCredentials | FormData,
 ): Promise<AuthActionResult> {
-  return authenticateUser(credentials, "competitor", SESSION_COOKIE);
+  if (input instanceof FormData) {
+    const username = String(input.get("username") ?? "");
+    const password = String(input.get("password") ?? "");
+    return authenticateUser({ username, password }, "competitor", SESSION_COOKIE);
+  }
+  return authenticateUser(input, "competitor", SESSION_COOKIE);
 }
 
 export async function logoutAction(): Promise<void> {
@@ -27,7 +32,7 @@ export async function getSessionUserAction(): Promise<SessionUser | null> {
 
 export async function changePasswordAction(
   currentPassword: string,
-  newPassword: string
+  newPassword: string,
 ): Promise<{ success: boolean; error?: string }> {
   return changeUserPassword(currentPassword, newPassword, SESSION_COOKIE);
 }
