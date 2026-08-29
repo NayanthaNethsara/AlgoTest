@@ -40,6 +40,7 @@
       <div class="row" style="margin-top: 18px">
         <button id="retry" type="button">Try again now</button>
         <button id="setup" type="button" class="secondary">Change server address</button>
+        <button id="exit" type="button" class="secondary" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4);">Exit Competition</button>
       </div>
 
       <div class="countdown-text" id="countdown-msg">
@@ -125,6 +126,16 @@
         } catch (err) {
           el("error").textContent = String(err);
           el("error").hidden = false;
+        }
+      });
+      el("exit")?.addEventListener("click", async () => {
+        if (confirm("Are you sure you want to exit the competition?")) {
+          try {
+            await invoke("exit_competition");
+          } catch (err) {
+            el("error").textContent = String(err);
+            el("error").hidden = false;
+          }
         }
       });
 

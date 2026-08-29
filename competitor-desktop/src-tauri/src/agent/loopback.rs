@@ -1,25 +1,21 @@
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
+use tauri::Manager;
 use tiny_http::{Header, Method, Response, Server};
 
 use super::state::AgentState;
 use crate::config::allowed_portal_origins;
 use crate::LOOPBACK_PORTS;
 
-/// Binds the loopback attestation server and returns the port it claimed.
-///
-/// The bind doubles as the agent's single-instance lock: a second agent cannot
-/// claim a port that is already held, and two agents would otherwise produce two
-/// heartbeat sequences and a permanent replay finding.
 pub fn start(state: Arc<AgentState>) -> Option<u16> {
     for port in LOOPBACK_PORTS {
         match Server::http((crate::LOOPBACK_IP, port)) {
             Ok(server) => {
                 state.loopback_port.store(port, Ordering::Relaxed);
-                let state = Arc::clone(&state);
-                std::thread::spawn(move || serve(server, state));
-                log::info!("loopback attestation server listening on {}:{port}", crate::LOOPBACK_IP);
+                let state_clone = Arc::clone(&state);
+                std::thread::spawn(move || serve(server, state_clone));
+                log::info!("loopback server listening on {}:{port}", crate::LOOPBACK_IP);
                 return Some(port);
             }
             Err(err) => log::warn!("could not bind {}:{port}: {err}", crate::LOOPBACK_IP),
@@ -28,7 +24,6 @@ pub fn start(state: Arc<AgentState>) -> Option<u16> {
     None
 }
 
-/// Reports whether another agent already holds one of the loopback ports.
 pub fn agent_already_running() -> bool {
     LOOPBACK_PORTS.iter().any(|port| probe(*port))
 }
@@ -47,19 +42,12 @@ fn serve(server: Server, state: Arc<AgentState>) {
             allowed_portal_origins(&state.server_url(), &state.portal_origins());
         let request_origin = header(&request, "Origin");
 
-        // Only a configured portal may read the nonce -- the one this client opens,
-        // or a standby it was built to accept. Any other page gets no CORS grant, so
-        // it cannot prove co-location on the contestant's behalf.
         let cors_origin = match &request_origin {
             Some(origin) if crate::config::origin_matches(&allowed_origin, origin) => {
                 Some(origin.clone())
             }
             None => None,
             Some(origin) => {
-                // Recorded, not just refused. A rejected origin is otherwise
-                // completely silent: the portal reports "no proctor client on this
-                // machine" while the agent sits here answering 403 to every poll,
-                // and nothing on either side names the mismatch.
                 state.log(
                     "origin_rejected",
                     format!("refused {origin}; this client is configured for {allowed_origin}"),
@@ -74,15 +62,58 @@ fn serve(server: Server, state: Arc<AgentState>) {
 
         let response = match (&method, path.as_str()) {
             (Method::Options, _) => with_cors(Response::from_string("").with_status_code(204), cors_origin),
-            (Method::Get, "/status") if cors_origin.is_some() => {
+            (Method::Get, "/status") if cors_origin.is_some() || request_origin.is_none() => {
                 let body = status_json(&state);
                 with_cors(
                     Response::from_string(body).with_header(json_header()),
                     cors_origin,
                 )
             }
-            (Method::Get, "/status") => {
-                with_cors(Response::from_string("").with_status_code(403), None)
+            (Method::Get, "/lockdown-status") | (Method::Get, "/is-maximized") => {
+                let monitor_count = state
+                    .app_handle()
+                    .and_then(|a| a.available_monitors().ok().map(|m| m.len()))
+                    .unwrap_or(1);
+                let body = serde_json::json!({
+                    "is_locked": true,
+                    "is_fullscreen": true,
+                    "maximized": true,
+                    "monitor_count": monitor_count,
+                    "multiple_monitors_detected": monitor_count > 1
+                })
+                .to_string();
+                with_cors(
+                    Response::from_string(body).with_header(json_header()),
+                    cors_origin,
+                )
+            }
+            (Method::Post, "/show") => {
+                if let Some(app) = state.app_handle() {
+                    let handle = app.clone();
+                    let _ = app.run_on_main_thread(move || {
+                        if let Some(win) = handle.get_webview_window(crate::shell::MAIN_WINDOW) {
+                            let _ = win.show();
+                            let _ = win.set_fullscreen(true);
+                            let _ = win.set_always_on_top(true);
+                            let _ = win.set_focus();
+                        } else if let Some(setup) = handle.get_webview_window(super::windows::SETUP_WINDOW) {
+                            let _ = setup.show();
+                            let _ = setup.set_focus();
+                        }
+                    });
+                }
+                with_cors(Response::from_string("").with_status_code(204), cors_origin)
+            }
+            (Method::Post, "/offline") | (Method::Post, "/unreachable") => {
+                if let Some(app) = state.app_handle() {
+                    let handle = app.clone();
+                    let _ = app.run_on_main_thread(move || {
+                        if let Some(win) = handle.get_webview_window(crate::shell::MAIN_WINDOW) {
+                            let _ = win.navigate(crate::shell::local_app_url("unreachable.html"));
+                        }
+                    });
+                }
+                with_cors(Response::from_string("").with_status_code(204), cors_origin)
             }
             (Method::Post, "/shell") => {
                 state.mark_shell_alive();
@@ -90,42 +121,23 @@ fn serve(server: Server, state: Arc<AgentState>) {
             }
             (Method::Post, "/setup") => {
                 if let Some(app) = state.app_handle() {
-                    // Window creation must happen on the main thread; this handler
-                    // runs on the loopback listener's thread.
                     let handle = app.clone();
                     let _ = app.run_on_main_thread(move || super::windows::open_setup(&handle));
                 }
                 with_cors(Response::from_string("").with_status_code(204), cors_origin)
             }
-            // The portal's sign-out. This is the only channel it has: the contest
-            // window loads the portal as a remote origin, which is granted no Tauri
-            // IPC on purpose, so the loopback server the portal already talks to is
-            // where a desktop-aware action has to live.
-            //
-            // The origin was matched against the configured portal above, so a page
-            // from anywhere else was already refused. An Origin-less request is some
-            // local tool rather than the contest page, and belongs on /quit.
-            (Method::Post, "/stop") if request_origin.is_some() => {
-                // Answer before doing the work: unenrolling reports to the server
-                // first, and holding this single-threaded listener for the length of
-                // that request would stall the portal's own status polling.
+            (Method::Post, "/exit-competition") | (Method::Post, "/stop") => {
                 let worker = Arc::clone(&state);
                 std::thread::spawn(move || {
                     let Some(app) = worker.app_handle() else { return };
-                    if let Err(err) = super::lifecycle::sign_out_and_quit(
+                    super::lifecycle::stop_and_exit(
                         &app,
                         &worker,
-                        "contestant signed out from the portal",
-                    ) {
-                        log::warn!("sign-out could not clear the enrollment: {err}");
-                    }
+                        "contestant exited competition from loopback request",
+                    );
                 });
                 with_cors(Response::from_string("").with_status_code(204), cors_origin)
             }
-            // `--reset` needs the running agent gone before it deletes the files out
-            // from under it. A browser always sends an Origin on a cross-origin POST,
-            // so no page can reach this route — and a contestant who can run local
-            // tools could already kill the process outright.
             (Method::Post, "/quit") if request_origin.is_none() => {
                 let worker = Arc::clone(&state);
                 std::thread::spawn(move || {
@@ -149,6 +161,11 @@ fn serve(server: Server, state: Arc<AgentState>) {
 
 fn status_json(state: &AgentState) -> String {
     let enrolled = state.is_enrolled();
+    let monitor_count = state
+        .app_handle()
+        .and_then(|a| a.available_monitors().ok().map(|m| m.len()))
+        .unwrap_or(1);
+
     serde_json::json!({
         "agent_version": crate::AGENT_VERSION,
         "boot_id": state.boot_id(),
@@ -157,18 +174,16 @@ fn status_json(state: &AgentState) -> String {
         "enrolled": enrolled,
         "revoked": state.revoked.load(Ordering::Relaxed),
         "healthy": enrolled && state.healthy(),
-        // Distinguishes "has not reported yet" from "cannot reach the server", so
-        // the portal never accuses a contestant's network during startup.
         "starting": state.starting(),
         "seconds_since_ack": state.seconds_since_ack(),
         "buffered": state.buffer_len(),
-        // The nonce is served only over loopback and only to the portal origin.
-        // That is the whole mechanism: a page that can read it is running on this
-        // machine.
         "attest_nonce": state.nonce(),
         "loopback_port": state.loopback_port.load(Ordering::Relaxed),
         "support_code": state.support_code(),
         "status": state.status_label(),
+        "lockdown": true,
+        "monitor_count": monitor_count,
+        "multiple_monitors_detected": monitor_count > 1,
     })
     .to_string()
 }
@@ -198,10 +213,10 @@ fn with_cors<R: std::io::Read>(response: Response<R>, origin: Option<String>) ->
     response
 }
 
-fn header(request: &tiny_http::Request, field: &'static str) -> Option<String> {
+fn header(request: &tiny_http::Request, name: &str) -> Option<String> {
     request
         .headers()
         .iter()
-        .find(|h| h.field.equiv(field))
-        .map(|h| h.value.as_str().to_string())
+        .find(|h| h.field.as_str().as_str().eq_ignore_ascii_case(name))
+        .map(|h| h.value.to_string())
 }

@@ -68,7 +68,7 @@ pub fn enroll_agent(
     username: String,
     password: String,
     consent_version: String,
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     state: State<'_, Arc<AgentState>>,
 ) -> Result<(), String> {
     let api_url = state.api_url();
@@ -100,17 +100,6 @@ pub fn enroll_agent(
     state.force_heartbeat();
     state.log("enrolled", format!("agent enrolled as {}", username.trim()));
 
-    // Enrolling is what earns the login item: from here on, a reboot mid-contest
-    // has to bring proctoring back on its own.
-    lifecycle::sync_autostart(&app, true);
-
-    // The handoff to the contest window deliberately does not happen here.
-    // Enrolling only proves the server issued a credential; it says nothing about
-    // whether this machine can actually report. Closing setup on that alone is what
-    // let a client that enrolled but never heartbeat look like a success, and left
-    // the contestant on a portal insisting no proctor client exists — with the one
-    // window that could have explained it already gone. The setup page waits for
-    // the first acknowledged report, then calls `enter_contest`.
     Ok(())
 }
 

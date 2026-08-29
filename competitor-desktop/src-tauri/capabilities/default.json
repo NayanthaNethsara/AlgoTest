@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions for the agent's own local pages. The contest shell loads a remote portal and is deliberately granted nothing: no remote origin can invoke a command, which is what removed the runtime-capability problem the old thin-client design had.",
-  "windows": ["setup", "diagnostics"],
+  "description": "Permissions for local UI pages including setup, diagnostics, and secondary monitor blackout overlays.",
+  "windows": ["setup", "diagnostics", "blackout*"],
   "permissions": ["core:default", "dialog:default"]
 }
