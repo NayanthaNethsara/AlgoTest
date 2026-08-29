@@ -105,23 +105,16 @@ jobs:
             # Standalone Portable Executable (No installation required)
             cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor.exe release_assets/mini-algothon-competitor-windows-standalone-x64.exe 2>/dev/null || \
             cp competitor-desktop/src-tauri/target/release/app.exe release_assets/mini-algothon-competitor-windows-standalone-x64.exe 2>/dev/null || true
-            
-            # NSIS Installer (if generated)
-            cp competitor-desktop/src-tauri/target/release/bundle/nsis/*.exe release_assets/mini-algothon-competitor-windows-installer-x64.exe 2>/dev/null || true
           elif [ "${{ matrix.target }}" = "macos" ]; then
-            # DMG image
-            cp competitor-desktop/src-tauri/target/release/bundle/dmg/*.dmg release_assets/ 2>/dev/null || true
-            
-            # Zipped .app bundle
+            # Standalone Zipped .app bundle
             if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/mini-algothon-competitor.app" ]; then
               cd competitor-desktop/src-tauri/target/release/bundle/macos
-              zip -r ../../../../../release_assets/mini-algothon-competitor-macos-app.zip mini-algothon-competitor.app
+              zip -r ../../../../../release_assets/mini-algothon-competitor-macos-standalone.zip mini-algothon-competitor.app
               cd -
+            else
+              cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor release_assets/mini-algothon-competitor-macos-standalone 2>/dev/null || true
             fi
           elif [ "${{ matrix.target }}" = "linux" ]; then
-            # Debian package
-            cp competitor-desktop/src-tauri/target/release/bundle/deb/*.deb release_assets/ 2>/dev/null || true
-            
             # Standalone binary
             cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor release_assets/mini-algothon-competitor-linux-standalone-amd64 2>/dev/null || \
             cp competitor-desktop/src-tauri/target/release/app release_assets/mini-algothon-competitor-linux-standalone-amd64 2>/dev/null || true
