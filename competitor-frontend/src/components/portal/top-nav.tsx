@@ -29,22 +29,10 @@ export function TopNav({ user }: { user: SessionUser | null }) {
   };
 
   return (
-    <header
-      data-tauri-drag-region
-      data-window-drag-region
-      className="relative z-20 border-b-2 border-black bg-card px-2.5 sm:px-4 lg:px-6 py-2 sm:py-2.5 shadow-[0px_4px_0px_var(--edge)] select-none overscroll-none shrink-0"
-    >
-      <div
-        data-tauri-drag-region
-        data-window-drag-region
-        className="flex items-center justify-between gap-1.5 sm:gap-3"
-      >
+    <header className="relative z-20 border-b-2 border-black bg-card px-2.5 sm:px-4 lg:px-6 py-2 sm:py-2.5 shadow-[0px_4px_0px_var(--edge)] select-none overscroll-none shrink-0">
+      <div className="flex items-center justify-between gap-1.5 sm:gap-3">
         {/* Left Side: Logo & Navigation */}
-        <div
-          data-tauri-drag-region
-          data-window-drag-region
-          className="flex items-center gap-2 sm:gap-4 md:gap-5 lg:gap-6 shrink-0 min-w-0"
-        >
+        <div className="flex items-center gap-2 sm:gap-4 md:gap-5 lg:gap-6 shrink-0 min-w-0">
           <Link
             href="/challenges"
             className="flex items-center hover:opacity-90 transition-opacity shrink-0"
@@ -82,10 +70,7 @@ export function TopNav({ user }: { user: SessionUser | null }) {
           </nav>
         </div>
 
-        {/* Wide Center Drag Handle Region */}
         <div
-          data-tauri-drag-region
-          data-window-drag-region
           className="flex-1 self-stretch min-h-6 min-w-2 cursor-default"
           aria-hidden="true"
         />

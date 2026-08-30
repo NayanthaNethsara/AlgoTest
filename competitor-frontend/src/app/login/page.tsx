@@ -9,16 +9,8 @@ export default async function LoginPage() {
   if (user) redirect("/challenges");
 
   return (
-    <div
-      data-tauri-drag-region
-      data-window-drag-region
-      className="relative flex h-dvh flex-col bg-background select-none"
-    >
-      <div
-        data-tauri-drag-region
-        data-window-drag-region
-        className="h-12 w-full flex items-center justify-end px-4 z-50 shrink-0"
-      >
+    <div className="relative flex h-dvh flex-col bg-background select-none">
+      <div className="h-12 w-full flex items-center justify-end px-4 z-50 shrink-0">
         <DesktopWindowControls />
       </div>
       <div className="flex flex-1 items-center justify-center p-4">

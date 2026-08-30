@@ -182,11 +182,9 @@
       sans-serif;
   }
 
-  /* Prevent rubber-band elastic bouncing on fixed navigation headers and window drag handles */
+  /* Prevent rubber-band elastic bouncing on fixed navigation headers */
   header,
-  nav,
-  [data-tauri-drag-region],
-  [data-window-drag-region] {
+  nav {
     overscroll-behavior: none;
     overscroll-behavior-y: none;
     overscroll-behavior-x: none;
