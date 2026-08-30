@@ -88,7 +88,7 @@ pub fn create_contest_window(
         window.__MINIALGOTHON_OS__ = "{os_name}";
         (function() {{
             var style = document.createElement('style');
-            style.textContent = 'html, body {{ overscroll-behavior: none !important; overscroll-behavior-x: none !important; overscroll-behavior-y: none !important; -ms-scroll-chaining: none !important; user-select: auto; }} header, [data-tauri-drag-region], [data-window-drag-region] {{ overscroll-behavior: none !important; -ms-scroll-chaining: none !important; }}';
+            style.textContent = 'html, body {{ overscroll-behavior: none !important; overscroll-behavior-x: none !important; overscroll-behavior-y: none !important; -ms-scroll-chaining: none !important; user-select: auto; }} header {{ overscroll-behavior: none !important; -ms-scroll-chaining: none !important; }}';
             (document.head || document.documentElement).appendChild(style);
         }})();
         window.addEventListener('offline', function() {{
