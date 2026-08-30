@@ -73,13 +73,12 @@ export function UserAccountMenu({ user }: { user: SessionUser }) {
   const displayName = user.displayName || user.username;
 
   return (
-    <div className="relative shrink-0" ref={menuRef} data-no-drag>
+    <div className="relative shrink-0" ref={menuRef}>
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
         aria-haspopup="menu"
-        data-no-drag
         className="flex items-center gap-1.5 h-7 pl-1 pr-1.5 pixel-flat bg-card hover:bg-muted text-foreground transition-colors cursor-pointer select-none shrink-0"
       >
         <div className="flex h-5 w-5 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-[10px] shrink-0">
@@ -99,11 +98,10 @@ export function UserAccountMenu({ user }: { user: SessionUser }) {
         <div
           role="menu"
           aria-orientation="vertical"
-          data-no-drag
           className="absolute right-0 top-full mt-1.5 z-50 w-56 pixel-raised bg-card p-2 text-xs shadow-xl animate-in fade-in-50 zoom-in-95 duration-100 select-none"
         >
           {/* User Profile Header */}
-          <div data-no-drag className="flex items-center gap-2.5 p-2 border-b-2 border-black/40 pb-2.5 mb-1.5">
+          <div className="flex items-center gap-2.5 p-2 border-b-2 border-black/40 pb-2.5 mb-1.5">
             <div className="flex h-7 w-7 items-center justify-center pixel-flat bg-primary text-primary-foreground font-bold text-xs shrink-0">
               {initialLetter}
             </div>
@@ -120,7 +118,7 @@ export function UserAccountMenu({ user }: { user: SessionUser }) {
           </div>
 
           {/* User Team / Solo Status Info */}
-          <div data-no-drag className="px-2 py-1.5 flex items-center justify-between gap-2 bg-muted/40 pixel-flat mb-1.5">
+          <div className="px-2 py-1.5 flex items-center justify-between gap-2 bg-muted/40 pixel-flat mb-1.5">
             <span className="text-[11px] text-muted-foreground font-semibold shrink-0">
               Team:
             </span>

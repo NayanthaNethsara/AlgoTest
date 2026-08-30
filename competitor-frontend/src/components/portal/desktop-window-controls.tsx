@@ -57,7 +57,6 @@ export function DesktopWindowControls({
           className ??
           "flex items-center gap-1.5 border-l-2 border-black pl-1.5 sm:pl-2.5 ml-0.5 select-none shrink-0"
         }
-        data-no-drag
       >
         <button
           type="button"
