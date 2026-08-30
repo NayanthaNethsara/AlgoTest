@@ -141,11 +141,6 @@ pub fn create_contest_window(
         "#
     );
 
-    #[cfg(target_os = "macos")]
-    let is_native_fullscreen = false;
-    #[cfg(not(target_os = "macos"))]
-    let is_native_fullscreen = true;
-
     let window = WebviewWindowBuilder::new(app, MAIN_WINDOW, target)
         .title("MiniAlgothon — Contest")
         .inner_size(1280.0, 800.0)
@@ -277,6 +272,36 @@ pub fn disable_kiosk() {
     disable_linux_kiosk();
 }
 
+/// Height of the camera housing on notched displays, so contest content is not
+/// hidden behind it. Zero on displays without a notch.
+#[cfg(target_os = "macos")]
+fn notch_height(window: &tauri::Window) -> f64 {
+    use objc2::runtime::AnyObject;
+    use objc2::{msg_send, sel};
+    use objc2_foundation::NSEdgeInsets;
+
+    let Ok(ns_window) = window.ns_window() else {
+        return 0.0;
+    };
+    let ns_win = ns_window as *mut AnyObject;
+    if ns_win.is_null() {
+        return 0.0;
+    }
+
+    unsafe {
+        let screen: *mut AnyObject = msg_send![ns_win, screen];
+        if screen.is_null() {
+            return 0.0;
+        }
+        let responds: bool = msg_send![screen, respondsToSelector: sel!(safeAreaInsets)];
+        if !responds {
+            return 0.0;
+        }
+        let insets: NSEdgeInsets = msg_send![screen, safeAreaInsets];
+        insets.top
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn enable_macos_kiosk(window: Option<&tauri::Window>) {
     unsafe {
@@ -294,11 +319,16 @@ fn enable_macos_kiosk(window: Option<&tauri::Window>) {
             if let Some(monitor) = win.current_monitor().ok().flatten().or_else(|| win.primary_monitor().ok().flatten()) {
                 let size = monitor.size();
                 let scale = monitor.scale_factor();
+                let top_inset = if win.label() == MAIN_WINDOW {
+                    notch_height(win)
+                } else {
+                    0.0
+                };
                 let width = size.width as f64 / scale;
-                let height = size.height as f64 / scale;
+                let height = size.height as f64 / scale - top_inset;
                 let pos = monitor.position();
                 let x = pos.x as f64 / scale;
-                let y = pos.y as f64 / scale;
+                let y = pos.y as f64 / scale + top_inset;
                 let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
                 let _ = win.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
             }

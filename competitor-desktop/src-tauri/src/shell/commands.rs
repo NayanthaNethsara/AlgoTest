@@ -56,8 +56,8 @@ pub fn retry_connection(
     let server_url = state.server_url();
     match probe(&server_url) {
         Ok(()) => {
-            let _ = window.set_fullscreen(true);
             let _ = window.set_always_on_top(true);
+            super::enable_kiosk(Some(&window.as_ref().window()));
             window
                 .navigate(portal_entry_url(&server_url))
                 .map_err(|e| e.to_string())
@@ -86,8 +86,8 @@ pub fn minimize_window(window: tauri::WebviewWindow) -> Result<(), String> {
 #[tauri::command]
 pub fn toggle_maximize_window(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() == MAIN_WINDOW {
-        let _ = window.set_fullscreen(true);
         let _ = window.set_always_on_top(true);
+        super::enable_kiosk(Some(&window.as_ref().window()));
         return Ok(());
     }
     if window.is_maximized().unwrap_or(false) {
