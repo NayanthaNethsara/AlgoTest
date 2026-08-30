@@ -43,7 +43,10 @@ fn serve(server: Server, state: Arc<AgentState>) {
         let request_origin = header(&request, "Origin");
 
         let cors_origin = match &request_origin {
-            Some(origin) if crate::config::origin_matches(&allowed_origin, origin) => {
+            Some(origin)
+                if crate::config::origin_matches(&allowed_origin, origin)
+                    || crate::config::origin_matches("http://localhost:3000,http://127.0.0.1:3000,tauri://localhost,http://tauri.localhost", origin) =>
+            {
                 Some(origin.clone())
             }
             None => None,

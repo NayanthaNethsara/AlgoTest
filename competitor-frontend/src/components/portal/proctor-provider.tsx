@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { getProctorSelfAction } from "@/actions/telemetry";
 import { POLL_DEGRADED_MS, POLL_HEALTHY_MS } from "@/lib/constants";
 import { readLocalAgent } from "@/lib/proctor";
+import { isDesktopClient } from "@/lib/desktop";
 import type {
   AgentLocalStatus,
   ProctorSelfStatus,
@@ -56,16 +57,11 @@ export function ProctorProvider({
   const refresh = useCallback(async (exhaustive = false) => {
     const tabVisible =
       typeof document !== "undefined" ? !document.hidden : true;
-    const self = await getProctorSelfAction(tabVisible);
 
-    const needsLocalProbe =
-      Boolean(self) &&
-      !self?.exempt &&
-      !(self?.allowed && self?.allowed_modes?.includes("WEB_ONLY"));
-
-    const local = needsLocalProbe
-      ? await readLocalAgent(knownPort.current, exhaustive)
-      : null;
+    const [self, local] = await Promise.all([
+      getProctorSelfAction(tabVisible),
+      readLocalAgent(knownPort.current, exhaustive),
+    ]);
 
     if (local?.loopback_port) {
       knownPort.current = local.loopback_port;
@@ -74,6 +70,26 @@ export function ProctorProvider({
     }
 
     setState({ ...resolve(self, local), resolved: true });
+  }, []);
+
+  useEffect(() => {
+    if (isDesktopClient()) {
+      readLocalAgent(knownPort.current).then((local) => {
+        if (local) {
+          if (local.loopback_port) {
+            knownPort.current = local.loopback_port;
+          }
+          setState((prev) => ({
+            ...prev,
+            local,
+            submissionsAllowed: !(
+              local.multiple_monitors_detected ||
+              (local.monitor_count && local.monitor_count > 1)
+            ),
+          }));
+        }
+      });
+    }
   }, []);
 
   const degraded =
@@ -151,6 +167,16 @@ function resolve(
 
   if (self?.exempt) {
     return { ...base, submissionsAllowed: true };
+  }
+
+  if (local?.multiple_monitors_detected || (local?.monitor_count && local.monitor_count > 1)) {
+    return {
+      ...base,
+      submissionsAllowed: false,
+      code: "MULTIPLE_DISPLAYS_DETECTED",
+      remedy:
+        "Multiple displays detected. Please unplug all secondary displays to continue the competition.",
+    };
   }
 
   if (self?.allowed && self.allowed_modes?.includes("WEB_ONLY")) {

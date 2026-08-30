@@ -95,6 +95,7 @@ pub fn run() {
 
             shell::monitors::start_monitor_watcher(
                 app.handle().clone(),
+                Arc::clone(&setup_state),
                 Arc::new(std::sync::atomic::AtomicBool::new(false)),
             );
 
@@ -106,6 +107,9 @@ pub fn run() {
                     if window.label() == shell::MAIN_WINDOW {
                         if !shell::QUITTING.load(Ordering::Relaxed) {
                             api.prevent_close();
+                            if let Some(webview_win) = window.app_handle().get_webview_window(shell::MAIN_WINDOW) {
+                                let _ = webview_win.eval("window.dispatchEvent(new CustomEvent('minialgothon:request-exit'));");
+                            }
                         }
                     } else if window.label() == agent::windows::DIAGNOSTICS_WINDOW {
                         api.prevent_close();
@@ -115,10 +119,12 @@ pub fn run() {
                     }
                 }
                 tauri::WindowEvent::Focused(is_focused) => {
-                    if !*is_focused && window.label() == shell::MAIN_WINDOW && !shell::QUITTING.load(Ordering::Relaxed) {
-                        let _ = window.set_always_on_top(true);
-                        let _ = window.set_fullscreen(true);
-                        let _ = window.set_focus();
+                    if window.label() == shell::MAIN_WINDOW && !shell::QUITTING.load(Ordering::Relaxed) {
+                        if !*is_focused {
+                            let _ = window.set_always_on_top(true);
+                            let _ = window.set_focus();
+                        }
+                        shell::enable_kiosk(Some(window));
                     }
                 }
                 _ => {}
@@ -131,6 +137,7 @@ pub fn run() {
                 if state.is_enrolled() && !shell::QUITTING.load(Ordering::Relaxed) && !state.stopping.load(Ordering::Relaxed) {
                     api.prevent_exit();
                 } else {
+                    shell::disable_kiosk();
                     shell::monitors::clear_monitor_lockouts(app);
                     agent::scheduler::report_shutdown(&state, "application exiting");
                 }

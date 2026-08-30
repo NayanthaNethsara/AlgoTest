@@ -38,6 +38,7 @@ pub fn get_lockdown_status(app: AppHandle) -> LockdownStatus {
 #[tauri::command]
 pub fn exit_competition(app: AppHandle, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
     QUITTING.store(true, Ordering::Relaxed);
+    super::disable_kiosk();
     monitors::clear_monitor_lockouts(&app);
     crate::agent::lifecycle::stop_and_exit(
         &app,
