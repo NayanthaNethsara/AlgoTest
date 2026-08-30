@@ -110,19 +110,17 @@ export function ProctorPill() {
   }
 
   return (
-    <div className="relative shrink-0" ref={menuRef} data-no-drag>
+    <div className="relative shrink-0" ref={menuRef}>
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
-        data-no-drag
         title={`${title} (Click for telemetry details)`}
         className="cursor-pointer focus:outline-none shrink-0"
       >
         <Badge
           variant={badgeVariant}
-          data-no-drag
           className={`h-7 w-7 p-0 flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity ${badgeClass}`}
         >
           {icon}
@@ -133,11 +131,10 @@ export function ProctorPill() {
         <div
           role="dialog"
           aria-label="Proctor Telemetry Diagnostics"
-          data-no-drag
           className="absolute right-0 top-full mt-1.5 z-50 w-72 pixel-raised bg-card p-3 text-xs shadow-2xl animate-in fade-in-50 zoom-in-95 duration-100 select-none"
         >
           {/* Header */}
-          <div data-no-drag className="flex items-center justify-between border-b-2 border-black/40 pb-2 mb-2">
+          <div className="flex items-center justify-between border-b-2 border-black/40 pb-2 mb-2">
             <div className="flex items-center gap-1.5">
               <Activity className="h-4 w-4 text-primary shrink-0" />
               <span className="font-bold text-foreground uppercase tracking-wide text-xs">
