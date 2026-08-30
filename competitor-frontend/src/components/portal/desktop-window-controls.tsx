@@ -16,6 +16,16 @@ export function DesktopWindowControls({
 
   useEffect(() => {
     setIsDesktop(isDesktopClient());
+
+    function handleRequestExit() {
+      setIsConfirmingExit(true);
+    }
+
+    window.addEventListener("minialgothon:request-exit", handleRequestExit);
+
+    return () => {
+      window.removeEventListener("minialgothon:request-exit", handleRequestExit);
+    };
   }, []);
 
   if (!isDesktop) return null;
@@ -67,7 +77,7 @@ export function DesktopWindowControls({
           role="dialog"
           aria-modal="true"
           aria-labelledby="exit-modal-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 animate-in fade-in-50 duration-150 select-none"
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4 animate-in fade-in-50 duration-150 select-none"
         >
           <div className="w-full max-w-md pixel-raised bg-card p-5 shadow-2xl border-4 border-destructive flex flex-col gap-4">
             <div className="flex items-center gap-3 border-b-2 border-border pb-3">

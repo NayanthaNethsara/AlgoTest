@@ -72,8 +72,11 @@
       <p class="lockout-desc">
         External and secondary monitors are restricted during competition. MiniAlgothon contest shell is active exclusively on your primary display.
       </p>
-      <div class="lockout-footer">
-        Please disconnect this secondary display or video cable to continue.
+      <div class="lockout-footer" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+        <span>Please disconnect this secondary display to continue.</span>
+        <button id="btn-exit" style="background: transparent; color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.5); padding: 5px 12px; font-weight: 700; font-size: 11px; cursor: pointer; text-transform: uppercase;">
+          Exit Client
+        </button>
       </div>
     </div>
     <script>
@@ -84,6 +87,14 @@
       document.addEventListener("dragstart", function (e) {
         e.preventDefault();
       }, true);
+      document.getElementById("btn-exit")?.addEventListener("click", function () {
+        var ports = [47615, 47616, 47617, 47618, 47619];
+        for (var i = 0; i < ports.length; i++) {
+          try {
+            fetch("http://127.0.0.1:" + ports[i] + "/exit-competition", { method: "POST", mode: "no-cors" }).catch(function () {});
+          } catch(e) {}
+        }
+      });
     </script>
   </body>
 </html>

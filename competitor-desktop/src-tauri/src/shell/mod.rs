@@ -35,36 +35,50 @@ pub struct LockdownStatus {
     pub monitor_count: usize,
 }
 
-/// Creates or raises the contest window in strict kiosk lockdown mode.
 pub fn create_contest_window(
     app: &AppHandle,
     state: &Arc<AgentState>,
 ) -> Result<tauri::WebviewWindow, tauri::Error> {
+    #[cfg(target_os = "macos")]
+    let is_native_fullscreen = false;
+    #[cfg(not(target_os = "macos"))]
+    let is_native_fullscreen = true;
+
     if let Some(existing) = app.get_webview_window(MAIN_WINDOW) {
         let _ = existing.show();
-        let _ = existing.set_fullscreen(true);
+        if is_native_fullscreen {
+            let _ = existing.set_fullscreen(true);
+        }
         let _ = existing.set_always_on_top(true);
         let _ = existing.set_focus();
-        monitors::sync_monitor_lockouts(app);
+        enable_kiosk(Some(&existing.as_ref().window()));
+        monitors::sync_monitor_lockouts(app, state);
         return Ok(existing);
     }
 
+    let monitor_count = app.available_monitors().map(|m| m.len()).unwrap_or(1);
     let server_url = state.server_url();
-    let (target, _) = match probe(&server_url) {
-        Ok(()) => (
-            WebviewUrl::External(portal_entry_url(&server_url)),
-            String::new(),
-        ),
-        Err(err) => {
-            log::warn!("portal unreachable at {}: {err}", server_url);
-            (WebviewUrl::App("unreachable.html".into()), err)
+
+    let target = if monitor_count > 1 {
+        monitors::MAIN_WINDOW_LOCKED_OUT.store(true, Ordering::Relaxed);
+        WebviewUrl::App("multidisplay.html".into())
+    } else {
+        monitors::MAIN_WINDOW_LOCKED_OUT.store(false, Ordering::Relaxed);
+        match probe(&server_url) {
+            Ok(()) => WebviewUrl::External(portal_entry_url(&server_url)),
+            Err(err) => {
+                log::warn!("portal unreachable at {}: {err}", server_url);
+                WebviewUrl::App("unreachable.html".into())
+            }
         }
     };
 
     #[cfg(target_os = "macos")]
     let os_name = "macos";
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     let os_name = "windows";
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let os_name = "linux";
 
     let init_script = format!(
         r#"
@@ -74,7 +88,7 @@ pub fn create_contest_window(
         window.__MINIALGOTHON_OS__ = "{os_name}";
         (function() {{
             var style = document.createElement('style');
-            style.textContent = 'html, body {{ overscroll-behavior: none !important; overscroll-behavior-y: none !important; -ms-scroll-chaining: none !important; user-select: auto; }} header, [data-tauri-drag-region], [data-window-drag-region] {{ overscroll-behavior: none !important; -ms-scroll-chaining: none !important; }}';
+            style.textContent = 'html, body {{ overscroll-behavior: none !important; overscroll-behavior-x: none !important; overscroll-behavior-y: none !important; -ms-scroll-chaining: none !important; user-select: auto; }} header, [data-tauri-drag-region], [data-window-drag-region] {{ overscroll-behavior: none !important; -ms-scroll-chaining: none !important; }}';
             (document.head || document.documentElement).appendChild(style);
         }})();
         window.addEventListener('offline', function() {{
@@ -82,27 +96,72 @@ pub fn create_contest_window(
                 fetch("http://127.0.0.1:47615/offline", {{ method: "POST", mode: "no-cors" }});
             }} catch(e) {{}}
         }});
+        document.addEventListener('contextmenu', function(e) {{
+            e.preventDefault();
+        }}, true);
         document.addEventListener('keydown', function(e) {{
-            if (e.key === 'F11' || (e.altKey && e.key === 'F4')) {{
+            var key = e.key ? e.key.toLowerCase() : '';
+            if (key === 'escape') {{
                 e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }}
+            if (key.startsWith('f') && key.length <= 3 && !isNaN(key.slice(1))) {{
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }}
+            if (e.altKey && key === 'f4') {{
+                e.preventDefault();
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('minialgothon:request-exit'));
+                return false;
+            }}
+            if (e.altKey && (key === 'tab' || key === 'arrowleft' || key === 'arrowright' || key === 'home')) {{
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }}
+            if ((e.ctrlKey || e.metaKey) && key === 'q') {{
+                e.preventDefault();
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('minialgothon:request-exit'));
+                return false;
+            }}
+            if ((e.ctrlKey || e.metaKey) && (
+                key === 'r' || key === 'w' || key === 'n' || key === 't' ||
+                key === 'p' || key === 's' || key === 'u' || key === 'h' || key === 'm' ||
+                (e.shiftKey && (key === 'i' || key === 'j' || key === 'c' || key === 'r'))
+            )) {{
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
             }}
         }}, true);
         "#
     );
 
+    #[cfg(target_os = "macos")]
+    let is_native_fullscreen = false;
+    #[cfg(not(target_os = "macos"))]
+    let is_native_fullscreen = true;
+
     let window = WebviewWindowBuilder::new(app, MAIN_WINDOW, target)
         .title("MiniAlgothon — Contest")
         .inner_size(1280.0, 800.0)
         .min_inner_size(800.0, 600.0)
-        .fullscreen(true)
+        .fullscreen(is_native_fullscreen)
         .always_on_top(true)
         .decorations(false)
         .resizable(false)
+        .minimizable(false)
+        .closable(false)
         .initialization_script(&init_script)
         .build()?;
 
     let _ = window.set_focus();
-    monitors::sync_monitor_lockouts(app);
+    enable_kiosk(Some(&window.as_ref().window()));
+    monitors::sync_monitor_lockouts(app, state);
     spawn_portal_watchdog(app.clone(), server_url);
 
     Ok(window)
@@ -195,3 +254,120 @@ pub fn local_app_url(file: &str) -> tauri::Url {
     tauri::Url::parse(&format!("{base}{file}"))
         .unwrap_or_else(|_| tauri::Url::parse("tauri://localhost/").unwrap())
 }
+
+pub fn enable_kiosk(window: Option<&tauri::Window>) {
+    #[cfg(target_os = "macos")]
+    enable_macos_kiosk(window);
+
+    #[cfg(target_os = "windows")]
+    enable_windows_kiosk(window);
+
+    #[cfg(target_os = "linux")]
+    enable_linux_kiosk(window);
+}
+
+pub fn disable_kiosk() {
+    #[cfg(target_os = "macos")]
+    disable_macos_kiosk();
+
+    #[cfg(target_os = "windows")]
+    disable_windows_kiosk();
+
+    #[cfg(target_os = "linux")]
+    disable_linux_kiosk();
+}
+
+#[cfg(target_os = "macos")]
+fn enable_macos_kiosk(window: Option<&tauri::Window>) {
+    unsafe {
+        use objc2::class;
+        use objc2::msg_send;
+
+        let cls = class!(NSApplication);
+        let app: *mut objc2::runtime::AnyObject = msg_send![cls, sharedApplication];
+        if !app.is_null() {
+            let options: usize = 2 | 8 | 16 | 32 | 64 | 128 | 256;
+            let _: () = msg_send![app, setPresentationOptions: options];
+        }
+
+        if let Some(win) = window {
+            if let Some(monitor) = win.current_monitor().ok().flatten().or_else(|| win.primary_monitor().ok().flatten()) {
+                let size = monitor.size();
+                let scale = monitor.scale_factor();
+                let width = size.width as f64 / scale;
+                let height = size.height as f64 / scale;
+                let pos = monitor.position();
+                let x = pos.x as f64 / scale;
+                let y = pos.y as f64 / scale;
+                let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
+                let _ = win.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
+            }
+
+            if let Ok(ns_window) = win.ns_window() {
+                let ns_win = ns_window as *mut objc2::runtime::AnyObject;
+                if !ns_win.is_null() {
+                    let level: isize = 1000;
+                    let _: () = msg_send![ns_win, setLevel: level];
+                    let behavior: usize = 1 | 16 | 64;
+                    let _: () = msg_send![ns_win, setCollectionBehavior: behavior];
+                    let _: () = msg_send![ns_win, makeKeyAndOrderFront: 0usize];
+                }
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn disable_macos_kiosk() {
+    unsafe {
+        use objc2::class;
+        use objc2::msg_send;
+
+        let cls = class!(NSApplication);
+        let app: *mut objc2::runtime::AnyObject = msg_send![cls, sharedApplication];
+        if !app.is_null() {
+            let options: usize = 0;
+            let _: () = msg_send![app, setPresentationOptions: options];
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn enable_windows_kiosk(window: Option<&tauri::Window>) {
+    if let Some(win) = window {
+        let _ = win.set_fullscreen(true);
+        let _ = win.set_always_on_top(true);
+        let _ = win.set_focus();
+        if let Ok(hwnd) = win.hwnd() {
+            use windows_sys::Win32::UI::WindowsAndMessaging::{
+                SetWindowPos, HWND_TOPMOST, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
+            };
+            unsafe {
+                SetWindowPos(
+                    hwnd.0 as _,
+                    HWND_TOPMOST,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+                );
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn disable_windows_kiosk() {}
+
+#[cfg(target_os = "linux")]
+fn enable_linux_kiosk(window: Option<&tauri::Window>) {
+    if let Some(win) = window {
+        let _ = win.set_fullscreen(true);
+        let _ = win.set_always_on_top(true);
+        let _ = win.set_focus();
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn disable_linux_kiosk() {}

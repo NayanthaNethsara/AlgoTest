@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MiniAlgothon — Multiple Displays Detected</title>
+    <link rel="stylesheet" href="shared.css" />
+    <script src="bridge.js"></script>
+    <style>
+      .display-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #ef4444;
+        color: #fff;
+        font-weight: 800;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        margin-bottom: 16px;
+        border: 2px solid #000;
+      }
+      .warning-box {
+        background: rgba(239, 68, 68, 0.1);
+        border: 2px solid rgba(239, 68, 68, 0.35);
+        padding: 14px 16px;
+        margin: 16px 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #fca5a5;
+      }
+      .warning-box strong {
+        color: #ef4444;
+      }
+    </style>
+  </head>
+  <body oncontextmenu="return false;">
+    <div class="desktop-titlebar">
+      <div class="desktop-titlebar-title">
+        MiniAlgothon — Multiple Displays Detected
+      </div>
+    </div>
+
+    <div class="display-badge">
+      <span>●</span>
+      <span>RESTRICTED · SINGLE-DISPLAY POLICY</span>
+    </div>
+
+    <h1>MULTIPLE DISPLAYS DETECTED</h1>
+    <p class="lede">
+      MiniAlgothon is running in strict lockdown mode. Competitions must be completed exclusively on a <strong>single display</strong>.
+    </p>
+
+    <div class="card">
+      <div class="warning-box">
+        <strong>Required Action:</strong> Please unplug or disconnect all secondary monitors, external displays, or video cables (HDMI, DisplayPort, USB-C).
+      </div>
+
+      <div class="grid">
+        <dt>Policy</dt>
+        <dd>Strict Single-Display Lockdown</dd>
+        <dt>Status</dt>
+        <dd id="status-text" style="color: #ef4444; font-weight: 700;">Waiting for external displays to disconnect…</dd>
+      </div>
+
+      <div class="row" style="margin-top: 20px; display: flex; align-items: center; justify-content: space-between;">
+        <button id="exit" type="button" class="secondary" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.5); font-weight: 700;">
+          Exit Competition
+        </button>
+        <span style="font-size: 11px; color: var(--muted); font-style: italic;">
+          Auto-resumes once disconnected
+        </span>
+      </div>
+    </div>
+
+    <h2>WHAT TO DO</h2>
+    <ul class="tight">
+      <li>Unplug any HDMI, DisplayPort, USB-C, or Thunderbolt monitor cables.</li>
+      <li>If using a laptop with an external display, close the laptop lid (clamshell mode) to use the external monitor as your only screen.</li>
+      <li>Once only 1 display remains active, this window will automatically unlock the contest.</li>
+    </ul>
+
+    <script>
+      const invoke = window.appInvoke;
+      const el = (id) => document.getElementById(id);
+
+      async function triggerExit() {
+        if (confirm("Are you sure you want to exit the competition?")) {
+          try {
+            await invoke("exit_competition");
+          } catch {
+            const ports = [47615, 47616, 47617, 47618, 47619];
+            for (const p of ports) {
+              fetch("http://127.0.0.1:" + p + "/exit-competition", { method: "POST", mode: "no-cors" }).catch(() => {});
+            }
+          }
+        }
+      }
+
+      el("exit")?.addEventListener("click", triggerExit);
+
+      document.addEventListener("dragstart", function (e) {
+        e.preventDefault();
+      }, true);
+
+      document.addEventListener("keydown", function (e) {
+        var key = e.key ? e.key.toLowerCase() : "";
+        if (e.altKey && key === "f4") {
+          e.preventDefault();
+          triggerExit();
+        }
+        if ((e.metaKey || e.ctrlKey) && key === "q") {
+          e.preventDefault();
+          triggerExit();
+        }
+      }, true);
+    </script>
+  </body>
+</html>
