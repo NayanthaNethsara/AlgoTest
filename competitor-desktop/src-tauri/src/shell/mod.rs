@@ -11,6 +11,7 @@ use crate::agent::state::AgentState;
 use crate::config::ClientConfig;
 
 pub const MAIN_WINDOW: &str = "contest";
+pub const NOTCH_COVER_WINDOW: &str = "notch-cover";
 const PROBE_TIMEOUT: Duration = Duration::from_secs(4);
 
 pub static QUITTING: AtomicBool = AtomicBool::new(false);
@@ -52,6 +53,7 @@ pub fn create_contest_window(
         let _ = existing.set_always_on_top(true);
         let _ = existing.set_focus();
         enable_kiosk(Some(&existing.as_ref().window()));
+        sync_notch_cover(app);
         monitors::sync_monitor_lockouts(app, state);
         return Ok(existing);
     }
@@ -156,6 +158,7 @@ pub fn create_contest_window(
 
     let _ = window.set_focus();
     enable_kiosk(Some(&window.as_ref().window()));
+    sync_notch_cover(app);
     monitors::sync_monitor_lockouts(app, state);
     spawn_portal_watchdog(app.clone(), server_url);
 
@@ -270,6 +273,86 @@ pub fn disable_kiosk() {
 
     #[cfg(target_os = "linux")]
     disable_linux_kiosk();
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn sync_notch_cover(_app: &AppHandle) {}
+
+#[cfg(target_os = "macos")]
+pub fn sync_notch_cover(app: &AppHandle) {
+    let Some(contest) = app.get_webview_window(MAIN_WINDOW) else {
+        return;
+    };
+
+    let height = notch_height(&contest.as_ref().window());
+    if height <= 0.0 {
+        if let Some(cover) = app.get_webview_window(NOTCH_COVER_WINDOW) {
+            let _ = cover.close();
+        }
+        return;
+    }
+
+    let Some(monitor) = contest
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| contest.primary_monitor().ok().flatten())
+    else {
+        return;
+    };
+
+    let scale = monitor.scale_factor();
+    let x = monitor.position().x as f64 / scale;
+    let y = monitor.position().y as f64 / scale;
+    let width = monitor.size().width as f64 / scale;
+
+    let cover = match app.get_webview_window(NOTCH_COVER_WINDOW) {
+        Some(existing) => existing,
+        None => {
+            let built = WebviewWindowBuilder::new(
+                app,
+                NOTCH_COVER_WINDOW,
+                WebviewUrl::App("notch-cover.html".into()),
+            )
+            .title("MiniAlgothon — Display Cover")
+            .decorations(false)
+            .always_on_top(true)
+            .resizable(false)
+            .minimizable(false)
+            .closable(false)
+            .focused(false)
+            .skip_taskbar(true)
+            .shadow(false)
+            .build();
+
+            match built {
+                Ok(window) => window,
+                Err(err) => {
+                    log::warn!("could not build notch cover window: {err}");
+                    return;
+                }
+            }
+        }
+    };
+
+    let _ = cover.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
+    let _ = cover.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
+    let _ = cover.show();
+
+    unsafe {
+        use objc2::msg_send;
+        use objc2::runtime::AnyObject;
+
+        if let Ok(ns_window) = cover.as_ref().window().ns_window() {
+            let ns_win = ns_window as *mut AnyObject;
+            if !ns_win.is_null() {
+                let level: isize = 1001;
+                let _: () = msg_send![ns_win, setLevel: level];
+                let behavior: usize = 1 | 16 | 64;
+                let _: () = msg_send![ns_win, setCollectionBehavior: behavior];
+            }
+        }
+    }
 }
 
 /// Height of the camera housing on notched displays, so contest content is not

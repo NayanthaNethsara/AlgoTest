@@ -25,6 +25,7 @@ pub fn sync_monitor_lockouts(app: &AppHandle, state: &Arc<AgentState>) {
                 let _ = win.navigate(super::portal_entry_url(&server_url));
             }
         }
+        super::sync_notch_cover(app);
         return;
     }
 
@@ -109,6 +110,8 @@ pub fn sync_monitor_lockouts(app: &AppHandle, state: &Arc<AgentState>) {
             let _ = stale_window.close();
         }
     }
+
+    super::sync_notch_cover(app);
 }
 
 /// Removes all secondary display blackout overlay windows.
