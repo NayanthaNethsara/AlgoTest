@@ -104,8 +104,8 @@ take down. If the shell is unusable, the contestant opens the same portal in a b
 working — the agent is still reporting, so the submission gate stays open.
 
 - The agent's loopback bind (`127.0.0.1:47615`, falling back through `47619`) doubles as its
-  single-instance lock. The shell uses `47620` the same way, and answers `/show` on it so the
-  tray raises an existing window instead of opening a second one over unsaved work.
+  single-instance lock and answers `/show` so a secondary instance raises the existing window.
+
 - The shell posts to the agent every 10s. Three consecutive failures and it relaunches the agent.
 - Contestants use their own IDE and their own compilers. Nothing is bundled: no Node, no
   Next.js server, no toolchains.
