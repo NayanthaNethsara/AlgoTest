@@ -16,9 +16,13 @@ import (
 )
 
 type createSubmissionRequest struct {
-	ProblemID string `json:"problem_id" binding:"required"`
-	Language  string `json:"language" binding:"required"`
-	Code      string `json:"code" binding:"required"`
+	ProblemID    string `json:"problem_id" binding:"required"`
+	Language     string `json:"language" binding:"required"`
+	Code         string `json:"code" binding:"required"`
+	TypedCount   *int   `json:"typed_count,omitempty"`
+	PasteCount   *int   `json:"paste_count,omitempty"`
+	PastedChars  *int   `json:"pasted_chars,omitempty"`
+	MaxPasteSize *int   `json:"max_paste_size,omitempty"`
 }
 
 var supportedLanguages = map[string]string{
@@ -133,6 +137,31 @@ func (h *handler) createSubmission(c *gin.Context) {
 	teamID := u.ID
 	if u.TeamID != nil && *u.TeamID != "" {
 		teamID = *u.TeamID
+	}
+
+	if h.proctorEvaluator != nil && req.PastedChars != nil && req.TypedCount != nil {
+		pasted := *req.PastedChars
+		typed := *req.TypedCount
+		codeLen := len(req.Code)
+		if pasted > 300 && codeLen > 0 && float64(pasted)/float64(codeLen) > 0.80 && typed < 15 {
+			maxPaste := 0
+			if req.MaxPasteSize != nil {
+				maxPaste = *req.MaxPasteSize
+			}
+			pasteCount := 0
+			if req.PasteCount != nil {
+				pasteCount = *req.PasteCount
+			}
+			evidence := map[string]any{
+				"code_length":    codeLen,
+				"pasted_chars":   pasted,
+				"typed_count":    typed,
+				"paste_count":    pasteCount,
+				"max_paste_size": maxPaste,
+				"pasted_ratio":   float64(pasted) / float64(codeLen),
+			}
+			_ = h.proctorEvaluator.RecordEvent(c.Request.Context(), u.ID, "ai.code.paste_burst", 20, evidence)
+		}
 	}
 
 	submission := judge.Submission{

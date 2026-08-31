@@ -24,6 +24,7 @@ type signals struct {
 	Ports             []portMatch      `json:"ports"`
 	InternetReachable bool             `json:"internet_reachable"`
 	ProcessMatches    []string         `json:"process_matches"`
+	ExtensionMatches  []string         `json:"extension_matches,omitempty"`
 	TotalProcesses    int              `json:"total_processes"`
 	LanIP             string           `json:"lan_ip"`
 }
@@ -177,6 +178,9 @@ func describe(hb heartbeat) string {
 	if len(hb.Signals.ProcessMatches) > 0 {
 		parts = append(parts, "processes "+strings.Join(hb.Signals.ProcessMatches, ","))
 	}
+	if len(hb.Signals.ExtensionMatches) > 0 {
+		parts = append(parts, "ext "+strings.Join(hb.Signals.ExtensionMatches, ","))
+	}
 	if !hb.ShellAlive {
 		parts = append(parts, "browser (no desktop shell)")
 	}
@@ -202,6 +206,9 @@ func signalHash(sig signals) string {
 	}
 	for _, m := range sig.ProcessMatches {
 		fmt.Fprintf(h, "|proc:%s", m)
+	}
+	for _, ext := range sig.ExtensionMatches {
+		fmt.Fprintf(h, "|ext:%s", ext)
 	}
 	for _, app := range sortedKeys(sig.ForegroundDwell) {
 		fmt.Fprintf(h, "|fg:%s", app)

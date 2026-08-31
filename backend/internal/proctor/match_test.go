@@ -28,6 +28,12 @@ func TestMatchesTerm(t *testing.T) {
 		{"/Users/Janaka/.cargo/bin/cargo", "jan", false, "nor is another one"},
 		{"janitor-daemon", "jan", false, "nor a prefix of an unrelated word"},
 
+		// Cloud AI and Copilot tools
+		{"node ~/.vscode/extensions/github.copilot-1.250.0/dist/copilot-agent.js", "copilot-agent", true, "copilot agent subprocess"},
+		{"/Applications/Cursor.app/Contents/MacOS/Cursor", "cursor", true, "cursor binary"},
+		{"claude --model claude-3-5-sonnet", "claude", true, "claude code cli"},
+		{"aider --yes", "aider", true, "aider cli"},
+
 		// Multi-word terms must appear whole and in order.
 		{"studio-display-helper", "lm studio", false, "partial term"},
 		{"studio lm", "lm studio", false, "order matters"},
@@ -73,6 +79,41 @@ func TestMatchForegroundReturnsTheMatchedCandidate(t *testing.T) {
 	t.Run("an empty denylist matches nothing", func(t *testing.T) {
 		if got := matchForeground("ai.ollama", nil, nil); got != "" {
 			t.Errorf("matchForeground = %q, want no match", got)
+		}
+	})
+}
+
+func TestMatchUnauthorizedForeground(t *testing.T) {
+	allowlist := []string{"com.microsoft.vscode", "chrome", "terminal"}
+
+	t.Run("allows whitelisted focused app", func(t *testing.T) {
+		if got := matchUnauthorizedForeground("com.microsoft.VSCode", nil, allowlist); got != "" {
+			t.Errorf("matchUnauthorizedForeground = %q, want empty (allowed)", got)
+		}
+	})
+
+	t.Run("flags unauthorized focused app", func(t *testing.T) {
+		if got := matchUnauthorizedForeground("com.discord", nil, allowlist); got != "com.discord" {
+			t.Errorf("matchUnauthorizedForeground = %q, want com.discord", got)
+		}
+	})
+
+	t.Run("flags unauthorized app in dwell history", func(t *testing.T) {
+		dwell := map[string]int64{"com.slack.Slack": 5000}
+		if got := matchUnauthorizedForeground("com.microsoft.VSCode", dwell, allowlist); got != "com.slack.Slack" {
+			t.Errorf("matchUnauthorizedForeground = %q, want com.slack.Slack", got)
+		}
+	})
+
+	t.Run("empty allowlist permits all applications", func(t *testing.T) {
+		if got := matchUnauthorizedForeground("com.discord", nil, nil); got != "" {
+			t.Errorf("matchUnauthorizedForeground = %q, want empty (disabled allowlist)", got)
+		}
+	})
+
+	t.Run("unknown app identifier is ignored", func(t *testing.T) {
+		if got := matchUnauthorizedForeground("unknown", nil, allowlist); got != "" {
+			t.Errorf("matchUnauthorizedForeground = %q, want empty for unknown", got)
 		}
 	})
 }

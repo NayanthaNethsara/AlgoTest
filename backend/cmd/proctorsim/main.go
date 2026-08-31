@@ -277,6 +277,140 @@ func scenarios() []scenario {
 				return a.beat(s, nil)
 			},
 		},
+		{
+			name:    "copilot",
+			summary: "GitHub Copilot agent subprocess runs in background with active internet.",
+			expect:  "net.internet (50), ai.proc.denylist (30), risk HIGH. Installed extension logged as informational.",
+			run: func(s *sim, a *fakeAgent) error {
+				if err := a.beat(s, nil); err != nil {
+					return err
+				}
+				s.step("copilot-agent subprocess and internet reachability detected")
+				for i := 0; i < 3; i++ {
+					if err := a.beat(s, withCopilot); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		},
+		{
+			name:    "claude-cli",
+			summary: "Claude Code CLI tool executed in terminal.",
+			expect:  "ai.proc.denylist (30) opens, flagging terminal AI assistant usage.",
+			run: func(s *sim, a *fakeAgent) error {
+				if err := a.beat(s, nil); err != nil {
+					return err
+				}
+				s.step("claude CLI process detected")
+				for i := 0; i < 3; i++ {
+					if err := a.beat(s, withClaudeCli); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		},
+		{
+			name:    "aider-cli",
+			summary: "Aider AI pair programmer CLI executed in terminal.",
+			expect:  "ai.proc.denylist (30) opens, flagging terminal pair programming usage.",
+			run: func(s *sim, a *fakeAgent) error {
+				if err := a.beat(s, nil); err != nil {
+					return err
+				}
+				s.step("aider CLI process detected")
+				for i := 0; i < 3; i++ {
+					if err := a.beat(s, withAiderCli); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		},
+		{
+			name:    "cursor-ide",
+			summary: "AI-native Cursor IDE used instead of allowed standard editors.",
+			expect:  "ai.proc.denylist (30) and ai.fg.denylist (25) open for Cursor binary/window.",
+			run: func(s *sim, a *fakeAgent) error {
+				if err := a.beat(s, nil); err != nil {
+					return err
+				}
+				s.step("Cursor IDE binary and foreground focus detected")
+				for i := 0; i < 3; i++ {
+					if err := a.beat(s, withCursorIde); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		},
+		{
+			name:    "unauthorized-app",
+			summary: "Contestant focuses an unapproved app (e.g. Discord, Slack, ChatGPT desktop).",
+			expect:  "app.unauthorized_foreground (25) opens with dwell duration.",
+			run: func(s *sim, a *fakeAgent) error {
+				if err := a.beat(s, nil); err != nil {
+					return err
+				}
+				s.step("unauthorized application brought to foreground")
+				for i := 0; i < 3; i++ {
+					if err := a.beat(s, withUnauthorizedApp); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		},
+		{
+			name:    "paste-burst",
+			summary: "Abnormal code paste burst detected during submission (external AI copy-paste).",
+			expect:  "ai.code.paste_burst (20) recorded with telemetry metrics.",
+			run: func(s *sim, a *fakeAgent) error {
+				if err := a.beat(s, nil); err != nil {
+					return err
+				}
+				status, body := s.request(http.MethodPost, "/api/v1/auth/login", "", map[string]any{
+					"username": a.user,
+					"password": a.pass,
+				})
+				var parsed struct {
+					SessionToken string `json:"sessionToken"`
+				}
+				if status == http.StatusOK {
+					_ = json.Unmarshal([]byte(body), &parsed)
+				}
+				bodyMap := map[string]any{
+					"problem_id":     "sample-problem",
+					"language":       "cpp",
+					"code":           "// Solution generated externally\n#include <iostream>\nusing namespace std;\nint main() { return 0; }",
+					"typed_count":    2,
+					"paste_count":    1,
+					"pasted_chars":   450,
+					"max_paste_size": 450,
+				}
+				subStatus, _ := s.request(http.MethodPost, "/api/v1/submissions", parsed.SessionToken, bodyMap)
+				s.detail("  submission call recorded (status %d)", subStatus)
+				return a.beat(s, nil)
+			},
+		},
+		{
+			name:    "ai-extension",
+			summary: "AI extension detected on disk (e.g. GitHub Copilot, Continue) without active execution.",
+			expect:  "ai.ext.detected (weight 0) recorded as informational without penalty score.",
+			run: func(s *sim, a *fakeAgent) error {
+				if err := a.beat(s, nil); err != nil {
+					return err
+				}
+				s.step("IDE extension scanner finds installed AI plugins")
+				for i := 0; i < 3; i++ {
+					if err := a.beat(s, withAiExtension); err != nil {
+						return err
+					}
+				}
+				return nil
+			},
+		},
 	}
 }
 
@@ -286,6 +420,39 @@ func withOllama(sig *signals) {
 		Port: 11434, RuleID: "ai.port.ollama", Product: "Ollama", Confirmed: true,
 	}}
 	sig.ForegroundApp = "ai.ollama.app"
+}
+
+func withUnauthorizedApp(sig *signals) {
+	sig.ForegroundApp = "com.discord"
+	sig.ForegroundDwell = map[string]int64{"com.discord": 15000}
+}
+
+func withCopilot(sig *signals) {
+	sig.InternetReachable = true
+	sig.ProcessMatches = []string{"copilot-agent"}
+	sig.ExtensionMatches = []string{"vscode:github.copilot"}
+	sig.ForegroundApp = "com.microsoft.VSCode"
+}
+
+func withClaudeCli(sig *signals) {
+	sig.InternetReachable = true
+	sig.ProcessMatches = []string{"claude"}
+	sig.ForegroundApp = "com.apple.Terminal"
+}
+
+func withAiderCli(sig *signals) {
+	sig.InternetReachable = true
+	sig.ProcessMatches = []string{"aider"}
+	sig.ForegroundApp = "com.apple.Terminal"
+}
+
+func withCursorIde(sig *signals) {
+	sig.ProcessMatches = []string{"cursor"}
+	sig.ForegroundApp = "com.todesktop.230313mzl4w4u92"
+}
+
+func withAiExtension(sig *signals) {
+	sig.ExtensionMatches = []string{"vscode:github.copilot", "cursor:continue"}
 }
 
 func main() {

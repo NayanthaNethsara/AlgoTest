@@ -173,13 +173,15 @@ func (s *Service) Heartbeat(ctx context.Context, a Agent, hb Heartbeat, clientIP
 
 	if signalsChanged && s.eval != nil {
 		input := proctor.SignalInput{
-			UserID:             a.UserID,
-			InternetReachable:  hb.Signals.InternetReachable,
-			ProcessMatches:     hb.Signals.ProcessMatches,
-			TotalProcesses:     hb.Signals.TotalProcesses,
-			ForegroundApp:      hb.Signals.ForegroundApp,
-			ForegroundDwell:    hb.Signals.ForegroundDwell,
-			ForegroundDenylist: s.Policy().ForegroundDenylist,
+			UserID:              a.UserID,
+			InternetReachable:   hb.Signals.InternetReachable,
+			ProcessMatches:      hb.Signals.ProcessMatches,
+			ExtensionMatches:    hb.Signals.ExtensionMatches,
+			TotalProcesses:      hb.Signals.TotalProcesses,
+			ForegroundApp:       hb.Signals.ForegroundApp,
+			ForegroundDwell:     hb.Signals.ForegroundDwell,
+			ForegroundDenylist:  s.Policy().ForegroundDenylist,
+			ForegroundAllowlist: s.Policy().ForegroundAllowlist,
 		}
 		for _, p := range hb.Signals.Ports {
 			input.Ports = append(input.Ports, proctor.PortObservation{

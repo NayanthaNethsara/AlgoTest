@@ -25,8 +25,8 @@ func TestMigrationSeedMatchesDefaultPolicy(t *testing.T) {
 
 	// Guards against the regex silently matching nothing after a reformat, which
 	// would otherwise make every assertion below pass against an empty map.
-	if len(seed) != 7 {
-		t.Fatalf("parsed %d policy keys from the migration, want 7: %v", len(seed), seed)
+	if len(seed) != 8 {
+		t.Fatalf("parsed %d policy keys from the migration, want 8: %v", len(seed), seed)
 	}
 
 	snapshot := buildSnapshot(seed, nil)
@@ -45,7 +45,8 @@ func policyEqual(a, b Policy) bool {
 		a.RulesRefreshSeconds == b.RulesRefreshSeconds &&
 		a.GateMaxStaleSeconds == b.GateMaxStaleSeconds &&
 		slices.Equal(a.ProcessDenylist, b.ProcessDenylist) &&
-		slices.Equal(a.ForegroundDenylist, b.ForegroundDenylist)
+		slices.Equal(a.ForegroundDenylist, b.ForegroundDenylist) &&
+		slices.Equal(a.ForegroundAllowlist, b.ForegroundAllowlist)
 }
 
 // A malformed or cleared settings row must never widen or silence detection
@@ -134,6 +135,7 @@ func TestBuildSnapshotAppliesConfiguredValues(t *testing.T) {
 		"proctor.gate_max_stale_seconds": "120",
 		"proctor.process_denylist":       "ollama",
 		"proctor.foreground_denylist":    "com.ollama",
+		"proctor.foreground_allowlist":   "com.google.chrome,code",
 	}, nil)
 
 	if snapshot.degraded {
@@ -149,5 +151,8 @@ func TestBuildSnapshotAppliesConfiguredValues(t *testing.T) {
 	}
 	if !slices.Equal(got.ProcessDenylist, []string{"ollama"}) {
 		t.Errorf("ProcessDenylist = %v, want [ollama]", got.ProcessDenylist)
+	}
+	if !slices.Equal(got.ForegroundAllowlist, []string{"com.google.chrome", "code"}) {
+		t.Errorf("ForegroundAllowlist = %v, want [com.google.chrome, code]", got.ForegroundAllowlist)
 	}
 }

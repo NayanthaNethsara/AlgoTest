@@ -177,6 +177,7 @@ func buildSnapshot(values map[string]string, log *slog.Logger) *settingsSnapshot
 		GateMaxStaleSeconds: positiveInt("proctor.gate_max_stale_seconds", defaults.GateMaxStaleSeconds),
 		ProcessDenylist:     terms("proctor.process_denylist", defaults.ProcessDenylist),
 		ForegroundDenylist:  terms("proctor.foreground_denylist", defaults.ForegroundDenylist),
+		ForegroundAllowlist: terms("proctor.foreground_allowlist", defaults.ForegroundAllowlist),
 	}
 
 	if len(missing) > 0 {

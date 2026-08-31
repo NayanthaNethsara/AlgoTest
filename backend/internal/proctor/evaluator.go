@@ -95,14 +95,16 @@ type PortObservation struct {
 // proctor stays free of any dependency on the agent package so the two can
 // evolve without an import cycle.
 type SignalInput struct {
-	UserID             string
-	InternetReachable  bool
-	Ports              []PortObservation
-	ProcessMatches     []string
-	TotalProcesses     int
-	ForegroundApp      string
-	ForegroundDwell    map[string]int64
-	ForegroundDenylist []string
+	UserID              string
+	InternetReachable   bool
+	Ports               []PortObservation
+	ProcessMatches      []string
+	ExtensionMatches    []string
+	TotalProcesses      int
+	ForegroundApp       string
+	ForegroundDwell     map[string]int64
+	ForegroundDenylist  []string
+	ForegroundAllowlist []string
 }
 
 // ApplyEndpointSignals folds one observation into the evidence trail.
@@ -138,11 +140,26 @@ func (e *Evaluator) ApplyEndpointSignals(ctx context.Context, in SignalInput) er
 		})
 	}
 
+	if len(in.ExtensionMatches) > 0 {
+		e.observe(ctx, in.UserID, "ai.ext.detected", 0, map[string]any{
+			"extensions": in.ExtensionMatches,
+		})
+	}
+
 	if app := matchForeground(in.ForegroundApp, in.ForegroundDwell, in.ForegroundDenylist); app != "" {
 		e.observe(ctx, in.UserID, "ai.fg.denylist", 25, map[string]any{
 			"app":      app,
 			"dwell_ms": in.ForegroundDwell[app],
 		})
+	}
+
+	if len(in.ForegroundAllowlist) > 0 {
+		if unauthorized := matchUnauthorizedForeground(in.ForegroundApp, in.ForegroundDwell, in.ForegroundAllowlist); unauthorized != "" {
+			e.observe(ctx, in.UserID, "app.unauthorized_foreground", 25, map[string]any{
+				"app":      unauthorized,
+				"dwell_ms": in.ForegroundDwell[unauthorized],
+			})
+		}
 	}
 
 	return e.recalculateRiskScore(ctx, in.UserID)
@@ -177,6 +194,44 @@ func matchForeground(app string, dwell map[string]int64, denylist []string) stri
 			if matchesTerm(tokens, term) {
 				return candidate
 			}
+		}
+	}
+	return ""
+}
+
+func matchUnauthorizedForeground(app string, dwell map[string]int64, allowlist []string) string {
+	if len(allowlist) == 0 {
+		return ""
+	}
+
+	candidates := make([]string, 0, len(dwell)+1)
+	if app != "" && app != "unknown" {
+		candidates = append(candidates, app)
+	}
+	for k := range dwell {
+		if k != "" && k != "unknown" {
+			candidates = append(candidates, k)
+		}
+	}
+
+	terms := make([][]string, 0, len(allowlist))
+	for _, term := range allowlist {
+		if tokens := tokenize(term); len(tokens) > 0 {
+			terms = append(terms, tokens)
+		}
+	}
+
+	for _, candidate := range candidates {
+		tokens := tokenize(candidate)
+		allowed := false
+		for _, term := range terms {
+			if matchesTerm(tokens, term) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return candidate
 		}
 	}
 	return ""

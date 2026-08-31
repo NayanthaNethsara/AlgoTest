@@ -155,6 +155,13 @@ func diffSignals(prev *Signals, cur Signals) []string {
 		changes = append(changes, fmt.Sprintf("process %s exited", proc))
 	}
 
+	for _, ext := range added(prev.ExtensionMatches, cur.ExtensionMatches) {
+		changes = append(changes, fmt.Sprintf("AI extension %s detected", ext))
+	}
+	for _, ext := range added(cur.ExtensionMatches, prev.ExtensionMatches) {
+		changes = append(changes, fmt.Sprintf("AI extension %s removed", ext))
+	}
+
 	return changes
 }
 
@@ -176,6 +183,9 @@ func stateSummary(s Signals) string {
 	}
 	if len(s.ProcessMatches) > 0 {
 		parts = append(parts, strings.Join(s.ProcessMatches, ", "))
+	}
+	if len(s.ExtensionMatches) > 0 {
+		parts = append(parts, fmt.Sprintf("ext: %s", strings.Join(s.ExtensionMatches, ", ")))
 	}
 	return strings.Join(parts, " · ")
 }
