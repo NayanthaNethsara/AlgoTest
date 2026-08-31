@@ -1,8 +1,10 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -115,4 +117,62 @@ func (h *handler) getProctorSelfStatus(c *gin.Context) {
 		"remedy":             decision.Remedy,
 		"loopback_port":      loopbackPort,
 	})
+}
+
+type browserEventRequest struct {
+	EventType string         `json:"event_type" binding:"required"`
+	Detail    string         `json:"detail"`
+	Signals   map[string]any `json:"signals"`
+}
+
+// @Summary Record Browser Violation Telemetry Event
+// @Description Ingest client-side browser proctoring violations (e.g. fullscreen exits, window blur, tab switch, devtools attempt).
+// @Tags Telemetry
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Router /api/v1/telemetry/browser-event [post]
+func (h *handler) recordBrowserEvent(c *gin.Context) {
+	u := currentUser(c)
+
+	var req browserEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload: event_type is required"})
+		return
+	}
+
+	defaultWeight := 15
+	switch req.EventType {
+	case "web.fullscreen_exit":
+		defaultWeight = 15
+	case "web.window_blur", "web.tab_switch":
+		defaultWeight = 20
+	case "web.devtools_attempt":
+		defaultWeight = 25
+	case "web.lockout_exceeded":
+		defaultWeight = 35
+	}
+
+	signals := req.Signals
+	if signals == nil {
+		signals = map[string]any{}
+	}
+	if req.Detail != "" {
+		signals["detail"] = req.Detail
+	}
+
+	if h.proctorEvaluator != nil {
+		if err := h.proctorEvaluator.RecordEvent(c.Request.Context(), u.ID, req.EventType, defaultWeight, signals); err != nil && h.log != nil {
+			h.log.Warn("failed to record browser event finding", "user_id", u.ID, "rule", req.EventType, "error", err)
+		}
+	}
+
+	if h.agents != nil {
+		signalsBytes, _ := json.Marshal(signals)
+		if err := h.agents.AppendEvent(c.Request.Context(), u.ID, "", "", req.EventType, "", 0, signalsBytes, time.Now()); err != nil && h.log != nil {
+			h.log.Warn("failed to append telemetry event", "user_id", u.ID, "error", err)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "recorded"})
 }

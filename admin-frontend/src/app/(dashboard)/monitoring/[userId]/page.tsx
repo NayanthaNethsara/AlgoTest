@@ -178,15 +178,24 @@ export default function ContestantTimelinePage() {
     load();
   }, [load]);
 
-  const [filter, setFilter] = useState<"ALL" | "GAPS" | "FINDINGS" | "SUBMISSIONS" | "APPS">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "GAPS" | "FINDINGS" | "BROWSER" | "SUBMISSIONS" | "APPS">("ALL");
 
   const rawEntries = timeline?.entries ?? [];
   const snapshots = groupTimelineEntries(rawEntries);
+
+  const isBrowserMoment = (s: ConsolidatedSnapshot) =>
+    s.findings.some((f) => f.ruleId.startsWith("web.")) ||
+    s.primaryTitle.toLowerCase().includes("fullscreen") ||
+    s.primaryTitle.toLowerCase().includes("focus lost") ||
+    s.primaryTitle.toLowerCase().includes("tab switched") ||
+    s.primaryTitle.toLowerCase().includes("devtools") ||
+    s.primaryTitle.toLowerCase().includes("lockdown");
 
   const filteredSnapshots = snapshots.filter((s) => {
     if (filter === "ALL") return true;
     if (filter === "GAPS") return s.kind === "gap";
     if (filter === "FINDINGS") return s.findings.length > 0 || s.kind === "violation";
+    if (filter === "BROWSER") return isBrowserMoment(s);
     if (filter === "SUBMISSIONS") return s.kind === "submission";
     if (filter === "APPS") return Boolean(s.foregroundApp) || s.primaryTitle.toLowerCase().includes("switched");
     return true;
@@ -194,6 +203,7 @@ export default function ContestantTimelinePage() {
 
   const gapCount = snapshots.filter((s) => s.kind === "gap").length;
   const violationCount = snapshots.filter((s) => s.findings.length > 0).length;
+  const browserCount = snapshots.filter(isBrowserMoment).length;
   const submissionCount = snapshots.filter((s) => s.kind === "submission").length;
 
   return (
@@ -249,6 +259,7 @@ export default function ContestantTimelinePage() {
             [
               { id: "ALL", label: `All Moments (${snapshots.length})` },
               { id: "FINDINGS", label: `Violations (${violationCount})` },
+              { id: "BROWSER", label: `Browser Lockdown (${browserCount})` },
               { id: "GAPS", label: `Blackouts & Gaps (${gapCount})` },
               { id: "SUBMISSIONS", label: `Submissions (${submissionCount})` },
               { id: "APPS", label: "App Focus" },
@@ -262,10 +273,14 @@ export default function ContestantTimelinePage() {
                 filter === t.id
                   ? t.id === "GAPS" && gapCount > 0
                     ? "bg-destructive text-destructive-foreground shadow-sm"
-                    : "bg-background text-foreground shadow-sm"
+                    : t.id === "BROWSER" && browserCount > 0
+                      ? "bg-orange-500 text-black shadow-sm font-bold"
+                      : "bg-background text-foreground shadow-sm"
                   : t.id === "GAPS" && gapCount > 0
                     ? "text-destructive hover:bg-destructive/10"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    : t.id === "BROWSER" && browserCount > 0
+                      ? "text-orange-400 hover:bg-orange-500/10"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
               }`}
             >
               {t.label}
@@ -323,6 +338,22 @@ function SnapshotBox({ snapshot }: { snapshot: ConsolidatedSnapshot }) {
         box: "border-primary/40 bg-card/90",
         badge: "bg-primary/15 text-primary border border-primary/30",
         badgeLabel: "SUBMISSION",
+      };
+    }
+    const isBrowserInfraction =
+      snapshot.findings.some((f) => f.ruleId.startsWith("web.")) ||
+      snapshot.primaryTitle.toLowerCase().includes("fullscreen") ||
+      snapshot.primaryTitle.toLowerCase().includes("focus lost") ||
+      snapshot.primaryTitle.toLowerCase().includes("tab switched") ||
+      snapshot.primaryTitle.toLowerCase().includes("devtools") ||
+      snapshot.primaryTitle.toLowerCase().includes("lockdown");
+
+    if (isBrowserInfraction) {
+      return {
+        dot: "bg-orange-500 ring-orange-500/30",
+        box: "border-orange-500/50 bg-card/90 shadow-sm",
+        badge: "bg-orange-500/15 text-orange-400 border border-orange-500/30",
+        badgeLabel: "BROWSER LOCKDOWN",
       };
     }
     if (snapshot.findings.length > 0 || snapshot.severity === "CRITICAL" || snapshot.severity === "HIGH") {

@@ -77,3 +77,19 @@ export function formatAppName(raw: string | null | undefined): string {
   }
   return cleaned;
 }
+
+export function formatRuleTitle(ruleId: string, fallback?: string): string {
+  const titles: Record<string, string> = {
+    "web.fullscreen_exit": "Browser Exited Fullscreen",
+    "web.window_blur": "Window Focus Lost (App Switch)",
+    "web.tab_switch": "Browser Tab Switched / Hidden",
+    "web.devtools_attempt": "Developer Tools / Inspection Attempt",
+    "web.lockout_exceeded": "Browser Lockout Violations Exceeded",
+    "ai.proc.denylist": "Restricted AI Process Running",
+    "ai.fg.denylist": "Restricted Application in Focus",
+    "app.unauthorized_foreground": "Unauthorized Application in Foreground",
+    "net.internet": "Public Internet Route Reachable",
+  };
+  return titles[ruleId] || fallback || ruleId;
+}
+

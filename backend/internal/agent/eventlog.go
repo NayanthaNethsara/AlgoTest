@@ -67,6 +67,16 @@ func describeEvents(entries []Entry) {
 			e.Label = "Still reporting"
 		case eventSignalChange:
 			e.Label = "Activity"
+		case "web.fullscreen_exit":
+			e.Label = "Exited Fullscreen Mode"
+		case "web.window_blur":
+			e.Label = "Window Focus Lost (App Switch)"
+		case "web.tab_switch":
+			e.Label = "Tab Switched to Background"
+		case "web.devtools_attempt":
+			e.Label = "DevTools Shortcut Attempted"
+		case "web.lockout_exceeded":
+			e.Label = "Contest Lockdown Exceeded"
 		default:
 			e.Label = eventType
 		}

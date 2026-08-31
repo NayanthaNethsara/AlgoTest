@@ -69,6 +69,14 @@ export function EvidenceCard({ finding }: EvidenceCardProps) {
         label: "FOREGROUND",
       };
     }
+    if (ruleId.startsWith("web.")) {
+      return {
+        icon: AppWindow,
+        badgeBg: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+        border: "border-orange-500/30",
+        label: "BROWSER LOCKDOWN",
+      };
+    }
     if (ruleId.startsWith("net.")) {
       return {
         icon: Globe,
@@ -288,6 +296,37 @@ export function EvidenceCard({ finding }: EvidenceCardProps) {
             <p className="text-[11px] text-foreground font-mono">
               Outbound DNS & TCP reachable via {(evidence.probes || []).join(", ") || "1.1.1.1:53"}
             </p>
+          </div>
+        )}
+
+        {/* Case 7: Browser Lockdown Violations */}
+        {finding.ruleId.startsWith("web.") && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
+                  Violation Detail
+                </span>
+                <span className="text-xs font-semibold text-orange-300">
+                  {evidence.detail || finding.title}
+                </span>
+              </div>
+              {evidence.strikes != null && (
+                <div className="text-right">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold block">
+                    Recorded Strike
+                  </span>
+                  <span className="font-mono font-bold text-destructive text-xs">
+                    Strike {evidence.strikes} of {evidence.max_strikes ?? 3}
+                  </span>
+                </div>
+              )}
+            </div>
+            {evidence.screen_width != null && (
+              <div className="text-[11px] font-mono text-muted-foreground">
+                Viewport Dimensions: {evidence.screen_width} × {evidence.screen_height}
+              </div>
+            )}
           </div>
         )}
       </div>

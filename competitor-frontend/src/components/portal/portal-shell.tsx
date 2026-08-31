@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Info, Wifi, WifiOff, X } from "lucide-react";
 import { AccessBlockScreen } from "@/components/portal/access-block";
+import { BrowserLockdownScreen } from "@/components/portal/browser-lockdown";
 import { ContestPhaseBanner } from "@/components/portal/contest-phase-banner";
 import { ContestProvider } from "@/components/portal/contest-provider";
 import { ProctorProvider } from "@/components/portal/proctor-provider";
@@ -41,6 +42,7 @@ export function PortalShell({
               {children}
               <ProctorLockBanner />
               <AccessBlockScreen />
+              <BrowserLockdownScreen user={user} />
               <ToastBanner />
             </div>
           </div>

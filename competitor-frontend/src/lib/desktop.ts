@@ -33,6 +33,9 @@ export function isDesktopClient(): boolean {
   if (typeof document === "undefined") {
     return false;
   }
+  if (typeof window !== "undefined" && Boolean((window as any).__MINIALGOTHON_DESKTOP__)) {
+    return true;
+  }
   return document.cookie
     .split(";")
     .some(

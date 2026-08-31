@@ -143,6 +143,7 @@ func (h *handler) registerCompetitorRoutes(v1 *gin.RouterGroup, gated gin.Handle
 	v1.GET("/leaderboard", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.getLeaderboard)
 	v1.GET("/proctor/disclosure", h.getProctorDisclosure)
 	v1.GET("/telemetry/self", h.requireUser, rateLimitMiddleware(proctorSelfLimiter, userIDKeyFunc), h.getProctorSelfStatus)
+	v1.POST("/telemetry/browser-event", h.requireUser, maxBodySizeMiddleware(64_000), h.recordBrowserEvent)
 
 	v1.GET("/contest/state", h.getContestState)
 	v1.POST("/run", h.requireUser, maxBodySizeMiddleware(20_000_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), gated, contestActive, h.runCode)
