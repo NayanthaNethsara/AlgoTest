@@ -1,248 +1,164 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Minus, X } from "lucide-react";
-
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-
-function checkIsWindowsDesktop(): boolean {
-  if (typeof window === "undefined") return false;
-  const hasDesktopCookie = document.cookie.includes(
-    "mini-algothon-client=desktop",
-  );
-  const hasDesktopParam =
-    new URLSearchParams(window.location.search).get("client") === "desktop";
-  const hasDesktopGlobal = Boolean(
-    (window as unknown as { __MINIALGOTHON_DESKTOP__?: boolean })
-      .__MINIALGOTHON_DESKTOP__,
-  );
-  const isMac =
-    (window as unknown as { __MINIALGOTHON_OS__?: string })
-      .__MINIALGOTHON_OS__ === "macos" ||
-    /(Mac|iPhone|iPod|iPad)/i.test(navigator.userAgent || navigator.platform);
-
-  return Boolean((hasDesktopCookie || hasDesktopParam || hasDesktopGlobal) && !isMac);
-}
-
-function MaximizeBoxIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="size-3">
-      <rect x="0.75" y="0.75" width="8.5" height="8.5" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function RestoreBoxIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="size-3">
-      <path d="M2.5 2.5V0.75H9.25V7.5H7.5" stroke="currentColor" strokeWidth="1.2" />
-      <rect x="0.75" y="2.5" width="6.75" height="6.75" stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.1" />
-    </svg>
-  );
-}
+import { AlertTriangle, LogOut, Power, ShieldAlert, X } from "lucide-react";
+import { leaveContestAction } from "@/actions/telemetry";
+import { Button } from "@/components/ui/button";
+import { isDesktopClient } from "@/lib/desktop";
 
 export function DesktopWindowControls({
   className,
 }: {
   className?: string;
 } = {}) {
-  const [isWindowsDesktop] = useState(checkIsWindowsDesktop);
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   useEffect(() => {
-    if (!isWindowsDesktop) return;
-    let active = true;
-    let unlistenResize: (() => void) | null = null;
-    let unlistenMove: (() => void) | null = null;
-
-    const syncMaximized = async () => {
-      try {
-        const appWindow = getCurrentWebviewWindow();
-        const max = await appWindow.isMaximized();
-        if (active) setIsMaximized(max);
-      } catch {
-        // Fallback to loopback check
-        try {
-          const res = await fetch("http://127.0.0.1:47620/is-maximized");
-          if (res.ok) {
-            const data = (await res.json()) as { maximized: boolean };
-            if (active && typeof data.maximized === "boolean") {
-              setIsMaximized(data.maximized);
-            }
-          }
-        } catch {}
-      }
-    };
-
-    void syncMaximized();
-
-    const setupListeners = async () => {
-      try {
-        const appWindow = getCurrentWebviewWindow();
-        unlistenResize = await appWindow.onResized(async () => {
-          if (!active) return;
-          const max = await appWindow.isMaximized();
-          setIsMaximized(max);
-        });
-        unlistenMove = await appWindow.onMoved(async () => {
-          if (!active) return;
-          const max = await appWindow.isMaximized();
-          setIsMaximized(max);
-        });
-      } catch {}
-    };
-
-    void setupListeners();
-
-    const handleResize = () => {
-      void syncMaximized();
-    };
-
-    window.addEventListener("resize", handleResize);
-    const interval = setInterval(syncMaximized, 1000);
-
-    return () => {
-      active = false;
-      if (unlistenResize) unlistenResize();
-      if (unlistenMove) unlistenMove();
-      window.removeEventListener("resize", handleResize);
-      clearInterval(interval);
-    };
-  }, [isWindowsDesktop]);
-
-  const handleMinimize = async () => {
-    try {
-      const appWindow = getCurrentWebviewWindow();
-      await appWindow.minimize();
-    } catch {
-      void fetch("http://127.0.0.1:47620/minimize", {
-        method: "POST",
-        mode: "no-cors",
-      }).catch(() => {});
-    }
-  };
-
-  const handleToggleMaximize = async () => {
-    try {
-      const appWindow = getCurrentWebviewWindow();
-      const maximized = await appWindow.isMaximized();
-      if (maximized) {
-        await appWindow.unmaximize();
-        setIsMaximized(false);
-      } else {
-        await appWindow.maximize();
-        setIsMaximized(true);
-      }
-    } catch {
-      void fetch("http://127.0.0.1:47620/toggle-maximize", {
-        method: "POST",
-        mode: "no-cors",
-      })
-        .then(() => setIsMaximized((prev) => !prev))
-        .catch(() => {});
-    }
-  };
-
-  const handleClose = async () => {
-    try {
-      const appWindow = getCurrentWebviewWindow();
-      await appWindow.hide();
-    } catch {
-      void fetch("http://127.0.0.1:47620/close", {
-        method: "POST",
-        mode: "no-cors",
-      }).catch(() => {});
-    }
-  };
-
-  useEffect(() => {
-    const handleMouseDown = async (e: MouseEvent) => {
-      if (e.buttons !== 1) return;
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-
-      const dragRegion = target.closest("[data-tauri-drag-region], [data-window-drag-region]");
-      const isInteractive = target.closest(
-        "button, a, input, select, textarea, [data-no-drag]",
-      );
-
-      if (dragRegion && !isInteractive) {
-        try {
-          const appWindow = getCurrentWebviewWindow();
-          await appWindow.startDragging();
-        } catch {
-          void fetch("http://127.0.0.1:47620/drag", {
-            method: "POST",
-            mode: "no-cors",
-          }).catch(() => {});
-        }
-      }
-    };
-
-    const handleDoubleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-
-      const dragRegion = target.closest("[data-tauri-drag-region], [data-window-drag-region]");
-      const isInteractive = target.closest(
-        "button, a, input, select, textarea, [data-no-drag]",
-      );
-
-      if (dragRegion && !isInteractive) {
-        void handleToggleMaximize();
-      }
-    };
-
-    document.addEventListener("mousedown", handleMouseDown, true);
-    document.addEventListener("dblclick", handleDoubleClick, true);
-    return () => {
-      document.removeEventListener("mousedown", handleMouseDown, true);
-      document.removeEventListener("dblclick", handleDoubleClick, true);
-    };
+    setIsDesktop(isDesktopClient());
   }, []);
 
-  if (!isWindowsDesktop) return null;
+  const handleRequestExit = async () => {
+    // 1. Ask native Tauri shell to show native OS confirmation dialog
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 400);
+
+      const res = await fetch("http://127.0.0.1:47620/request-exit", {
+        method: "POST",
+        mode: "no-cors",
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch {
+      // 2. Fallback to in-app confirmation modal if loopback is unavailable
+      setShowExitConfirm(true);
+    }
+  };
+
+  const handleConfirmLeave = async () => {
+    setIsLeaving(true);
+    try {
+      // 1. Inform backend to lock contestant session until admin re-admission
+      await leaveContestAction();
+    } catch {
+      // Best-effort
+    }
+
+    // 2. Instruct native desktop shell to exit cleanly
+    try {
+      await fetch("http://127.0.0.1:47620/quit", {
+        method: "POST",
+        mode: "no-cors",
+      });
+    } catch {
+      if (typeof window !== "undefined") {
+        window.close();
+      }
+    }
+  };
+
+  if (!isDesktop) return null;
 
   return (
-    <div
-      className={
-        className ??
-        "flex items-center gap-1 border-l-2 border-black pl-1.5 sm:pl-2.5 ml-0.5 select-none shrink-0"
-      }
-      data-no-drag
-    >
-      <button
-        type="button"
-        id="titlebar-minimize"
-        onClick={handleMinimize}
-        title="Minimize"
-        aria-label="Minimize window"
-        className="flex h-7 w-7.5 sm:w-8 items-center justify-center pixel-flat bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+    <>
+      <div
+        className={
+          className ??
+          "flex items-center gap-1 border-l-2 border-black pl-1.5 sm:pl-2.5 ml-0.5 select-none shrink-0"
+        }
+        data-no-drag
       >
-        <Minus className="h-3.5 w-3.5 stroke-[2.5]" />
-      </button>
+        <button
+          type="button"
+          id="titlebar-leave-contest"
+          onClick={handleRequestExit}
+          title="Leave Competition (Locks session until Admin re-admission)"
+          aria-label="Leave Competition"
+          className="flex h-7 items-center gap-1.5 px-2.5 pixel-flat bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors font-bold text-xs cursor-pointer shadow-sm"
+        >
+          <LogOut className="h-3.5 w-3.5 stroke-[2.5]" />
+          <span className="hidden sm:inline">Leave Contest</span>
+        </button>
 
-      <button
-        type="button"
-        id="titlebar-maximize"
-        onClick={handleToggleMaximize}
-        title={isMaximized ? "Restore" : "Maximize"}
-        aria-label={isMaximized ? "Restore window" : "Maximize window"}
-        className="flex h-7 w-7.5 sm:w-8 items-center justify-center pixel-flat bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-      >
-        {isMaximized ? <RestoreBoxIcon /> : <MaximizeBoxIcon />}
-      </button>
+        <button
+          type="button"
+          id="titlebar-close-direct"
+          onClick={handleRequestExit}
+          title="Close / Exit Contest App"
+          aria-label="Close / Exit App"
+          className="flex h-7 w-7 items-center justify-center pixel-flat bg-card hover:bg-destructive hover:text-white text-muted-foreground transition-colors cursor-pointer"
+        >
+          <X className="h-3.5 w-3.5 stroke-[2.5]" />
+        </button>
+      </div>
 
-      <button
-        type="button"
-        id="titlebar-close"
-        onClick={handleClose}
-        title="Close window (minimizes to tray)"
-        aria-label="Close window"
-        className="flex h-7 w-7.5 sm:w-8 items-center justify-center pixel-flat bg-card hover:bg-destructive hover:text-white text-muted-foreground transition-colors cursor-pointer"
-      >
-        <X className="h-3.5 w-3.5 stroke-[2.5]" />
-      </button>
-    </div>
+      {showExitConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[9999999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 select-none"
+        >
+          <div className="pixel-raised flex w-full max-w-md flex-col gap-5 border-2 border-destructive bg-card p-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-100">
+            <div className="flex items-center gap-3.5 border-b-2 border-destructive/40 pb-4">
+              <div className="p-2.5 bg-destructive/15 text-destructive pixel-flat">
+                <ShieldAlert className="size-6 text-destructive animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-destructive">
+                  Leave Competition?
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Exiting desktop lockdown will lock your account
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 text-xs text-muted-foreground leading-relaxed">
+              <p>
+                Are you sure you want to leave the competition and exit the desktop application?
+              </p>
+              <div className="bg-destructive/10 border border-destructive/30 p-3 pixel-flat text-xs text-destructive font-medium space-y-1">
+                <p className="font-bold">Important Notice:</p>
+                <p>
+                  Exiting will close your session and lock your submissions. You will
+                  <strong className="font-bold"> not</strong> be able to re-enter until a contest
+                  administrator explicitly grants you re-admission from the Admin Console.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 border-t-2 border-border pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isLeaving}
+                onClick={() => setShowExitConfirm(false)}
+                className="h-9 text-xs font-semibold cursor-pointer"
+              >
+                Cancel &amp; Stay
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isLeaving}
+                onClick={handleConfirmLeave}
+                className="h-9 text-xs font-bold bg-destructive text-white hover:bg-destructive/90 cursor-pointer"
+              >
+                {isLeaving ? (
+                  "Exiting App..."
+                ) : (
+                  <>
+                    <Power className="size-3.5 mr-1.5" />
+                    Confirm &amp; Leave
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

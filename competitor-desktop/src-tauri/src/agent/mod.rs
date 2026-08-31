@@ -56,6 +56,7 @@ pub fn run() {
             commands::open_contest_window,
             commands::enter_contest,
             commands::reset_enrollment,
+            commands::close_current_window,
         ]);
 
     let setup_state = Arc::clone(&state);

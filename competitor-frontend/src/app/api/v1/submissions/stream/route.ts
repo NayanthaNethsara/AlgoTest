@@ -1,4 +1,9 @@
 import { API_URL, SESSION_COOKIE } from "@/lib/auth/constants";
+import {
+  CLIENT_HEADER,
+  DESKTOP_CLIENT_COOKIE,
+  DESKTOP_CLIENT_VALUE,
+} from "@/lib/desktop";
 
 /**
  * Same-origin proxy for the live submission feed. The browser opens it at a relative
@@ -21,11 +26,21 @@ export async function GET(request: Request): Promise<Response> {
     return new Response("unauthenticated", { status: 401 });
   }
 
+  const isDesktop =
+    readCookie(
+      request.headers.get("cookie") ?? "",
+      DESKTOP_CLIENT_COOKIE,
+    ) === DESKTOP_CLIENT_VALUE;
+
   const headers = new Headers({
     Cookie: `${SESSION_COOKIE}=${session}`,
     Authorization: `Bearer ${session}`,
     Accept: "text/event-stream",
   });
+
+  if (isDesktop) {
+    headers.set(CLIENT_HEADER, DESKTOP_CLIENT_VALUE);
+  }
 
   let upstream: Response;
   try {

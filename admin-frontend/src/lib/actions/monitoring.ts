@@ -109,6 +109,31 @@ export async function revokeAgentAction(
 
 export const revokeProctorEnrolmentAction = revokeAgentAction;
 
+export async function readmitContestantAction(
+  userId: string
+): Promise<{ status?: string; error?: string }> {
+  const parsed = proctorUserQuerySchema.safeParse({ userId });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message || "Invalid user ID" };
+  }
+
+  try {
+    const response = await backendFetch(
+      `/api/v1/admin/proctor/users/${encodeURIComponent(parsed.data.userId)}/readmit`,
+      {
+        method: "POST",
+      }
+    );
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      return { error: err.error || "Failed to re-admit contestant" };
+    }
+    return { status: "readmitted" };
+  } catch (err: unknown) {
+    return { error: getErrorMessage(err, "Network error") };
+  }
+}
+
 export async function getAdminProctorFindingsAction(userId: string): Promise<{
   findings: EvidenceFinding[];
   error?: string;

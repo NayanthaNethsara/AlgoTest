@@ -158,6 +158,16 @@ button.secondary {
   box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.1), inset -2px -2px 0px rgba(0, 0, 0, 0.4), 0px 3px 0px #000000;
 }
 
+button.danger {
+  background: var(--destructive);
+  color: #ffffff;
+  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.3), inset -2px -2px 0px rgba(0, 0, 0, 0.4), 0px 3px 0px #000000;
+}
+
+button.danger:hover:not(:disabled) {
+  background: #f87171;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

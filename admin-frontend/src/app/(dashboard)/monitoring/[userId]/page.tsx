@@ -16,10 +16,11 @@ import {
   RotateCw,
   ShieldAlert,
   Terminal,
+  UserCheck,
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { getAdminProctorTimelineAction } from "@/lib/actions/monitoring";
+import { getAdminProctorTimelineAction, readmitContestantAction } from "@/lib/actions/monitoring";
 import { formatAppName, formatClock, formatDuration } from "@/lib/monitoring";
 import { EvidenceCard } from "@/components/monitoring/evidence-card";
 import type { EvidenceFinding, ProctorTimeline, TimelineEntry } from "@/types/proctor";
@@ -166,6 +167,8 @@ export default function ContestantTimelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const [readmitSuccess, setReadmitSuccess] = useState(false);
+
   const load = useCallback(() => {
     startTransition(async () => {
       const result = await getAdminProctorTimelineAction(userId);
@@ -173,6 +176,22 @@ export default function ContestantTimelinePage() {
       if (result.timeline) setTimeline(result.timeline);
     });
   }, [userId]);
+
+  const handleReadmit = () => {
+    if (!window.confirm(`Re-admit ${timeline?.displayName || "contestant"} to the competition?\n\nThis will clear the exit lockout and allow them to re-enter and submit.`)) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await readmitContestantAction(userId);
+      if (res.error) {
+        setError(res.error);
+      } else {
+        setReadmitSuccess(true);
+        setTimeout(() => setReadmitSuccess(false), 4000);
+        load();
+      }
+    });
+  };
 
   useEffect(() => {
     load();
@@ -233,18 +252,36 @@ export default function ContestantTimelinePage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {timeline && <SeverityPill severity={timeline.severity} score={timeline.score} />}
+
           <button
+            type="button"
+            onClick={handleReadmit}
+            disabled={isPending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50 cursor-pointer shadow-sm"
+          >
+            <UserCheck className="size-3.5" />
+            Re-admit Contestant
+          </button>
+
+          <button
+            type="button"
             onClick={load}
             disabled={isPending}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-md bg-muted hover:bg-muted/80 px-3 py-1.5 text-xs font-semibold text-foreground border border-border transition-colors disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`size-3.5 ${isPending ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
       </div>
+
+      {readmitSuccess && (
+        <p className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-400 font-semibold animate-in slide-in-from-top-1">
+          Contestant successfully re-admitted to the competition.
+        </p>
+      )}
 
       {error && (
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">

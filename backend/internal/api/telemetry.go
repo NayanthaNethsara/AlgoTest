@@ -176,3 +176,66 @@ func (h *handler) recordBrowserEvent(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"status": "recorded"})
 }
+
+// @Summary Voluntary Contest Leave
+// @Description Contestant voluntarily leaves the competition session. This revokes active agent enrollment and locks submission access until re-admitted by an admin.
+// @Tags Telemetry
+// @Produce json
+// @Security BearerAuth
+// @Router /api/v1/telemetry/leave-contest [post]
+func (h *handler) leaveContest(c *gin.Context) {
+	u := currentUser(c)
+
+	if h.agents != nil {
+		agents, err := h.agents.ListAgents(c.Request.Context())
+		if err == nil {
+			for _, a := range agents {
+				if a.UserID == u.ID && a.RevokedAt == nil {
+					_ = h.agents.Revoke(c.Request.Context(), a.ID, "Contestant voluntarily exited competition")
+				}
+			}
+		}
+	}
+
+	signals := map[string]any{
+		"action":   "voluntary_exit",
+		"user_id":  u.ID,
+		"username": u.Username,
+	}
+
+	if h.proctorEvaluator != nil {
+		_ = h.proctorEvaluator.RecordEvent(c.Request.Context(), u.ID, "web.lockout_exceeded", 35, signals)
+	}
+
+	if h.agents != nil {
+		signalsBytes, _ := json.Marshal(signals)
+		_ = h.agents.AppendEvent(c.Request.Context(), u.ID, "", "", "web.lockout_exceeded", "", 0, signalsBytes, time.Now())
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "left", "locked": true})
+}
+
+// @Summary Admin Re-admit Contestant
+// @Description Administrator clears the exit lockout and allows contestant to re-enroll or re-enter competition.
+// @Tags Admin Proctoring
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Router /api/v1/admin/proctor/users/{id}/readmit [post]
+func (h *handler) readmitContestant(c *gin.Context) {
+	targetUserID := c.Param("id")
+
+	if h.db != nil {
+		_, _ = h.db.Exec(c.Request.Context(), `
+			DELETE FROM proctor_findings WHERE user_id = $1 AND rule_id IN ('web.lockout_exceeded', 'web.fullscreen_exit');
+		`, targetUserID)
+	}
+
+	if h.proctorEvaluator != nil {
+		_ = h.proctorEvaluator.RecordEvent(c.Request.Context(), targetUserID, "tel.web_only_grant", 0, map[string]any{
+			"action": "admin_readmitted",
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "readmitted"})
+}

@@ -7,6 +7,12 @@
     <script src="bridge.js"></script>
   </head>
   <body>
+    <div class="desktop-titlebar">
+      <div class="desktop-titlebar-title">MiniAlgothon — Diagnostics</div>
+      <div class="desktop-controls">
+        <button id="win-close" class="win-btn close" type="button" title="Close">✕</button>
+      </div>
+    </div>
     <h1>PROCTORING DIAGNOSTICS</h1>
     <p class="lede">
       Read the support code to an organizer and they can find you immediately.
@@ -137,6 +143,15 @@
 
       el("open").addEventListener("click", () => invoke("open_contest_window"));
       el("reset").addEventListener("click", () => invoke("reset_enrollment"));
+      el("win-close")?.addEventListener("click", async () => {
+        try {
+          if (typeof invoke === "function") {
+            await invoke("close_current_window");
+            return;
+          }
+        } catch (e) {}
+        window.close();
+      });
 
       refresh();
       setInterval(refresh, 3000);

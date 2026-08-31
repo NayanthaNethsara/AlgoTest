@@ -6,7 +6,7 @@ import { LogOut } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { useProctor } from "@/components/portal/proctor-provider";
 import { Button } from "@/components/ui/button";
-import { isDesktopClient } from "@/lib/desktop";
+import { isDesktopClient, closeDesktopApp } from "@/lib/desktop";
 import { stopLocalAgent } from "@/lib/proctor";
 
 export function SignOutButton() {
@@ -26,6 +26,8 @@ export function SignOutButton() {
 
       if (isDesktopClient()) {
         await stopLocalAgent(local?.loopback_port);
+        await closeDesktopApp();
+        return;
       }
 
       router.push("/login");

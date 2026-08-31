@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { KeyRound, Loader2, X, ShieldCheck, AlertCircle } from "lucide-react";
-import { changePasswordAction } from "@/actions/auth";
+import { changePasswordAction, logoutAction } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { isDesktopClient, closeDesktopApp } from "@/lib/desktop";
 
 export function ChangePasswordDialog({
   open,
@@ -13,6 +15,7 @@ export function ChangePasswordDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -59,13 +62,24 @@ export function ChangePasswordDialog({
         setErrorMessage(result.error || "Failed to update password.");
         return;
       }
-      setSuccessMessage("Your password has been successfully updated.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setTimeout(() => {
-        handleClose();
-      }, 1500);
+
+      if (isDesktopClient()) {
+        setSuccessMessage("Password updated. Closing application...");
+        setTimeout(async () => {
+          await logoutAction().catch(() => {});
+          await closeDesktopApp();
+        }, 1200);
+      } else {
+        setSuccessMessage("Password updated. Logging out...");
+        setTimeout(async () => {
+          await logoutAction().catch(() => {});
+          router.push("/login");
+          router.refresh();
+        }, 1200);
+      }
     } catch {
       setErrorMessage("An unexpected error occurred. Please try again.");
     } finally {

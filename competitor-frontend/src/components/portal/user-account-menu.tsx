@@ -8,7 +8,7 @@ import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
 import { useProctor } from "@/components/portal/proctor-provider";
 import { Badge } from "@/components/ui/badge";
 import type { SessionUser } from "@/lib/auth/constants";
-import { isDesktopClient } from "@/lib/desktop";
+import { isDesktopClient, closeDesktopApp } from "@/lib/desktop";
 import { stopLocalAgent } from "@/lib/proctor";
 
 export function UserAccountMenu({ user }: { user: SessionUser }) {
@@ -57,6 +57,8 @@ export function UserAccountMenu({ user }: { user: SessionUser }) {
 
       if (isDesktopClient()) {
         await stopLocalAgent(local?.loopback_port);
+        await closeDesktopApp();
+        return;
       }
 
       router.push("/login");

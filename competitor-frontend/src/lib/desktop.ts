@@ -53,3 +53,10 @@ export function ensureDesktopClientCookie(): void {
   }
 }
 
+export async function closeDesktopApp(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    await fetch("http://127.0.0.1:47620/quit", { method: "POST", mode: "no-cors" });
+  } catch {}
+}
+

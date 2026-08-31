@@ -144,6 +144,7 @@ func (h *handler) registerCompetitorRoutes(v1 *gin.RouterGroup, gated gin.Handle
 	v1.GET("/proctor/disclosure", h.getProctorDisclosure)
 	v1.GET("/telemetry/self", h.requireUser, rateLimitMiddleware(proctorSelfLimiter, userIDKeyFunc), h.getProctorSelfStatus)
 	v1.POST("/telemetry/browser-event", h.requireUser, maxBodySizeMiddleware(64_000), h.recordBrowserEvent)
+	v1.POST("/telemetry/leave-contest", h.requireUser, h.leaveContest)
 
 	v1.GET("/contest/state", h.getContestState)
 	v1.POST("/run", h.requireUser, maxBodySizeMiddleware(20_000_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), gated, contestActive, h.runCode)
@@ -210,6 +211,7 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 	admin.GET("/proctor/timeline/:userId", h.getAdminProctorTimeline)
 	admin.GET("/proctor/agents", h.listAdminAgents)
 	admin.POST("/proctor/agents/:id/revoke", h.revokeAgent)
+	admin.POST("/proctor/users/:id/readmit", h.readmitContestant)
 
 	admin.GET("/contest/state", h.getContestState)
 	admin.POST("/contest/start", h.adminStartContest)

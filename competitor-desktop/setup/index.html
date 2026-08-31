@@ -7,6 +7,12 @@
     <script src="bridge.js"></script>
   </head>
   <body>
+    <div class="desktop-titlebar">
+      <div class="desktop-titlebar-title">MiniAlgothon — Setup</div>
+      <div class="desktop-controls">
+        <button id="win-close" class="win-btn close" type="button" title="Close">✕</button>
+      </div>
+    </div>
     <h1>SET UP PROCTORING</h1>
     <p class="lede">
       One-time setup on this machine. You keep using your own editor and your own compilers.
@@ -260,8 +266,19 @@
           `Machine ${state.machine_id.slice(0, 8)} · agent ${state.agent_version}`;
       }
 
+      async function closeThisWindow() {
+        try {
+          if (typeof invoke === "function") {
+            await invoke("close_current_window");
+            return;
+          }
+        } catch (e) {}
+        window.close();
+      }
+
       el("accept").addEventListener("click", () => show("step-enroll"));
-      el("quit").addEventListener("click", () => window.close());
+      el("quit").addEventListener("click", closeThisWindow);
+      el("win-close")?.addEventListener("click", closeThisWindow);
 
       el("enroll").addEventListener("click", async () => {
         clearError("enroll-error");

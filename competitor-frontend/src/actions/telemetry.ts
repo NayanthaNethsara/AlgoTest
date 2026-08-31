@@ -40,3 +40,18 @@ export async function recordBrowserViolationAction(
   }
 }
 
+/**
+ * Leaves competition session voluntarily, locking the contestant's account until an admin re-admits them.
+ */
+export async function leaveContestAction(): Promise<boolean> {
+  try {
+    const res = await backendFetch("/api/v1/telemetry/leave-contest", {
+      method: "POST",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+

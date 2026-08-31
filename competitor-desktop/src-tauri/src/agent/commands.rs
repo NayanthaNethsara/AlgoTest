@@ -200,3 +200,8 @@ pub fn reset_enrollment(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>
     windows::open_setup(&app);
     Ok(())
 }
+
+#[tauri::command]
+pub fn close_current_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.close().map_err(|e| e.to_string())
+}

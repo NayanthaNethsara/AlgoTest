@@ -188,9 +188,8 @@ func (h *handler) changePassword(c *gin.Context) {
 		return
 	}
 
-	currentToken := h.extractSessionToken(c)
-	if currentToken != "" {
-		_ = h.sessions.DeleteByUserExcept(ctx, usr.ID, currentToken)
+	if err := h.sessions.DeleteByUser(ctx, usr.ID); err != nil {
+		log.Printf("failed to revoke sessions on password update for user %s: %v", usr.ID, err)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "password updated"})

@@ -115,7 +115,15 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
           });
 
           if (!res.ok || !res.body) {
-            await new Promise((resolve) => setTimeout(resolve, 3000));
+            if (res.status === 423) {
+              // Account is locked or unenrolled by proctor gate -- wait 10s
+              await new Promise((resolve) => setTimeout(resolve, 10000));
+            } else if (res.status === 429) {
+              // Rate limited -- back off 15s
+              await new Promise((resolve) => setTimeout(resolve, 15000));
+            } else {
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
             continue;
           }
 

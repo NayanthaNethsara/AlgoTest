@@ -7,15 +7,14 @@
     <script src="bridge.js"></script>
   </head>
   <body>
-    <!-- Top Titlebar with Drag Region & Window Controls for Windows -->
-    <div class="desktop-titlebar" data-tauri-drag-region data-window-drag-region>
-      <div class="desktop-titlebar-title" data-tauri-drag-region data-window-drag-region>
+    <!-- Top Titlebar with Window Controls -->
+    <div class="desktop-titlebar">
+      <div class="desktop-titlebar-title">
         MiniAlgothon — Offline
       </div>
-      <div class="desktop-controls" data-no-drag>
+      <div class="desktop-controls">
         <button id="win-min" class="win-btn" type="button" title="Minimize">_</button>
-        <button id="win-max" class="win-btn" type="button" title="Maximize">□</button>
-        <button id="win-close" class="win-btn close" type="button" title="Close">✕</button>
+        <button id="win-close" class="win-btn close" type="button" title="Exit">✕</button>
       </div>
     </div>
 
@@ -40,6 +39,7 @@
       <div class="row" style="margin-top: 18px">
         <button id="retry" type="button">Try again now</button>
         <button id="setup" type="button" class="secondary">Change server address</button>
+        <button id="exit-btn" type="button" class="danger">Exit Application</button>
       </div>
 
       <div class="countdown-text" id="countdown-msg">
@@ -60,10 +60,28 @@
       const invoke = window.appInvoke;
       const el = (id) => document.getElementById(id);
 
+      async function requestExitApp() {
+        try {
+          if (typeof invoke === "function") {
+            await invoke("close_window");
+            return;
+          }
+        } catch (e) {}
+        try {
+          await fetch("http://127.0.0.1:47620/request-exit", { method: "POST", mode: "no-cors" });
+        } catch (e) {}
+      }
+
       // Window Control Handlers
-      el("win-min")?.addEventListener("click", () => invoke("minimize_window").catch(() => {}));
-      el("win-max")?.addEventListener("click", () => invoke("toggle_maximize_window").catch(() => {}));
-      el("win-close")?.addEventListener("click", () => invoke("close_window").catch(() => {}));
+      el("win-min")?.addEventListener("click", () => {
+        if (typeof invoke === "function") {
+          invoke("minimize_window").catch(() => {});
+        }
+        fetch("http://127.0.0.1:47620/minimize", { method: "POST", mode: "no-cors" }).catch(() => {});
+      });
+
+      el("win-close")?.addEventListener("click", requestExitApp);
+      el("exit-btn")?.addEventListener("click", requestExitApp);
 
       let countdownSeconds = 10;
       let countdownTimer = null;
@@ -89,8 +107,6 @@
         updateCountdownUI();
 
         try {
-          // Resolves by navigating this window to the portal, so nothing after
-          // this line runs on success.
           await invoke("retry_connection");
         } catch (err) {
           el("error").textContent = String(err);
