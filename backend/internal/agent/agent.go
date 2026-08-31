@@ -10,8 +10,11 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 )
+
 
 var (
 	ErrUnknownAgent = errors.New("agent token not recognised")
@@ -129,17 +132,67 @@ type EnrollRequest struct {
 	MachineID      string `json:"machine_id" binding:"required"`
 	Platform       string `json:"platform"`
 	AgentVersion   string `json:"agent_version"`
+	BinaryHash     string `json:"binary_hash"`
 	ConsentVersion string `json:"consent_version"`
 }
 
 type EnrollResponse struct {
-	AgentID      string `json:"agent_id"`
-	AgentToken   string `json:"agent_token"`
-	UserID       string `json:"user_id"`
-	Username     string `json:"username"`
-	DisplayName  string `json:"display_name"`
-	Policy       Policy `json:"policy"`
+	AgentID     string `json:"agent_id"`
+	AgentToken  string `json:"agent_token"`
+	UserID      string `json:"user_id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+	Policy      Policy `json:"policy"`
 }
+
+// ParseSemVer splits a version string into integer components [major, minor, patch].
+func ParseSemVer(v string) []int {
+	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
+	parts := strings.Split(v, ".")
+	res := make([]int, 0, 3)
+	for _, p := range parts {
+		if idx := strings.IndexAny(p, "-+"); idx != -1 {
+			p = p[:idx]
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil {
+			break
+		}
+		res = append(res, n)
+	}
+	for len(res) < 3 {
+		res = append(res, 0)
+	}
+	return res
+}
+
+// CompareSemVer compares two semantic versions.
+// Returns -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2.
+func CompareSemVer(v1, v2 string) int {
+	p1 := ParseSemVer(v1)
+	p2 := ParseSemVer(v2)
+	for i := 0; i < 3; i++ {
+		if p1[i] < p2[i] {
+			return -1
+		}
+		if p1[i] > p2[i] {
+			return 1
+		}
+	}
+	return 0
+}
+
+// IsVersionAllowed checks whether clientVersion is greater than or equal to minVersion.
+func IsVersionAllowed(clientVersion, minVersion string) bool {
+	if strings.TrimSpace(minVersion) == "" {
+		return true
+	}
+	if strings.TrimSpace(clientVersion) == "" {
+		return false
+	}
+	return CompareSemVer(clientVersion, minVersion) >= 0
+}
+
 
 // Integrity is what the server concluded about this heartbeat's provenance,
 // independent of what it observed on the endpoint.

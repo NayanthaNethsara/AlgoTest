@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/auth"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
+
 
 const contextAgentKey = "proctor_agent"
 
@@ -105,6 +107,46 @@ func (h *handler) enrollAgent(c *gin.Context) {
 		return
 	}
 
+	// Enforce minimum supported desktop client version.
+	minVersion := h.cfg.MinClientVersion
+	if h.agentService != nil && h.agentService.Settings() != nil {
+		minVersion = h.agentService.Settings().MinClientVersion(minVersion)
+	}
+	if minVersion != "" && !agent.IsVersionAllowed(req.AgentVersion, minVersion) {
+		c.JSON(http.StatusUpgradeRequired, gin.H{
+			"error":           fmt.Sprintf("Your desktop client (v%s) is outdated. Minimum required version is v%s. Please update the application.", req.AgentVersion, minVersion),
+			"code":            "CLIENT_OUTDATED",
+			"min_version":     minVersion,
+			"current_version": req.AgentVersion,
+		})
+		return
+	}
+
+	// Enforce binary hash validation if configured.
+	allowedHashes := h.cfg.AllowedClientHashes
+	if h.agentService != nil && h.agentService.Settings() != nil {
+		allowedHashes = h.agentService.Settings().AllowedClientHashes(allowedHashes)
+	}
+	if h.cfg.EnforceClientHash || len(allowedHashes) > 0 {
+		hashValid := false
+		reqHash := strings.ToLower(strings.TrimSpace(req.BinaryHash))
+		if reqHash != "" {
+			for _, ah := range allowedHashes {
+				if strings.EqualFold(ah, reqHash) {
+					hashValid = true
+					break
+				}
+			}
+		}
+		if !hashValid && (h.cfg.EnforceClientHash || len(allowedHashes) > 0) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "The desktop client binary checksum is not authorized or has been modified.",
+				"code":  "INVALID_BINARY_HASH",
+			})
+			return
+		}
+	}
+
 	token, err := agent.NewToken()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to issue agent token"})
@@ -115,8 +157,9 @@ func (h *handler) enrollAgent(c *gin.Context) {
 	// machine. The agent reports its own LAN address in its heartbeat.
 	agentID, rebound, err := h.agents.Enroll(
 		c.Request.Context(), u.ID, req.MachineID, agent.HashToken(token),
-		req.Platform, req.AgentVersion, req.ConsentVersion, c.ClientIP(),
+		req.Platform, req.AgentVersion, req.BinaryHash, req.ConsentVersion, c.ClientIP(),
 	)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enroll agent"})
 		return

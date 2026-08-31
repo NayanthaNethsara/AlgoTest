@@ -42,6 +42,9 @@ func (s *Service) Policy() Policy {
 
 func (s *Service) Repo() *Repository { return s.repo }
 
+func (s *Service) Settings() *Settings { return s.settings }
+
+
 // Classify decides what this heartbeat says about the agent's own integrity,
 // independently of what it observed on the endpoint.
 func Classify(a Agent, hb Heartbeat, serverNow time.Time) Integrity {

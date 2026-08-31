@@ -142,7 +142,15 @@ jobs:
           pattern: release-*
           merge-multiple: true
 
+      - name: Generate SHA256 Checksums
+        shell: bash
+        run: |
+          cd all_release_assets
+          sha256sum * > SHA256SUMS.txt 2>/dev/null || shasum -a 256 * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
       - name: Determine Release Tag
+
         id: release_info
         shell: bash
         run: |

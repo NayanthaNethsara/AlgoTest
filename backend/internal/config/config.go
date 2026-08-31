@@ -34,6 +34,10 @@ type Config struct {
 
 	EnableTelemetry bool
 
+	MinClientVersion    string
+	AllowedClientHashes []string
+	EnforceClientHash   bool
+
 	RunCompileTimeoutSeconds int
 	RunWallTimeoutSeconds    int
 	RunCPUSeconds            int
@@ -70,7 +74,12 @@ func Load() Config {
 
 		EnableTelemetry: getenvBool("ENABLE_TELEMETRY", true),
 
+		MinClientVersion:    getenv("MIN_CLIENT_VERSION", "0.2.0"),
+		AllowedClientHashes: splitNonEmpty(getenv("ALLOWED_CLIENT_HASHES", "")),
+		EnforceClientHash:   getenvBool("ENFORCE_CLIENT_HASH", false),
+
 		RunCompileTimeoutSeconds: getenvInt("RUN_COMPILE_TIMEOUT_SECONDS", 10),
+
 		RunWallTimeoutSeconds:    getenvInt("RUN_WALL_TIMEOUT_SECONDS", 10),
 		RunCPUSeconds:            getenvInt("RUN_CPU_SECONDS", 5),
 		RunMemory:                getenv("RUN_MEMORY", "256m"),

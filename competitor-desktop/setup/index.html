@@ -291,15 +291,14 @@
           show("step-verify");
           await verifyFirstReport();
         } catch (err) {
-          const message = String(err);
-          // The server rejects enrollment when the disclosure has been reworded
-          // since this window loaded it. Sending the contestant back to a freshly
-          // fetched consent step is the only honest recovery — the alternative is
-          // enrolling them against terms they were never shown.
-          if (message.includes("409")) {
+          if (message.includes("409") || message.includes("CONSENT_VERSION_MISMATCH")) {
             show("step-consent");
             await loadConsent();
             fail("consent-error", "The disclosure was updated. Please read it again before enrolling.");
+          } else if (message.includes("CLIENT_OUTDATED") || message.includes("426")) {
+            fail("enroll-error", "Update Required: Your desktop application is outdated. Please download and install the latest release from contest organizers.");
+          } else if (message.includes("INVALID_BINARY_HASH")) {
+            fail("enroll-error", "Security Alert: This desktop binary checksum is not authorized or has been modified. Please run an official contest release.");
           } else {
             fail("enroll-error", message);
           }
@@ -307,6 +306,7 @@
           button.disabled = false;
         }
       });
+
 
       (async () => {
         await refreshTarget();

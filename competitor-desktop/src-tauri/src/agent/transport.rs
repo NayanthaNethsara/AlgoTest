@@ -69,6 +69,7 @@ impl Transport {
                 "machine_id": machine_id,
                 "platform": platform,
                 "agent_version": crate::AGENT_VERSION,
+                "binary_hash": super::identity::binary_hash(),
                 "consent_version": consent_version,
             }))
             .send()
@@ -77,12 +78,20 @@ impl Transport {
         if !response.status().is_success() {
             let status = response.status();
             let body: serde_json::Value = response.json().unwrap_or_default();
+            let code = body
+                .get("code")
+                .and_then(|c| c.as_str())
+                .unwrap_or("");
             let detail = body
                 .get("error")
                 .and_then(|e| e.as_str())
                 .unwrap_or("enrollment failed");
+            if !code.is_empty() {
+                return Err(format!("{detail} [{code}] ({status})"));
+            }
             return Err(format!("{detail} ({status})"));
         }
+
 
         let parsed: EnrollResponse = response.json().map_err(|e| e.to_string())?;
         Ok((

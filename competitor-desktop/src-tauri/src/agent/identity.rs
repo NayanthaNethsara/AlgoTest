@@ -31,6 +31,22 @@ pub fn platform() -> String {
     format!("{} {}", std::env::consts::OS, std::env::consts::ARCH)
 }
 
+/// Computes the SHA-256 checksum of the running executable binary.
+pub fn binary_hash() -> String {
+    let Ok(exe_path) = std::env::current_exe() else {
+        return String::new();
+    };
+
+    let Ok(bytes) = std::fs::read(&exe_path) else {
+        return String::new();
+    };
+
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    hex::encode(hasher.finalize())
+}
+
+
 /// The one string a contestant reads out to the help desk. It resolves them to a
 /// row in the admin view without anyone spelling a UUID over a noisy hall.
 pub fn support_code(username: &str, machine_id: &str, boot_id: &str) -> String {

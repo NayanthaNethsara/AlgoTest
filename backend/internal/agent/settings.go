@@ -117,7 +117,30 @@ func (s *Settings) ContestAccessGrant() AccessGrant {
 	}
 }
 
+// MinClientVersion returns the minimum client version required for agent enrollment.
+func (s *Settings) MinClientVersion(fallback string) string {
+	if s == nil {
+		return fallback
+	}
+	if v, ok := s.snapshot.Load().values["min_client_version"]; ok && strings.TrimSpace(v) != "" {
+		return strings.TrimSpace(v)
+	}
+	return fallback
+}
+
+// AllowedClientHashes returns the allowed binary SHA-256 hashes if set in contest_settings.
+func (s *Settings) AllowedClientHashes(fallback []string) []string {
+	if s == nil {
+		return fallback
+	}
+	if v, ok := s.snapshot.Load().values["allowed_client_hashes"]; ok && strings.TrimSpace(v) != "" {
+		return splitTerms(v)
+	}
+	return fallback
+}
+
 func (s *Settings) bool(key string, fallback bool) bool {
+
 	switch s.snapshot.Load().values[key] {
 	case "true", "1":
 		return true

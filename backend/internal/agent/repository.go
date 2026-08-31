@@ -28,7 +28,7 @@ const agentColumns = `id, user_id, machine_id, agent_version, platform, boot_id:
 // move a two-laptop setup makes.
 func (r *Repository) Enroll(
 	ctx context.Context,
-	userID, machineID, tokenHash, platform, agentVersion, consentVersion, consentIP string,
+	userID, machineID, tokenHash, platform, agentVersion, binaryHash, consentVersion, consentIP string,
 ) (agentID string, rebound bool, err error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -58,13 +58,14 @@ func (r *Repository) Enroll(
 	}
 
 	err = tx.QueryRow(ctx, `
-		INSERT INTO proctor_agents (user_id, machine_id, token_hash, platform, agent_version, consent_version)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO proctor_agents (user_id, machine_id, token_hash, platform, agent_version, binary_hash, consent_version)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id;
-	`, userID, machineID, tokenHash, platform, agentVersion, consentVersion).Scan(&agentID)
+	`, userID, machineID, tokenHash, platform, agentVersion, binaryHash, consentVersion).Scan(&agentID)
 	if err != nil {
 		return "", false, fmt.Errorf("insert enrollment: %w", err)
 	}
+
 
 	// The consent log is append-only and outlives the enrollment it was given for.
 	// proctor_agents.consent_version is overwritten by the next enrollment and is
