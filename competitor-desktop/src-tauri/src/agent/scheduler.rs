@@ -7,8 +7,8 @@ use sysinfo::System;
 use super::state::{dwell_summary, now_iso, AgentState, Heartbeat};
 use super::transport::{SendError, Transport};
 use crate::signals::{
-    collect_matched_processes, get_foreground_app, lan_ip, probe_localhost_ports, DwellTracker,
-    PortMatch, ReachabilityProbe, SignalReport,
+    collect_matched_processes, get_foreground_app, lan_ip, probe_localhost_ports,
+    scan_installed_ai_extensions, DwellTracker, PortMatch, ReachabilityProbe, SignalReport,
 };
 use crate::AGENT_VERSION;
 
@@ -26,6 +26,7 @@ fn run(state: Arc<AgentState>) {
     let mut dwell = DwellTracker::new();
     let mut reachability = ReachabilityProbe::new();
     let mut cached_ports: Vec<PortMatch> = Vec::new();
+    let mut cached_extensions: Vec<String> = scan_installed_ai_extensions();
     let mut lan = lan_ip();
     let mut tick: u64 = 0;
 
@@ -55,6 +56,7 @@ fn run(state: Arc<AgentState>) {
             reachability.probe();
             if due(60) {
                 lan = lan_ip();
+                cached_extensions = scan_installed_ai_extensions();
             }
             let processes = collect_matched_processes(&mut system, &policy.process_denylist);
 
@@ -66,6 +68,7 @@ fn run(state: Arc<AgentState>) {
                 process_matches: processes.matches,
                 total_processes: processes.total_count,
                 lan_ip: lan.clone(),
+                extension_matches: cached_extensions.clone(),
             };
             state.set_last_signals(report.clone());
             send(&state, &transport, report);

@@ -1,4 +1,5 @@
 pub mod dwell;
+pub mod extensions;
 pub mod foreground;
 pub mod network;
 pub mod ports;
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub use dwell::DwellTracker;
+pub use extensions::scan_installed_ai_extensions;
 pub use foreground::{get_foreground_app, ForegroundInfo};
 pub use network::{lan_ip, ReachabilityProbe};
 pub use ports::{probe_localhost_ports, PortMatch};
@@ -24,6 +26,7 @@ pub struct SignalReport {
     pub process_matches: Vec<String>,
     pub total_processes: usize,
     pub lan_ip: String,
+    pub extension_matches: Vec<String>,
 }
 
 impl SignalReport {
@@ -55,6 +58,13 @@ impl SignalReport {
             hasher.update(entry.as_bytes());
         }
 
+        let mut extensions = self.extension_matches.clone();
+        extensions.sort();
+        for entry in extensions {
+            hasher.update(b"|ext:");
+            hasher.update(entry.as_bytes());
+        }
+
         let mut apps: Vec<&String> = self.foreground_dwell.keys().collect();
         apps.sort();
         for app in apps {
@@ -74,6 +84,7 @@ mod tests {
         SignalReport {
             internet_reachable: false,
             process_matches: vec!["ollama".into()],
+            extension_matches: vec!["vscode:github.copilot".into()],
             ports: vec![PortMatch {
                 port: 11434,
                 rule_id: "ai.port.ollama".into(),
@@ -108,6 +119,10 @@ mod tests {
         unconfirmed.ports[0].confirmed = false;
         assert_ne!(baseline.signal_hash(), unconfirmed.signal_hash());
 
+        let mut new_ext = report();
+        new_ext.extension_matches = vec!["vscode:continue".into()];
+        assert_ne!(baseline.signal_hash(), new_ext.signal_hash());
+
         let mut new_app = report();
         new_app.foreground_dwell.insert("ai.ollama.app".into(), 1);
         assert_ne!(baseline.signal_hash(), new_app.signal_hash());
@@ -119,6 +134,8 @@ mod tests {
         let mut b = report();
         a.process_matches = vec!["ollama".into(), "vllm".into()];
         b.process_matches = vec!["vllm".into(), "ollama".into()];
+        a.extension_matches = vec!["vscode:github.copilot".into(), "vscode:continue".into()];
+        b.extension_matches = vec!["vscode:continue".into(), "vscode:github.copilot".into()];
 
         assert_eq!(a.signal_hash(), b.signal_hash());
     }
