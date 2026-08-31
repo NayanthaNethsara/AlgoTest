@@ -100,25 +100,25 @@ jobs:
       - name: Collect Release Assets
         shell: bash
         run: |
-          mkdir -p release_assets
+          mkdir -p "$GITHUB_WORKSPACE/release_assets"
           if [ "${{ matrix.target }}" = "windows" ]; then
             # Standalone Portable Executable (No installation required)
-            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor.exe release_assets/mini-algothon-competitor-windows-standalone-x64.exe 2>/dev/null || \
-            cp competitor-desktop/src-tauri/target/release/app.exe release_assets/mini-algothon-competitor-windows-standalone-x64.exe 2>/dev/null || true
+            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor.exe "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-windows-standalone-x64.exe" 2>/dev/null || \
+            cp competitor-desktop/src-tauri/target/release/app.exe "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-windows-standalone-x64.exe" 2>/dev/null || true
           elif [ "${{ matrix.target }}" = "macos" ]; then
             # Standalone Zipped .app bundle
             if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/mini-algothon-competitor.app" ]; then
               cd competitor-desktop/src-tauri/target/release/bundle/macos
-              zip -r ../../../../../release_assets/mini-algothon-competitor-macos-standalone.zip mini-algothon-competitor.app
-              cd -
+              zip -r "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-macos-standalone.zip" mini-algothon-competitor.app
+              cd "$GITHUB_WORKSPACE"
             else
-              cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor release_assets/mini-algothon-competitor-macos-standalone 2>/dev/null || true
+              cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-macos-standalone" 2>/dev/null || true
             fi
           elif [ "${{ matrix.target }}" = "linux" ]; then
             # Standalone binary
-            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor release_assets/mini-algothon-competitor-linux-standalone-amd64 2>/dev/null || \
-            cp competitor-desktop/src-tauri/target/release/app release_assets/mini-algothon-competitor-linux-standalone-amd64 2>/dev/null || true
-            chmod +x release_assets/mini-algothon-competitor-linux-standalone-amd64 2>/dev/null || true
+            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-linux-standalone-amd64" 2>/dev/null || \
+            cp competitor-desktop/src-tauri/target/release/app "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-linux-standalone-amd64" 2>/dev/null || true
+            chmod +x "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-linux-standalone-amd64" 2>/dev/null || true
           fi
 
       - name: Upload Platform Assets
