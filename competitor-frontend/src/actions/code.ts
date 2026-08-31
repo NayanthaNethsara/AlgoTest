@@ -33,12 +33,20 @@ export async function runCode(
   }
 }
 
+export type SubmissionTelemetry = {
+  typedCount?: number;
+  pasteCount?: number;
+  pastedChars?: number;
+  maxPasteSize?: number;
+};
+
 export async function submitCode(
   problemId: string,
   code: string,
   previousBest: number,
   language = "cpp",
   attestNonce?: string | null,
+  telemetry?: SubmissionTelemetry,
 ): Promise<SubmitResult> {
   const parsed = submitCodeInputSchema.safeParse({
     problemId,
@@ -46,6 +54,10 @@ export async function submitCode(
     language,
     previousBest,
     attestNonce,
+    typedCount: telemetry?.typedCount,
+    pasteCount: telemetry?.pasteCount,
+    pastedChars: telemetry?.pastedChars,
+    maxPasteSize: telemetry?.maxPasteSize,
   });
 
   if (!parsed.success) {
@@ -78,6 +90,10 @@ export async function submitCode(
         problem_id: parsed.data.problemId,
         language: parsed.data.language,
         code: parsed.data.code,
+        typed_count: parsed.data.typedCount,
+        paste_count: parsed.data.pasteCount,
+        pasted_chars: parsed.data.pastedChars,
+        max_paste_size: parsed.data.maxPasteSize,
       }),
     });
 

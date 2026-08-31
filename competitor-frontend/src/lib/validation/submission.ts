@@ -22,6 +22,10 @@ export const submitCodeInputSchema = z.object({
     .max(100_000, "Code exceeds maximum limit (100KB)"),
   previousBest: z.number().int().min(0).optional().default(0),
   attestNonce: z.string().nullable().optional(),
+  typedCount: z.number().int().min(0).optional(),
+  pasteCount: z.number().int().min(0).optional(),
+  pastedChars: z.number().int().min(0).optional(),
+  maxPasteSize: z.number().int().min(0).optional(),
 });
 
 export type ValidatedRunCodeInput = z.infer<typeof runCodeInputSchema>;

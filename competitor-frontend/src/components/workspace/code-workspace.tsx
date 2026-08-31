@@ -5,7 +5,7 @@ import { History, Play, Send } from "lucide-react";
 import { runCode } from "@/actions/code";
 import { useContest } from "@/components/portal/contest-provider";
 import { useSubmissions } from "@/components/portal/submissions-provider";
-import { CodeEditor } from "@/components/workspace/code-editor";
+import { CodeEditor, type EditorTelemetry } from "@/components/workspace/code-editor";
 import { HistoryPanel } from "@/components/workspace/history-panel";
 import { IoPanels } from "@/components/workspace/io-panels";
 import { SubmissionResult } from "@/components/workspace/submission-result";
@@ -40,6 +40,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   const { activeSubmission, lastResult, submitFast } = useSubmissions();
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [editorTelemetry, setEditorTelemetry] = useState<EditorTelemetry | undefined>();
 
   const [tab, setTab] = useState(() => (isRunFeatureEnabled ? "test" : "submission"));
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -139,7 +140,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     setTab("submission");
     setSubmitting(true);
     try {
-      const res = await submitFast(problem.id, code, best, language.id);
+      const res = await submitFast(problem.id, code, best, language.id, editorTelemetry);
       setSubmitResult(res);
       setSubmitCooldown(3);
       if (res.submissionId) {
@@ -228,6 +229,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
               language={language.monaco}
               value={code}
               onChange={setCode}
+              onTelemetryChange={setEditorTelemetry}
             />
           </div>
         </ResizablePanel>

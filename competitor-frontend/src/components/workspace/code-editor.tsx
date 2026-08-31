@@ -1,14 +1,23 @@
 "use client";
 
+import { useRef } from "react";
 import Editor, { loader, type Monaco } from "@monaco-editor/react";
 import { useChallengeTheme } from "@/components/problem/challenge-theme-provider";
 
 loader.config({ paths: { vs: "/monaco/vs" } });
 
+export type EditorTelemetry = {
+  typedCount: number;
+  pasteCount: number;
+  pastedChars: number;
+  maxPasteSize: number;
+};
+
 type CodeEditorProps = {
   language: string;
   value: string;
   onChange: (value: string) => void;
+  onTelemetryChange?: (telemetry: EditorTelemetry) => void;
 };
 
 const PALETTE = {
@@ -96,9 +105,16 @@ function defineTheme(monaco: Monaco) {
   });
 }
 
-export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
+export function CodeEditor({ language, value, onChange, onTelemetryChange }: CodeEditorProps) {
   const { mode } = useChallengeTheme();
   const editorTheme = mode === "light" ? "vs" : "mini-pixel";
+
+  const telemetryRef = useRef<EditorTelemetry>({
+    typedCount: 0,
+    pasteCount: 0,
+    pastedChars: 0,
+    maxPasteSize: 0,
+  });
 
   return (
     <Editor
@@ -106,6 +122,25 @@ export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
       language={language}
       value={value}
       onChange={(next) => onChange(next ?? "")}
+      onMount={(editor) => {
+        editor.onKeyDown((e) => {
+          if (e.browserEvent.key && e.browserEvent.key.length === 1) {
+            telemetryRef.current.typedCount += 1;
+            onTelemetryChange?.({ ...telemetryRef.current });
+          }
+        });
+
+        editor.onDidPaste((e) => {
+          const text = editor.getModel()?.getValueInRange(e.range) ?? "";
+          const len = text.length;
+          telemetryRef.current.pasteCount += 1;
+          telemetryRef.current.pastedChars += len;
+          if (len > telemetryRef.current.maxPasteSize) {
+            telemetryRef.current.maxPasteSize = len;
+          }
+          onTelemetryChange?.({ ...telemetryRef.current });
+        });
+      }}
       beforeMount={defineTheme}
       theme={editorTheme}
       loading={

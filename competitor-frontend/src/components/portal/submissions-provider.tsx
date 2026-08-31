@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { getSubmissionStatusAction, submitCode } from "@/actions/code";
+import { getSubmissionStatusAction, submitCode, type SubmissionTelemetry } from "@/actions/code";
 import {
   contestLocked,
   useProctor,
@@ -33,6 +33,7 @@ type SubmissionsContextType = {
     code: string,
     previousBest: number,
     language?: string,
+    telemetry?: SubmissionTelemetry,
   ) => Promise<SubmitResult>;
 };
 
@@ -269,6 +270,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     code: string,
     previousBest: number,
     language = "cpp",
+    telemetry?: SubmissionTelemetry,
   ): Promise<SubmitResult> {
     try {
       const result = await submitCode(
@@ -277,6 +279,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
         previousBest,
         language,
         attestNonce,
+        telemetry,
       );
 
       if (result.error) {
