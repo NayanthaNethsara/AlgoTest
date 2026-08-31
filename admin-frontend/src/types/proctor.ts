@@ -100,6 +100,7 @@ export type EvidenceFinding = {
   category?: string;
   severity?: "HIGH" | "MEDIUM" | "LOW";
   weight?: number;
+  occurrences?: number;
   evidence?: unknown;
   metadata?: Record<string, unknown>;
   createdAt?: string;

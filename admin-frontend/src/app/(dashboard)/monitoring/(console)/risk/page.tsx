@@ -7,6 +7,7 @@ import { getAdminProctorFindingsAction, toggleProctorExemptionAction } from "@/l
 import { SeverityBadge, formatTimeAgo } from "@/components/monitoring/badges";
 import { useMonitoring } from "@/components/monitoring/monitoring-context";
 import { MonitoringFilters } from "@/components/monitoring/monitoring-filters";
+import { EvidenceCard } from "@/components/monitoring/evidence-card";
 import { FindingsSkeleton, RiskPanelSkeleton } from "@/components/monitoring/skeletons";
 import type { CompetitorRisk, EvidenceFinding } from "@/types/proctor";
 
@@ -144,38 +145,21 @@ export default function RiskPage() {
                 {loadingFindings ? (
                   <FindingsSkeleton />
                 ) : findings.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-muted-foreground">
+                  <div className="p-8 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg">
                     No automated evidence findings recorded for this contestant.
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {findings.map((f) => (
-                      <div
-                        key={f.id}
-                        className="p-3.5 rounded-lg border border-border bg-background/50 space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-foreground">{f.title}</span>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                            Weight: {f.weight}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground font-mono">
-                          Rule ID: {f.ruleId}
-                        </p>
-                        {f.evidence != null && (
-                          <pre className="mt-2 p-2 rounded bg-black/40 text-[10px] text-foreground font-mono overflow-x-auto">
-                            {JSON.stringify(f.evidence, null, 2)}
-                          </pre>
-                        )}
-                      </div>
+                      <EvidenceCard key={f.id} finding={f} />
                     ))}
                   </div>
                 )}
               </>
             ) : (
-              <div className="p-12 text-center text-xs text-muted-foreground">
-                Select a contestant on the left to inspect automated findings and proctor evidence.
+              <div className="p-16 text-center text-xs text-muted-foreground border border-dashed border-border rounded-lg space-y-2">
+                <p className="font-semibold text-foreground text-sm">No Contestant Selected</p>
+                <p>Select a contestant from the risk table on the left to inspect automated findings and telemetry evidence.</p>
               </div>
             )}
           </div>

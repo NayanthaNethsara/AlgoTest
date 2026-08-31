@@ -22,7 +22,7 @@ const HEADERS = [
   "Dark for",
   "Machine / IP",
   "Proctor client",
-  "Signals",
+  "Active Focus & Processes",
   "Last Heartbeat",
 ];
 

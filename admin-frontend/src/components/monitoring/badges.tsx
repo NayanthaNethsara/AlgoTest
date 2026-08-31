@@ -99,15 +99,40 @@ export function DarkForCell({ item }: { item: CompetitorHeartbeat }) {
 }
 
 export function SignalsCell({ item }: { item: CompetitorHeartbeat }) {
-  const flags: string[] = [];
-  if (item.internet_reachable) flags.push("internet reachable");
-  if (item.process_matches.length > 0) flags.push(item.process_matches.join(", "));
+  const hasApp = item.active_window && item.active_window !== "" && item.active_window !== "unknown";
+  const hasProc = item.process_matches && item.process_matches.length > 0;
+  const hasNet = item.internet_reachable;
 
-  if (flags.length === 0) {
+  if (!hasApp && !hasProc && !hasNet) {
     return <span className="text-[10px] text-muted-foreground">clean</span>;
   }
 
-  return <span className="text-[11px] text-destructive">{flags.join(" · ")}</span>;
+  return (
+    <div className="flex flex-col gap-1 max-w-[260px]">
+      {hasApp && (
+        <div className="flex items-center gap-1 text-[11px] font-mono text-foreground/90 truncate" title={item.active_window}>
+          <span className="text-[10px] uppercase font-semibold text-muted-foreground">Focus:</span>
+          <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] truncate">{item.active_window}</span>
+        </div>
+      )}
+      {hasProc && (
+        <div className="flex flex-wrap gap-1 items-center">
+          <span className="text-[10px] uppercase font-semibold text-destructive">Proc:</span>
+          {item.process_matches.map((p, idx) => (
+            <span
+              key={idx}
+              className="bg-destructive/15 border border-destructive/30 text-destructive font-mono text-[10px] font-bold px-1.5 py-0.2 rounded"
+            >
+              {p}
+            </span>
+          ))}
+        </div>
+      )}
+      {hasNet && !hasProc && !hasApp && (
+        <span className="text-[11px] text-cyan-400 font-mono">internet reachable</span>
+      )}
+    </div>
+  );
 }
 
 export function formatTimeAgo(isoString: string): string {
