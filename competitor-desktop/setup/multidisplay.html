@@ -85,7 +85,7 @@
       const el = (id) => document.getElementById(id);
 
       async function triggerExit() {
-        if (confirm("Are you sure you want to exit the competition?")) {
+        if (confirm("Are you sure you want to exit? Exiting will terminate your tournament proctoring session and close the desktop client.")) {
           try {
             await invoke("exit_competition");
           } catch {
@@ -96,6 +96,7 @@
           }
         }
       }
+
 
       el("exit")?.addEventListener("click", triggerExit);
 

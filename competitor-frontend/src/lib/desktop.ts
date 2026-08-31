@@ -59,12 +59,13 @@ export function ensureDesktopClientCookie(): void {
   }
 }
 
+import { LOOPBACK_PORTS } from "@/lib/constants";
+
 /**
  * Sends an authorized competition exit request to the desktop client loopback server.
  */
 export async function exitDesktopCompetition(): Promise<boolean> {
-  const ports = [47615, 47616, 47617, 47618, 47619, 47620];
-  for (const port of ports) {
+  for (const port of LOOPBACK_PORTS) {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 1000);
@@ -80,3 +81,4 @@ export async function exitDesktopCompetition(): Promise<boolean> {
   }
   return false;
 }
+

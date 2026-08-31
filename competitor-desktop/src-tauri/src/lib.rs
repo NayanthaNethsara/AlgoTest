@@ -17,7 +17,6 @@ pub fn loopback_url(port: u16, path: &str) -> String {
 }
 
 pub const LOOPBACK_PORTS: [u16; 5] = [47615, 47616, 47617, 47618, 47619];
-pub const SHELL_PORT: u16 = 47620;
 
 pub fn context() -> tauri::Context {
     tauri::generate_context!()
@@ -33,16 +32,20 @@ pub fn run() {
         Some(port) => port,
         None => {
             log::warn!("another instance is already running; raising window");
-            let _ = reqwest::blocking::Client::builder()
+            if let Ok(client) = reqwest::blocking::Client::builder()
                 .timeout(std::time::Duration::from_millis(500))
                 .build()
-                .ok()
-                .and_then(|client| {
-                    client
-                        .post(format!("http://127.0.0.1:{SHELL_PORT}/show"))
+            {
+                for candidate_port in LOOPBACK_PORTS {
+                    if client
+                        .post(format!("http://127.0.0.1:{candidate_port}/show"))
                         .send()
-                        .ok()
-                });
+                        .is_ok()
+                    {
+                        break;
+                    }
+                }
+            }
             return;
         }
     };
@@ -65,15 +68,11 @@ pub fn run() {
             agent::commands::enter_contest,
             agent::commands::reset_enrollment,
             shell::commands::get_shell_target,
-            shell::commands::get_lockdown_status,
             shell::commands::exit_competition,
             shell::commands::retry_connection,
-            shell::commands::open_proctor_setup,
-            shell::commands::minimize_window,
-            shell::commands::toggle_maximize_window,
-            shell::commands::close_window,
-            shell::commands::is_window_maximized
+            shell::commands::open_proctor_setup
         ])
+
         .setup(move |app| {
             app.handle().plugin(
                 tauri_plugin_log::Builder::default()

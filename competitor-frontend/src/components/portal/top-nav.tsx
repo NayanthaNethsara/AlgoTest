@@ -131,8 +131,9 @@ export function TopNav({ user }: { user: SessionUser | null }) {
             )}
           </button>
 
-          {/* Desktop Window Controls (Minimize, Maximize/Restore, Close) - ALWAYS visible & anchored to top right */}
+          {/* Desktop Exit Control (Lockdown Competition Termination) */}
           <DesktopWindowControls />
+
         </div>
       </div>
 

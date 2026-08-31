@@ -56,11 +56,6 @@
       const invoke = window.appInvoke;
       const el = (id) => document.getElementById(id);
 
-      // Window Control Handlers
-      el("win-min")?.addEventListener("click", () => invoke("minimize_window").catch(() => {}));
-      el("win-max")?.addEventListener("click", () => invoke("toggle_maximize_window").catch(() => {}));
-      el("win-close")?.addEventListener("click", () => invoke("close_window").catch(() => {}));
-
       let countdownSeconds = 10;
       let countdownTimer = null;
 
@@ -124,7 +119,7 @@
         }
       });
       el("exit")?.addEventListener("click", async () => {
-        if (confirm("Are you sure you want to exit the competition?")) {
+        if (confirm("Are you sure you want to exit? Exiting will terminate your tournament proctoring session and close the desktop client.")) {
           try {
             await invoke("exit_competition");
           } catch (err) {
@@ -133,6 +128,7 @@
           }
         }
       });
+
 
       load();
       countdownTimer = setInterval(tickCountdown, 1000);

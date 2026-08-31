@@ -72,25 +72,8 @@ fn serve(server: Server, state: Arc<AgentState>) {
                     cors_origin,
                 )
             }
-            (Method::Get, "/lockdown-status") | (Method::Get, "/is-maximized") => {
-                let monitor_count = state
-                    .app_handle()
-                    .and_then(|a| a.available_monitors().ok().map(|m| m.len()))
-                    .unwrap_or(1);
-                let body = serde_json::json!({
-                    "is_locked": true,
-                    "is_fullscreen": true,
-                    "maximized": true,
-                    "monitor_count": monitor_count,
-                    "multiple_monitors_detected": monitor_count > 1
-                })
-                .to_string();
-                with_cors(
-                    Response::from_string(body).with_header(json_header()),
-                    cors_origin,
-                )
-            }
             (Method::Post, "/show") => {
+
                 if let Some(app) = state.app_handle() {
                     let handle = app.clone();
                     let _ = app.run_on_main_thread(move || {

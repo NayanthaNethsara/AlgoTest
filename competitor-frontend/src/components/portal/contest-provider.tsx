@@ -333,3 +333,8 @@ export function useContest() {
   }
   return context;
 }
+
+export function useOptionalContest() {
+  return useContext(ContestContext);
+}
+

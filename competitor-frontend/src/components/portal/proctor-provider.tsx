@@ -199,7 +199,8 @@ function resolve(
       submissionsAllowed: false,
       code: "ENROLLMENT_REVOKED",
       remedy:
-        "This machine's proctor enrolment was revoked. Re-enrol it from the tray, or ask an organizer.",
+        "This machine's proctor enrolment was revoked. Re-enrol this machine or contact an organizer.",
+
     };
   }
 

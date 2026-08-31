@@ -105,10 +105,11 @@ function NetworkStatusBanner() {
           type="button"
           onClick={() => {
             if (isDesktopClient()) {
-              void fetch("http://127.0.0.1:47620/offline", { method: "POST", mode: "no-cors" });
+              void fetch("http://127.0.0.1:47615/offline", { method: "POST", mode: "no-cors" });
             } else {
               window.location.reload();
             }
+
           }}
           className="pixel-flat bg-destructive text-white px-2.5 py-1 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer shrink-0"
         >

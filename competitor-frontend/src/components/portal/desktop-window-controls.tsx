@@ -1,22 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { LogOut, ShieldAlert } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { LogOut, ShieldAlert, Trophy } from "lucide-react";
 import { exitDesktopCompetition, isDesktopClient } from "@/lib/desktop";
 import { Button } from "@/components/ui/button";
+import { useOptionalContest } from "@/components/portal/contest-provider";
+
+const emptySubscribe = () => () => {};
 
 export function DesktopWindowControls({
   className,
 }: {
   className?: string;
 } = {}) {
-  const [isDesktop, setIsDesktop] = useState(false);
+  const isDesktop = useSyncExternalStore(
+    emptySubscribe,
+    () => isDesktopClient(),
+    () => false,
+  );
   const [isConfirmingExit, setIsConfirmingExit] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const contest = useOptionalContest();
 
   useEffect(() => {
-    setIsDesktop(isDesktopClient());
-
     function handleRequestExit() {
       setIsConfirmingExit(true);
     }
@@ -28,27 +34,21 @@ export function DesktopWindowControls({
     };
   }, []);
 
+
   if (!isDesktop) return null;
 
   async function handleConfirmExit() {
     setIsExiting(true);
     try {
       await exitDesktopCompetition();
-      // If direct fetch didn't terminate the process immediately, try Tauri API invoke
-      try {
-        const { getCurrentWebviewWindow } = await import(
-          "@tauri-apps/api/webviewWindow"
-        );
-        const appWindow = getCurrentWebviewWindow();
-        await appWindow.close();
-      } catch {
-        // Ignored
-      }
     } finally {
       setIsExiting(false);
       setIsConfirmingExit(false);
     }
   }
+
+  const contestTitle = contest?.state?.title;
+  const isContestActive = contest?.isRunning || contest?.state?.status === "RUNNING";
 
   return (
     <>
@@ -88,7 +88,7 @@ export function DesktopWindowControls({
                   id="exit-modal-title"
                   className="text-sm font-bold uppercase tracking-wider text-destructive"
                 >
-                  Exit Competition
+                  Exit Tournament Session
                 </h2>
                 <p className="text-xs text-muted-foreground">
                   Lockdown Session Termination
@@ -96,11 +96,35 @@ export function DesktopWindowControls({
               </div>
             </div>
 
-            <p className="text-xs text-foreground leading-relaxed">
-              Are you sure you want to exit the competition? Your contest session
-              will be closed, proctoring will stop cleanly, and the desktop client
-              will exit.
-            </p>
+            {contestTitle ? (
+              <div className="flex flex-col gap-2.5">
+                <div className="pixel-flat bg-destructive/10 border border-destructive/30 p-2.5 flex items-center gap-2 text-xs">
+                  <Trophy className="h-4 w-4 text-destructive shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-destructive truncate">
+                      {contestTitle}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {isContestActive
+                        ? `Live contest running · ${contest.formattedRemaining} remaining`
+                        : `Status: ${contest?.state?.status ?? "Enrolled"}`}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-foreground leading-relaxed">
+                  You are actively enrolled in this tournament. Exiting will close
+                  your workspace, disconnect your proctoring session, and lock your
+                  ability to submit solutions until you relaunch the desktop client.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-foreground leading-relaxed">
+                Are you sure you want to exit the competition? Your contest session
+                will be closed, proctoring will stop cleanly, and the desktop client
+                will exit.
+              </p>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t-2 border-border">
               <Button
@@ -110,7 +134,7 @@ export function DesktopWindowControls({
                 disabled={isExiting}
                 className="pixel-flat text-xs"
               >
-                Cancel
+                Stay in Contest
               </Button>
               <Button
                 variant="destructive"
@@ -128,3 +152,4 @@ export function DesktopWindowControls({
     </>
   );
 }
+

@@ -88,6 +88,9 @@
         e.preventDefault();
       }, true);
       document.getElementById("btn-exit")?.addEventListener("click", function () {
+        if (!confirm("Are you sure you want to exit? Exiting will terminate your tournament proctoring session and close the desktop client.")) {
+          return;
+        }
         var ports = [47615, 47616, 47617, 47618, 47619];
         for (var i = 0; i < ports.length; i++) {
           try {
@@ -95,6 +98,7 @@
           } catch(e) {}
         }
       });
+
     </script>
   </body>
 </html>

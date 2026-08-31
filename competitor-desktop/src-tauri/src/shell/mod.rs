@@ -29,12 +29,6 @@ pub struct ShellTarget {
     pub message: String,
 }
 
-#[derive(serde::Serialize)]
-pub struct LockdownStatus {
-    pub is_locked: bool,
-    pub is_fullscreen: bool,
-    pub monitor_count: usize,
-}
 
 pub fn create_contest_window(
     app: &AppHandle,

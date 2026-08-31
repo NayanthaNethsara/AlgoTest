@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { LogOut, MonitorOff, ShieldAlert } from "lucide-react";
+import { LogOut, MonitorOff, ShieldAlert, Trophy } from "lucide-react";
 import { useProctor } from "@/components/portal/proctor-provider";
 import { exitDesktopCompetition, isDesktopClient } from "@/lib/desktop";
 import { Button } from "@/components/ui/button";
+import { useOptionalContest } from "@/components/portal/contest-provider";
 
 export function MultiDisplayGate() {
   const { local } = useProctor();
   const isDesktop = isDesktopClient();
   const [isConfirmingExit, setIsConfirmingExit] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const contest = useOptionalContest();
 
   const hasMultipleMonitors = Boolean(
     isDesktop && (local?.multiple_monitors_detected || (local?.monitor_count && local.monitor_count > 1)),
@@ -21,6 +23,8 @@ export function MultiDisplayGate() {
   }
 
   const monitorCount = local?.monitor_count ?? 2;
+  const contestTitle = contest?.state?.title;
+  const isContestActive = contest?.isRunning || contest?.state?.status === "RUNNING";
 
   async function handleConfirmExit() {
     setIsExiting(true);
@@ -112,7 +116,7 @@ export function MultiDisplayGate() {
                   id="multi-display-exit-title"
                   className="text-sm font-bold uppercase tracking-wider text-destructive"
                 >
-                  Exit Competition
+                  Exit Tournament Session
                 </h2>
                 <p className="text-xs text-muted-foreground">
                   Lockdown Session Termination
@@ -120,11 +124,35 @@ export function MultiDisplayGate() {
               </div>
             </div>
 
-            <p className="text-xs text-foreground leading-relaxed">
-              Are you sure you want to exit the competition? Your contest session
-              will be closed, proctoring will stop cleanly, and the desktop client
-              will exit.
-            </p>
+            {contestTitle ? (
+              <div className="flex flex-col gap-2.5">
+                <div className="pixel-flat bg-destructive/10 border border-destructive/30 p-2.5 flex items-center gap-2 text-xs">
+                  <Trophy className="h-4 w-4 text-destructive shrink-0" />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-destructive truncate">
+                      {contestTitle}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {isContestActive
+                        ? `Live contest running · ${contest.formattedRemaining} remaining`
+                        : `Status: ${contest?.state?.status ?? "Enrolled"}`}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-foreground leading-relaxed">
+                  You are actively enrolled in this tournament. Exiting will close
+                  your workspace, disconnect your proctoring session, and lock your
+                  ability to submit solutions until you relaunch the desktop client.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-foreground leading-relaxed">
+                Are you sure you want to exit the competition? Your contest session
+                will be closed, proctoring will stop cleanly, and the desktop client
+                will exit.
+              </p>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t-2 border-border">
               <Button
@@ -134,7 +162,7 @@ export function MultiDisplayGate() {
                 disabled={isExiting}
                 className="pixel-flat text-xs"
               >
-                Cancel
+                Stay in Contest
               </Button>
               <Button
                 variant="destructive"
@@ -152,3 +180,4 @@ export function MultiDisplayGate() {
     </>
   );
 }
+

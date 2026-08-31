@@ -141,8 +141,9 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
         }
         Err(SendError::Revoked) => {
             state.revoked.store(true, Ordering::Relaxed);
-            state.on_error("enrollment revoked — re-enrol from the tray".to_string());
+            state.on_error("enrollment revoked — re-enrol this machine or contact an organizer".to_string());
             state.log("revoked", "server rejected this agent credential".to_string());
+
         }
         Err(SendError::Rejected(detail)) => {
             state.on_error(format!("heartbeat rejected: {detail}"));
