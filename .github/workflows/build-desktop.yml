@@ -100,7 +100,7 @@ jobs:
           elif [ "${{ matrix.target }}" = "macos" ]; then
             app="competitor-desktop/src-tauri/target/release/bundle/macos/mini-algothon-competitor.app"
             if [ -d "$app" ]; then
-              ditto -c -k --sequesterRsrc --keepParent "$app" standalone_artifacts/mini-algothon-competitor-macos-standalone.zip
+              cp -R "$app" standalone_artifacts/
             else
               cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor standalone_artifacts/mini-algothon-competitor-macos-binary 2>/dev/null || true
             fi
@@ -114,4 +114,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mini-algothon-competitor-${{ matrix.target }}-standalone
-          path: standalone_artifacts/*
+          path: standalone_artifacts/
+
