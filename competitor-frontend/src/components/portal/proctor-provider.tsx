@@ -169,7 +169,7 @@ function resolve(
     return { ...base, submissionsAllowed: true };
   }
 
-  if (local?.multiple_monitors_detected || (local?.monitor_count && local.monitor_count > 1)) {
+  if (!local?.agent_only_mode && (local?.multiple_monitors_detected || (local?.monitor_count && local.monitor_count > 1))) {
     return {
       ...base,
       submissionsAllowed: false,
@@ -178,6 +178,7 @@ function resolve(
         "Multiple displays detected. Please unplug all secondary displays to continue the competition.",
     };
   }
+
 
   if (self?.allowed && self.allowed_modes?.includes("WEB_ONLY")) {
     return { ...base, submissionsAllowed: true };

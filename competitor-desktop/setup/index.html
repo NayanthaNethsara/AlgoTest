@@ -64,21 +64,29 @@
     <!-- Enrolling proves the server issued a credential. It does not prove this
          machine can report, and only one of those is what unlocks submissions. -->
     <section id="step-verify" hidden>
-      <h2>STEP 3 — FIRST REPORT</h2>
+      <h2>STEP 3 — FIRST REPORT &amp; MODE SELECTION</h2>
       <div class="card">
         <p class="lede">
           <span class="pill working" id="verify-pill">Starting</span>
         </p>
         <p class="lede" id="verify-status">Waiting for the proctor client's first report…</p>
-        <div class="row">
+        <div class="row" id="verify-actions" hidden style="margin-top: 12px; gap: 8px;">
+          <button id="enter-kiosk" type="button">Enter Kiosk Workspace</button>
+          <button id="enter-browser" type="button" class="secondary">Open in Default Browser</button>
+        </div>
+        <div class="row" style="margin-top: 12px; gap: 8px;">
           <button id="verify-retry" type="button" hidden>Check again</button>
           <button id="verify-continue" type="button" class="secondary" hidden>
-            Open the contest window anyway
+            Open Kiosk window anyway
+          </button>
+          <button id="verify-browser-anyway" type="button" class="secondary" hidden>
+            Open Browser anyway
           </button>
         </div>
       </div>
       <div class="notice error" id="verify-error" hidden></div>
     </section>
+
 
     <!-- The contest server is compiled into the client. Shown so a contestant can
          read it out to the help desk, and editable only behind a deliberate click
@@ -222,6 +230,8 @@
         clearError("verify-error");
         el("verify-retry").hidden = true;
         el("verify-continue").hidden = true;
+        el("verify-browser-anyway").hidden = true;
+        el("verify-actions").hidden = true;
         el("verify-pill").className = "pill working";
         el("verify-pill").textContent = "Starting";
         el("verify-status").textContent = "Waiting for the proctor client's first report…";
@@ -230,8 +240,8 @@
         if (!problem) {
           el("verify-pill").className = "pill ok";
           el("verify-pill").textContent = "Reporting";
-          el("verify-status").textContent = "Opening the contest window…";
-          await invoke("enter_contest");
+          el("verify-status").textContent = "Proctor agent reporting successfully. Choose how you want to participate:";
+          el("verify-actions").hidden = false;
           return;
         }
 
@@ -246,10 +256,15 @@
         fail("verify-error", problem);
         el("verify-retry").hidden = false;
         el("verify-continue").hidden = false;
+        el("verify-browser-anyway").hidden = false;
       }
 
-      el("verify-retry").addEventListener("click", () => verifyFirstReport());
-      el("verify-continue").addEventListener("click", () => invoke("enter_contest"));
+      el("enter-kiosk")?.addEventListener("click", () => invoke("enter_contest"));
+      el("enter-browser")?.addEventListener("click", () => invoke("enter_browser_mode"));
+      el("verify-retry")?.addEventListener("click", () => verifyFirstReport());
+      el("verify-continue")?.addEventListener("click", () => invoke("enter_contest"));
+      el("verify-browser-anyway")?.addEventListener("click", () => invoke("enter_browser_mode"));
+
 
       async function refreshTarget() {
         const state = await invoke("get_setup_state");

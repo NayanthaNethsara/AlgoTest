@@ -7,8 +7,13 @@ fn main() {
         return;
     }
 
-    app_lib::run();
+    let agent_only_mode = std::env::args().any(|arg| {
+        arg == "--agent-only" || arg == "--headless" || arg == "--background" || arg == "--browser"
+    });
+
+    app_lib::run(agent_only_mode);
 }
+
 
 /// Restores the machine by stopping active proctoring and clearing saved credentials.
 fn reset() {

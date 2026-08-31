@@ -114,6 +114,7 @@ pub struct AgentState {
     consecutive_rejections: AtomicU64,
     pub stopping: AtomicBool,
     pub revoked: AtomicBool,
+    pub agent_only_mode: AtomicBool,
     persist_buffer: AtomicBool,
 }
 
@@ -121,7 +122,9 @@ impl AgentState {
     pub fn new() -> Self {
         Self {
             persist_buffer: AtomicBool::new(true),
+            agent_only_mode: AtomicBool::new(false),
             boot_id: Mutex::new(uuid::Uuid::new_v4().to_string()),
+
             started_at: Instant::now(),
             reporting_since: Mutex::new(Instant::now()),
             client: Mutex::new(crate::config::load_client()),
@@ -218,7 +221,16 @@ impl AgentState {
         self.enrollment.lock().map(|e| e.is_some()).unwrap_or(false)
     }
 
+    pub fn is_agent_only_mode(&self) -> bool {
+        self.agent_only_mode.load(Ordering::Relaxed)
+    }
+
+    pub fn set_agent_only_mode(&self, enabled: bool) {
+        self.agent_only_mode.store(enabled, Ordering::Relaxed);
+    }
+
     pub fn uptime_seconds(&self) -> u64 {
+
         self.started_at.elapsed().as_secs()
     }
 

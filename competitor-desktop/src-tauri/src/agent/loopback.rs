@@ -147,6 +147,7 @@ fn serve(server: Server, state: Arc<AgentState>) {
 
 fn status_json(state: &AgentState) -> String {
     let enrolled = state.is_enrolled();
+    let is_agent_only = state.is_agent_only_mode();
     let monitor_count = state
         .app_handle()
         .and_then(|a| a.available_monitors().ok().map(|m| m.len()))
@@ -167,12 +168,14 @@ fn status_json(state: &AgentState) -> String {
         "loopback_port": state.loopback_port.load(Ordering::Relaxed),
         "support_code": state.support_code(),
         "status": state.status_label(),
-        "lockdown": true,
+        "lockdown": !is_agent_only,
+        "agent_only_mode": is_agent_only,
         "monitor_count": monitor_count,
-        "multiple_monitors_detected": monitor_count > 1,
+        "multiple_monitors_detected": !is_agent_only && monitor_count > 1,
     })
     .to_string()
 }
+
 
 fn json_header() -> Header {
     Header::from_bytes(&b"Content-Type"[..], &b"application/json"[..])

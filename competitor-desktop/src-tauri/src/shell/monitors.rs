@@ -13,9 +13,15 @@ pub static MAIN_WINDOW_LOCKED_OUT: AtomicBool = AtomicBool::new(false);
 /// Synchronizes blackout overlay windows on all connected secondary monitors,
 /// and swaps the primary contest window between multidisplay.html and the contest portal.
 pub fn sync_monitor_lockouts(app: &AppHandle, state: &Arc<AgentState>) {
+    if state.is_agent_only_mode() {
+        clear_monitor_lockouts(app);
+        return;
+    }
+
     let Ok(available_monitors) = app.available_monitors() else {
         return;
     };
+
 
     if available_monitors.len() <= 1 {
         clear_monitor_lockouts(app);

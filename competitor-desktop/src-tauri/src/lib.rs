@@ -25,8 +25,11 @@ pub fn context() -> tauri::Context {
 /// Runs the unified MiniAlgothon competitor client: bounds proctoring lifecycle directly
 /// to the desktop application, activates lockdown kiosk mode during competition, and
 /// enforces secondary monitor restrictions.
-pub fn run() {
+pub fn run(agent_only_mode: bool) {
     let state = Arc::new(AgentState::new());
+    if agent_only_mode {
+        state.set_agent_only_mode(true);
+    }
 
     let port = match agent::loopback::start(Arc::clone(&state)) {
         Some(port) => port,
@@ -66,13 +69,13 @@ pub fn run() {
             agent::commands::get_diagnostics,
             agent::commands::open_contest_window,
             agent::commands::enter_contest,
+            agent::commands::enter_browser_mode,
             agent::commands::reset_enrollment,
             shell::commands::get_shell_target,
             shell::commands::exit_competition,
             shell::commands::retry_connection,
             shell::commands::open_proctor_setup
         ])
-
         .setup(move |app| {
             app.handle().plugin(
                 tauri_plugin_log::Builder::default()
@@ -86,21 +89,31 @@ pub fn run() {
 
             setup_state.set_app_handle(app.handle().clone());
 
-            if setup_state.is_enrolled() {
+            if setup_state.is_agent_only_mode() {
+                log::info!("running in agent-only (browser) mode");
+                if setup_state.is_enrolled() {
+                    let server_url = setup_state.server_url();
+                    let _ = agent::commands::open_url_in_browser(&server_url);
+                } else {
+                    agent::windows::open_setup(app.handle());
+                }
+            } else if setup_state.is_enrolled() {
                 let _ = shell::create_contest_window(app.handle(), &setup_state);
             } else {
                 agent::windows::open_setup(app.handle());
             }
 
-            shell::monitors::start_monitor_watcher(
-                app.handle().clone(),
-                Arc::clone(&setup_state),
-                Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            );
+            if !setup_state.is_agent_only_mode() {
+                shell::monitors::start_monitor_watcher(
+                    app.handle().clone(),
+                    Arc::clone(&setup_state),
+                    Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                );
+            }
 
             Ok(())
         })
-        .on_window_event(|window, event| {
+        .on_window_event(move |window, event| {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     if window.label() == shell::MAIN_WINDOW {
@@ -114,7 +127,15 @@ pub fn run() {
                         api.prevent_close();
                         let _ = window.hide();
                     } else if window.label() == agent::windows::SETUP_WINDOW {
-                        window.app_handle().exit(0);
+                        let is_agent_only = window
+                            .app_handle()
+                            .try_state::<Arc<AgentState>>()
+                            .map(|s| s.is_agent_only_mode())
+                            .unwrap_or(false);
+
+                        if !is_agent_only {
+                            window.app_handle().exit(0);
+                        }
                     }
                 }
                 tauri::WindowEvent::Focused(is_focused) => {
@@ -142,4 +163,5 @@ pub fn run() {
                 }
             }
         });
+
 }

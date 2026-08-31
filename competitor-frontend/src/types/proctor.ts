@@ -43,9 +43,11 @@ export type AgentLocalStatus = {
   support_code: string;
   status: string;
   lockdown?: boolean;
+  agent_only_mode?: boolean;
   monitor_count?: number;
   multiple_monitors_detected?: boolean;
 };
+
 
 export type ProctorState = {
   /** True only when the server says scored submissions will be accepted. */

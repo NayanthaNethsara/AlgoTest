@@ -103,13 +103,54 @@ pub fn enroll_agent(
     Ok(())
 }
 
+/// Cross-platform helper to launch a URL in the user's default web browser.
+pub fn open_url_in_browser(url: &str) -> Result<(), String> {
+    if url.is_empty() {
+        return Err("cannot open empty URL".into());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", url])
+            .spawn()
+            .map_err(|e| format!("failed to open browser: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| format!("failed to open browser: {e}"))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| format!("failed to open browser: {e}"))?;
+    }
+    Ok(())
+}
+
 /// Closes setup and opens the contest window. Called by the setup page once it has
 /// seen the agent report in.
 #[tauri::command]
 pub fn enter_contest(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) {
+    state.set_agent_only_mode(false);
     windows::close_setup(&app);
     windows::open_contest_shell(state.inner());
 }
+
+/// Closes setup, sets agent-only mode, and opens the contest portal in the default browser.
+#[tauri::command]
+pub fn enter_browser_mode(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
+    state.set_agent_only_mode(true);
+    let server_url = state.server_url();
+    windows::close_setup(&app);
+    open_url_in_browser(&server_url)
+}
+
 
 #[derive(Serialize)]
 pub struct Diagnostics {
