@@ -107,10 +107,9 @@ jobs:
             cp competitor-desktop/src-tauri/target/release/app.exe release_assets/mini-algothon-competitor-windows-standalone-x64.exe 2>/dev/null || true
           elif [ "${{ matrix.target }}" = "macos" ]; then
             # Standalone Zipped .app bundle
-            if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/mini-algothon-competitor.app" ]; then
-              cd competitor-desktop/src-tauri/target/release/bundle/macos
-              zip -r ../../../../../release_assets/mini-algothon-competitor-macos-standalone.zip mini-algothon-competitor.app
-              cd -
+            app="competitor-desktop/src-tauri/target/release/bundle/macos/mini-algothon-competitor.app"
+            if [ -d "$app" ]; then
+              ditto -c -k --sequesterRsrc --keepParent "$app" release_assets/mini-algothon-competitor-macos-standalone.zip
             else
               cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor release_assets/mini-algothon-competitor-macos-standalone 2>/dev/null || true
             fi
