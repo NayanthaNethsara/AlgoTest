@@ -7,6 +7,14 @@ fn main() {
         return;
     }
 
+    // Single-instance check for the contest shell: if already running, focus existing window and exit.
+    if !std::env::args().any(|arg| arg == "--agent") {
+        if shell_already_running() {
+            request_focus(&app_lib::loopback_url(app_lib::SHELL_PORT, "/focus-main"));
+            return;
+        }
+    }
+
     // One binary, two roles. The proctor agent must outlive any UI, so it runs as
     // its own process: a crash or a bad deploy in the contest shell can then cost
     // a contestant nothing more than a window.
@@ -19,9 +27,17 @@ fn main() {
     // and exiting. Launching a background process and quitting looks exactly like
     // a crash — an empty window and no explanation — and an unenrolled contestant
     // cannot submit anything, so setup is the only useful thing to show.
-    // The target is compiled in, so enrolment is the only thing a first run is
-    // ever missing.
     if app_lib::config::load_enrollment().is_none() {
+        if app_lib::agent::loopback::agent_already_running() {
+            for port in app_lib::LOOPBACK_PORTS {
+                let _ = reqwest::blocking::Client::builder()
+                    .timeout(std::time::Duration::from_millis(400))
+                    .build()
+                    .ok()
+                    .and_then(|c| c.post(app_lib::loopback_url(port, "/setup")).send().ok());
+            }
+            return;
+        }
         app_lib::agent::run();
         return;
     }
@@ -62,4 +78,22 @@ fn request_quit(url: &str) {
         .build()
         .ok()
         .and_then(|client| client.post(url).send().ok());
+}
+
+fn request_focus(url: &str) {
+    let _ = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_millis(500))
+        .build()
+        .ok()
+        .and_then(|client| client.post(url).send().ok());
+}
+
+fn shell_already_running() -> bool {
+    reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_millis(300))
+        .build()
+        .ok()
+        .and_then(|c| c.get(app_lib::loopback_url(app_lib::SHELL_PORT, "/is-maximized")).send().ok())
+        .map(|r| r.status().is_success())
+        .unwrap_or(false)
 }

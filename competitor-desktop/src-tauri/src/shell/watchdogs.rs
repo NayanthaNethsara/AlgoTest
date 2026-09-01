@@ -10,7 +10,7 @@ pub const PROBE_TIMEOUT: Duration = Duration::from_secs(4);
 pub fn spawn_focus_watchdog(focus_window: WebviewWindow) {
     std::thread::spawn(move || {
         loop {
-            std::thread::sleep(Duration::from_millis(300));
+            std::thread::sleep(Duration::from_millis(200));
             if QUITTING.load(Ordering::Relaxed) {
                 break;
             }
@@ -21,7 +21,38 @@ pub fn spawn_focus_watchdog(focus_window: WebviewWindow) {
             }
             if let Ok(is_focus) = focus_window.is_focused() {
                 if !is_focus && !QUITTING.load(Ordering::Relaxed) {
-                    let _ = focus_window.set_always_on_top(true);
+                    crate::shell::lockdown::force_foreground_focus(&focus_window);
+                }
+            }
+        }
+    });
+}
+
+pub fn spawn_monitor_watchdog(app: tauri::AppHandle, server_url: String) {
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(Duration::from_millis(500));
+            if QUITTING.load(Ordering::Relaxed) {
+                break;
+            }
+
+            let monitor_count = app.available_monitors().map(|m| m.len()).unwrap_or(1);
+            let is_multimonitor = monitor_count > 1;
+
+            if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                if let Ok(url) = window.url() {
+                    let url_str = url.as_str();
+                    let is_showing_multimonitor = url_str.contains("multimonitor.html");
+
+                    if is_multimonitor && !is_showing_multimonitor {
+                        log::warn!("multiple displays detected ({monitor_count}); blocking contest access");
+                        let _ = window.navigate(local_app_url("multimonitor.html"));
+                    } else if !is_multimonitor && is_showing_multimonitor {
+                        log::info!("single display restored; restoring contest portal");
+                        if !server_url.is_empty() {
+                            let _ = window.navigate(portal_entry_url(&server_url));
+                        }
+                    }
                 }
             }
         }

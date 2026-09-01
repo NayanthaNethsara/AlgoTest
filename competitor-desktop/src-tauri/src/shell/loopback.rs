@@ -79,6 +79,14 @@ pub fn spawn_control_listener(listener: std::net::TcpListener, app: tauri::AppHa
                         let _ = window.navigate(local_app_url("unreachable.html"));
                     }
                 }
+                Some("/focus-main") | Some("/focus") => {
+                    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+                        let _ = window.show();
+                        let _ = window.unminimize();
+                        let _ = window.set_always_on_top(true);
+                        let _ = window.set_focus();
+                    }
+                }
                 _ => {
                     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
                         let _ = window.show();

@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
-use tauri::WebviewUrl;
+use tauri::{Manager, WebviewUrl};
 
 use crate::config::ClientConfig;
 use crate::SHELL_PORT;
@@ -82,6 +82,7 @@ pub fn run() {
             let contest_window = window::build_contest_window(app.handle(), target)?;
 
             watchdogs::spawn_focus_watchdog(contest_window.clone());
+            watchdogs::spawn_monitor_watchdog(app.handle().clone(), configured_server_url.clone());
             loopback::spawn_control_listener(listener, app.handle().clone());
             watchdogs::spawn_agent_watchdog();
             watchdogs::spawn_portal_watchdog(app.handle().clone(), configured_server_url.clone());
@@ -101,11 +102,13 @@ pub fn run() {
                 }
                 tauri::WindowEvent::Focused(focused) => {
                     if !*focused && !QUITTING.load(Ordering::Relaxed) {
-                        let w = window.clone();
+                        let app = window.app_handle().clone();
                         std::thread::spawn(move || {
                             std::thread::sleep(Duration::from_millis(50));
                             if !QUITTING.load(Ordering::Relaxed) {
-                                let _ = w.set_always_on_top(true);
+                                if let Some(w) = app.get_webview_window(MAIN_WINDOW) {
+                                    crate::shell::lockdown::force_foreground_focus(&w);
+                                }
                             }
                         });
                     }

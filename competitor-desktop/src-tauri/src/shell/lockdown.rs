@@ -20,6 +20,19 @@ pub fn restore_platform_lockdown() {
     windows::restore();
 }
 
+pub fn force_foreground_focus(window: &WebviewWindow) {
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_always_on_top(true);
+    let _ = window.set_focus();
+
+    #[cfg(target_os = "macos")]
+    macos::activate_foreground();
+
+    #[cfg(target_os = "windows")]
+    windows::activate_foreground(window);
+}
+
 pub fn prompt_native_exit(app: &AppHandle) {
     let app_handle = app.clone();
     let window_opt = app.get_webview_window(MAIN_WINDOW);
@@ -92,6 +105,14 @@ mod macos {
         if let Some(mtm) = MainThreadMarker::new() {
             let app = NSApplication::sharedApplication(mtm);
             app.setPresentationOptions(NSApplicationPresentationOptions::Default);
+        }
+    }
+
+    pub fn activate_foreground() {
+        if let Some(mtm) = MainThreadMarker::new() {
+            let app = NSApplication::sharedApplication(mtm);
+            #[allow(deprecated)]
+            app.activateIgnoringOtherApps(true);
         }
     }
 }
@@ -199,6 +220,29 @@ mod windows {
         if !hook.is_null() {
             unsafe {
                 UnhookWindowsHookEx(hook as HHOOK);
+            }
+        }
+    }
+
+    pub fn activate_foreground(window: &WebviewWindow) {
+        if let Ok(hwnd) = window.hwnd() {
+            let raw_hwnd = hwnd.0 as HWND;
+            unsafe {
+                use windows_sys::Win32::UI::WindowsAndMessaging::{
+                    BringWindowToTop, SetForegroundWindow, SetWindowPos, HWND_TOPMOST, SWP_NOMOVE,
+                    SWP_NOSIZE, SWP_SHOWWINDOW,
+                };
+                SetWindowPos(
+                    raw_hwnd,
+                    HWND_TOPMOST,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW,
+                );
+                SetForegroundWindow(raw_hwnd);
+                BringWindowToTop(raw_hwnd);
             }
         }
     }

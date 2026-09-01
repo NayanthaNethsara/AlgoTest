@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MiniAlgothon — Multiple Displays Detected</title>
+    <link rel="stylesheet" href="shared.css" />
+    <script src="bridge.js"></script>
+    <style>
+      .badge-restricted {
+        border-color: var(--destructive);
+        color: var(--destructive);
+      }
+      .badge-restricted .pulse-dot {
+        background: var(--destructive);
+        box-shadow: 0 0 6px var(--destructive);
+      }
+      h1.restricted {
+        color: var(--destructive);
+      }
+      h1.restricted::before {
+        content: "! ";
+        color: var(--destructive);
+      }
+      .highlight-alert {
+        color: #f87171;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top Titlebar with Window Controls -->
+    <div class="desktop-titlebar">
+      <div class="desktop-titlebar-title">
+        MiniAlgothon — Single Display Enforced
+      </div>
+      <div class="desktop-controls">
+        <button id="win-close" class="win-btn close" type="button" title="Exit">✕</button>
+      </div>
+    </div>
+
+    <div class="pulse-badge badge-restricted">
+      <span class="pulse-dot"></span>
+      <span>RESTRICTED · MULTI-DISPLAY</span>
+    </div>
+
+    <h1 class="restricted">MULTIPLE DISPLAYS DETECTED</h1>
+    <p class="lede">
+      Competition rules require a single display setup. You cannot access the contest while additional monitors, virtual displays, or screen mirrors are active.
+    </p>
+
+    <div class="card">
+      <div class="grid">
+        <dt>Display Policy</dt>
+        <dd>Single primary monitor only</dd>
+        <dt>Action Required</dt>
+        <dd class="highlight-alert">Disconnect secondary monitors</dd>
+        <dt>Status</dt>
+        <dd>Waiting for secondary screens to be unplugged...</dd>
+      </div>
+
+      <div class="row" style="margin-top: 18px">
+        <button id="exit-btn" type="button" class="danger">Exit Application</button>
+      </div>
+    </div>
+
+    <h2>HOW TO RESOLVE</h2>
+    <ul class="tight">
+      <li>Unplug all external monitors, HDMI, DisplayPort, or USB-C display cables.</li>
+      <li>Turn off AirPlay, Sidecar, or screen mirroring.</li>
+      <li>Disable virtual display drivers or streaming displays.</li>
+      <li>This window will <strong>automatically restore the contest</strong> the moment only one screen remains connected.</li>
+    </ul>
+
+    <script>
+      const invoke = window.appInvoke;
+      const el = (id) => document.getElementById(id);
+
+      async function requestExitApp() {
+        try {
+          if (typeof invoke === "function") {
+            await invoke("close_window");
+            return;
+          }
+        } catch (e) {}
+        try {
+          await fetch("http://127.0.0.1:47620/request-exit", { method: "POST", mode: "no-cors" });
+        } catch (e) {}
+      }
+
+      el("win-close")?.addEventListener("click", requestExitApp);
+      el("exit-btn")?.addEventListener("click", requestExitApp);
+    </script>
+  </body>
+</html>
