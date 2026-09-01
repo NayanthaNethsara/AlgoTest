@@ -2,7 +2,6 @@ use std::io::{Read, Write};
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use tauri::Manager;
-use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 
 use crate::shell::watchdogs::local_app_url;
 use crate::shell::{MAIN_WINDOW, QUITTING};
@@ -39,28 +38,10 @@ pub fn spawn_control_listener(listener: std::net::TcpListener, app: tauri::AppHa
 
             match path.as_deref() {
                 Some("/request-exit") | Some("/leave-dialog") => {
-                    let app_handle = app.clone();
-                    app.dialog()
-                        .message("Are you sure you want to leave the competition and exit the application?\n\nExiting will lock your competition account. An administrator will need to grant you access from the Admin Console before you can re-enter.")
-                        .title("Exit Competition Lockdown?")
-                        .buttons(MessageDialogButtons::OkCancelCustom(
-                            "Exit Competition".to_string(),
-                            "Cancel & Stay".to_string(),
-                        ))
-                        .show(move |confirmed| {
-                            if confirmed {
-                                crate::shell::window::restore_macos_presentation_options();
-                                QUITTING.store(true, Ordering::Relaxed);
-                                if let Some(window) = app_handle.get_webview_window(MAIN_WINDOW) {
-                                    let _ = window.set_always_on_top(false);
-                                    let _ = window.set_fullscreen(false);
-                                }
-                                app_handle.exit(0);
-                            }
-                        });
+                    crate::shell::lockdown::prompt_native_exit(&app);
                 }
                 Some("/leave") | Some("/quit") | Some("/force-quit") => {
-                    crate::shell::window::restore_macos_presentation_options();
+                    crate::shell::lockdown::restore_platform_lockdown();
                     QUITTING.store(true, Ordering::Relaxed);
                     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
                         let _ = window.set_always_on_top(false);

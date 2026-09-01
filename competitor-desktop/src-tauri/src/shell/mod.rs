@@ -8,6 +8,7 @@ use crate::config::ClientConfig;
 use crate::SHELL_PORT;
 
 pub mod commands;
+pub mod lockdown;
 pub mod loopback;
 pub mod scripts;
 pub mod watchdogs;

@@ -38,30 +38,7 @@ pub fn toggle_maximize_window(window: tauri::WebviewWindow) -> Result<(), String
 
 #[tauri::command]
 pub fn close_window(app: tauri::AppHandle) -> Result<(), String> {
-    use std::sync::atomic::Ordering;
-    use tauri::Manager;
-    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
-    use crate::shell::{MAIN_WINDOW, QUITTING};
-
-    let app_handle = app.clone();
-    app.dialog()
-        .message("Are you sure you want to exit the application?")
-        .title("Exit Application")
-        .buttons(MessageDialogButtons::OkCancelCustom(
-            "Exit".to_string(),
-            "Cancel".to_string(),
-        ))
-        .show(move |confirmed| {
-            if confirmed {
-                crate::shell::window::restore_macos_presentation_options();
-                QUITTING.store(true, Ordering::Relaxed);
-                if let Some(window) = app_handle.get_webview_window(MAIN_WINDOW) {
-                    let _ = window.set_always_on_top(false);
-                    let _ = window.set_fullscreen(false);
-                }
-                app_handle.exit(0);
-            }
-        });
+    crate::shell::lockdown::prompt_native_exit(&app);
     Ok(())
 }
 

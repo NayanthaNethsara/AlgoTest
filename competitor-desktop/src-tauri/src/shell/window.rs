@@ -1,5 +1,6 @@
 use tauri::{AppHandle, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
+use crate::shell::lockdown;
 use crate::shell::scripts::injected_lockdown_script;
 use crate::shell::MAIN_WINDOW;
 
@@ -28,39 +29,7 @@ pub fn build_contest_window(app: &AppHandle, target: WebviewUrl) -> Result<Webvi
         .initialization_script(&init_script)
         .build()?;
 
-    #[cfg(target_os = "macos")]
-    enable_macos_kiosk_lockdown();
+    lockdown::enable_platform_lockdown(&window);
 
     Ok(window)
 }
-
-#[cfg(target_os = "macos")]
-pub fn enable_macos_kiosk_lockdown() {
-    use objc2_app_kit::{NSApplication, NSApplicationPresentationOptions};
-    use objc2_foundation::MainThreadMarker;
-
-    if let Some(mtm) = MainThreadMarker::new() {
-        let app = NSApplication::sharedApplication(mtm);
-        let options = NSApplicationPresentationOptions::HideDock
-            | NSApplicationPresentationOptions::HideMenuBar
-            | NSApplicationPresentationOptions::DisableProcessSwitching
-            | NSApplicationPresentationOptions::DisableForceQuit
-            | NSApplicationPresentationOptions::DisableSessionTermination
-            | NSApplicationPresentationOptions::DisableHideApplication;
-        app.setPresentationOptions(options);
-    }
-}
-
-#[cfg(target_os = "macos")]
-pub fn restore_macos_presentation_options() {
-    use objc2_app_kit::{NSApplication, NSApplicationPresentationOptions};
-    use objc2_foundation::MainThreadMarker;
-
-    if let Some(mtm) = MainThreadMarker::new() {
-        let app = NSApplication::sharedApplication(mtm);
-        app.setPresentationOptions(NSApplicationPresentationOptions::Default);
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn restore_macos_presentation_options() {}
