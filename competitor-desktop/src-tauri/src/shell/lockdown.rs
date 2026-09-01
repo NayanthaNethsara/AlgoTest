@@ -137,9 +137,17 @@ mod windows {
     const VK_ESCAPE: u16 = 0x1B;
     const VK_SPACE: u16 = 0x20;
     const VK_SNAPSHOT: u16 = 0x2C; // PrintScreen
+    const VK_LEFT: u16 = 0x25;
+    const VK_RIGHT: u16 = 0x27;
+    const VK_APPS: u16 = 0x5D; // Context menu key
     const VK_LWIN: u16 = 0x5B;
     const VK_RWIN: u16 = 0x5C;
+    const VK_F1: u16 = 0x70;
+    const VK_F3: u16 = 0x72;
     const VK_F4: u16 = 0x73;
+    const VK_F10: u16 = 0x79;
+    const VK_F11: u16 = 0x7A;
+    const VK_F12: u16 = 0x7B;
 
     static HOOK_HANDLE: AtomicPtr<std::ffi::c_void> = AtomicPtr::new(std::ptr::null_mut());
 
@@ -151,11 +159,13 @@ mod windows {
                 let vk = kbd.vkCode as u16;
                 let is_alt_down = (kbd.flags & LLKHF_ALTDOWN) != 0;
 
-                // Native Hardware Emergency Exit Shortcut: Ctrl+Shift+Q or Alt+Shift+Q or Ctrl+Shift+Escape
                 let is_ctrl = (GetAsyncKeyState(VK_CONTROL as i32) as u16 & 0x8000) != 0;
                 let is_shift = (GetAsyncKeyState(VK_SHIFT as i32) as u16 & 0x8000) != 0;
-                let is_alt = (GetAsyncKeyState(VK_MENU as i32) as u16 & 0x8000) != 0;
+                let is_alt = is_alt_down || (GetAsyncKeyState(VK_MENU as i32) as u16 & 0x8000) != 0;
+                let is_win = (GetAsyncKeyState(VK_LWIN as i32) as u16 & 0x8000) != 0
+                    || (GetAsyncKeyState(VK_RWIN as i32) as u16 & 0x8000) != 0;
 
+                // Native Hardware Emergency Exit Shortcut: Ctrl+Shift+Q or Alt+Shift+Q or Ctrl+Shift+Escape
                 if (vk == 0x51 /* 'Q' */ || vk == VK_ESCAPE) && (is_ctrl || is_alt) && is_shift {
                     std::thread::spawn(|| {
                         let _ = reqwest::blocking::Client::new()
@@ -165,23 +175,38 @@ mod windows {
                     return 1;
                 }
 
-                // Block Windows Keys (Start menu, Win+Tab, Win+Ctrl+Left/Right, Win+D, Win+M)
-                if vk == VK_LWIN || vk == VK_RWIN {
+                // Block ALL keys while Windows key is pressed (Win+Tab, Win+Ctrl+Left/Right, Win+D, Win+M, Win+A, Win+N, etc.)
+                if is_win || vk == VK_LWIN || vk == VK_RWIN {
                     return 1;
                 }
 
-                // Block Alt+Tab, Alt+Esc, Alt+F4, Alt+Space
-                if is_alt_down && (vk == VK_TAB || vk == VK_ESCAPE || vk == VK_F4 || vk == VK_SPACE) {
+                // Block Ctrl+Tab, Ctrl+Shift+Tab (switching tabs/panes)
+                if is_ctrl && vk == VK_TAB {
                     return 1;
                 }
 
-                // Block Ctrl+Esc
-                if vk == VK_ESCAPE && is_ctrl {
+                // Block Ctrl+Esc, Alt+Esc, Ctrl+Shift+Esc
+                if vk == VK_ESCAPE && (is_ctrl || is_alt || is_shift) {
                     return 1;
                 }
 
-                // Block PrintScreen
-                if vk == VK_SNAPSHOT {
+                // Block Alt+Tab, Alt+Space, Alt+F4, Alt+Left/Right
+                if is_alt && (vk == VK_TAB || vk == VK_SPACE || vk == VK_F4 || vk == VK_LEFT || vk == VK_RIGHT || vk == VK_ESCAPE) {
+                    return 1;
+                }
+
+                // Block Browser window shortcuts: Ctrl+W, Ctrl+N, Ctrl+T, Ctrl+H, Ctrl+J, Ctrl+O, Ctrl+P, Ctrl+U
+                if is_ctrl && (vk == 0x57 /* W */ || vk == 0x4E /* N */ || vk == 0x54 /* T */ || vk == 0x48 /* H */ || vk == 0x4A /* J */ || vk == 0x4F /* O */ || vk == 0x50 /* P */ || vk == 0x55 /* U */) {
+                    return 1;
+                }
+
+                // Block PrintScreen & Context Menu Key
+                if vk == VK_SNAPSHOT || vk == VK_APPS {
+                    return 1;
+                }
+
+                // Block Function Keys: F1 (Help), F3 (Search), F10 (Menubar), F11 (Fullscreen), F12 (DevTools)
+                if vk == VK_F1 || vk == VK_F3 || vk == VK_F10 || vk == VK_F11 || vk == VK_F12 {
                     return 1;
                 }
             }

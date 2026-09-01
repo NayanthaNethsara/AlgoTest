@@ -20,19 +20,21 @@ export function DesktopWindowControls({
   }, []);
 
   const handleRequestExit = async () => {
-    // 1. Ask native Tauri shell to show native OS confirmation dialog
+    // 1. Ask native Tauri shell to show native modal confirmation dialog
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 400);
+      if (typeof window !== "undefined" && (window as any).__TAURI__?.core?.invoke) {
+        await (window as any).__TAURI__.core.invoke("close_window");
+        return;
+      }
+    } catch {}
 
-      const res = await fetch("http://127.0.0.1:47620/request-exit", {
+    try {
+      await fetch("http://127.0.0.1:47620/request-exit", {
         method: "POST",
         mode: "no-cors",
-        signal: controller.signal,
       });
-      clearTimeout(timeoutId);
     } catch {
-      // 2. Fallback to in-app confirmation modal if loopback is unavailable
+      // Loopback unreachable - only show web modal as last resort
       setShowExitConfirm(true);
     }
   };
