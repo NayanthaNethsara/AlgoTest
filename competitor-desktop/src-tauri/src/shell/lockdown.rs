@@ -101,12 +101,23 @@ mod windows {
     use std::sync::atomic::{AtomicPtr, Ordering};
     use tauri::WebviewWindow;
     use windows_sys::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        CallNextHookEx, GetAsyncKeyState, SetWindowPos, SetWindowsHookExW, UnhookWindowsHookEx,
+        CallNextHookEx, SetWindowPos, SetWindowsHookExW, UnhookWindowsHookEx,
         HHOOK, HWND_TOPMOST, KBDLLHOOKSTRUCT, LLKHF_ALTDOWN, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
-        VK_CONTROL, VK_ESCAPE, VK_F4, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT, VK_SNAPSHOT, VK_SPACE, VK_TAB,
         WH_KEYBOARD_LL, WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
     };
+
+    const VK_TAB: u16 = 0x09;
+    const VK_SHIFT: i32 = 0x10;
+    const VK_CONTROL: i32 = 0x11;
+    const VK_MENU: i32 = 0x12; // Alt key
+    const VK_ESCAPE: u16 = 0x1B;
+    const VK_SPACE: u16 = 0x20;
+    const VK_SNAPSHOT: u16 = 0x2C; // PrintScreen
+    const VK_LWIN: u16 = 0x5B;
+    const VK_RWIN: u16 = 0x5C;
+    const VK_F4: u16 = 0x73;
 
     static HOOK_HANDLE: AtomicPtr<std::ffi::c_void> = AtomicPtr::new(std::ptr::null_mut());
 
