@@ -42,6 +42,7 @@ pub fn spawn_control_listener(listener: std::net::TcpListener, app: tauri::AppHa
                 }
                 Some("/leave") | Some("/quit") | Some("/force-quit") => {
                     crate::shell::lockdown::restore_platform_lockdown();
+                    crate::shell::watchdogs::close_curtain_windows(&app, 0);
                     QUITTING.store(true, Ordering::Relaxed);
                     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
                         let _ = window.set_always_on_top(false);

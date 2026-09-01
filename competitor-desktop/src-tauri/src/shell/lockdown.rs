@@ -66,6 +66,7 @@ pub fn prompt_native_exit(app: &AppHandle) {
                 }
 
                 restore_platform_lockdown();
+                crate::shell::watchdogs::close_curtain_windows(&app_handle, 0);
                 QUITTING.store(true, Ordering::Relaxed);
                 if let Some(window) = app_handle.get_webview_window(MAIN_WINDOW) {
                     let _ = window.set_always_on_top(false);

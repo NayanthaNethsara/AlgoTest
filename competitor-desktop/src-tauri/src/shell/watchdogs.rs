@@ -39,6 +39,8 @@ pub fn spawn_monitor_watchdog(app: tauri::AppHandle, server_url: String) {
             let monitor_count = app.available_monitors().map(|m| m.len()).unwrap_or(1);
             let is_multimonitor = monitor_count > 1;
 
+            sync_secondary_screen_curtains(&app, is_multimonitor);
+
             if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
                 if let Ok(url) = window.url() {
                     let url_str = url.as_str();
@@ -57,6 +59,81 @@ pub fn spawn_monitor_watchdog(app: tauri::AppHandle, server_url: String) {
             }
         }
     });
+}
+
+pub fn sync_secondary_screen_curtains(app: &tauri::AppHandle, is_multimonitor: bool) {
+    if QUITTING.load(Ordering::Relaxed) || !is_multimonitor {
+        close_curtain_windows(app, 0);
+        return;
+    }
+
+    let Ok(monitors) = app.available_monitors() else {
+        return;
+    };
+
+    let main_window = app.get_webview_window(MAIN_WINDOW);
+    let main_monitor_name = main_window
+        .as_ref()
+        .and_then(|w| w.current_monitor().ok().flatten())
+        .and_then(|m| m.name().map(|s| s.to_string()));
+
+    let mut curtain_idx = 0;
+
+    for monitor in &monitors {
+        let is_main_monitor = match (&main_monitor_name, monitor.name()) {
+            (Some(main_name), Some(mon_name)) => main_name == mon_name,
+            _ => curtain_idx == 0 && main_monitor_name.is_none(),
+        };
+
+        if is_main_monitor {
+            continue;
+        }
+
+        let label = format!("curtain-{}", curtain_idx);
+        curtain_idx += 1;
+
+        let pos = monitor.position();
+        let size = monitor.size();
+
+        if let Some(existing) = app.get_webview_window(&label) {
+            let _ = existing.set_always_on_top(true);
+            let _ = existing.set_position(tauri::Position::Physical(pos.clone()));
+            let _ = existing.set_size(tauri::Size::Physical(size.clone()));
+            continue;
+        }
+
+        let builder = tauri::WebviewWindowBuilder::new(
+            app,
+            &label,
+            tauri::WebviewUrl::App("multimonitor.html".into()),
+        )
+        .title("MiniAlgothon — Display Restricted")
+        .decorations(false)
+        .always_on_top(true)
+        .resizable(false)
+        .skip_taskbar(true)
+        .shadow(false)
+        .visible_on_all_workspaces(true);
+
+        if let Ok(curtain_win) = builder.build() {
+            let _ = curtain_win.set_position(tauri::Position::Physical(pos.clone()));
+            let _ = curtain_win.set_size(tauri::Size::Physical(size.clone()));
+            let _ = curtain_win.set_always_on_top(true);
+            #[cfg(target_os = "windows")]
+            crate::shell::lockdown::enable_platform_lockdown(&curtain_win);
+        }
+    }
+
+    close_curtain_windows(app, curtain_idx);
+}
+
+pub fn close_curtain_windows(app: &tauri::AppHandle, active_count: usize) {
+    for idx in active_count..16 {
+        let label = format!("curtain-{}", idx);
+        if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.close();
+        }
+    }
 }
 
 pub fn spawn_agent_watchdog() {
