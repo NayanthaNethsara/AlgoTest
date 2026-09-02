@@ -7,16 +7,15 @@ import (
 )
 
 type CompetitorRiskItem struct {
-	UserID            string
-	Username          string
-	DisplayName       string
-	ProctorExempt     bool
-	Score             int
-	Severity          string
-	FindingCount      int
-	LastPingAt        *time.Time
-	AllowWebWithAgent bool
-	AllowWebOnly      bool
+	UserID        string
+	Username      string
+	DisplayName   string
+	ProctorExempt bool
+	Score         int
+	Severity      string
+	FindingCount  int
+	LastPingAt    *time.Time
+	AllowWebOnly  bool
 }
 
 func (r *Repository) ListProctorRisk(ctx context.Context) ([]CompetitorRiskItem, error) {
@@ -26,7 +25,6 @@ func (r *Repository) ListProctorRisk(ctx context.Context) ([]CompetitorRiskItem,
 		       COALESCE(r.severity, 'LOW') as severity,
 		       COALESCE(r.finding_count, 0) as finding_count,
 		       h.last_ping_at,
-		       u.proctor_allow_web_with_agent AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now()),
 		       u.proctor_allow_web_only AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now())
 		FROM users u
 		LEFT JOIN proctor_risk r ON u.id = r.user_id
@@ -46,7 +44,7 @@ func (r *Repository) ListProctorRisk(ctx context.Context) ([]CompetitorRiskItem,
 		if err := rows.Scan(
 			&item.UserID, &item.Username, &item.DisplayName, &item.ProctorExempt,
 			&item.Score, &item.Severity, &item.FindingCount, &item.LastPingAt,
-			&item.AllowWebWithAgent, &item.AllowWebOnly,
+			&item.AllowWebOnly,
 		); err != nil {
 			return nil, fmt.Errorf("scan proctor risk item: %w", err)
 		}

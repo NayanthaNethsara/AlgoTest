@@ -16,31 +16,15 @@ func TestAccessGrantAllows(t *testing.T) {
 		want  map[AccessMode]bool
 	}{
 		{
-			name:  "the default permits the desktop client and nothing else",
+			name:  "the default permits both desktop client and web browser with agent",
 			grant: AccessGrant{},
-			want: map[AccessMode]bool{
-				ModeDesktopShell: true, ModeWebWithAgent: false, ModeWebOnly: false,
-			},
-		},
-		{
-			name:  "browser with an agent does not imply browser without one",
-			grant: AccessGrant{WebWithAgent: true},
 			want: map[AccessMode]bool{
 				ModeDesktopShell: true, ModeWebWithAgent: true, ModeWebOnly: false,
 			},
 		},
 		{
-			// Independent flags, so this really is refusable — and it is the perverse
-			// combination the admin console warns about, not a normalisation bug.
-			name:  "browser without an agent does not imply browser with one",
+			name:  "browser without an agent is unlocked when web_only is granted",
 			grant: AccessGrant{WebOnly: true},
-			want: map[AccessMode]bool{
-				ModeDesktopShell: true, ModeWebWithAgent: false, ModeWebOnly: true,
-			},
-		},
-		{
-			name:  "both flags permit all three",
-			grant: AccessGrant{WebWithAgent: true, WebOnly: true},
 			want: map[AccessMode]bool{
 				ModeDesktopShell: true, ModeWebWithAgent: true, ModeWebOnly: true,
 			},
@@ -65,7 +49,7 @@ func TestAccessGrantAllows(t *testing.T) {
 // The desktop client is never withheld, so no grant may refuse it — that is what
 // makes an empty grant "work in the client" rather than "locked out of the contest".
 func TestDesktopIsNeverWithheld(t *testing.T) {
-	for _, g := range []AccessGrant{{}, {WebWithAgent: true}, {WebOnly: true}, {WebWithAgent: true, WebOnly: true}} {
+	for _, g := range []AccessGrant{{}, {WebOnly: true}} {
 		if !g.Allows(ModeDesktopShell) {
 			t.Errorf("%+v refused the desktop client", g)
 		}
@@ -73,42 +57,25 @@ func TestDesktopIsNeverWithheld(t *testing.T) {
 }
 
 func TestAccessGrantModesAndFlags(t *testing.T) {
-	if got := (AccessGrant{}).Modes(); len(got) != 1 || got[0] != ModeDesktopShell {
-		t.Errorf("default Modes() = %v, want just %q", got, ModeDesktopShell)
+	if got := (AccessGrant{}).Modes(); len(got) != 2 || got[0] != ModeDesktopShell || got[1] != ModeWebWithAgent {
+		t.Errorf("default Modes() = %v, want [%q, %q]", got, ModeDesktopShell, ModeWebWithAgent)
 	}
 	if !(AccessGrant{}).IsDefault() {
 		t.Error("the zero grant must report as default")
 	}
-	if (AccessGrant{WebWithAgent: true}).IsDefault() {
-		t.Error("a granted fallback must not report as default")
-	}
-
-	// Named so an organizer can be warned about it rather than surprised by it: a
-	// contestant here unlocks their own submissions by stopping the agent.
-	if !(AccessGrant{WebOnly: true}).Perverse() {
-		t.Error("web-only without web-with-agent is the perverse combination")
-	}
-	for _, g := range []AccessGrant{{}, {WebWithAgent: true}, {WebWithAgent: true, WebOnly: true}} {
-		if g.Perverse() {
-			t.Errorf("%+v was flagged perverse", g)
-		}
+	if (AccessGrant{WebOnly: true}).IsDefault() {
+		t.Error("a granted web-only fallback must not report as default")
 	}
 }
 
-// A grant must never be narrowed by the contest-wide floor, and raising the floor
-// must never narrow a grant. Both directions matter: the two levers are set by
-// different people at different times for unrelated reasons.
 func TestUnionAccessGrant(t *testing.T) {
 	tests := []struct {
 		floor, granted, want AccessGrant
 	}{
 		{AccessGrant{}, AccessGrant{}, AccessGrant{}},
 		{AccessGrant{}, AccessGrant{WebOnly: true}, AccessGrant{WebOnly: true}},
-		{AccessGrant{WebWithAgent: true}, AccessGrant{}, AccessGrant{WebWithAgent: true}},
-		{
-			AccessGrant{WebWithAgent: true}, AccessGrant{WebOnly: true},
-			AccessGrant{WebWithAgent: true, WebOnly: true},
-		},
+		{AccessGrant{WebOnly: true}, AccessGrant{}, AccessGrant{WebOnly: true}},
+		{AccessGrant{WebOnly: true}, AccessGrant{WebOnly: true}, AccessGrant{WebOnly: true}},
 	}
 
 	for _, tt := range tests {
@@ -127,53 +94,41 @@ func TestParseAccessModeRefusesUnknown(t *testing.T) {
 	}
 }
 
-// Both contest-wide switches ship off. A fresh install that quietly allowed browser
-// submissions would make the whole feature decorative.
-func TestContestAccessGrantDefaultsClosed(t *testing.T) {
+func TestContestAccessGrantDefaults(t *testing.T) {
 	s := &Settings{}
 
 	s.snapshot.Store(&settingsSnapshot{values: map[string]string{}})
 	if got := s.ContestAccessGrant(); !got.IsDefault() {
-		t.Errorf("ContestAccessGrant() = %+v on an empty table, want nothing granted", got)
+		t.Errorf("ContestAccessGrant() = %+v on an empty table, want default (no web_only)", got)
 	}
 
 	s.snapshot.Store(&settingsSnapshot{values: map[string]string{
-		"access.allow_web_with_agent": "true",
+		"access.allow_web_only": "true",
 	}})
-	if got := s.ContestAccessGrant(); got != (AccessGrant{WebWithAgent: true}) {
-		t.Errorf("ContestAccessGrant() = %+v, want only web-with-agent", got)
+	if got := s.ContestAccessGrant(); got.WebOnly != true {
+		t.Errorf("ContestAccessGrant() = %+v, want web_only true", got)
 	}
 
-	// Anything unparseable reads as off — a malformed row must not open the contest.
 	s.snapshot.Store(&settingsSnapshot{values: map[string]string{
-		"access.allow_web_only": "yes please",
+		"access.allow_web_only": "invalid",
 	}})
 	if got := s.ContestAccessGrant(); !got.IsDefault() {
-		t.Errorf("ContestAccessGrant() = %+v for an unparseable row, want nothing granted", got)
+		t.Errorf("ContestAccessGrant() = %+v for an unparseable row, want default", got)
 	}
 }
 
-// The migration seeds the same closed defaults the settings reader looks for. Drift
-// in either the keys or the values would mean a fresh install and an upgraded one
-// disagree about who may submit from a browser.
-func TestMigrationSeedsClosedAccessDefaults(t *testing.T) {
+func TestMigrationSeedsAccessDefaults(t *testing.T) {
 	raw, err := os.ReadFile("../db/migrations/0009_access_modes.sql")
 	if err != nil {
 		t.Fatalf("read access migration: %v", err)
 	}
 	sql := string(raw)
 
-	for _, key := range []string{"access.allow_web_with_agent", "access.allow_web_only"} {
-		if !strings.Contains(sql, "('"+key+"', 'false')") {
-			t.Errorf("0009 does not seed %s to 'false'", key)
-		}
+	if !strings.Contains(sql, "'access.allow_web_only'") {
+		t.Errorf("0009 does not seed access.allow_web_only")
 	}
 
-	// The gate reads these columns by name; a rename on one side only would fail at
-	// the database on every single submission.
-	for _, column := range []string{"proctor_allow_web_with_agent", "proctor_allow_web_only"} {
-		if !strings.Contains(sql, column) {
-			t.Errorf("0009 never mentions %s", column)
-		}
+	if !strings.Contains(sql, "proctor_allow_web_only") {
+		t.Errorf("0009 never mentions proctor_allow_web_only")
 	}
 }

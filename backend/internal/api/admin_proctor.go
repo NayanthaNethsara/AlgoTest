@@ -19,10 +19,9 @@ type updateExemptionRequest struct {
 }
 
 type updateAccessRequest struct {
-	WebWithAgent bool   `json:"webWithAgent"`
-	WebOnly      bool   `json:"webOnly"`
-	Reason       string `json:"reason"`
-	HoursValid   int    `json:"hoursValid"`
+	WebOnly    bool   `json:"webOnly"`
+	Reason     string `json:"reason"`
+	HoursValid int    `json:"hoursValid"`
 }
 
 type postReviewRequest struct {
@@ -32,16 +31,15 @@ type postReviewRequest struct {
 }
 
 type competitorRiskItem struct {
-	UserID            string  `json:"userId"`
-	Username          string  `json:"username"`
-	DisplayName       string  `json:"displayName"`
-	ProctorExempt     bool    `json:"proctorExempt"`
-	Score             int     `json:"score"`
-	Severity          string  `json:"severity"`
-	FindingCount      int     `json:"findingCount"`
-	LastPingAt        *string `json:"lastPingAt"`
-	AllowWebWithAgent bool    `json:"allowWebWithAgent"`
-	AllowWebOnly      bool    `json:"allowWebOnly"`
+	UserID        string  `json:"userId"`
+	Username      string  `json:"username"`
+	DisplayName   string  `json:"displayName"`
+	ProctorExempt bool    `json:"proctorExempt"`
+	Score         int     `json:"score"`
+	Severity      string  `json:"severity"`
+	FindingCount  int     `json:"findingCount"`
+	LastPingAt    *string `json:"lastPingAt"`
+	AllowWebOnly  bool    `json:"allowWebOnly"`
 }
 
 func (h *handler) listProctorRisk(ctx context.Context) ([]competitorRiskItem, error) {
@@ -52,16 +50,15 @@ func (h *handler) listProctorRisk(ctx context.Context) ([]competitorRiskItem, er
 	result := make([]competitorRiskItem, len(items))
 	for i, it := range items {
 		result[i] = competitorRiskItem{
-			UserID:            it.UserID,
-			Username:          it.Username,
-			DisplayName:       it.DisplayName,
-			ProctorExempt:     it.ProctorExempt,
-			Score:             it.Score,
-			Severity:          it.Severity,
-			FindingCount:      it.FindingCount,
-			LastPingAt:        formatTimePtr(it.LastPingAt),
-			AllowWebWithAgent: it.AllowWebWithAgent,
-			AllowWebOnly:      it.AllowWebOnly,
+			UserID:        it.UserID,
+			Username:      it.Username,
+			DisplayName:   it.DisplayName,
+			ProctorExempt: it.ProctorExempt,
+			Score:         it.Score,
+			Severity:      it.Severity,
+			FindingCount:  it.FindingCount,
+			LastPingAt:    formatTimePtr(it.LastPingAt),
+			AllowWebOnly:  it.AllowWebOnly,
 		}
 	}
 	return result, nil
@@ -193,7 +190,7 @@ func (h *handler) updateUserProctorAccess(c *gin.Context) {
 		return
 	}
 
-	grant := agent.AccessGrant{WebWithAgent: req.WebWithAgent, WebOnly: req.WebOnly}
+	grant := agent.AccessGrant{WebOnly: req.WebOnly}
 
 	reason := strings.TrimSpace(req.Reason)
 	if !grant.IsDefault() && reason == "" {
@@ -208,7 +205,7 @@ func (h *handler) updateUserProctorAccess(c *gin.Context) {
 	}
 
 	granter := currentUser(c)
-	err := h.users.UpdateProctorAccess(c.Request.Context(), targetID, grant.WebWithAgent, grant.WebOnly, reason, req.HoursValid, granter.ID)
+	err := h.users.UpdateProctorAccess(c.Request.Context(), targetID, grant.WebOnly, reason, req.HoursValid, granter.ID)
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "no competitor with that id"})
@@ -218,16 +215,10 @@ func (h *handler) updateUserProctorAccess(c *gin.Context) {
 		return
 	}
 
-	warning := ""
-	if grant.Perverse() {
-		warning = "this combination lets the contestant submit only while the proctor agent is stopped"
-	}
-
 	c.JSON(http.StatusOK, gin.H{
 		"status":       "updated",
 		"allowedModes": grant.Modes(),
-		"webWithAgent": grant.WebWithAgent,
+		"webWithAgent": true,
 		"webOnly":      grant.WebOnly,
-		"warning":      warning,
 	})
 }

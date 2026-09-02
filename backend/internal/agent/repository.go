@@ -256,7 +256,6 @@ func (r *Repository) GateState(ctx context.Context, userID string) (GateState, e
 			COALESCE(h.shell_alive, false),
 			h.shell_alive_at,
 			EXISTS (SELECT 1 FROM telemetry_incidents WHERE ended_at IS NULL),
-			u.proctor_allow_web_with_agent AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now()),
 			u.proctor_allow_web_only AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now()),
 			CASE WHEN u.proctor_access_until IS NULL OR u.proctor_access_until > now()
 			     THEN u.proctor_access_reason ELSE '' END
@@ -266,7 +265,7 @@ func (r *Repository) GateState(ctx context.Context, userID string) (GateState, e
 		WHERE u.id = $1;
 	`, userID).Scan(&s.Exempt, &s.ExemptReason, &s.HasAgent, &s.LastSeenAt, &s.StoppedAt,
 		&s.LoopbackPort, &s.AgentVersion, &s.LanIP, &s.ShellAlive, &s.ShellSeenAt,
-		&s.IncidentOpen, &s.Grant.WebWithAgent, &s.Grant.WebOnly, &s.AccessReason)
+		&s.IncidentOpen, &s.Grant.WebOnly, &s.AccessReason)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return GateState{}, fmt.Errorf("user not found")
 	}

@@ -24,7 +24,6 @@ type User struct {
 	TeamID               *string    `json:"teamId,omitempty"`
 	TeamName             *string    `json:"teamName,omitempty"`
 	ProctorExempt        bool       `json:"proctorExempt"`
-	ProctorAllowWebAgent bool       `json:"proctorAllowWebWithAgent"`
 	ProctorAllowWebOnly  bool       `json:"proctorAllowWebOnly"`
 	ProctorAccessReason  string     `json:"proctorAccessReason,omitempty"`
 	IsSuspended          bool       `json:"isSuspended"`
