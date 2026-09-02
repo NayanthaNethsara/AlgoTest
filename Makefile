@@ -79,6 +79,18 @@ competitor-desktop:
 desktop: competitor-desktop
 desktop-dev: competitor-desktop
 
+agent:
+	cd competitor-desktop/src-tauri && cargo run --bin mini-algothon-agent
+
+agent-dev: agent
+
+agent-build:
+	cd competitor-desktop/src-tauri && cargo build --release --bin mini-algothon-agent
+	@echo "Agent binary built at competitor-desktop/src-tauri/target/release/mini-algothon-agent"
+
+agent-reset:
+	cd competitor-desktop/src-tauri && cargo run --quiet --bin mini-algothon-agent -- --reset
+
 desktop-build:
 	cd competitor-desktop && pnpm build
 	@echo "Desktop build complete!"

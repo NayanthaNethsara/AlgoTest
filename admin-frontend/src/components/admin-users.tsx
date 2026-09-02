@@ -27,7 +27,6 @@ import {
   type ParsedCsvRow,
   FALLBACKS,
   grantOf,
-  isPerverse,
 } from "./users/types";
 
 export function AdminUsers({
@@ -197,32 +196,20 @@ export function AdminUsers({
       );
       if (entered === null || entered.trim() === "") return;
       reason = entered.trim();
-
-      if (isPerverse(next)) {
-        const proceed = window.confirm(
-          `Careful: ${
-            user.displayName || user.username
-          } would be able to submit only while the proctor client is STOPPED. Save anyway?`
-        );
-        if (!proceed) return;
-      }
     }
 
     setPending(true);
     setError(null);
-    user.proctorAllowWebWithAgent = next.webWithAgent;
     user.proctorAllowWebOnly = next.webOnly;
     try {
       const res = await setProctorAccessAction(user.id, next, reason, 0);
       if (res.error) {
-        user.proctorAllowWebWithAgent = current.webWithAgent;
         user.proctorAllowWebOnly = current.webOnly;
         setError(res.error);
       } else {
         onRefresh();
       }
     } catch {
-      user.proctorAllowWebWithAgent = current.webWithAgent;
       user.proctorAllowWebOnly = current.webOnly;
       setError("Failed to update submission access");
     } finally {

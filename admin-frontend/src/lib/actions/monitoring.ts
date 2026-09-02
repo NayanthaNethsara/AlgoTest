@@ -46,13 +46,12 @@ export async function getMonitoringSnapshotAction(sections: MonitoringSection[])
 
 export async function setProctorAccessAction(
   userId: string,
-  grant: { webWithAgent: boolean; webOnly: boolean },
+  grant: { webOnly: boolean },
   reason = "",
   hoursValid = 0
 ): Promise<{ status?: string; warning?: string; error?: string }> {
   const parsed = proctorAccessSchema.safeParse({
     userId,
-    webWithAgent: grant.webWithAgent,
     webOnly: grant.webOnly,
     reason,
     hoursValid,
@@ -66,7 +65,6 @@ export async function setProctorAccessAction(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        webWithAgent: parsed.data.webWithAgent,
         webOnly: parsed.data.webOnly,
         reason: parsed.data.reason,
         hoursValid: parsed.data.hoursValid,

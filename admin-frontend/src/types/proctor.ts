@@ -89,7 +89,6 @@ export type CompetitorRisk = {
   severity: "HIGH" | "MEDIUM" | "LOW";
   findingCount: number;
   lastPingAt: string | null;
-  allowWebWithAgent?: boolean;
   allowWebOnly?: boolean;
 };
 

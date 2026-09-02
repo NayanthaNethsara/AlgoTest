@@ -16,6 +16,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "mini-algothon-competitor"
 path = "src/main.rs"
 
+[[bin]]
+name = "mini-algothon-agent"
+path = "src/agent_main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }
 

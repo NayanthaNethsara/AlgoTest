@@ -90,23 +90,25 @@ jobs:
           echo "portal=$PORTAL" >> "$GITHUB_OUTPUT"
           echo "api=$API" >> "$GITHUB_OUTPUT"
 
-      - name: Build Desktop Application
+      - name: Build Desktop Application & Standalone Agent
         env:
           MINIALGOTHON_SERVER_URL: ${{ steps.addr.outputs.portal }}
           MINIALGOTHON_API_URL: ${{ steps.addr.outputs.api }}
           MINIALGOTHON_PORTAL_ORIGINS: ${{ inputs.portal_origins || vars.MINIALGOTHON_PORTAL_ORIGINS }}
-        run: make desktop-build
+        run: |
+          make desktop-build
+          make agent-build
 
       - name: Collect Release Assets
         shell: bash
         run: |
           mkdir -p "$GITHUB_WORKSPACE/release_assets"
           if [ "${{ matrix.target }}" = "windows" ]; then
-            # Standalone Portable Executable (No installation required)
-            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor.exe "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-windows-standalone-x64.exe" 2>/dev/null || \
-            cp competitor-desktop/src-tauri/target/release/app.exe "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-windows-standalone-x64.exe" 2>/dev/null || true
+            # Standalone Portable Kiosk Executable & Standalone Agent Executable
+            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor.exe "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-windows-standalone-x64.exe" 2>/dev/null || true
+            cp competitor-desktop/src-tauri/target/release/mini-algothon-agent.exe "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-windows-standalone-x64.exe" 2>/dev/null || true
           elif [ "${{ matrix.target }}" = "macos" ]; then
-            # Standalone Zipped .app bundle
+            # Standalone Zipped .app bundle & Standalone Agent binary
             if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/mini-algothon-competitor.app" ]; then
               cd competitor-desktop/src-tauri/target/release/bundle/macos
               zip -r "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-macos-standalone.zip" mini-algothon-competitor.app
@@ -114,11 +116,13 @@ jobs:
             else
               cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-macos-standalone" 2>/dev/null || true
             fi
+            cp competitor-desktop/src-tauri/target/release/mini-algothon-agent "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-macos-binary" 2>/dev/null || true
           elif [ "${{ matrix.target }}" = "linux" ]; then
-            # Standalone binary
-            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-linux-standalone-amd64" 2>/dev/null || \
-            cp competitor-desktop/src-tauri/target/release/app "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-linux-standalone-amd64" 2>/dev/null || true
+            # Standalone Linux binaries
+            cp competitor-desktop/src-tauri/target/release/mini-algothon-competitor "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-linux-standalone-amd64" 2>/dev/null || true
             chmod +x "$GITHUB_WORKSPACE/release_assets/mini-algothon-competitor-linux-standalone-amd64" 2>/dev/null || true
+            cp competitor-desktop/src-tauri/target/release/mini-algothon-agent "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-linux-standalone-amd64" 2>/dev/null || true
+            chmod +x "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-linux-standalone-amd64" 2>/dev/null || true
           fi
 
       - name: Upload Platform Assets

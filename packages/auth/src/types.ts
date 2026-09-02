@@ -10,7 +10,6 @@ export interface SessionUser {
   teamId?: string;
   teamName?: string;
   proctorExempt?: boolean;
-  proctorAllowWebWithAgent?: boolean;
   proctorAllowWebOnly?: boolean;
   proctorAccessReason?: string;
   isSuspended?: boolean;

@@ -2,7 +2,6 @@ import { z } from "zod";
 
 export const proctorAccessSchema = z.object({
   userId: z.string().min(1, "User ID is required"),
-  webWithAgent: z.boolean(),
   webOnly: z.boolean(),
   reason: z.string().max(500, "Reason must be 500 characters or less").default(""),
   hoursValid: z.number().int().min(0).max(72).default(0),
