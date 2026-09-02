@@ -85,8 +85,12 @@ agent:
 agent-dev: agent
 
 agent-build:
+	cd competitor-desktop && pnpm run build:agent
+	@echo "MiniAlgothon Agent bundle complete!"
+
+agent-binary:
 	cd competitor-desktop/src-tauri && cargo build --release --bin mini-algothon-agent
-	@echo "Agent binary built at competitor-desktop/src-tauri/target/release/mini-algothon-agent"
+	@echo "Agent raw binary built at competitor-desktop/src-tauri/target/release/mini-algothon-agent"
 
 agent-reset:
 	cd competitor-desktop/src-tauri && cargo run --quiet --bin mini-algothon-agent -- --reset

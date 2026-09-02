@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "build:agent": "tauri build --config src-tauri/tauri.agent.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1"

@@ -23,21 +23,9 @@ use crate::SHELL_PORT;
 /// — so an unenrolled machine has no business registering one. Debug builds never
 /// register: a login item pointing at `target/debug` outlives the checkout that
 /// produced it, and reinstalls itself every time a developer runs the app.
-pub fn sync_autostart(app: &AppHandle, enrolled: bool) {
-    let wanted = enrolled && !cfg!(debug_assertions);
+pub fn sync_autostart(app: &AppHandle, _enrolled: bool) {
     let manager = app.autolaunch();
-
-    // A debug build that finds a registration left by a release build clears it,
-    // which is the whole point of checking rather than only ever enabling.
-    if manager.is_enabled().unwrap_or(false) == wanted {
-        return;
-    }
-
-    let outcome = if wanted { manager.enable() } else { manager.disable() };
-    if let Err(err) = outcome {
-        let verb = if wanted { "register" } else { "remove" };
-        log::warn!("could not {verb} the autostart entry: {err}");
-    }
+    let _ = manager.disable();
 }
 
 /// Signs this machine out and closes the whole client: proctoring stops, the
