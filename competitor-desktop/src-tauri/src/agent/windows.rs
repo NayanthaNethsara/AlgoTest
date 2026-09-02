@@ -72,9 +72,6 @@ pub fn open_diagnostics(app: &AppHandle) {
     }
 }
 
-/// Raises the existing contest shell if one is running, and only launches a new
-/// one otherwise. Spawning a second shell over the first would discard whatever
-/// the contestant had unsaved in the portal editor.
 pub fn open_contest_shell(state: &Arc<AgentState>) {
     if raise_existing_shell() {
         return;
@@ -91,14 +88,40 @@ pub fn open_contest_shell(state: &Arc<AgentState>) {
         return;
     }
 
-    match std::env::current_exe() {
-        Ok(exe) => {
-            if let Err(err) = std::process::Command::new(exe).spawn() {
+    if let Ok(exe) = std::env::current_exe() {
+        let file_name = exe.file_name().and_then(|s| s.to_str()).unwrap_or_default();
+        if file_name.starts_with("mini-algothon-competitor") {
+            if let Err(err) = std::process::Command::new(&exe).spawn() {
                 log::error!("could not launch the contest shell: {err}");
             }
+            return;
         }
-        Err(err) => log::error!("could not locate the client executable: {err}"),
+
+        let sibling = exe.with_file_name(if cfg!(windows) {
+            "mini-algothon-competitor.exe"
+        } else {
+            "mini-algothon-competitor"
+        });
+        if sibling.is_file() {
+            if let Err(err) = std::process::Command::new(&sibling).spawn() {
+                log::error!("could not launch sibling contest shell: {err}");
+            }
+            return;
+        }
     }
+
+    open_in_browser(&state.server_url());
+}
+
+fn open_in_browser(url: &str) {
+    #[cfg(target_os = "windows")]
+    let _ = std::process::Command::new("cmd").args(["/c", "start", url]).spawn();
+
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg(url).spawn();
+
+    #[cfg(target_os = "linux")]
+    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
 }
 
 fn raise_existing_shell() -> bool {
