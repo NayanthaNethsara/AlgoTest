@@ -9,10 +9,13 @@ import {
 } from "lucide-react";
 import { recordBrowserViolationAction } from "@/actions/telemetry";
 import { Button } from "@/components/ui/button";
+import { useContest } from "@/components/portal/contest-provider";
 import type { SessionUser } from "@/lib/auth/constants";
 import { isDesktopClient } from "@/lib/desktop";
 
 export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
+  const { state: contestState } = useContest();
+  const requireFullscreen = Boolean(contestState?.requireFullscreen);
   const [isClientReady, setIsClientReady] = useState(false);
   const [isDesktopEnv, setIsDesktopEnv] = useState(false);
   const [isFullscreenActive, setIsFullscreenActive] = useState(false);
@@ -131,7 +134,7 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
 
   // Fullscreen state listeners
   useEffect(() => {
-    if (isDesktopEnv || !isClientReady) return;
+    if (isDesktopEnv || !isClientReady || !requireFullscreen) return;
 
     const handleFullscreenChange = () => {
       const isNowFullscreen = checkIsFullscreen();
@@ -184,7 +187,7 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
 
   // Tab switch & window blur listeners
   useEffect(() => {
-    if (isDesktopEnv || !isClientReady) return;
+    if (isDesktopEnv || !isClientReady || !requireFullscreen) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -223,7 +226,7 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
 
   // DevTools and shortcut interceptors
   useEffect(() => {
-    if (isDesktopEnv || !isClientReady) return;
+    if (isDesktopEnv || !isClientReady || !requireFullscreen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const isF12 = event.key === "F12";
@@ -268,8 +271,8 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
     };
   }, [isDesktopEnv, isClientReady, reportViolationTelemetry]);
 
-  // If in desktop app, browser lockdown is not active
-  if (!isClientReady || isDesktopEnv) {
+  // If in desktop app, or fullscreen is not required by admin, browser lockdown is not active
+  if (!isClientReady || isDesktopEnv || !requireFullscreen) {
     return null;
   }
 

@@ -67,6 +67,7 @@ export function ContestControlBar() {
 
   const [settingsTitle, setSettingsTitle] = useState("");
   const [settingsDuration, setSettingsDuration] = useState("120");
+  const [settingsFullscreen, setSettingsFullscreen] = useState(false);
 
   const stateRef = useRef(state);
   const clockOffsetRef = useRef(clockOffset);
@@ -86,6 +87,7 @@ export function ContestControlBar() {
       }
       setSettingsTitle(data.title);
       setSettingsDuration(String(Math.floor(data.durationSeconds / 60)));
+      setSettingsFullscreen(Boolean(data.requireFullscreen));
     } catch (err: unknown) {
       console.error("Failed to load contest state:", err);
     }
@@ -161,6 +163,8 @@ export function ContestControlBar() {
       await updateContestSettingsAction({
         title: settingsTitle,
         durationMinutes: isNaN(dur) ? undefined : dur,
+        freezeMinutes: state?.freezeMinutes ?? 30,
+        requireFullscreen: settingsFullscreen,
       });
       setSettingsOpen(false);
       await loadState();
@@ -400,6 +404,24 @@ export function ContestControlBar() {
                 onChange={(e) => setSettingsDuration(e.target.value)}
                 min={1}
                 className="text-xs font-mono"
+              />
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
+              <div className="flex flex-col gap-0.5">
+                <label className="text-xs font-semibold text-foreground cursor-pointer" htmlFor="cb-fullscreen-toggle">
+                  Require Browser Fullscreen
+                </label>
+                <span className="text-[11px] text-muted-foreground">
+                  Lock competitor web portal into HTML5 fullscreen mode
+                </span>
+              </div>
+              <input
+                id="cb-fullscreen-toggle"
+                type="checkbox"
+                checked={settingsFullscreen}
+                onChange={(e) => setSettingsFullscreen(e.target.checked)}
+                className="size-4 cursor-pointer accent-primary"
               />
             </div>
           </div>

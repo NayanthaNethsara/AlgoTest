@@ -63,6 +63,9 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
   const [settingsFreeze, setSettingsFreeze] = useState(
     String(initialContestState.freezeMinutes),
   );
+  const [settingsFullscreen, setSettingsFullscreen] = useState(
+    Boolean(initialContestState.requireFullscreen),
+  );
 
   const stateRef = useRef(state);
   const clockOffsetRef = useRef(clockOffset);
@@ -96,6 +99,7 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
         setClockOffset(offset);
         clockOffsetRef.current = offset;
       }
+      setSettingsFullscreen(Boolean(data.requireFullscreen));
     } catch (err: unknown) {
       console.error("Contest timer synchronization error:", err);
     }
@@ -319,6 +323,7 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
         title: settingsTitle,
         durationMinutes: isNaN(dur) ? undefined : dur,
         freezeMinutes: isNaN(freeze) ? undefined : freeze,
+        requireFullscreen: settingsFullscreen,
       });
       setSettingsOpen(false);
       await syncServerState();
@@ -443,6 +448,24 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
                 onChange={(e) => setSettingsFreeze(e.target.value)}
                 min={0}
                 className="text-xs font-mono pixel-inset bg-input border-2 border-black rounded-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
+              <div className="flex flex-col gap-0.5">
+                <label className="font-pixel-header text-[9px] text-foreground cursor-pointer" htmlFor="fullscreen-toggle">
+                  REQUIRE BROWSER FULLSCREEN
+                </label>
+                <span className="text-[10px] text-muted-foreground">
+                  Lock competitor web portal into HTML5 fullscreen mode
+                </span>
+              </div>
+              <input
+                id="fullscreen-toggle"
+                type="checkbox"
+                checked={settingsFullscreen}
+                onChange={(e) => setSettingsFullscreen(e.target.checked)}
+                className="size-4 cursor-pointer accent-primary"
               />
             </div>
           </div>

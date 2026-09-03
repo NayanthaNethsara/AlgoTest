@@ -85,6 +85,8 @@ pub fn run() {
             // window: it cannot report anything until a contestant enrols it.
             if !setup_state.is_enrolled() {
                 windows::open_setup(app.handle());
+            } else {
+                windows::open_contest_shell(&setup_state);
             }
 
             Ok(())

@@ -34,22 +34,24 @@ type ContestState struct {
 	FreezeMinutes    int        `json:"freezeMinutes"`
 	FreezeStartTime  *time.Time `json:"freezeStartTime,omitempty"`
 	PausedAt         *time.Time `json:"pausedAt,omitempty"`
-	RemainingSeconds int        `json:"remainingSeconds"`
-	ElapsedSeconds   int        `json:"elapsedSeconds"`
-	IsFrozen         bool       `json:"isFrozen"`
-	ServerTime       time.Time  `json:"serverTime"`
+	RemainingSeconds  int        `json:"remainingSeconds"`
+	ElapsedSeconds    int        `json:"elapsedSeconds"`
+	IsFrozen          bool       `json:"isFrozen"`
+	RequireFullscreen bool       `json:"requireFullscreen"`
+	ServerTime        time.Time  `json:"serverTime"`
 }
 
 type stateSnapshot struct {
-	title           string
-	status          string
-	startTime       *time.Time
-	endTime         *time.Time
-	durationSeconds int
-	freezeMinutes   int
-	isFrozen        bool
-	freezeStartTime *time.Time
-	pausedAt        *time.Time
+	title             string
+	status            string
+	startTime         *time.Time
+	endTime           *time.Time
+	durationSeconds   int
+	freezeMinutes     int
+	isFrozen          bool
+	freezeStartTime   *time.Time
+	pausedAt          *time.Time
+	requireFullscreen bool
 }
 
 func parseSnapshot(values map[string]string) *stateSnapshot {
@@ -113,15 +115,22 @@ func parseSnapshot(values map[string]string) *stateSnapshot {
 		}
 	}
 
+	requireFullscreen := false
+	if val, ok := values["proctor.require_fullscreen"]; ok {
+		trimmed := strings.ToLower(strings.TrimSpace(val))
+		requireFullscreen = trimmed == "true" || trimmed == "1"
+	}
+
 	return &stateSnapshot{
-		title:           title,
-		status:          status,
-		startTime:       startTime,
-		endTime:         endTime,
-		durationSeconds: durSec,
-		freezeMinutes:   freezeMin,
-		isFrozen:        isFrozen,
-		freezeStartTime: freezeStartTime,
-		pausedAt:        pausedAt,
+		title:             title,
+		status:            status,
+		startTime:         startTime,
+		endTime:           endTime,
+		durationSeconds:   durSec,
+		freezeMinutes:     freezeMin,
+		isFrozen:          isFrozen,
+		freezeStartTime:   freezeStartTime,
+		pausedAt:          pausedAt,
+		requireFullscreen: requireFullscreen,
 	}
 }

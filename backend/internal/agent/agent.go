@@ -79,11 +79,13 @@ func DefaultPolicy() Policy {
 			"pearai", "void-editor", "claude", "aider", "copilot", "sgpt",
 			"interpreter", "open-interpreter", "cody", "goose", "llm", "gemini-cli",
 			"amp", "qodo", "antigravity", "antigravity-ide",
+			"cline", "roo-cline", "roocode", "open-webui", "chatbox", "cherry-studio",
 		},
 		ForegroundDenylist: []string{
 			"ai.ollama", "com.ollama", "lmstudio", "ai.jan", "com.gpt4all", "koboldcpp",
 			"com.todesktop.230313mzl4w4u92", "com.exafunction.windsurf", "cursor",
 			"windsurf", "trae", "pearai", "com.google.antigravity-ide", "antigravity",
+			"chatbox", "cherry-studio",
 		},
 		ForegroundAllowlist: []string{
 			"com.google.chrome", "chrome", "google-chrome", "org.mozilla.firefox", "firefox",

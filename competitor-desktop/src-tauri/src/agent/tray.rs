@@ -20,7 +20,7 @@ const RESET_ITEM: &str = "reset";
 
 pub fn install(app: &AppHandle, state: Arc<AgentState>) -> tauri::Result<()> {
     let status = MenuItem::with_id(app, STATUS_ITEM, state.status_label(), false, None::<&str>)?;
-    let open = MenuItem::with_id(app, OPEN_ITEM, "Open contest window", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, OPEN_ITEM, "Open contest in browser", true, None::<&str>)?;
     let diagnostics = MenuItem::with_id(app, DIAGNOSTICS_ITEM, "Diagnostics…", true, None::<&str>)?;
     let support = MenuItem::with_id(
         app,
@@ -31,10 +31,11 @@ pub fn install(app: &AppHandle, state: Arc<AgentState>) -> tauri::Result<()> {
     )?;
     let sign_out = MenuItem::with_id(app, SIGN_OUT_ITEM, "Sign out…", true, None::<&str>)?;
     let stop = MenuItem::with_id(app, STOP_ITEM, "Stop proctoring and quit…", true, None::<&str>)?;
+    let reset = MenuItem::with_id(app, RESET_ITEM, "Reset all client data and quit…", true, None::<&str>)?;
     let first_separator = PredefinedMenuItem::separator(app)?;
     let second_separator = PredefinedMenuItem::separator(app)?;
 
-    let mut items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![
+    let items: Vec<&dyn IsMenuItem<tauri::Wry>> = vec![
         &status,
         &first_separator,
         &open,
@@ -43,26 +44,8 @@ pub fn install(app: &AppHandle, state: Arc<AgentState>) -> tauri::Result<()> {
         &second_separator,
         &sign_out,
         &stop,
+        &reset,
     ];
-
-    // A developer needs a way to get back to a clean machine that does not involve
-    // remembering which three JSON files and which login item to delete by hand.
-    // It is not offered on a contestant's build: there, the honest exit is a stop
-    // the server hears about.
-    let reset = if cfg!(debug_assertions) {
-        Some(MenuItem::with_id(
-            app,
-            RESET_ITEM,
-            "Reset all client data and quit (dev)",
-            true,
-            None::<&str>,
-        )?)
-    } else {
-        None
-    };
-    if let Some(reset) = &reset {
-        items.push(reset);
-    }
 
     let menu = Menu::with_items(app, &items)?;
 

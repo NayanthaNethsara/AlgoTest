@@ -19,6 +19,7 @@ export type ContestState = {
   remainingSeconds: number;
   elapsedSeconds: number;
   isFrozen: boolean;
+  requireFullscreen?: boolean;
   serverTime: string;
 };
 
@@ -26,4 +27,5 @@ export type ContestSettingsInput = {
   title?: string;
   durationMinutes?: number;
   freezeMinutes?: number;
+  requireFullscreen?: boolean;
 };

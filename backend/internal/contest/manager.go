@@ -130,10 +130,11 @@ func (m *Manager) GetState() ContestState {
 		FreezeMinutes:    snap.freezeMinutes,
 		FreezeStartTime:  freezeStartTime,
 		PausedAt:         snap.pausedAt,
-		RemainingSeconds: remainingSec,
-		ElapsedSeconds:   elapsedSec,
-		IsFrozen:         isFrozen,
-		ServerTime:       now,
+		RemainingSeconds:  remainingSec,
+		ElapsedSeconds:    elapsedSec,
+		IsFrozen:          isFrozen,
+		RequireFullscreen: snap.requireFullscreen,
+		ServerTime:        now,
 	}
 }
 
@@ -322,7 +323,7 @@ func (m *Manager) End(ctx context.Context) error {
 	return m.Reload(ctx)
 }
 
-func (m *Manager) UpdateSettings(ctx context.Context, title string, durationMinutes int, freezeMinutes int) error {
+func (m *Manager) UpdateSettings(ctx context.Context, title string, durationMinutes int, freezeMinutes int, requireFullscreen *bool) error {
 	updates := make(map[string]string)
 
 	if trimmed := strings.TrimSpace(title); trimmed != "" {
@@ -340,6 +341,9 @@ func (m *Manager) UpdateSettings(ctx context.Context, title string, durationMinu
 	}
 	if freezeMinutes >= 0 {
 		updates["contest.freeze_minutes"] = strconv.Itoa(freezeMinutes)
+	}
+	if requireFullscreen != nil {
+		updates["proctor.require_fullscreen"] = strconv.FormatBool(*requireFullscreen)
 	}
 
 	if len(updates) == 0 {

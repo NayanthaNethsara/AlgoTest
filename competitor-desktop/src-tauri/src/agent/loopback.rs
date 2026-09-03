@@ -186,7 +186,8 @@ fn with_cors<R: std::io::Read>(response: Response<R>, origin: Option<String>) ->
         }
         for (name, value) in [
             ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
-            ("Access-Control-Allow-Headers", "Content-Type"),
+            ("Access-Control-Allow-Headers", "Content-Type, Access-Control-Request-Private-Network"),
+            ("Access-Control-Allow-Private-Network", "true"),
             ("Access-Control-Max-Age", "600"),
             ("Cache-Control", "no-store"),
         ] {
