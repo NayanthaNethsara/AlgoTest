@@ -63,6 +63,7 @@ func main() {
 
 	users := user.NewRepository(pool)
 	sessions := session.NewRepository(pool)
+	go sessions.StartSweeper(ctx, 1*time.Hour)
 	problems := problem.NewRepository(pool)
 	teams := team.NewRepository(pool)
 	telemetryRepo := telemetry.NewRepository(pool)

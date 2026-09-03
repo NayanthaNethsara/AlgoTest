@@ -136,7 +136,6 @@ func (h *handler) registerCompetitorRoutes(v1 *gin.RouterGroup, gated gin.Handle
 	v1.POST("/auth/logout", h.logout)
 	v1.GET("/me", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.me)
 	v1.POST("/me/password", h.requireUser, maxBodySizeMiddleware(4_096), h.changePassword)
-	v1.GET("/teams", h.requireUser, h.requireAdmin, h.listTeams)
 
 	v1.GET("/problems", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.listPublishedProblems)
 	v1.GET("/problems/:slug", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, contestActive, h.getPublishedProblemBySlug)

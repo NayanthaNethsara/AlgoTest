@@ -24,9 +24,9 @@ pub fn scan_installed_ai_extensions() -> Vec<String> {
         }
 
         if editor_label.starts_with("jetbrains") {
-            scan_jetbrains_dir(&editor_label, &root_dir, &mut detected_extensions);
+            scan_jetbrains_dir(editor_label, &root_dir, &mut detected_extensions);
         } else {
-            scan_vscode_style_dir(&editor_label, &root_dir, &mut detected_extensions);
+            scan_vscode_style_dir(editor_label, &root_dir, &mut detected_extensions);
         }
     }
 
@@ -100,7 +100,7 @@ pub fn is_extension_match(folder_name: &str, signature: &str) -> bool {
             if let Some(first_char) = after_dash.chars().next() {
                 return first_char.is_ascii_digit()
                     || (first_char == 'v'
-                        && after_dash.chars().nth(1).map_or(false, |c| c.is_ascii_digit()));
+                        && after_dash.chars().nth(1).is_some_and(|c| c.is_ascii_digit()));
             }
         }
     }

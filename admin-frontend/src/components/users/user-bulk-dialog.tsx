@@ -228,7 +228,7 @@ export function UserBulkDialog({
             <div className="text-xs font-semibold flex items-center gap-2">
               <span>Parsed Rows Preview ({parsedRows.length})</span>
               <Badge variant="outline" className="text-[10px] gap-1">
-                <CheckCircle2 className="h-3 w-3 text-green-500" /> {validRowsCount} Valid
+                <CheckCircle2 className="h-3 w-3 text-success" /> {validRowsCount} Valid
               </Badge>
               {invalidRowsCount > 0 && (
                 <Badge variant="destructive" className="text-[10px] gap-1">
@@ -254,7 +254,7 @@ export function UserBulkDialog({
                   <TableRow key={idx} className={row.isValid ? "" : "bg-destructive/5"}>
                     <TableCell className="py-1 text-xs">
                       {row.isValid ? (
-                        <span className="text-green-600 font-semibold text-[11px]">OK</span>
+                        <span className="text-success font-semibold text-[11px]">OK</span>
                       ) : (
                         <span className="text-destructive text-[11px] font-medium">
                           {row.validationError}

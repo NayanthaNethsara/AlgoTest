@@ -78,3 +78,17 @@ func (r *Repository) DeleteExpired(ctx context.Context) error {
 	_, err := r.pool.Exec(ctx, query)
 	return err
 }
+
+func (r *Repository) StartSweeper(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = r.DeleteExpired(ctx)
+		}
+	}
+}

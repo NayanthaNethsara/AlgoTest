@@ -3,15 +3,11 @@
 import { useState } from "react";
 import {
   AppWindow,
-  Binary,
   Bot,
   ChevronDown,
   ChevronRight,
   ClipboardPaste,
-  Code2,
   Globe,
-  Layers,
-  Network,
   Package,
   Radio,
   ShieldAlert,
@@ -20,36 +16,57 @@ import {
 import { formatAppName } from "@/lib/monitoring";
 import type { EvidenceFinding } from "@/types/proctor";
 
+type EvidencePayload = {
+  pasted_chars?: number;
+  pasted_ratio?: number;
+  typed_count?: number;
+  code_length?: number;
+  max_paste_size?: number;
+  matches?: string[];
+  total?: number;
+  app?: string;
+  dwell_ms?: number;
+  product?: string;
+  port?: number;
+  probes?: string[];
+  detail?: string;
+  strikes?: number;
+  max_strikes?: number;
+  screen_width?: number;
+  screen_height?: number;
+  [key: string]: unknown;
+};
+
 type EvidenceCardProps = {
   finding: EvidenceFinding;
 };
 
 export function EvidenceCard({ finding }: EvidenceCardProps) {
   const [showRaw, setShowRaw] = useState(false);
-  const evidence = (finding.evidence as Record<string, any>) || {};
+  const evidence = (finding.evidence as EvidencePayload) || {};
 
   const getCategoryConfig = (category: string | undefined, ruleId: string) => {
     if (ruleId === "ai.code.paste_burst") {
       return {
         icon: ClipboardPaste,
-        badgeBg: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-        border: "border-amber-500/30",
+        badgeBg: "bg-warning/15 text-warning border-warning/30",
+        border: "border-warning/30",
         label: "PASTE DYNAMICS",
       };
     }
     if (ruleId.startsWith("ai.ext.")) {
       return {
         icon: Package,
-        badgeBg: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-        border: "border-emerald-500/30",
+        badgeBg: "bg-success/15 text-success border-success/30",
+        border: "border-success/30",
         label: "EXTENSION",
       };
     }
     if (ruleId.startsWith("ai.proc.")) {
       return {
         icon: Bot,
-        badgeBg: "bg-red-500/15 text-red-400 border-red-500/30",
-        border: "border-red-500/30",
+        badgeBg: "bg-destructive/15 text-destructive border-destructive/30",
+        border: "border-destructive/30",
         label: "AI PROCESS",
       };
     }
@@ -196,12 +213,12 @@ export function EvidenceCard({ finding }: EvidenceCardProps) {
                 return (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1.5 bg-red-500/15 border border-red-500/30 text-red-300 text-[11px] font-semibold px-2 py-0.5 rounded"
+                    className="inline-flex items-center gap-1.5 bg-destructive/15 border border-destructive/30 text-destructive-foreground text-[11px] font-semibold px-2 py-0.5 rounded"
                   >
                     <Terminal className="size-3" />
                     <span>{friendly}</span>
                     {friendly.toLowerCase() !== m.toLowerCase() && (
-                      <span className="text-[10px] text-red-400/70 font-mono">({m})</span>
+                      <span className="text-[10px] text-destructive/80 font-mono">({m})</span>
                     )}
                   </span>
                 );

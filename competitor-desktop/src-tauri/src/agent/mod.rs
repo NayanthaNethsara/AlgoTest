@@ -78,7 +78,7 @@ pub fn run() {
 
             #[cfg(target_os = "macos")]
             if setup_state.is_enrolled() {
-                let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
 
             // An unconfigured or unenrolled agent is the one case that needs a

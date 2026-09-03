@@ -112,10 +112,10 @@ export function AdminProblems({
                       variant="outline"
                       className={`text-[11px] ${
                         p.difficulty === "Easy"
-                          ? "border-green-500/30 text-green-600 bg-green-500/10"
+                          ? "border-success/30 text-success bg-success/10"
                           : p.difficulty === "Medium"
-                            ? "border-yellow-500/30 text-yellow-600 bg-yellow-500/10"
-                            : "border-red-500/30 text-red-600 bg-red-500/10"
+                            ? "border-warning/30 text-warning bg-warning/10"
+                            : "border-destructive/30 text-destructive bg-destructive/10"
                       }`}
                     >
                       {p.difficulty}

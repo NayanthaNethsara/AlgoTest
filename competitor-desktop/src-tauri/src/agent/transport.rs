@@ -52,6 +52,7 @@ impl Transport {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn enroll(
         &self,
         api_url: &str,
@@ -215,13 +216,13 @@ fn sign_payload(token: &str, body: &[u8]) -> String {
     }
 
     let mut inner = Sha256::new();
-    inner.update(&ipad);
+    inner.update(ipad);
     inner.update(body);
     let inner_hash = inner.finalize();
 
     let mut outer = Sha256::new();
-    outer.update(&opad);
-    outer.update(&inner_hash);
+    outer.update(opad);
+    outer.update(inner_hash);
     hex::encode(outer.finalize())
 }
 

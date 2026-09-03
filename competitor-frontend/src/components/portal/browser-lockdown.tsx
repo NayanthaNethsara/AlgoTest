@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   AlertTriangle,
   Maximize2,
@@ -13,61 +13,103 @@ import { useContest } from "@/components/portal/contest-provider";
 import type { SessionUser } from "@/lib/auth/constants";
 import { isDesktopClient } from "@/lib/desktop";
 
+type VendorDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  mozFullScreenElement?: Element | null;
+  msFullscreenElement?: Element | null;
+};
+
+type VendorHtmlElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void>;
+  mozRequestFullScreen?: () => Promise<void>;
+  msRequestFullscreen?: () => Promise<void>;
+};
+
+type VendorNavigator = Navigator & {
+  keyboard?: {
+    lock?: (keyCodes?: string[]) => Promise<void>;
+  };
+};
+
+function checkIsFullscreen(): boolean {
+  if (typeof document === "undefined") return false;
+  const vendorDoc = document as VendorDocument;
+  const fullscreenElement =
+    vendorDoc.fullscreenElement ||
+    vendorDoc.webkitFullscreenElement ||
+    vendorDoc.mozFullScreenElement ||
+    vendorDoc.msFullscreenElement;
+
+  if (fullscreenElement) return true;
+
+  if (typeof window !== "undefined" && typeof screen !== "undefined") {
+    return (
+      window.innerHeight >= screen.height - 4 &&
+      window.innerWidth >= screen.width - 4
+    );
+  }
+
+  return false;
+}
+
+function subscribeFullscreen(callback: () => void): () => void {
+  document.addEventListener("fullscreenchange", callback);
+  document.addEventListener("webkitfullscreenchange", callback);
+  document.addEventListener("mozfullscreenchange", callback);
+  document.addEventListener("MSFullscreenChange", callback);
+  window.addEventListener("resize", callback);
+
+  return () => {
+    document.removeEventListener("fullscreenchange", callback);
+    document.removeEventListener("webkitfullscreenchange", callback);
+    document.removeEventListener("mozfullscreenchange", callback);
+    document.removeEventListener("MSFullscreenChange", callback);
+    window.removeEventListener("resize", callback);
+  };
+}
+
 export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
   const { state: contestState } = useContest();
   const requireFullscreen = Boolean(contestState?.requireFullscreen);
-  const [isClientReady, setIsClientReady] = useState(false);
-  const [isDesktopEnv, setIsDesktopEnv] = useState(false);
-  const [isFullscreenActive, setIsFullscreenActive] = useState(false);
-  const [hasExitedFullscreen, setHasExitedFullscreen] = useState(false);
-  const [isWindowFocused, setIsWindowFocused] = useState(true);
 
+  const isClientReady = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
+  const isDesktopEnv = useSyncExternalStore(
+    () => () => {},
+    isDesktopClient,
+    () => false,
+  );
+
+  const isFullscreenActive = useSyncExternalStore(
+    subscribeFullscreen,
+    checkIsFullscreen,
+    () => false,
+  );
+
+  const [hasExitedFullscreen, setHasExitedFullscreen] = useState(false);
   const lastInfractionReportTimeRef = useRef<number>(0);
 
-  // Check if document is currently fullscreen
-  const checkIsFullscreen = useCallback((): boolean => {
-    if (typeof document === "undefined") return false;
-    const fullscreenElement =
-      document.fullscreenElement ||
-      (document as any).webkitFullscreenElement ||
-      (document as any).mozFullScreenElement ||
-      (document as any).msFullscreenElement;
-
-    if (fullscreenElement) return true;
-
-    // Detection fallback for boundary height
-    if (typeof window !== "undefined" && typeof screen !== "undefined") {
-      const isFullDimensions =
-        window.innerHeight >= screen.height - 4 &&
-        window.innerWidth >= screen.width - 4;
-      return isFullDimensions;
-    }
-
-    return false;
-  }, []);
-
-  // Request fullscreen and engage keyboard lock
   const enterFullscreenMode = useCallback(async () => {
     try {
-      const doc = document.documentElement;
+      const doc = document.documentElement as VendorHtmlElement;
       if (doc.requestFullscreen) {
-        await doc.requestFullscreen({ navigationUI: "hide" } as any);
-      } else if ((doc as any).webkitRequestFullscreen) {
-        await (doc as any).webkitRequestFullscreen();
-      } else if ((doc as any).mozRequestFullScreen) {
-        await (doc as any).mozRequestFullScreen();
-      } else if ((doc as any).msRequestFullscreen) {
-        await (doc as any).msRequestFullscreen();
+        await doc.requestFullscreen();
+      } else if (doc.webkitRequestFullscreen) {
+        await doc.webkitRequestFullscreen();
+      } else if (doc.mozRequestFullScreen) {
+        await doc.mozRequestFullScreen();
+      } else if (doc.msRequestFullscreen) {
+        await doc.msRequestFullscreen();
       }
 
-      // Engage Chromium Keyboard Lock API if supported
-      if (
-        typeof navigator !== "undefined" &&
-        "keyboard" in navigator &&
-        (navigator as any).keyboard?.lock
-      ) {
+      const vendorNav = typeof navigator !== "undefined" ? (navigator as VendorNavigator) : null;
+      if (vendorNav?.keyboard?.lock) {
         try {
-          await (navigator as any).keyboard.lock([
+          await vendorNav.keyboard.lock([
             "Escape",
             "Tab",
             "AltLeft",
@@ -89,19 +131,13 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
             "F11",
             "F12",
           ]);
-        } catch {
-          // Fallback if browser requires extra gesture
-        }
+        } catch {}
       }
 
-      setIsFullscreenActive(true);
       setHasExitedFullscreen(false);
-    } catch {
-      // Browser gesture requirement
-    }
+    } catch {}
   }, []);
 
-  // Send rate-limited telemetry to backend
   const reportViolationTelemetry = useCallback(
     (violationType: string, detail: string) => {
       const now = Date.now();
@@ -120,111 +156,62 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
     [user?.id],
   );
 
-  // Initialize client check
-  useEffect(() => {
-    setIsClientReady(true);
-    const isDesktop = isDesktopClient();
-    setIsDesktopEnv(isDesktop);
-
-    if (isDesktop) return;
-
-    const initialFullscreen = checkIsFullscreen();
-    setIsFullscreenActive(initialFullscreen);
-  }, [checkIsFullscreen]);
-
-  // Fullscreen state listeners
   useEffect(() => {
     if (isDesktopEnv || !isClientReady || !requireFullscreen) return;
 
     const handleFullscreenChange = () => {
-      const isNowFullscreen = checkIsFullscreen();
-      setIsFullscreenActive(isNowFullscreen);
-
-      if (!isNowFullscreen) {
+      if (!checkIsFullscreen()) {
         setHasExitedFullscreen(true);
         reportViolationTelemetry(
           "web.fullscreen_exit",
-          "Fullscreen mode was exited",
+          "Contestant exited required fullscreen lockdown",
         );
       }
     };
 
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener(
-      "webkitfullscreenchange",
-      handleFullscreenChange,
-    );
-    document.addEventListener(
-      "mozfullscreenchange",
-      handleFullscreenChange,
-    );
-    document.addEventListener(
-      "MSFullscreenChange",
-      handleFullscreenChange,
-    );
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
     window.addEventListener("resize", handleFullscreenChange);
 
     return () => {
-      document.removeEventListener(
-        "fullscreenchange",
-        handleFullscreenChange,
-      );
-      document.removeEventListener(
-        "webkitfullscreenchange",
-        handleFullscreenChange,
-      );
-      document.removeEventListener(
-        "mozfullscreenchange",
-        handleFullscreenChange,
-      );
-      document.removeEventListener(
-        "MSFullscreenChange",
-        handleFullscreenChange,
-      );
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
       window.removeEventListener("resize", handleFullscreenChange);
     };
-  }, [isDesktopEnv, isClientReady, checkIsFullscreen, reportViolationTelemetry]);
+  }, [isDesktopEnv, isClientReady, requireFullscreen, reportViolationTelemetry]);
 
-  // Tab switch & window blur listeners
   useEffect(() => {
     if (isDesktopEnv || !isClientReady || !requireFullscreen) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        setIsWindowFocused(false);
         reportViolationTelemetry(
           "web.tab_switch",
           "Browser tab switched to background or browser minimized",
         );
-      } else {
-        setIsWindowFocused(true);
       }
     };
 
     const handleWindowBlur = () => {
-      setIsWindowFocused(false);
       reportViolationTelemetry(
         "web.window_blur",
         "Window focus lost: external application or IDE focused",
       );
     };
 
-    const handleWindowFocus = () => {
-      setIsWindowFocused(true);
-    };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
-    window.addEventListener("focus", handleWindowFocus);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
-      window.removeEventListener("focus", handleWindowFocus);
     };
-  }, [isDesktopEnv, isClientReady, reportViolationTelemetry]);
+  }, [isDesktopEnv, isClientReady, requireFullscreen, reportViolationTelemetry]);
 
-  // DevTools and shortcut interceptors
   useEffect(() => {
     if (isDesktopEnv || !isClientReady || !requireFullscreen) return;
 
@@ -269,19 +256,16 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
       window.removeEventListener("contextmenu", handleContextMenu);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [isDesktopEnv, isClientReady, reportViolationTelemetry]);
+  }, [isDesktopEnv, isClientReady, requireFullscreen, reportViolationTelemetry]);
 
-  // If in desktop app, or fullscreen is not required by admin, browser lockdown is not active
   if (!isClientReady || isDesktopEnv || !requireFullscreen) {
     return null;
   }
 
-  // If already in fullscreen, render nothing so workspace is completely unobstructed
   if (isFullscreenActive) {
     return null;
   }
 
-  // Strictly enforce Fullscreen overlay whenever not in fullscreen
   return (
     <div
       role="dialog"

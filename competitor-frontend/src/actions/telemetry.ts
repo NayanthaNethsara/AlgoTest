@@ -20,7 +20,7 @@ export async function getProctorSelfAction(
 export async function recordBrowserViolationAction(
   eventType: string,
   detail?: string,
-  signals?: Record<string, any>,
+  signals?: Record<string, unknown>,
 ): Promise<boolean> {
   try {
     const res = await backendFetch("/api/v1/telemetry/browser-event", {

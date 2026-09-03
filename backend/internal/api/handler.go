@@ -72,21 +72,3 @@ func (h *handler) health(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"status": "ok", "database": "up", "ci/cd": "ok"})
 }
-
-// @Summary List Teams
-// @Description Fetch all teams and their assigned member accounts.
-// @Tags Teams
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} map[string][]team.Team
-// @Failure 401 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/v1/teams [get]
-func (h *handler) listTeams(c *gin.Context) {
-	teams, err := h.teams.List(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list teams"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"teams": teams})
-}

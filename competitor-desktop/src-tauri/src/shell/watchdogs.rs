@@ -97,8 +97,8 @@ pub fn sync_secondary_screen_curtains(app: &tauri::AppHandle, is_multimonitor: b
 
         if let Some(existing) = app.get_webview_window(&label) {
             let _ = existing.set_always_on_top(true);
-            let _ = existing.set_position(tauri::Position::Physical(pos.clone()));
-            let _ = existing.set_size(tauri::Size::Physical(size.clone()));
+            let _ = existing.set_position(tauri::Position::Physical(*pos));
+            let _ = existing.set_size(tauri::Size::Physical(*size));
             continue;
         }
 
@@ -116,8 +116,8 @@ pub fn sync_secondary_screen_curtains(app: &tauri::AppHandle, is_multimonitor: b
         .visible_on_all_workspaces(true);
 
         if let Ok(curtain_win) = builder.build() {
-            let _ = curtain_win.set_position(tauri::Position::Physical(pos.clone()));
-            let _ = curtain_win.set_size(tauri::Size::Physical(size.clone()));
+            let _ = curtain_win.set_position(tauri::Position::Physical(*pos));
+            let _ = curtain_win.set_size(tauri::Size::Physical(*size));
             let _ = curtain_win.set_always_on_top(true);
             #[cfg(target_os = "windows")]
             crate::shell::lockdown::enable_platform_lockdown(&curtain_win);

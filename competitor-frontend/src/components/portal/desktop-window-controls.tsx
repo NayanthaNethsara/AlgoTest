@@ -1,29 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AlertTriangle, LogOut, Power, ShieldAlert, X } from "lucide-react";
+import { useSyncExternalStore, useState } from "react";
+import { LogOut, Power, ShieldAlert, X } from "lucide-react";
 import { leaveContestAction } from "@/actions/telemetry";
 import { Button } from "@/components/ui/button";
 import { isDesktopClient } from "@/lib/desktop";
+
+type TauriWindow = Window & {
+  __TAURI__?: {
+    core?: {
+      invoke?: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+    };
+  };
+};
 
 export function DesktopWindowControls({
   className,
 }: {
   className?: string;
 } = {}) {
-  const [isDesktop, setIsDesktop] = useState(false);
+  const isDesktop = useSyncExternalStore(
+    () => () => {},
+    isDesktopClient,
+    () => false,
+  );
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
-  useEffect(() => {
-    setIsDesktop(isDesktopClient());
-  }, []);
-
   const handleRequestExit = async () => {
-    // 1. Ask native Tauri shell to show native modal confirmation dialog
     try {
-      if (typeof window !== "undefined" && (window as any).__TAURI__?.core?.invoke) {
-        await (window as any).__TAURI__.core.invoke("close_window");
+      const tauriWindow = typeof window !== "undefined" ? (window as TauriWindow) : null;
+      if (tauriWindow?.__TAURI__?.core?.invoke) {
+        await tauriWindow.__TAURI__.core.invoke("close_window");
         return;
       }
     } catch {}
@@ -34,7 +42,6 @@ export function DesktopWindowControls({
         mode: "no-cors",
       });
     } catch {
-      // Loopback unreachable - only show web modal as last resort
       setShowExitConfirm(true);
     }
   };

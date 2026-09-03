@@ -30,9 +30,9 @@ export function CredentialsAlert({
   }
 
   return (
-    <div className="rounded-lg border bg-green-500/10 p-4 border-green-500/30">
+    <div className="rounded-lg border bg-success/10 p-4 border-success/30">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-success uppercase tracking-wider">
           Generated Credentials ({credentials.length})
         </span>
         <div className="flex items-center gap-2">
@@ -42,7 +42,7 @@ export function CredentialsAlert({
             onClick={handleCopyAll}
             className="h-6 text-[11px] gap-1"
           >
-            {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+            {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
             {copied ? "Copied!" : "Copy All"}
           </Button>
           <Button variant="ghost" size="sm" onClick={onClear} className="h-6 text-[11px]">
@@ -54,7 +54,7 @@ export function CredentialsAlert({
         {credentials.map((c, i) => (
           <div
             key={i}
-            className="flex items-center justify-between border-b border-green-500/20 py-1 gap-2"
+            className="flex items-center justify-between border-b border-success/20 py-1 gap-2"
           >
             <span className="font-medium">{c.username}</span>
             {c.teamName && (

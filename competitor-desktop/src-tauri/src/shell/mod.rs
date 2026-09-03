@@ -26,6 +26,7 @@ pub struct ShellState {
 pub fn run() {
     let config = crate::config::load_client();
     let configured_server_url = config.server_url.clone();
+    let configured_portal_origins = config.portal_origins.clone();
 
     if config.server_url.parse::<tauri::Url>().is_err() {
         log::error!("configured portal address is not a valid URL: {}", config.server_url);
@@ -83,7 +84,11 @@ pub fn run() {
 
             watchdogs::spawn_focus_watchdog(contest_window.clone());
             watchdogs::spawn_monitor_watchdog(app.handle().clone(), configured_server_url.clone());
-            loopback::spawn_control_listener(listener, app.handle().clone());
+            let allowed_origins = crate::config::allowed_portal_origins(
+                &configured_server_url,
+                &configured_portal_origins,
+            );
+            loopback::spawn_control_listener(listener, app.handle().clone(), allowed_origins);
             watchdogs::spawn_agent_watchdog();
             watchdogs::spawn_portal_watchdog(app.handle().clone(), configured_server_url.clone());
 

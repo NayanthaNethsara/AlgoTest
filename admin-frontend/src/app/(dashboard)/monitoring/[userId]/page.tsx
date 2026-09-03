@@ -11,13 +11,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Globe,
   RefreshCw,
-  RotateCw,
   ShieldAlert,
   Terminal,
   UserCheck,
-  Wifi,
   WifiOff,
 } from "lucide-react";
 import { getAdminProctorTimelineAction, readmitContestantAction } from "@/lib/actions/monitoring";
@@ -29,7 +26,7 @@ type FindingDetail = {
   ruleId: string;
   title: string;
   weight: number;
-  evidence?: any;
+  evidence?: unknown;
 };
 
 type ConsolidatedSnapshot = {
@@ -55,7 +52,7 @@ type ConsolidatedSnapshot = {
     language?: string;
     maxScore?: number;
   };
-  rawSignals?: Record<string, any>;
+  rawSignals?: Record<string, unknown>;
 };
 
 function groupTimelineEntries(entries: TimelineEntry[]): ConsolidatedSnapshot[] {
@@ -99,8 +96,8 @@ function groupTimelineEntries(entries: TimelineEntry[]): ConsolidatedSnapshot[] 
         problemTitle: entry.label,
         verdict: entry.detail || "Evaluating",
         score: entry.weight ?? 0,
-        language: (entry.payload as any)?.language,
-        maxScore: (entry.payload as any)?.max_score,
+        language: (entry.payload as Record<string, unknown> | undefined)?.language as string | undefined,
+        maxScore: (entry.payload as Record<string, unknown> | undefined)?.max_score as number | undefined,
       };
     } else if (entry.kind === "finding") {
       const ruleId = entry.label;
@@ -509,12 +506,12 @@ function SnapshotBox({ snapshot }: { snapshot: ConsolidatedSnapshot }) {
 
             {snapshot.processMatches.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                <Bot className="size-3.5 text-red-400 shrink-0" />
+                <Bot className="size-3.5 text-destructive shrink-0" />
                 <span className="text-[10px] uppercase font-semibold text-destructive">Proc:</span>
                 {snapshot.processMatches.map((proc, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex items-center gap-1 bg-red-500/15 border border-red-500/30 text-red-300 font-semibold px-2 py-0.5 rounded text-[10px]"
+                    className="inline-flex items-center gap-1 bg-destructive/15 border border-destructive/30 text-destructive-foreground font-semibold px-2 py-0.5 rounded text-[10px]"
                   >
                     <Terminal className="size-2.5" />
                     <span>{formatAppName(proc)}</span>

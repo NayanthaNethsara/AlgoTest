@@ -8,11 +8,9 @@ fn main() {
     }
 
     // Single-instance check for the contest shell: if already running, focus existing window and exit.
-    if !std::env::args().any(|arg| arg == "--agent") {
-        if shell_already_running() {
-            request_focus(&app_lib::loopback_url(app_lib::SHELL_PORT, "/focus-main"));
-            return;
-        }
+    if !std::env::args().any(|arg| arg == "--agent") && shell_already_running() {
+        request_focus(&app_lib::loopback_url(app_lib::SHELL_PORT, "/focus-main"));
+        return;
     }
 
     // One binary, two roles. The proctor agent must outlive any UI, so it runs as

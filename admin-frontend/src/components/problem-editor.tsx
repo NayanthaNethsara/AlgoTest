@@ -322,7 +322,7 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
         )}
 
         {draftRestored && (
-          <div className="rounded-md border border-green-500/40 bg-green-500/10 px-4 py-2 text-xs font-medium text-green-600 flex items-center gap-2">
+          <div className="rounded-md border border-success/40 bg-success/10 px-4 py-2 text-xs font-medium text-success flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             <span>Draft restored successfully.</span>
           </div>
