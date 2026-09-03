@@ -66,6 +66,15 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
   const [settingsFullscreen, setSettingsFullscreen] = useState(
     Boolean(initialContestState.requireFullscreen),
   );
+  const [settingsMinVersion, setSettingsMinVersion] = useState(
+    initialContestState.minClientVersion || "0.2.0",
+  );
+  const [settingsEnforceHash, setSettingsEnforceHash] = useState(
+    Boolean(initialContestState.enforceBinaryHash),
+  );
+  const [settingsAuthorizedHashes, setSettingsAuthorizedHashes] = useState(
+    initialContestState.authorizedBinaryHashes || "",
+  );
 
   const stateRef = useRef(state);
   const clockOffsetRef = useRef(clockOffset);
@@ -100,6 +109,9 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
         clockOffsetRef.current = offset;
       }
       setSettingsFullscreen(Boolean(data.requireFullscreen));
+      setSettingsMinVersion(data.minClientVersion || "0.2.0");
+      setSettingsEnforceHash(Boolean(data.enforceBinaryHash));
+      setSettingsAuthorizedHashes(data.authorizedBinaryHashes || "");
     } catch (err: unknown) {
       console.error("Contest timer synchronization error:", err);
     }
@@ -324,6 +336,9 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
         durationMinutes: isNaN(dur) ? undefined : dur,
         freezeMinutes: isNaN(freeze) ? undefined : freeze,
         requireFullscreen: settingsFullscreen,
+        minClientVersion: settingsMinVersion,
+        enforceBinaryHash: settingsEnforceHash,
+        authorizedBinaryHashes: settingsAuthorizedHashes,
       });
       setSettingsOpen(false);
       await syncServerState();
@@ -468,6 +483,57 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
                 className="size-4 cursor-pointer accent-primary"
               />
             </div>
+
+            <div className="flex flex-col gap-1.5 border-t border-border pt-3 mt-1">
+              <label className="font-pixel-header text-[9px] text-foreground">
+                MINIMUM CLIENT VERSION
+              </label>
+              <Input
+                value={settingsMinVersion}
+                onChange={(e) => setSettingsMinVersion(e.target.value)}
+                placeholder="e.g. 0.2.0"
+                className="text-xs font-mono pixel-inset bg-input border-2 border-black rounded-none"
+              />
+              <span className="text-[10px] text-muted-foreground">
+                Clients with an older version will be blocked from enrolling.
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
+              <div className="flex flex-col gap-0.5">
+                <label className="font-pixel-header text-[9px] text-foreground cursor-pointer" htmlFor="enforce-hash-toggle">
+                  ENFORCE BINARY RELEASE HASH
+                </label>
+                <span className="text-[10px] text-muted-foreground">
+                  Verify client executable SHA-256 against authorized release checksums
+                </span>
+              </div>
+              <input
+                id="enforce-hash-toggle"
+                type="checkbox"
+                checked={settingsEnforceHash}
+                onChange={(e) => setSettingsEnforceHash(e.target.checked)}
+                className="size-4 cursor-pointer accent-primary"
+              />
+            </div>
+
+            {settingsEnforceHash && (
+              <div className="flex flex-col gap-1.5">
+                <label className="font-pixel-header text-[9px] text-foreground">
+                  AUTHORIZED RELEASE HASHES (SHA-256)
+                </label>
+                <textarea
+                  value={settingsAuthorizedHashes}
+                  onChange={(e) => setSettingsAuthorizedHashes(e.target.value)}
+                  placeholder="Paste release checksums (comma-separated SHA-256 hex digests)..."
+                  rows={3}
+                  className="text-xs font-mono p-2 pixel-inset bg-input border-2 border-black rounded-none resize-none"
+                />
+                <span className="text-[10px] text-muted-foreground">
+                  Generated automatically during GitHub Actions release builds.
+                </span>
+              </div>
+            )}
           </div>
           <DialogFooter className="font-pixel-header text-[10px] gap-2">
             <button

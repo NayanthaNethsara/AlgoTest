@@ -68,6 +68,9 @@ export function ContestControlBar() {
   const [settingsTitle, setSettingsTitle] = useState("");
   const [settingsDuration, setSettingsDuration] = useState("120");
   const [settingsFullscreen, setSettingsFullscreen] = useState(false);
+  const [settingsMinVersion, setSettingsMinVersion] = useState("0.2.0");
+  const [settingsEnforceHash, setSettingsEnforceHash] = useState(false);
+  const [settingsAuthorizedHashes, setSettingsAuthorizedHashes] = useState("");
 
   const stateRef = useRef(state);
   const clockOffsetRef = useRef(clockOffset);
@@ -88,6 +91,9 @@ export function ContestControlBar() {
       setSettingsTitle(data.title);
       setSettingsDuration(String(Math.floor(data.durationSeconds / 60)));
       setSettingsFullscreen(Boolean(data.requireFullscreen));
+      setSettingsMinVersion(data.minClientVersion || "0.2.0");
+      setSettingsEnforceHash(Boolean(data.enforceBinaryHash));
+      setSettingsAuthorizedHashes(data.authorizedBinaryHashes || "");
     } catch (err: unknown) {
       console.error("Failed to load contest state:", err);
     }
@@ -165,6 +171,9 @@ export function ContestControlBar() {
         durationMinutes: isNaN(dur) ? undefined : dur,
         freezeMinutes: state?.freezeMinutes ?? 30,
         requireFullscreen: settingsFullscreen,
+        minClientVersion: settingsMinVersion,
+        enforceBinaryHash: settingsEnforceHash,
+        authorizedBinaryHashes: settingsAuthorizedHashes,
       });
       setSettingsOpen(false);
       await loadState();
@@ -424,6 +433,57 @@ export function ContestControlBar() {
                 className="size-4 cursor-pointer accent-primary"
               />
             </div>
+
+            <div className="flex flex-col gap-1.5 border-t border-border pt-3 mt-1">
+              <label className="text-xs font-semibold text-foreground">
+                Minimum Client Version
+              </label>
+              <Input
+                value={settingsMinVersion}
+                onChange={(e) => setSettingsMinVersion(e.target.value)}
+                placeholder="e.g. 0.2.0"
+                className="text-xs font-mono"
+              />
+              <span className="text-[11px] text-muted-foreground">
+                Clients with an older version will be blocked from enrolling.
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
+              <div className="flex flex-col gap-0.5">
+                <label className="text-xs font-semibold text-foreground cursor-pointer" htmlFor="cb-enforce-hash-toggle">
+                  Enforce Binary Release Hash
+                </label>
+                <span className="text-[11px] text-muted-foreground">
+                  Verify client executable SHA-256 against authorized release checksums
+                </span>
+              </div>
+              <input
+                id="cb-enforce-hash-toggle"
+                type="checkbox"
+                checked={settingsEnforceHash}
+                onChange={(e) => setSettingsEnforceHash(e.target.checked)}
+                className="size-4 cursor-pointer accent-primary"
+              />
+            </div>
+
+            {settingsEnforceHash && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-foreground">
+                  Authorized Release Hashes (SHA-256)
+                </label>
+                <textarea
+                  value={settingsAuthorizedHashes}
+                  onChange={(e) => setSettingsAuthorizedHashes(e.target.value)}
+                  placeholder="Paste release checksums (comma-separated SHA-256 hex digests)..."
+                  rows={3}
+                  className="text-xs font-mono p-2 border rounded resize-none bg-background"
+                />
+                <span className="text-[11px] text-muted-foreground">
+                  Generated automatically during GitHub Actions release builds.
+                </span>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button

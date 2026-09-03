@@ -87,9 +87,14 @@ export function AgentsTable({
                 <td className="px-4 py-3 font-mono text-[11px]">{agent.machineId.slice(0, 12)}</td>
                 <td className="px-4 py-3">
                   <div>{agent.platform || "unknown"}</div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-[10px] text-muted-foreground font-mono">
                     v{agent.agentVersion || "?"}
                     {agent.loopbackPort > 0 && ` · port ${agent.loopbackPort}`}
+                    {agent.binaryHash && (
+                      <span title={`SHA-256: ${agent.binaryHash}`}>
+                        {` · ${agent.binaryHash.slice(0, 8)}`}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">{formatClock(agent.enrolledAt)}</td>

@@ -109,7 +109,7 @@ func (h *handler) createSubmission(c *gin.Context) {
 		return
 	}
 
-	if h.proctorGate != nil {
+	if h.proctorGate != nil && !h.cfg.ShouldBypassProctor() {
 		clientIP, ipTrusted := portalClientIP(c)
 		decision, err := h.proctorGate.Check(c.Request.Context(), agent.CheckRequest{
 			UserID:          u.ID,

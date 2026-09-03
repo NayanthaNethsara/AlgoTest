@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
 )
 
@@ -94,8 +95,18 @@ func (h *handler) getProctorSelfStatus(c *gin.Context) {
 	// the poll itself proves: the contestant has a portal open right now.
 	h.recordWebPresence(c, u.ID)
 
-	if h.proctorGate == nil {
-		c.JSON(http.StatusOK, gin.H{"allowed": true, "exempt": true})
+	if h.proctorGate == nil || h.cfg.ShouldBypassProctor() {
+		c.JSON(http.StatusOK, gin.H{
+			"allowed":            true,
+			"exempt":             true,
+			"code":               "",
+			"active_client":      agent.ClientBrowser,
+			"access_mode":        agent.ModeWebOnly,
+			"allowed_modes":      agent.AllAccessModes,
+			"seconds_since_ping": 0,
+			"remedy":             "",
+			"loopback_port":      0,
+		})
 		return
 	}
 

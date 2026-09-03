@@ -92,6 +92,7 @@ func NewRouter(
 		telemetry:        telemetryRepo,
 		agents:           agentRepo,
 		agentService:     agentService,
+		agentSettings:    settings,
 		proctorGate:      proctorGate,
 		proctorEvaluator: proctorEval,
 		telemetryBatcher: telemetryBatcher,
@@ -104,7 +105,7 @@ func NewRouter(
 	gated := requireProctorAccess(func(ctx context.Context, userID string, claimsDesktop bool) (agent.Decision, error) {
 		d, _, err := proctorGate.Status(ctx, userID, claimsDesktop)
 		return d, err
-	}, log)
+	}, log, cfg.ShouldBypassProctor())
 
 	v1 := r.Group("/api/v1")
 	{
@@ -159,11 +160,11 @@ func (h *handler) registerAgentRoutes(v1 *gin.RouterGroup) {
 	ag := v1.Group("/agent")
 	{
 		ag.POST("/enroll", maxBodySizeMiddleware(4_096), h.enrollAgent)
-		ag.POST("/heartbeat", h.requireAgent, maxBodySizeMiddleware(64_000),
+		ag.POST("/heartbeat", h.requireAgent, maxBodySizeMiddleware(64_000), h.requireAgentSignature(),
 			rateLimitMiddleware(agentHeartbeatLimiter, agentIDKeyFunc), h.agentHeartbeat)
-		ag.POST("/events", h.requireAgent, maxBodySizeMiddleware(1_000_000),
+		ag.POST("/events", h.requireAgent, maxBodySizeMiddleware(1_000_000), h.requireAgentSignature(),
 			rateLimitMiddleware(agentEventsLimiter, agentIDKeyFunc), h.agentEvents)
-		ag.POST("/shutdown", h.requireAgent, maxBodySizeMiddleware(4_096), h.agentShutdown)
+		ag.POST("/shutdown", h.requireAgent, maxBodySizeMiddleware(4_096), h.requireAgentSignature(), h.agentShutdown)
 		ag.GET("/rules", h.requireAgent, h.agentRules)
 	}
 }

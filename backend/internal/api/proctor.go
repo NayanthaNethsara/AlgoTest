@@ -75,11 +75,16 @@ var disclosure = gin.H{
 // @Router /api/v1/proctor/disclosure [get]
 func (h *handler) getProctorDisclosure(c *gin.Context) {
 	policy := h.agentService.Policy()
+	minVer := "0.2.0"
+	if h.agentSettings != nil {
+		minVer = h.agentSettings.MinClientVersion()
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"disclosure":   disclosure,
-		"policy":       policy,
-		"probedPorts":  probedPorts,
-		"processTerms": policy.ProcessDenylist,
+		"disclosure":       disclosure,
+		"policy":           policy,
+		"probedPorts":      probedPorts,
+		"processTerms":     policy.ProcessDenylist,
+		"minClientVersion": minVer,
 	})
 }
 
@@ -137,6 +142,7 @@ type agentItem struct {
 	RevokedAt     *string `json:"revokedAt"`
 	RevokedReason string  `json:"revokedReason"`
 	InGap         bool    `json:"inGap"`
+	BinaryHash    string  `json:"binaryHash,omitempty"`
 }
 
 // formatTimePtr renders a nullable timestamptz as the ISO-8601 string the
@@ -178,6 +184,7 @@ func (h *handler) listAgents(ctx context.Context) ([]agentItem, error) {
 			RevokedAt:     formatTimePtr(it.RevokedAt),
 			RevokedReason: it.RevokedReason,
 			InGap:         it.InGap,
+			BinaryHash:    it.BinaryHash,
 		}
 	}
 

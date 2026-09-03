@@ -130,11 +130,14 @@ func (m *Manager) GetState() ContestState {
 		FreezeMinutes:    snap.freezeMinutes,
 		FreezeStartTime:  freezeStartTime,
 		PausedAt:         snap.pausedAt,
-		RemainingSeconds:  remainingSec,
-		ElapsedSeconds:    elapsedSec,
-		IsFrozen:          isFrozen,
-		RequireFullscreen: snap.requireFullscreen,
-		ServerTime:        now,
+		RemainingSeconds:       remainingSec,
+		ElapsedSeconds:         elapsedSec,
+		IsFrozen:               isFrozen,
+		RequireFullscreen:      snap.requireFullscreen,
+		MinClientVersion:       snap.minClientVersion,
+		EnforceBinaryHash:      snap.enforceBinaryHash,
+		AuthorizedBinaryHashes: snap.authorizedBinaryHashes,
+		ServerTime:             now,
 	}
 }
 
@@ -323,7 +326,16 @@ func (m *Manager) End(ctx context.Context) error {
 	return m.Reload(ctx)
 }
 
-func (m *Manager) UpdateSettings(ctx context.Context, title string, durationMinutes int, freezeMinutes int, requireFullscreen *bool) error {
+func (m *Manager) UpdateSettings(
+	ctx context.Context,
+	title string,
+	durationMinutes int,
+	freezeMinutes int,
+	requireFullscreen *bool,
+	minClientVersion *string,
+	enforceBinaryHash *bool,
+	authorizedBinaryHashes *string,
+) error {
 	updates := make(map[string]string)
 
 	if trimmed := strings.TrimSpace(title); trimmed != "" {
@@ -344,6 +356,15 @@ func (m *Manager) UpdateSettings(ctx context.Context, title string, durationMinu
 	}
 	if requireFullscreen != nil {
 		updates["proctor.require_fullscreen"] = strconv.FormatBool(*requireFullscreen)
+	}
+	if minClientVersion != nil && strings.TrimSpace(*minClientVersion) != "" {
+		updates["proctor.min_client_version"] = strings.TrimSpace(*minClientVersion)
+	}
+	if enforceBinaryHash != nil {
+		updates["proctor.enforce_binary_hash"] = strconv.FormatBool(*enforceBinaryHash)
+	}
+	if authorizedBinaryHashes != nil {
+		updates["proctor.authorized_binary_hashes"] = strings.TrimSpace(*authorizedBinaryHashes)
 	}
 
 	if len(updates) == 0 {

@@ -68,8 +68,13 @@ func lockResponse(d agent.Decision) gin.H {
 // risk scales as weight × (1 + ln(occurrences)), so gating a route a contestant hits
 // on every page load would inflate the risk score of anyone holding a browser grant
 // for doing exactly what they were granted. Enforcement must not double as evidence.
-func requireProctorAccess(status gateStatusFunc, log *slog.Logger) gin.HandlerFunc {
+func requireProctorAccess(status gateStatusFunc, log *slog.Logger, bypass ...bool) gin.HandlerFunc {
+	isBypassed := len(bypass) > 0 && bypass[0]
 	return func(c *gin.Context) {
+		if isBypassed {
+			c.Next()
+			return
+		}
 		u := currentUser(c)
 
 		d, err := status(c.Request.Context(), u.ID, portalClaimsDesktop(c))

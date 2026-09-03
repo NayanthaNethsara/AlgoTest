@@ -111,11 +111,12 @@ jobs:
             cp competitor-desktop/src-tauri/target/release/mini-algothon-agent.exe "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-windows-x64.exe"
           elif [ "${{ matrix.target }}" = "macos" ]; then
             if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/MiniAlgothon Agent.app" ]; then
+              cp "competitor-desktop/src-tauri/target/release/bundle/macos/MiniAlgothon Agent.app/Contents/MacOS/mini-algothon-agent" "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-macos-binary"
               cd "competitor-desktop/src-tauri/target/release/bundle/macos"
               zip -r "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-macos.zip" "MiniAlgothon Agent.app"
               cd "$GITHUB_WORKSPACE"
             else
-              cp competitor-desktop/src-tauri/target/release/mini-algothon-agent "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-macos"
+              cp competitor-desktop/src-tauri/target/release/mini-algothon-agent "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-macos-binary"
             fi
           elif [ "${{ matrix.target }}" = "linux" ]; then
             cp competitor-desktop/src-tauri/target/release/mini-algothon-agent "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-linux-x64"
@@ -142,6 +143,17 @@ jobs:
           path: all_release_assets
           pattern: release-*
           merge-multiple: true
+
+      - name: Generate SHA-256 Checksums
+        shell: bash
+        run: |
+          cd all_release_assets
+          sha256sum * > checksums.txt 2>/dev/null || shasum -a 256 * > checksums.txt
+          echo "### Release Binary Checksums (SHA-256)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat checksums.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "Copy these hashes into the Admin Console to enforce binary validation." >> $GITHUB_STEP_SUMMARY
 
       - name: Determine Release Tag
         id: release_info

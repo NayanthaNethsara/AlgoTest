@@ -117,6 +117,41 @@ func (s *Settings) ContestAccessGrant() AccessGrant {
 	}
 }
 
+func (s *Settings) MinClientVersion() string {
+	snap := s.snapshot.Load()
+	if snap == nil {
+		return "0.2.0"
+	}
+	val := strings.TrimSpace(snap.values["proctor.min_client_version"])
+	if val == "" {
+		return "0.2.0"
+	}
+	return val
+}
+
+func (s *Settings) EnforceBinaryHash() bool {
+	return s.bool("proctor.enforce_binary_hash", false)
+}
+
+func (s *Settings) AuthorizedBinaryHashes() []string {
+	snap := s.snapshot.Load()
+	if snap == nil {
+		return nil
+	}
+	raw := strings.TrimSpace(snap.values["proctor.authorized_binary_hashes"])
+	if raw == "" {
+		return nil
+	}
+	var hashes []string
+	for _, part := range strings.Split(raw, ",") {
+		trimmed := strings.ToLower(strings.TrimSpace(part))
+		if trimmed != "" {
+			hashes = append(hashes, trimmed)
+		}
+	}
+	return hashes
+}
+
 func (s *Settings) bool(key string, fallback bool) bool {
 	switch s.snapshot.Load().values[key] {
 	case "true", "1":

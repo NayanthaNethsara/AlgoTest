@@ -20,6 +20,9 @@ export type ContestState = {
   elapsedSeconds: number;
   isFrozen: boolean;
   requireFullscreen?: boolean;
+  minClientVersion?: string;
+  enforceBinaryHash?: boolean;
+  authorizedBinaryHashes?: string;
   serverTime: string;
 };
 
@@ -28,4 +31,7 @@ export type ContestSettingsInput = {
   durationMinutes?: number;
   freezeMinutes?: number;
   requireFullscreen?: boolean;
+  minClientVersion?: string;
+  enforceBinaryHash?: boolean;
+  authorizedBinaryHashes?: string;
 };

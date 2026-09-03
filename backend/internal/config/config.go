@@ -51,6 +51,7 @@ type Config struct {
 	RunMaxQueue       int
 	RunMaxWaitSeconds int
 	RunRequireIsolate bool
+	DevBypassProctor  bool
 }
 
 func Load() Config {
@@ -82,6 +83,7 @@ func Load() Config {
 		RunMaxQueue:              getenvInt("RUN_MAX_QUEUE", 64),
 		RunMaxWaitSeconds:        getenvInt("RUN_MAX_WAIT_SECONDS", 15),
 		RunRequireIsolate:        getenvBool("RUN_REQUIRE_ISOLATE", false),
+		DevBypassProctor:         getenvBool("DEV_BYPASS_PROCTOR", false),
 	}
 
 	if c.JudgeWorkers < 0 {
@@ -101,6 +103,14 @@ func (c Config) IsProduction() bool {
 		return true
 	}
 	return false
+}
+
+// ShouldBypassProctor returns true only in development when DEV_BYPASS_PROCTOR is set.
+func (c Config) ShouldBypassProctor() bool {
+	if c.IsProduction() {
+		return false
+	}
+	return c.DevBypassProctor
 }
 
 // RequireIsolate returns true when isolate sandbox is strictly required (always in production).

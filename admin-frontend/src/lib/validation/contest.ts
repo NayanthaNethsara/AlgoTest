@@ -35,6 +35,9 @@ export const updateContestSettingsSchema = z
       .min(0, "Freeze minutes cannot be negative")
       .max(360, "Freeze window cannot exceed 6 hours"),
     requireFullscreen: z.boolean().optional(),
+    minClientVersion: z.string().optional(),
+    enforceBinaryHash: z.boolean().optional(),
+    authorizedBinaryHashes: z.string().optional(),
   })
   .refine((data) => data.freezeMinutes <= data.durationMinutes, {
     message: "Freeze window cannot be longer than total contest duration",

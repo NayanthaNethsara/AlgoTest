@@ -49,6 +49,7 @@ export type EnrolledAgent = {
   revokedAt: string | null;
   revokedReason: string;
   inGap: boolean;
+  binaryHash?: string;
 };
 
 export type TimelineEntryKind = "event" | "gap" | "finding" | "submission" | "enrollment";

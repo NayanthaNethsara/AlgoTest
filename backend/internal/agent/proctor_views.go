@@ -111,6 +111,7 @@ type AgentItem struct {
 	RevokedAt     *time.Time
 	RevokedReason string
 	InGap         bool
+	BinaryHash    string
 }
 
 func (r *Repository) ListAgents(ctx context.Context) ([]AgentItem, error) {
@@ -118,7 +119,8 @@ func (r *Repository) ListAgents(ctx context.Context) ([]AgentItem, error) {
 		SELECT a.id, u.id, u.username, u.display_name, a.machine_id, a.platform,
 		       a.agent_version, a.loopback_port, a.enrolled_at, a.last_seen_at,
 		       a.stopped_at, a.stopped_reason, a.revoked_at, a.revoked_reason,
-		       EXISTS (SELECT 1 FROM telemetry_gaps g WHERE g.user_id = u.id AND g.ended_at IS NULL)
+		       EXISTS (SELECT 1 FROM telemetry_gaps g WHERE g.user_id = u.id AND g.ended_at IS NULL),
+		       COALESCE(a.binary_hash, '')
 		FROM proctor_agents a
 		JOIN users u ON u.id = a.user_id
 		ORDER BY a.revoked_at NULLS FIRST, a.last_seen_at DESC NULLS LAST;
@@ -136,7 +138,7 @@ func (r *Repository) ListAgents(ctx context.Context) ([]AgentItem, error) {
 			&item.ID, &item.UserID, &item.Username, &item.DisplayName,
 			&item.MachineID, &item.Platform, &item.AgentVersion, &item.LoopbackPort,
 			&item.EnrolledAt, &item.LastSeenAt, &item.StoppedAt, &item.StoppedReason,
-			&item.RevokedAt, &item.RevokedReason, &item.InGap,
+			&item.RevokedAt, &item.RevokedReason, &item.InGap, &item.BinaryHash,
 		); err != nil {
 			return nil, fmt.Errorf("scan agent item: %w", err)
 		}

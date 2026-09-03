@@ -157,10 +157,13 @@ func (h *handler) adminEndContest(c *gin.Context) {
 }
 
 type updateContestSettingsRequest struct {
-	Title             string `json:"title"`
-	DurationMinutes   int    `json:"durationMinutes"`
-	FreezeMinutes     int    `json:"freezeMinutes"`
-	RequireFullscreen *bool  `json:"requireFullscreen"`
+	Title                  string  `json:"title"`
+	DurationMinutes        int     `json:"durationMinutes"`
+	FreezeMinutes          int     `json:"freezeMinutes"`
+	RequireFullscreen      *bool   `json:"requireFullscreen"`
+	MinClientVersion       *string `json:"minClientVersion"`
+	EnforceBinaryHash      *bool   `json:"enforceBinaryHash"`
+	AuthorizedBinaryHashes *string `json:"authorizedBinaryHashes"`
 }
 
 // @Summary Admin Update Contest Settings
@@ -180,7 +183,16 @@ func (h *handler) adminUpdateContestSettings(c *gin.Context) {
 		return
 	}
 
-	if err := h.contest.UpdateSettings(c.Request.Context(), req.Title, req.DurationMinutes, req.FreezeMinutes, req.RequireFullscreen); err != nil {
+	if err := h.contest.UpdateSettings(
+		c.Request.Context(),
+		req.Title,
+		req.DurationMinutes,
+		req.FreezeMinutes,
+		req.RequireFullscreen,
+		req.MinClientVersion,
+		req.EnforceBinaryHash,
+		req.AuthorizedBinaryHashes,
+	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

@@ -1,7 +1,10 @@
 package api
 
 import (
+	"bytes"
+	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +15,7 @@ import (
 )
 
 const contextAgentKey = "proctor_agent"
+const contextAgentRawTokenKey = "agent_raw_token"
 
 // MaxBufferedHeartbeats bounds one replay flush. The agent's ring buffer holds an
 // hour; anything larger is not a reconnect.
@@ -49,7 +53,38 @@ func (h *handler) requireAgent(c *gin.Context) {
 	}
 
 	c.Set(contextAgentKey, a)
+	c.Set(contextAgentRawTokenKey, token)
 	c.Next()
+}
+
+func (h *handler) requireAgentSignature() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if h.cfg.ShouldBypassProctor() {
+			c.Next()
+			return
+		}
+
+		rawToken := c.GetString(contextAgentRawTokenKey)
+		sig := c.GetHeader("X-Agent-Signature")
+		if sig == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "agent payload signature required", "code": "SIGNATURE_MISSING"})
+			return
+		}
+
+		bodyBytes, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+			return
+		}
+		c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+		if !agent.VerifyHMAC([]byte(rawToken), bodyBytes, sig) {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid payload signature", "code": "TAMPERED_PAYLOAD"})
+			return
+		}
+
+		c.Next()
+	}
 }
 
 // @Summary Enroll Proctor Agent
@@ -93,6 +128,35 @@ func (h *handler) enrollAgent(c *gin.Context) {
 		return
 	}
 
+	if h.agentSettings != nil && !h.cfg.ShouldBypassProctor() {
+		minVersion := h.agentSettings.MinClientVersion()
+		if minVersion != "" && req.AgentVersion != "" {
+			if agent.CompareSemver(req.AgentVersion, minVersion) < 0 {
+				c.JSON(http.StatusUpgradeRequired, gin.H{
+					"error":          "Update Required: Your proctor client is outdated. Please download the latest version.",
+					"code":           "CLIENT_UPDATE_REQUIRED",
+					"min_version":    minVersion,
+					"client_version": req.AgentVersion,
+				})
+				return
+			}
+		}
+
+		if h.agentSettings.EnforceBinaryHash() {
+			authorizedHashes := h.agentSettings.AuthorizedBinaryHashes()
+			if len(authorizedHashes) > 0 {
+				clientHash := strings.ToLower(strings.TrimSpace(req.BinaryHash))
+				if clientHash == "" || !slices.Contains(authorizedHashes, clientHash) {
+					c.JSON(http.StatusForbidden, gin.H{
+						"error": "Unauthorized Binary: The checksum of this executable does not match official release builds.",
+						"code":  "CLIENT_HASH_MISMATCH",
+					})
+					return
+				}
+			}
+		}
+	}
+
 	// Refuse to enroll against wording the server does not recognise. The setup UI
 	// defaults this to "unknown" when the disclosure fails to load, and an agent
 	// that collects under an unidentifiable consent is not defensible at an appeal.
@@ -115,7 +179,7 @@ func (h *handler) enrollAgent(c *gin.Context) {
 	// machine. The agent reports its own LAN address in its heartbeat.
 	agentID, rebound, err := h.agents.Enroll(
 		c.Request.Context(), u.ID, req.MachineID, agent.HashToken(token),
-		req.Platform, req.AgentVersion, req.ConsentVersion, c.ClientIP(),
+		req.Platform, req.AgentVersion, req.ConsentVersion, req.BinaryHash, c.ClientIP(),
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enroll agent"})

@@ -86,6 +86,21 @@
       <div class="notice error" id="verify-error" hidden></div>
     </section>
 
+    <section id="step-update-required" hidden>
+      <h2>CLIENT UPDATE REQUIRED</h2>
+      <div class="card">
+        <p class="lede" id="update-message">
+          Your proctor client is outdated and cannot connect to this contest server.
+        </p>
+        <div class="notice error" id="update-details">
+          Please download the latest official client release before proceeding.
+        </div>
+        <div class="row">
+          <button id="update-quit" type="button">Quit</button>
+        </div>
+      </div>
+    </section>
+
     <!-- The contest server is compiled into the client. Shown so a contestant can
          read it out to the help desk, and editable only behind a deliberate click
          so an organizer can still move the server mid-contest. -->
@@ -118,10 +133,30 @@
       // worth naming rather than waiting out.
       const FIRST_REPORT_TIMEOUT_MS = 20000;
 
-      function show(step) {
-        for (const id of ["step-consent", "step-enroll", "step-verify"]) {
-          el(id).hidden = id !== step;
+      let currentState = null;
+
+      function compareVersions(a, b) {
+        const pa = (a || "").replace(/^v/i, "").split("-")[0].split(".").map(Number);
+        const pb = (b || "").replace(/^v/i, "").split("-")[0].split(".").map(Number);
+        for (let i = 0; i < 3; i++) {
+          const na = pa[i] || 0;
+          const nb = pb[i] || 0;
+          if (na < nb) return -1;
+          if (na > nb) return 1;
         }
+        return 0;
+      }
+
+      function show(step) {
+        for (const id of ["step-consent", "step-enroll", "step-verify", "step-update-required"]) {
+          const node = el(id);
+          if (node) node.hidden = id !== step;
+        }
+      }
+
+      function showUpdateRequired(msg) {
+        show("step-update-required");
+        el("update-details").textContent = msg;
       }
 
       function fail(id, message) {
@@ -147,6 +182,14 @@
         clearError("consent-error");
         try {
           const payload = await invoke("fetch_disclosure");
+          if (payload.minClientVersion && currentState?.agent_version) {
+            if (compareVersions(currentState.agent_version, payload.minClientVersion) < 0) {
+              showUpdateRequired(
+                `Your proctor client (v${currentState.agent_version}) is outdated. The contest server requires version v${payload.minClientVersion} or newer.`
+              );
+              return;
+            }
+          }
           const d = payload.disclosure ?? {};
           consentVersion = d.version ?? "unknown";
           el("disclosure-summary").textContent = d.summary ?? "";
@@ -259,6 +302,7 @@
 
       async function refreshTarget() {
         const state = await invoke("get_setup_state");
+        currentState = state;
         el("server").value = state.server_url;
         el("api").value = state.api_url;
         el("target").textContent = `Contest server ${state.server_url}`;
@@ -278,6 +322,7 @@
 
       el("accept").addEventListener("click", () => show("step-enroll"));
       el("quit").addEventListener("click", closeThisWindow);
+      el("update-quit")?.addEventListener("click", closeThisWindow);
       el("win-close")?.addEventListener("click", closeThisWindow);
 
       el("enroll").addEventListener("click", async () => {
@@ -294,11 +339,11 @@
           await verifyFirstReport();
         } catch (err) {
           const message = String(err);
-          // The server rejects enrollment when the disclosure has been reworded
-          // since this window loaded it. Sending the contestant back to a freshly
-          // fetched consent step is the only honest recovery — the alternative is
-          // enrolling them against terms they were never shown.
-          if (message.includes("409")) {
+          if (message.includes("426") || message.includes("CLIENT_UPDATE_REQUIRED") || message.includes("Update Required")) {
+            showUpdateRequired(message);
+          } else if (message.includes("CLIENT_HASH_MISMATCH") || message.includes("Unauthorized Binary")) {
+            showUpdateRequired("This executable checksum does not match official release builds. Please download the official release binary.");
+          } else if (message.includes("409")) {
             show("step-consent");
             await loadConsent();
             fail("consent-error", "The disclosure was updated. Please read it again before enrolling.");

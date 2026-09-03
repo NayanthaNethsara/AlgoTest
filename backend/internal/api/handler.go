@@ -34,6 +34,7 @@ type handler struct {
 	telemetry        *telemetry.Repository
 	agents           *agent.Repository
 	agentService     *agent.Service
+	agentSettings    *agent.Settings
 	proctorGate      *agent.Gate
 	proctorEvaluator *proctor.Evaluator
 	telemetryBatcher *telemetry.Batcher

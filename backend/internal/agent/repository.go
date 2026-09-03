@@ -20,7 +20,7 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 
 const agentColumns = `id, user_id, machine_id, agent_version, platform, boot_id::text, seq,
 	signal_hash, last_event_at, clock_offset_ms, loopback_port, attest_nonce,
-	enrolled_at, last_seen_at, stopped_at, stopped_reason`
+	enrolled_at, last_seen_at, stopped_at, stopped_reason, binary_hash`
 
 // Enroll issues a new enrollment and revokes any previous live one for the same
 // user. A revoked enrollment on a *different* machine is reported as rebound so
@@ -28,7 +28,7 @@ const agentColumns = `id, user_id, machine_id, agent_version, platform, boot_id:
 // move a two-laptop setup makes.
 func (r *Repository) Enroll(
 	ctx context.Context,
-	userID, machineID, tokenHash, platform, agentVersion, consentVersion, consentIP string,
+	userID, machineID, tokenHash, platform, agentVersion, consentVersion, binaryHash, consentIP string,
 ) (agentID string, rebound bool, err error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -58,10 +58,10 @@ func (r *Repository) Enroll(
 	}
 
 	err = tx.QueryRow(ctx, `
-		INSERT INTO proctor_agents (user_id, machine_id, token_hash, platform, agent_version, consent_version)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO proctor_agents (user_id, machine_id, token_hash, platform, agent_version, consent_version, binary_hash)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id;
-	`, userID, machineID, tokenHash, platform, agentVersion, consentVersion).Scan(&agentID)
+	`, userID, machineID, tokenHash, platform, agentVersion, consentVersion, binaryHash).Scan(&agentID)
 	if err != nil {
 		return "", false, fmt.Errorf("insert enrollment: %w", err)
 	}
@@ -115,7 +115,7 @@ func (r *Repository) GetByToken(ctx context.Context, tokenHash string) (Agent, e
 	var revokedAt *time.Time
 	err := row.Scan(&a.ID, &a.UserID, &a.MachineID, &a.AgentVersion, &a.Platform, &a.BootID, &a.Seq,
 		&a.SignalHash, &a.LastEventAt, &a.ClockOffsetMs, &a.LoopbackPort, &a.AttestNonce,
-		&a.EnrolledAt, &a.LastSeenAt, &a.StoppedAt, &a.StoppedReason, &revokedAt)
+		&a.EnrolledAt, &a.LastSeenAt, &a.StoppedAt, &a.StoppedReason, &a.BinaryHash, &revokedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Agent{}, ErrUnknownAgent
 	}

@@ -34,24 +34,30 @@ type ContestState struct {
 	FreezeMinutes    int        `json:"freezeMinutes"`
 	FreezeStartTime  *time.Time `json:"freezeStartTime,omitempty"`
 	PausedAt         *time.Time `json:"pausedAt,omitempty"`
-	RemainingSeconds  int        `json:"remainingSeconds"`
-	ElapsedSeconds    int        `json:"elapsedSeconds"`
-	IsFrozen          bool       `json:"isFrozen"`
-	RequireFullscreen bool       `json:"requireFullscreen"`
-	ServerTime        time.Time  `json:"serverTime"`
+	RemainingSeconds       int        `json:"remainingSeconds"`
+	ElapsedSeconds         int        `json:"elapsedSeconds"`
+	IsFrozen               bool       `json:"isFrozen"`
+	RequireFullscreen      bool       `json:"requireFullscreen"`
+	MinClientVersion       string     `json:"minClientVersion"`
+	EnforceBinaryHash      bool       `json:"enforceBinaryHash"`
+	AuthorizedBinaryHashes string     `json:"authorizedBinaryHashes"`
+	ServerTime             time.Time  `json:"serverTime"`
 }
 
 type stateSnapshot struct {
-	title             string
-	status            string
-	startTime         *time.Time
-	endTime           *time.Time
-	durationSeconds   int
-	freezeMinutes     int
-	isFrozen          bool
-	freezeStartTime   *time.Time
-	pausedAt          *time.Time
-	requireFullscreen bool
+	title                  string
+	status                 string
+	startTime              *time.Time
+	endTime                *time.Time
+	durationSeconds        int
+	freezeMinutes          int
+	isFrozen               bool
+	freezeStartTime        *time.Time
+	pausedAt               *time.Time
+	requireFullscreen      bool
+	minClientVersion       string
+	enforceBinaryHash      bool
+	authorizedBinaryHashes string
 }
 
 func parseSnapshot(values map[string]string) *stateSnapshot {
@@ -121,16 +127,35 @@ func parseSnapshot(values map[string]string) *stateSnapshot {
 		requireFullscreen = trimmed == "true" || trimmed == "1"
 	}
 
+	minClientVersion := "0.2.0"
+	if val, ok := values["proctor.min_client_version"]; ok && strings.TrimSpace(val) != "" {
+		minClientVersion = strings.TrimSpace(val)
+	}
+
+	enforceBinaryHash := false
+	if val, ok := values["proctor.enforce_binary_hash"]; ok {
+		trimmed := strings.ToLower(strings.TrimSpace(val))
+		enforceBinaryHash = trimmed == "true" || trimmed == "1"
+	}
+
+	authorizedBinaryHashes := ""
+	if val, ok := values["proctor.authorized_binary_hashes"]; ok {
+		authorizedBinaryHashes = strings.TrimSpace(val)
+	}
+
 	return &stateSnapshot{
-		title:             title,
-		status:            status,
-		startTime:         startTime,
-		endTime:           endTime,
-		durationSeconds:   durSec,
-		freezeMinutes:     freezeMin,
-		isFrozen:          isFrozen,
-		freezeStartTime:   freezeStartTime,
-		pausedAt:          pausedAt,
-		requireFullscreen: requireFullscreen,
+		title:                  title,
+		status:                 status,
+		startTime:              startTime,
+		endTime:                endTime,
+		durationSeconds:        durSec,
+		freezeMinutes:          freezeMin,
+		isFrozen:               isFrozen,
+		freezeStartTime:        freezeStartTime,
+		pausedAt:               pausedAt,
+		requireFullscreen:      requireFullscreen,
+		minClientVersion:       minClientVersion,
+		enforceBinaryHash:      enforceBinaryHash,
+		authorizedBinaryHashes: authorizedBinaryHashes,
 	}
 }

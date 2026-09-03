@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 
 use super::state::{Heartbeat, Policy};
 use crate::config::Enrollment;
@@ -59,6 +60,7 @@ impl Transport {
         machine_id: &str,
         platform: &str,
         consent_version: &str,
+        binary_hash: &str,
     ) -> Result<(Enrollment, Policy), String> {
         let response = self
             .client
@@ -70,6 +72,7 @@ impl Transport {
                 "platform": platform,
                 "agent_version": crate::AGENT_VERSION,
                 "consent_version": consent_version,
+                "binary_hash": binary_hash,
             }))
             .send()
             .map_err(|e| format!("could not reach the contest server: {e}"))?;
@@ -100,33 +103,47 @@ impl Transport {
     }
 
     pub fn heartbeat(&self, api_url: &str, token: &str, hb: &Heartbeat) -> Result<(), SendError> {
+        let body = serde_json::to_vec(hb).map_err(|e| SendError::Unreachable(e.to_string()))?;
+        let signature = sign_payload(token, &body);
         let response = self
             .client
             .post(format!("{api_url}/api/v1/agent/heartbeat"))
             .bearer_auth(token)
-            .json(hb)
+            .header("X-Agent-Signature", signature)
+            .header("Content-Type", "application/json")
+            .body(body)
             .send()
             .map_err(|e| SendError::Unreachable(e.to_string()))?;
         classify(response)
     }
 
     pub fn flush(&self, api_url: &str, token: &str, batch: &[Heartbeat]) -> Result<(), SendError> {
+        let body = serde_json::to_vec(&serde_json::json!({ "heartbeats": batch }))
+            .map_err(|e| SendError::Unreachable(e.to_string()))?;
+        let signature = sign_payload(token, &body);
         let response = self
             .flush_client
             .post(format!("{api_url}/api/v1/agent/events"))
             .bearer_auth(token)
-            .json(&serde_json::json!({ "heartbeats": batch }))
+            .header("X-Agent-Signature", signature)
+            .header("Content-Type", "application/json")
+            .body(body)
             .send()
             .map_err(|e| SendError::Unreachable(e.to_string()))?;
         classify(response)
     }
 
     pub fn shutdown(&self, api_url: &str, token: &str, boot_id: &str, reason: &str) -> Result<(), SendError> {
+        let body = serde_json::to_vec(&serde_json::json!({ "reason": reason, "boot_id": boot_id }))
+            .map_err(|e| SendError::Unreachable(e.to_string()))?;
+        let signature = sign_payload(token, &body);
         let response = self
             .client
             .post(format!("{api_url}/api/v1/agent/shutdown"))
             .bearer_auth(token)
-            .json(&serde_json::json!({ "reason": reason, "boot_id": boot_id }))
+            .header("X-Agent-Signature", signature)
+            .header("Content-Type", "application/json")
+            .body(body)
             .send()
             .map_err(|e| SendError::Unreachable(e.to_string()))?;
         classify(response)
@@ -178,9 +195,40 @@ fn classify(response: reqwest::blocking::Response) -> Result<(), SendError> {
     Err(SendError::Unreachable(status.to_string()))
 }
 
+fn sign_payload(token: &str, body: &[u8]) -> String {
+    let key = token.as_bytes();
+    let mut key_block = [0u8; 64];
+    if key.len() > 64 {
+        let mut hasher = Sha256::new();
+        hasher.update(key);
+        let digest = hasher.finalize();
+        key_block[..32].copy_from_slice(&digest);
+    } else {
+        key_block[..key.len()].copy_from_slice(key);
+    }
+
+    let mut ipad = [0x36u8; 64];
+    let mut opad = [0x5cu8; 64];
+    for i in 0..64 {
+        ipad[i] ^= key_block[i];
+        opad[i] ^= key_block[i];
+    }
+
+    let mut inner = Sha256::new();
+    inner.update(&ipad);
+    inner.update(body);
+    let inner_hash = inner.finalize();
+
+    let mut outer = Sha256::new();
+    outer.update(&opad);
+    outer.update(&inner_hash);
+    hex::encode(outer.finalize())
+}
+
 fn build_client(timeout: Duration) -> reqwest::blocking::Client {
     reqwest::blocking::Client::builder()
         .timeout(timeout)
+        .no_proxy()
         .user_agent(format!("mini-algothon-agent/{}", crate::AGENT_VERSION))
         .build()
         .unwrap_or_default()
@@ -201,5 +249,13 @@ mod tests {
         assert_eq!(SendError::Revoked.message(), "enrollment revoked");
         assert_eq!(SendError::Rejected("invalid seq".into()).message(), "rejected: invalid seq");
         assert_eq!(SendError::Unreachable("timeout".into()).message(), "timeout");
+    }
+
+    #[test]
+    fn hmac_sha256_rfc_vector() {
+        let key = "Jefe";
+        let data = b"what do ya want for nothing?";
+        let sig = sign_payload(key, data);
+        assert_eq!(sig, "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
     }
 }

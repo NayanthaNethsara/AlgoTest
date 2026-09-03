@@ -17,6 +17,7 @@ pub struct SetupState {
     username: String,
     machine_id: String,
     agent_version: String,
+    binary_hash: String,
 }
 
 #[tauri::command]
@@ -30,6 +31,7 @@ pub fn get_setup_state(state: State<'_, Arc<AgentState>>) -> SetupState {
         username: enrollment.as_ref().map(|e| e.username.clone()).unwrap_or_default(),
         machine_id: identity::machine_id(),
         agent_version: crate::AGENT_VERSION.to_string(),
+        binary_hash: identity::current_exe_hash(),
     }
 }
 
@@ -83,6 +85,7 @@ pub fn enroll_agent(
         &identity::machine_id(),
         &identity::platform(),
         &consent_version,
+        &identity::current_exe_hash(),
     )?;
 
     config::save_enrollment(&enrollment)?;

@@ -148,3 +148,25 @@ func TestPortalHeaderExtraction(t *testing.T) {
 	})
 }
 
+func TestProctorAccessBypassesWhenConfigured(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/problems",
+		func(c *gin.Context) { c.Set(contextUserKey, user.User{ID: "u1", Username: "nayantha"}) },
+		requireProctorAccess(func(context.Context, string, bool) (agent.Decision, error) {
+			return agent.Decision{Allowed: false, Code: agent.CodeAgentStopped}, nil
+		}, nil, true),
+		func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"statement": "secret"}) },
+	)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/problems", nil))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "secret") {
+		t.Fatalf("expected handler body, got %s", w.Body.String())
+	}
+}
+

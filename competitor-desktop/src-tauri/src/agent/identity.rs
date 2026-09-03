@@ -31,6 +31,19 @@ pub fn platform() -> String {
     format!("{} {}", std::env::consts::OS, std::env::consts::ARCH)
 }
 
+/// Returns the SHA-256 hex digest of the currently running executable.
+pub fn current_exe_hash() -> String {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| std::fs::read(path).ok())
+        .map(|bytes| {
+            let mut hasher = Sha256::new();
+            hasher.update(&bytes);
+            hex::encode(hasher.finalize())
+        })
+        .unwrap_or_default()
+}
+
 /// The one string a contestant reads out to the help desk. It resolves them to a
 /// row in the admin view without anyone spelling a UUID over a noisy hall.
 pub fn support_code(username: &str, machine_id: &str, boot_id: &str) -> String {

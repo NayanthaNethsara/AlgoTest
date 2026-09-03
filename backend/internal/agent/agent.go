@@ -5,11 +5,14 @@
 package agent
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -32,6 +35,7 @@ type Agent struct {
 	MachineID     string     `json:"machineId"`
 	AgentVersion  string     `json:"agentVersion"`
 	Platform      string     `json:"platform"`
+	BinaryHash    string     `json:"binaryHash,omitempty"`
 	BootID        *string    `json:"bootId,omitempty"`
 	Seq           int64      `json:"seq"`
 	SignalHash    string     `json:"signalHash"`
@@ -158,6 +162,7 @@ type EnrollRequest struct {
 	Platform       string `json:"platform"`
 	AgentVersion   string `json:"agent_version"`
 	ConsentVersion string `json:"consent_version"`
+	BinaryHash     string `json:"binary_hash,omitempty"`
 }
 
 type EnrollResponse struct {
@@ -206,4 +211,57 @@ func NewNonce() (string, error) {
 func HashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+// CompareSemver compares two semantic versions (e.g. "0.2.0" and "0.1.9").
+// Leading 'v' or 'V' and pre-release components are handled.
+// Returns -1 if a < b, 0 if a == b, 1 if a > b.
+func CompareSemver(a, b string) int {
+	pa := parseSemverComponents(a)
+	pb := parseSemverComponents(b)
+
+	for i := 0; i < 3; i++ {
+		if pa[i] < pb[i] {
+			return -1
+		}
+		if pa[i] > pb[i] {
+			return 1
+		}
+	}
+	return 0
+}
+
+func parseSemverComponents(v string) [3]int {
+	var result [3]int
+	v = strings.TrimSpace(v)
+	v = strings.TrimPrefix(v, "v")
+	v = strings.TrimPrefix(v, "V")
+
+	if idx := strings.Index(v, "-"); idx >= 0 {
+		v = v[:idx]
+	}
+
+	parts := strings.Split(v, ".")
+	for i := 0; i < len(parts) && i < 3; i++ {
+		if num, err := strconv.Atoi(strings.TrimSpace(parts[i])); err == nil && num >= 0 {
+			result[i] = num
+		}
+	}
+	return result
+}
+
+func ComputeHMAC(key, data []byte) string {
+	mac := hmac.New(sha256.New, key)
+	mac.Write(data)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func VerifyHMAC(key, data []byte, sigHex string) bool {
+	sig, err := hex.DecodeString(strings.TrimSpace(sigHex))
+	if err != nil {
+		return false
+	}
+	mac := hmac.New(sha256.New, key)
+	mac.Write(data)
+	return hmac.Equal(mac.Sum(nil), sig)
 }
