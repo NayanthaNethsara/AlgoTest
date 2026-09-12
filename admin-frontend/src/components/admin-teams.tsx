@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, AlertCircle } from "lucide-react";
+import { AlertTriangleIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { toast } from "sonner";
 import {
   createTeamAction,
   updateTeamAction,
@@ -13,8 +14,12 @@ import type { Team } from "@/types/team";
 import type { User } from "@/types/user";
 import { ConfirmDialog } from "./confirm-dialog";
 import { CredentialsAlert } from "./credentials-alert";
+import { getErrorMessage } from "@/lib/errors";
+import { PageHeader } from "@/components/shell/page-shell";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
+import { Spinner } from "@/components/ui/spinner";
 import { TeamTable } from "./teams/team-table";
 import { TeamCreateDialog } from "./teams/team-create-dialog";
 import { TeamEditDialog } from "./teams/team-edit-dialog";
@@ -26,13 +31,16 @@ export function AdminTeams({
   teams,
   competitors,
   onRefresh,
+  refreshing = false,
+  loadError = null,
 }: {
   teams: Team[];
   competitors: User[];
   onRefresh: () => void;
+  refreshing?: boolean;
+  loadError?: string | null;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [creds, setCreds] = useState<Credential[]>([]);
 
@@ -47,18 +55,20 @@ export function AdminTeams({
 
   const unassignedCompetitors = competitors.filter((c) => !c.teamId);
 
-  const filteredTeams = teams.filter((t) => {
-    const nameMatch = t.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const memberMatch = t.members?.some(
-      (m) =>
-        m.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.displayName && m.displayName.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-    return nameMatch || memberMatch;
-  });
+  const query = searchQuery.trim().toLowerCase();
+  const filteredTeams = query
+    ? teams.filter(
+        (t) =>
+          t.name.toLowerCase().includes(query) ||
+          t.members?.some(
+            (m) =>
+              m.username.toLowerCase().includes(query) ||
+              m.displayName?.toLowerCase().includes(query)
+          )
+      )
+    : teams;
 
   async function handleCreateTeam(name: string) {
-    setError(null);
     setPending(true);
     try {
       const res = await createTeamAction({ name });
@@ -69,23 +79,24 @@ export function AdminTeams({
         setCreds((prev) => [...createdCreds, ...prev]);
       }
       setShowCreateTeam(false);
+      toast.success("Team created", { description: name });
       onRefresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to create the team."));
     } finally {
       setPending(false);
     }
   }
 
   async function handleUpdateTeam(teamId: string, newName: string) {
-    setError(null);
     setPending(true);
     try {
       await updateTeamAction(teamId, newName);
       setEditTeamTarget(null);
+      toast.success("Team renamed", { description: newName });
       onRefresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to rename the team."));
     } finally {
       setPending(false);
     }
@@ -93,29 +104,29 @@ export function AdminTeams({
 
   async function confirmDeleteTeam() {
     if (!deleteTeamTarget) return;
-    const id = deleteTeamTarget.id;
+    const target = deleteTeamTarget;
     setDeleteTeamTarget(null);
-    setError(null);
     setPending(true);
     try {
-      await deleteTeamAction(id);
+      await deleteTeamAction(target.id);
+      toast.success("Team deleted", { description: target.name });
       onRefresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete the team."));
     } finally {
       setPending(false);
     }
   }
 
   async function handleAddMember(teamId: string, userId: string) {
-    setError(null);
     setPending(true);
     try {
       await addTeamMemberAction(teamId, { userId });
       setAddMemberTarget(null);
+      toast.success("Member added to team");
       onRefresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to add the member."));
     } finally {
       setPending(false);
     }
@@ -125,45 +136,50 @@ export function AdminTeams({
     if (!removeMemberTarget) return;
     const { team, user } = removeMemberTarget;
     setRemoveMemberTarget(null);
-    setError(null);
     setPending(true);
     try {
       await removeTeamMemberAction(team.id, user.id);
+      toast.success("Member removed", { description: `${user.username} · ${team.name}` });
       onRefresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to remove the member."));
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Teams</h2>
-          <p className="text-xs text-muted-foreground">
-            {teams.length} team(s) registered in contest
-          </p>
-        </div>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Teams"
+        description={`${teams.length} team(s) registered · ${unassignedCompetitors.length} competitor(s) unassigned`}
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="gap-1.5"
+            >
+              {refreshing ? <Spinner /> : <RefreshCwIcon />} Refresh
+            </Button>
+            <Button size="sm" onClick={() => setShowCreateTeam(true)} className="gap-1.5">
+              <PlusIcon /> Create team
+            </Button>
+          </>
+        }
+      />
 
-        <Button
-          size="sm"
-          onClick={() => setShowCreateTeam(!showCreateTeam)}
-          className="gap-1.5 text-xs"
-        >
-          <Plus className="h-4 w-4" /> Create Team
-        </Button>
-      </div>
+      {loadError && (
+        <Alert variant="destructive">
+          <AlertTriangleIcon />
+          <AlertTitle>Showing the last loaded data</AlertTitle>
+          <AlertDescription>{loadError}</AlertDescription>
+        </Alert>
+      )}
 
       <CredentialsAlert credentials={creds} onClear={() => setCreds([])} />
-
-      {error && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
 
       {showCreateTeam && (
         <TeamCreateDialog
@@ -173,20 +189,19 @@ export function AdminTeams({
         />
       )}
 
-      {/* Search Input */}
-      <div className="relative w-full sm:w-72">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by team or member name..."
-          className="pl-8 h-8 text-xs"
-        />
-      </div>
+      <SearchInput
+        value={searchQuery}
+        onValueChange={setSearchQuery}
+        placeholder="Search by team or member name…"
+        className="sm:max-w-xs"
+      />
 
       <TeamTable
         teams={filteredTeams}
         pending={pending}
+        searching={query.length > 0}
+        onClearSearch={() => setSearchQuery("")}
+        onCreateTeam={() => setShowCreateTeam(true)}
         onEditTeam={(t) => setEditTeamTarget(t)}
         onDeleteTeam={(t) => setDeleteTeamTarget(t)}
         onAddMember={(t) => setAddMemberTarget(t)}

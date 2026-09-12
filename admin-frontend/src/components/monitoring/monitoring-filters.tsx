@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { Search } from "lucide-react";
 
 import { useMonitoring } from "@/components/monitoring/monitoring-context";
+import { SearchInput } from "@/components/ui/search-input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 /**
  * Search box plus the status chips for the current section.
@@ -15,7 +16,7 @@ import { useMonitoring } from "@/components/monitoring/monitoring-context";
  */
 export function MonitoringFilters({
   options,
-  placeholder = "Search contestant by name, username...",
+  placeholder = "Search contestant by name or username…",
 }: {
   options: string[];
   placeholder?: string;
@@ -27,33 +28,30 @@ export function MonitoringFilters({
   }, [options, statusFilter, setStatusFilter]);
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder={placeholder}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-4 py-2 text-xs rounded-md border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-      </div>
+    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <SearchInput
+        value={searchQuery}
+        onValueChange={setSearchQuery}
+        placeholder={placeholder}
+        className="sm:max-w-md"
+      />
 
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      <ToggleGroup
+        value={[statusFilter]}
+        // The group is multi-select by default; keep the newly pressed chip and
+        // ignore a press that would clear the selection entirely.
+        onValueChange={(next) =>
+          setStatusFilter(next.find((v) => v !== statusFilter) ?? statusFilter)
+        }
+        aria-label="Filter by status"
+        className="flex-wrap"
+      >
         {options.map((option) => (
-          <button
-            key={option}
-            onClick={() => setStatusFilter(option)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              statusFilter === option
-                ? "bg-secondary text-secondary-foreground font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            }`}
-          >
+          <ToggleGroupItem key={option} value={option} className="text-xs">
             {option}
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
     </div>
   );
 }

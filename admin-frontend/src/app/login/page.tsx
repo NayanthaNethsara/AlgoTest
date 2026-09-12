@@ -2,11 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, KeyRound, Loader2, Lock, ShieldCheck, User as UserIcon } from "lucide-react";
+import { ArrowRightIcon, LockIcon, ShieldCheckIcon, UserIcon } from "lucide-react";
 import { loginAction } from "@/lib/actions/auth";
+import { getErrorMessage } from "@/lib/errors";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,105 +27,122 @@ export default function LoginPage() {
 
     try {
       const res = await loginAction(username, password);
-
       if (!res.success) {
         throw new Error(res.error || "Invalid organizer credentials");
       }
-
       router.push("/");
       router.refresh();
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
-      else setError("Authentication failed");
-    } finally {
+    } catch (err) {
+      setError(getErrorMessage(err, "Authentication failed."));
       setLoading(false);
     }
   }
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
-      {/* Subtle ambient gradient mesh in background */}
-      <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-[500px] w-[700px] rounded-full bg-gradient-to-tr from-cyan-600/10 via-indigo-600/10 to-transparent blur-3xl opacity-50" />
-      <div className="pointer-events-none absolute -bottom-40 left-1/2 -translate-x-1/2 h-[500px] w-[700px] rounded-full bg-gradient-to-br from-violet-600/10 via-cyan-600/10 to-transparent blur-3xl opacity-40" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 left-1/2 h-125 w-175 -translate-x-1/2 rounded-full bg-linear-to-tr from-primary/10 via-primary/5 to-transparent opacity-60 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-40 left-1/2 h-125 w-175 -translate-x-1/2 rounded-full bg-linear-to-br from-primary/10 via-transparent to-transparent opacity-40 blur-3xl"
+      />
 
-      <div className="relative z-10 w-full max-w-md">
-        <Card className="shadow-2xl border border-white/10 bg-card/85 backdrop-blur-xl transition-all">
-          <CardHeader className="flex flex-col items-center gap-3 text-center pb-2 pt-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
-              <ShieldCheck className="h-6 w-6" />
+      <div className="relative z-10 w-full max-w-sm">
+        <Card className="bg-card/85 shadow-2xl backdrop-blur-xl">
+          <CardHeader className="items-center gap-3 pt-6 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+              <ShieldCheckIcon className="size-6" />
             </div>
-            <div>
-              <div className="inline-flex items-center gap-2 mb-1.5">
-                <CardTitle className="text-xl font-bold tracking-tight">MiniAlgothon</CardTitle>
-                <span className="rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-wider">
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg font-bold tracking-tight">MiniAlgothon</CardTitle>
+                <Badge
+                  variant="outline"
+                  className="border-primary/25 bg-primary/10 text-[10px] font-semibold tracking-wider text-primary uppercase"
+                >
                   Admin
-                </span>
+                </Badge>
               </div>
-              <CardDescription className="text-xs text-muted-foreground">
-                Enter your credentials to access the contest management console.
+              <CardDescription className="text-xs">
+                Sign in to the contest management console.
               </CardDescription>
             </div>
           </CardHeader>
 
-          <CardContent className="pt-4 pb-8 px-7">
-            {error && (
-              <div className="mb-5 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs font-medium text-destructive flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-foreground/90 flex items-center gap-1.5">
-                  <UserIcon className="h-3.5 w-3.5 text-muted-foreground" /> Username
-                </label>
-                <Input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
-                  required
-                  autoFocus
-                  className="h-10 text-xs bg-background/60 border-white/10 focus-visible:ring-primary/40"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-foreground/90 flex items-center gap-1.5">
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground" /> Password
-                </label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className="h-10 text-xs bg-background/60 border-white/10 focus-visible:ring-primary/40"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="mt-2 w-full h-10 text-xs font-semibold gap-2 shadow-sm transition-all cursor-pointer"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying Credentials...
-                  </>
-                ) : (
-                  <>
-                    <KeyRound className="h-3.5 w-3.5" /> Sign In to Console{" "}
-                    <ArrowRight className="h-3.5 w-3.5 ml-auto" />
-                  </>
+          <CardContent className="pb-6">
+            <form onSubmit={handleLogin} noValidate>
+              <FieldGroup>
+                {error && (
+                  <Alert variant="destructive" role="alert">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
                 )}
-              </Button>
+
+                <Field>
+                  <FieldLabel htmlFor="username" className="gap-1.5 text-xs">
+                    <UserIcon className="size-3.5 text-muted-foreground" /> Username
+                  </FieldLabel>
+                  <Input
+                    id="username"
+                    name="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="admin"
+                    required
+                    autoFocus
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    disabled={loading}
+                    aria-invalid={Boolean(error)}
+                    className="h-9"
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="password" className="gap-1.5 text-xs">
+                    <LockIcon className="size-3.5 text-muted-foreground" /> Password
+                  </FieldLabel>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    autoComplete="current-password"
+                    disabled={loading}
+                    aria-invalid={Boolean(error)}
+                    className="h-9"
+                  />
+                </Field>
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={loading || !username.trim() || !password}
+                  className="w-full gap-2 text-xs font-semibold"
+                >
+                  {loading ? (
+                    <>
+                      <Spinner /> Verifying credentials…
+                    </>
+                  ) : (
+                    <>
+                      Sign in to console <ArrowRightIcon />
+                    </>
+                  )}
+                </Button>
+              </FieldGroup>
             </form>
           </CardContent>
         </Card>
 
-        <p className="text-center text-[11px] text-muted-foreground/60 mt-4">
+        <p className="mt-4 text-center text-[11px] text-muted-foreground/60">
           MiniAlgothon Competitive Programming Platform
         </p>
       </div>

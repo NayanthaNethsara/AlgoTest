@@ -1,8 +1,13 @@
-import { Plus, Trash2 } from "lucide-react";
+"use client";
+
+import { BookOpenIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/shell/data-states";
 import type { Sample } from "@/types/problem";
 
 interface SamplesTabProps {
@@ -19,88 +24,106 @@ export function SamplesTab({
   onSampleChange,
 }: SamplesTabProps) {
   return (
-    <Card className="p-5 flex flex-col gap-4 shadow-sm border border-border">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
-            Public Sample Cases
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Displayed in the problem statement for competitors. These are <strong>not</strong> used
-            as hidden evaluation cases.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={onAddSample} className="h-8 text-xs gap-1">
-          <Plus className="h-3.5 w-3.5" /> Add Sample Case
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+          Public sample cases
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Shown inside the statement. These are <strong>not</strong> used for judging.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onAddSample}
+          className="col-start-2 row-span-2 row-start-1 gap-1.5 self-start justify-self-end"
+        >
+          <PlusIcon /> Add sample
         </Button>
-      </div>
+      </CardHeader>
 
-      <div className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-4">
         {samples.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic py-4 text-center">
-            No public sample cases added.
-          </p>
+          <EmptyState
+            icon={<BookOpenIcon />}
+            title="No sample cases"
+            description="Competitors rely on samples to understand the input format."
+            action={
+              <Button variant="outline" size="sm" onClick={onAddSample} className="gap-1.5">
+                <PlusIcon /> Add sample
+              </Button>
+            }
+          />
         ) : (
           samples.map((s, idx) => (
-            <div key={idx} className="rounded-lg border p-4 bg-muted/10 relative space-y-3">
+            <fieldset key={idx} className="flex flex-col gap-3 rounded-lg border bg-muted/10 p-4">
+              <legend className="sr-only">Sample {idx + 1}</legend>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                   Sample #{idx + 1}
                 </span>
                 {samples.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onRemoveSample(idx)}
-                    className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => onRemoveSample(idx)}
+                          aria-label={`Remove sample ${idx + 1}`}
+                          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        />
+                      }
+                    >
+                      <Trash2Icon />
+                    </TooltipTrigger>
+                    <TooltipContent>Remove sample</TooltipContent>
+                  </Tooltip>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-muted-foreground font-medium">
-                    Standard Input (stdin)
-                  </label>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor={`sample-input-${idx}`}>Standard input</FieldLabel>
                   <Textarea
+                    id={`sample-input-${idx}`}
                     value={s.input}
                     onChange={(e) => onSampleChange(idx, "input", e.target.value)}
                     rows={3}
-                    placeholder="e.g. 5&#10;1 2 3 4 5"
+                    spellCheck={false}
+                    placeholder={"5\n1 2 3 4 5"}
                     className="font-mono text-xs"
                   />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-muted-foreground font-medium">
-                    Standard Output (stdout)
-                  </label>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor={`sample-output-${idx}`}>Standard output</FieldLabel>
                   <Textarea
+                    id={`sample-output-${idx}`}
                     value={s.output}
                     onChange={(e) => onSampleChange(idx, "output", e.target.value)}
                     rows={3}
-                    placeholder="e.g. 15"
+                    spellCheck={false}
+                    placeholder="15"
                     className="font-mono text-xs"
                   />
-                </div>
+                </Field>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted-foreground font-medium">
-                  Explanation (Optional)
-                </label>
+              <Field>
+                <FieldLabel htmlFor={`sample-explanation-${idx}`}>Explanation</FieldLabel>
                 <Input
+                  id={`sample-explanation-${idx}`}
                   value={s.explanation || ""}
                   onChange={(e) => onSampleChange(idx, "explanation", e.target.value)}
-                  placeholder="e.g. Sum of elements is 1 + 2 + 3 + 4 + 5 = 15"
+                  placeholder="The sum of all elements is 15."
                   className="text-xs"
                 />
-              </div>
-            </div>
+              </Field>
+            </fieldset>
           ))
         )}
-      </div>
+      </CardContent>
     </Card>
   );
 }

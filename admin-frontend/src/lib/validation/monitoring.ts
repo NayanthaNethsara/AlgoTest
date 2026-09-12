@@ -9,7 +9,10 @@ export const proctorAccessSchema = z.object({
 
 export const revokeAgentSchema = z.object({
   agentId: z.string().min(1, "Agent ID is required"),
-  reason: z.string().min(1, "Revocation reason is required").max(500, "Reason must be 500 characters or less"),
+  reason: z
+    .string()
+    .min(1, "Revocation reason is required")
+    .max(500, "Reason must be 500 characters or less"),
 });
 
 export const toggleProctorExemptionSchema = z.object({

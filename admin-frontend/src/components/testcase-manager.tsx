@@ -1,20 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  getProblemDetailAction,
-  getProblemTestsAction,
-} from "@/lib/actions/problems";
+import { useCallback, useEffect, useState } from "react";
+import { getProblemDetailAction, getProblemTestsAction } from "@/lib/actions/problems";
 import type { ProblemDetail, TestCaseMetadata } from "@/types/problem";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorState } from "@/components/shell/data-states";
+import { useAsyncData } from "@/hooks/use-async-data";
 import { TestCasesTab } from "./problem-editor/test-cases-tab";
-import { Loader2 } from "lucide-react";
+
+type ManagerData = { problem: ProblemDetail | null; tests: TestCaseMetadata[] };
+
+const EMPTY: ManagerData = { problem: null, tests: [] };
 
 type TestCaseManagerProps = {
   problemId: string;
@@ -23,57 +26,55 @@ type TestCaseManagerProps = {
 };
 
 export function TestCaseManager({ problemId, problemTitle, onClose }: TestCaseManagerProps) {
-  const [problemDetail, setProblemDetail] = useState<ProblemDetail | null>(null);
-  const [tests, setTests] = useState<TestCaseMetadata[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const loader = useCallback(async (): Promise<ManagerData> => {
+    const [problem, tests] = await Promise.all([
+      getProblemDetailAction(problemId),
+      getProblemTestsAction(problemId).catch(() => [] as TestCaseMetadata[]),
+    ]);
+    return { problem, tests: tests || [] };
+  }, [problemId]);
+
+  const { data, error, loading, refresh } = useAsyncData(
+    loader,
+    EMPTY,
+    "Failed to load the test cases."
+  );
+
+  // Mirrored locally so a batch upload can render each case as it lands rather
+  // than re-fetching the whole list per item.
+  const [tests, setTests] = useState<TestCaseMetadata[]>(EMPTY.tests);
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [data, testsData] = await Promise.all([
-          getProblemDetailAction(problemId),
-          getProblemTestsAction(problemId).catch(() => []),
-        ]);
-        setProblemDetail(data);
-        setTests(testsData || []);
-      } catch (err: unknown) {
-        if (err instanceof Error) setError(err.message);
-        else setError("Failed to load test cases.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [problemId]);
+    setTests(data.tests);
+  }, [data.tests]);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto p-6">
-        <DialogHeader className="border-b pb-3">
-          <DialogTitle className="text-base font-semibold">{problemTitle}</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Granular evaluation test case management console. Add part-by-part, replace, or export.
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>{problemTitle}</DialogTitle>
+          <DialogDescription>
+            Add, replace, inspect, or export the hidden evaluation test cases for this problem.
           </DialogDescription>
         </DialogHeader>
 
         {loading ? (
-          <div className="flex h-64 items-center justify-center text-xs text-muted-foreground gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading test cases...
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
           </div>
         ) : error ? (
-          <div className="p-6 text-center text-xs text-destructive">{error}</div>
+          <ErrorState message={error} onRetry={refresh} />
         ) : (
-          <div className="pt-2">
-            <TestCasesTab
-              problemId={problemId}
-              problemSlug={problemDetail?.slug || "problem"}
-              tests={tests}
-              maxScore={problemDetail?.maxScore ?? 100}
-              onTestsUpdated={setTests}
-            />
-          </div>
+          <TestCasesTab
+            problemId={problemId}
+            problemSlug={data.problem?.slug || "problem"}
+            tests={tests}
+            maxScore={data.problem?.maxScore ?? 100}
+            onTestsUpdated={setTests}
+          />
         )}
       </DialogContent>
     </Dialog>

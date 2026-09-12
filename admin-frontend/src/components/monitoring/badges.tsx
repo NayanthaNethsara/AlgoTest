@@ -99,7 +99,8 @@ export function DarkForCell({ item }: { item: CompetitorHeartbeat }) {
 }
 
 export function SignalsCell({ item }: { item: CompetitorHeartbeat }) {
-  const hasApp = item.active_window && item.active_window !== "" && item.active_window !== "unknown";
+  const hasApp =
+    item.active_window && item.active_window !== "" && item.active_window !== "unknown";
   const hasProc = item.process_matches && item.process_matches.length > 0;
   const hasNet = item.internet_reachable;
 
@@ -110,9 +111,14 @@ export function SignalsCell({ item }: { item: CompetitorHeartbeat }) {
   return (
     <div className="flex flex-col gap-1 max-w-[260px]">
       {hasApp && (
-        <div className="flex items-center gap-1 text-[11px] font-mono text-foreground/90 truncate" title={item.active_window}>
+        <div
+          className="flex items-center gap-1 text-[11px] font-mono text-foreground/90 truncate"
+          title={item.active_window}
+        >
           <span className="text-[10px] uppercase font-semibold text-muted-foreground">Focus:</span>
-          <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] truncate">{item.active_window}</span>
+          <span className="bg-muted px-1.5 py-0.5 rounded text-[10px] truncate">
+            {item.active_window}
+          </span>
         </div>
       )}
       {hasProc && (

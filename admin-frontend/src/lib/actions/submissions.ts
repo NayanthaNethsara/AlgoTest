@@ -48,9 +48,12 @@ export async function rejudgeSubmissionAction(
   }
 
   try {
-    const res = await backendFetch(`/api/v1/admin/submissions/${encodeURIComponent(parsed.data.submissionId)}/rejudge`, {
-      method: "POST",
-    });
+    const res = await backendFetch(
+      `/api/v1/admin/submissions/${encodeURIComponent(parsed.data.submissionId)}/rejudge`,
+      {
+        method: "POST",
+      }
+    );
     if (res.ok) {
       return { success: true };
     }
@@ -70,9 +73,12 @@ export async function rejudgeProblemSubmissionsAction(
   }
 
   try {
-    const res = await backendFetch(`/api/v1/admin/problems/${encodeURIComponent(parsed.data.problemId)}/rejudge`, {
-      method: "POST",
-    });
+    const res = await backendFetch(
+      `/api/v1/admin/problems/${encodeURIComponent(parsed.data.problemId)}/rejudge`,
+      {
+        method: "POST",
+      }
+    );
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
       return { success: true, requeued: data.requeued };
@@ -93,9 +99,12 @@ export async function cancelSubmissionAction(
   }
 
   try {
-    const res = await backendFetch(`/api/v1/admin/submissions/${encodeURIComponent(parsed.data.submissionId)}/cancel`, {
-      method: "POST",
-    });
+    const res = await backendFetch(
+      `/api/v1/admin/submissions/${encodeURIComponent(parsed.data.submissionId)}/cancel`,
+      {
+        method: "POST",
+      }
+    );
     if (res.ok) {
       return { success: true };
     }
@@ -113,14 +122,20 @@ export async function reviewSubmissionAction(
 ): Promise<{ success: boolean; submission?: AdminSubmission; error?: string }> {
   const parsed = reviewSubmissionSchema.safeParse({ status, reason });
   if (!parsed.success) {
-    return { success: false, error: parsed.error.issues[0]?.message || "Invalid review parameters" };
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message || "Invalid review parameters",
+    };
   }
 
   try {
-    const res = await backendFetch(`/api/v1/admin/submissions/${encodeURIComponent(submissionId)}/review`, {
-      method: "POST",
-      body: JSON.stringify(parsed.data),
-    });
+    const res = await backendFetch(
+      `/api/v1/admin/submissions/${encodeURIComponent(submissionId)}/review`,
+      {
+        method: "POST",
+        body: JSON.stringify(parsed.data),
+      }
+    );
 
     if (res.ok) {
       const data = await res.json();

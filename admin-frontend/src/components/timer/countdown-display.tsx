@@ -1,15 +1,7 @@
 "use client";
 
 import { CONTEST_STATUS, type ContestState } from "@/types/contest";
-import {
-  CalendarClock,
-  Clock,
-  Hourglass,
-  Pause,
-  Play,
-  Snowflake,
-  StopCircle,
-} from "lucide-react";
+import { CalendarClock, Clock, Hourglass, Pause, Play, Snowflake, StopCircle } from "lucide-react";
 
 interface CountdownDisplayProps {
   contestState: ContestState;
@@ -89,36 +81,42 @@ export function CountdownDisplay({
   if (isRunning) {
     if (isCritical) {
       digitColorClass = "text-red-400 drop-shadow-[0_0_20px_rgba(239,68,68,0.7)]";
-      digitBorderClass = "border-2 border-black bg-red-950/40 shadow-[inset_2px_2px_0_oklch(0.60_0.16_25),inset_-2px_-2px_0_oklch(0.27_0.09_25)]";
+      digitBorderClass =
+        "border-2 border-black bg-red-950/40 shadow-[inset_2px_2px_0_oklch(0.60_0.16_25),inset_-2px_-2px_0_oklch(0.27_0.09_25)]";
       pulseAnimation = "animate-pulse";
     } else if (isUrgent) {
       digitColorClass = "text-amber-400 drop-shadow-[0_0_18px_rgba(251,191,36,0.5)]";
-      digitBorderClass = "border-2 border-black bg-amber-950/30 shadow-[inset_2px_2px_0_oklch(0.65_0.14_85),inset_-2px_-2px_0_oklch(0.27_0.07_85)]";
+      digitBorderClass =
+        "border-2 border-black bg-amber-950/30 shadow-[inset_2px_2px_0_oklch(0.65_0.14_85),inset_-2px_-2px_0_oklch(0.27_0.07_85)]";
     } else {
       digitColorClass = "text-emerald-400 drop-shadow-[0_0_18px_rgba(52,211,153,0.5)]";
-      digitBorderClass = "border-2 border-black bg-[#06140d] shadow-[inset_2px_2px_0_oklch(0.42_0.08_160),inset_-2px_-2px_0_oklch(0.07_0.015_155)]";
+      digitBorderClass =
+        "border-2 border-black bg-[#06140d] shadow-[inset_2px_2px_0_oklch(0.42_0.08_160),inset_-2px_-2px_0_oklch(0.07_0.015_155)]";
     }
   } else if (isPaused) {
     digitColorClass = "text-amber-300 drop-shadow-[0_0_15px_rgba(252,211,77,0.4)]";
-    digitBorderClass = "border-2 border-black bg-amber-950/30 shadow-[inset_2px_2px_0_oklch(0.65_0.14_85),inset_-2px_-2px_0_oklch(0.27_0.07_85)]";
+    digitBorderClass =
+      "border-2 border-black bg-amber-950/30 shadow-[inset_2px_2px_0_oklch(0.65_0.14_85),inset_-2px_-2px_0_oklch(0.27_0.07_85)]";
   } else if (isEnded) {
     digitColorClass = "text-red-500/80";
-    digitBorderClass = "border-2 border-black bg-red-950/20 shadow-[inset_2px_2px_0_#000000,inset_-2px_-2px_0_oklch(0.42_0.08_160)]";
+    digitBorderClass =
+      "border-2 border-black bg-red-950/20 shadow-[inset_2px_2px_0_#000000,inset_-2px_-2px_0_oklch(0.42_0.08_160)]";
   } else if (isNotStarted) {
     digitColorClass = "text-zinc-100";
-    digitBorderClass = "border-2 border-black bg-[#0c120f] shadow-[inset_2px_2px_0_oklch(0.42_0.08_160),inset_-2px_-2px_0_oklch(0.07_0.015_155)]";
+    digitBorderClass =
+      "border-2 border-black bg-[#0c120f] shadow-[inset_2px_2px_0_oklch(0.42_0.08_160),inset_-2px_-2px_0_oklch(0.07_0.015_155)]";
   }
 
   return (
     <div className="w-full flex flex-col items-center justify-center select-none text-center">
       {/* MiniAlgothon Logo Header (Large) */}
-      <div className="flex flex-col items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+      <div className="flex flex-col items-center gap-2 sm:gap-4 mb-2 sm:mb-6 [@media(max-height:820px)]:mb-1 [@media(max-height:820px)]:gap-1.5">
         <div className="flex items-center justify-center pixel-raised bg-card px-6 sm:px-10 py-3 sm:py-4 shadow-[0px_4px_0px_#000000]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/mini-algothon.svg"
             alt="MiniAlgothon"
-            className="h-9 sm:h-12 md:h-16 lg:h-20 w-auto max-w-[85vw] sm:max-w-xl md:max-w-2xl object-contain shrink-0"
+            className="h-[clamp(1.75rem,min(6vw,7vh),5rem)] w-auto max-w-[85vw] shrink-0 object-contain sm:max-w-xl md:max-w-2xl"
           />
         </div>
 
@@ -168,7 +166,10 @@ export function CountdownDisplay({
 
           {isFrozen && (
             <div className="pixel-flat bg-sky-950/60 text-sky-300 border-2 border-black px-3 py-1 uppercase tracking-wider flex items-center gap-2 shadow-[0_2px_0_#000000]">
-              <Snowflake className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: "10s" }} />
+              <Snowflake
+                className="h-3.5 w-3.5 animate-spin"
+                style={{ animationDuration: "10s" }}
+              />
               <span>SCOREBOARD FROZEN</span>
             </div>
           )}
@@ -177,112 +178,49 @@ export function CountdownDisplay({
 
       {/* Hero Giant Digit Countdown in Retro Pixel Box Style */}
       <div
-        className={`flex items-center justify-center gap-2 sm:gap-4 md:gap-6 my-3 sm:my-5 transition-all duration-300 ${pulseAnimation}`}
+        className={`flex items-center justify-center gap-2 sm:gap-4 md:gap-6 my-2 sm:my-5 transition-all duration-300 [@media(max-height:820px)]:my-1 ${pulseAnimation}`}
+        style={
+          {
+            // Sized against the shorter viewport axis as well as the wider one,
+            // so a 720p laptop window scales the clock down instead of pushing
+            // the control dock off the bottom of the page.
+            "--digit-size": isProjectorFullscreen
+              ? "clamp(4.5rem, min(13vw, 20vh), 15rem)"
+              : "clamp(4rem, min(11vw, 16vh), 12rem)",
+            "--digit-font": isProjectorFullscreen
+              ? "clamp(1.25rem, min(4.2vw, 6.5vh), 3.75rem)"
+              : "clamp(1.1rem, min(3.6vw, 5.2vh), 3rem)",
+          } as React.CSSProperties
+        }
       >
-        {/* Hours Block */}
-        <div className="flex flex-col items-center">
-          <div
-            className={`flex items-center justify-center ${digitBorderClass} transition-all duration-300 relative overflow-hidden ${
-              isProjectorFullscreen
-                ? "h-28 w-28 sm:h-36 sm:w-36 md:h-48 md:w-48 lg:h-60 lg:w-60"
-                : "h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 lg:h-48 lg:w-48"
-            }`}
-          >
-            <div className="pixel-scanlines absolute inset-0 pointer-events-none opacity-40" />
-            <span
-              className={`font-pixel-header tracking-normal relative z-10 ${digitColorClass} ${
-                isProjectorFullscreen
-                  ? "text-2xl sm:text-4xl md:text-5xl lg:text-6xl"
-                  : "text-xl sm:text-3xl md:text-4xl lg:text-5xl"
-              }`}
-            >
-              {pad(hours)}
-            </span>
-          </div>
-          <span className="mt-2 text-[9px] sm:text-[11px] md:text-xs font-pixel-header uppercase tracking-widest text-muted-foreground font-bold pixel-text-shadow">
-            HOURS
-          </span>
-        </div>
+        <DigitBlock
+          value={pad(hours)}
+          label="HOURS"
+          boxClassName={digitBorderClass}
+          digitClassName={digitColorClass}
+        />
 
-        {/* Separator Colon */}
-        <div className="flex flex-col items-center justify-center pb-6">
-          <span
-            className={`font-pixel-header select-none ${digitColorClass} ${
-              isProjectorFullscreen
-                ? "text-xl sm:text-3xl md:text-4xl lg:text-5xl"
-                : "text-lg sm:text-2xl md:text-3xl lg:text-4xl"
-            }`}
-          >
-            :
-          </span>
-        </div>
+        <Colon className={digitColorClass} />
 
-        {/* Minutes Block */}
-        <div className="flex flex-col items-center">
-          <div
-            className={`flex items-center justify-center ${digitBorderClass} transition-all duration-300 relative overflow-hidden ${
-              isProjectorFullscreen
-                ? "h-28 w-28 sm:h-36 sm:w-36 md:h-48 md:w-48 lg:h-60 lg:w-60"
-                : "h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 lg:h-48 lg:w-48"
-            }`}
-          >
-            <div className="pixel-scanlines absolute inset-0 pointer-events-none opacity-40" />
-            <span
-              className={`font-pixel-header tracking-normal relative z-10 ${digitColorClass} ${
-                isProjectorFullscreen
-                  ? "text-2xl sm:text-4xl md:text-5xl lg:text-6xl"
-                  : "text-xl sm:text-3xl md:text-4xl lg:text-5xl"
-              }`}
-            >
-              {pad(minutes)}
-            </span>
-          </div>
-          <span className="mt-2 text-[9px] sm:text-[11px] md:text-xs font-pixel-header uppercase tracking-widest text-muted-foreground font-bold pixel-text-shadow">
-            MINUTES
-          </span>
-        </div>
+        <DigitBlock
+          value={pad(minutes)}
+          label="MINUTES"
+          boxClassName={digitBorderClass}
+          digitClassName={digitColorClass}
+        />
 
-        {/* Separator Colon */}
-        <div className="flex flex-col items-center justify-center pb-6">
-          <span
-            className={`font-pixel-header select-none ${digitColorClass} ${
-              isProjectorFullscreen
-                ? "text-xl sm:text-3xl md:text-4xl lg:text-5xl"
-                : "text-lg sm:text-2xl md:text-3xl lg:text-4xl"
-            }`}
-          >
-            :
-          </span>
-        </div>
+        <Colon className={digitColorClass} />
 
-        {/* Seconds Block */}
-        <div className="flex flex-col items-center">
-          <div
-            className={`flex items-center justify-center ${digitBorderClass} transition-all duration-300 relative overflow-hidden ${
-              isProjectorFullscreen
-                ? "h-28 w-28 sm:h-36 sm:w-36 md:h-48 md:w-48 lg:h-60 lg:w-60"
-                : "h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 lg:h-48 lg:w-48"
-            }`}
-          >
-            <div className="pixel-scanlines absolute inset-0 pointer-events-none opacity-40" />
-            <span
-              className={`font-pixel-header tracking-normal relative z-10 ${digitColorClass} ${
-                isProjectorFullscreen
-                  ? "text-2xl sm:text-4xl md:text-5xl lg:text-6xl"
-                  : "text-xl sm:text-3xl md:text-4xl lg:text-5xl"
-              }`}
-            >
-              {pad(seconds)}
-            </span>
-          </div>
-          <span className="mt-2 text-[9px] sm:text-[11px] md:text-xs font-pixel-header uppercase tracking-widest text-muted-foreground font-bold pixel-text-shadow">
-            SECONDS
-          </span>
-        </div>
+        <DigitBlock
+          value={pad(seconds)}
+          label="SECONDS"
+          boxClassName={digitBorderClass}
+          digitClassName={digitColorClass}
+        />
       </div>
 
       {/* Retro Pixel Progress Bar */}
-      <div className="w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-4 sm:mt-6">
+      <div className="w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-2 sm:mt-6 [@media(max-height:820px)]:mt-1">
         <div className="h-4 sm:h-5 w-full border-2 border-black bg-black p-0.5 shadow-[0_3px_0_#000000]">
           <div
             className={`h-full transition-all duration-1000 ${
@@ -303,7 +241,7 @@ export function CountdownDisplay({
       </div>
 
       {/* Contest Metadata Cards in Pixel Raised Style */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-4 sm:mt-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-2 sm:mt-6 [@media(max-height:820px)]:mt-1.5">
         {/* Elapsed Time Card */}
         <div className="flex items-center gap-2.5 pixel-raised bg-card px-3 py-2.5 text-left">
           <Hourglass className="h-4 w-4 text-primary shrink-0" />
@@ -356,6 +294,49 @@ export function CountdownDisplay({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** One zero-padded time unit in its pixel box. */
+function DigitBlock({
+  value,
+  label,
+  boxClassName,
+  digitClassName,
+}: {
+  value: string;
+  label: string;
+  boxClassName: string;
+  digitClassName: string;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <div
+        className={`relative flex size-(--digit-size) items-center justify-center overflow-hidden transition-all duration-300 ${boxClassName}`}
+      >
+        <div className="pixel-scanlines pointer-events-none absolute inset-0 opacity-40" />
+        <span
+          className={`relative z-10 font-pixel-header text-(length:--digit-font) tracking-normal ${digitClassName}`}
+        >
+          {value}
+        </span>
+      </div>
+      <span className="mt-2 font-pixel-header text-[9px] font-bold tracking-widest text-muted-foreground uppercase pixel-text-shadow sm:text-[11px] md:text-xs">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function Colon({ className }: { className: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center pb-6">
+      <span
+        className={`font-pixel-header text-[length:calc(var(--digit-font)*0.8)] select-none ${className}`}
+      >
+        :
+      </span>
     </div>
   );
 }

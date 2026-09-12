@@ -6,11 +6,7 @@ import {
   extendContestSchema,
   updateContestSettingsSchema,
 } from "@/lib/validation/contest";
-import {
-  CONTEST_STATUS,
-  type ContestSettingsInput,
-  type ContestState,
-} from "@/types/contest";
+import { CONTEST_STATUS, type ContestSettingsInput, type ContestState } from "@/types/contest";
 
 function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -60,9 +56,7 @@ export async function getAdminContestStateAction(): Promise<ContestState> {
   }
 }
 
-export async function startContestAction(
-  durationMinutes?: number,
-): Promise<ContestState> {
+export async function startContestAction(durationMinutes?: number): Promise<ContestState> {
   const parsed = startContestSchema.safeParse({ durationMinutes });
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
@@ -117,9 +111,7 @@ export async function resumeContestAction(): Promise<ContestState> {
   }
 }
 
-export async function extendContestAction(
-  minutes: number,
-): Promise<ContestState> {
+export async function extendContestAction(minutes: number): Promise<ContestState> {
   const parsed = extendContestSchema.safeParse({ minutes });
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
@@ -207,7 +199,7 @@ export async function unfreezeContestAction(): Promise<ContestState> {
 }
 
 export async function updateContestSettingsAction(
-  settings: ContestSettingsInput,
+  settings: ContestSettingsInput
 ): Promise<ContestState> {
   const parsed = updateContestSettingsSchema.safeParse(settings);
   if (!parsed.success) {

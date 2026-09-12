@@ -1,11 +1,12 @@
 "use client";
 
-import { Maximize2, Download, Trash2 } from "lucide-react";
+import { DownloadIcon, Maximize2Icon, ReplaceIcon, Trash2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { TestCaseMetadata } from "@/types/problem";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatByteSize } from "@/lib/testcase-utils";
+import type { TestCaseMetadata } from "@/types/problem";
 
 interface TestCaseItemProps {
   test: TestCaseMetadata;
@@ -17,6 +18,15 @@ interface TestCaseItemProps {
   onDelete: (ordinal: number) => void;
 }
 
+function Snippet({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="min-w-0 truncate">
+      <span className="text-muted-foreground select-none">{label}: </span>
+      <span className="text-foreground/90">{value ? value.replace(/\n/g, " ↵ ") : "(empty)"}</span>
+    </div>
+  );
+}
+
 export function TestCaseItem({
   test,
   points,
@@ -26,103 +36,114 @@ export function TestCaseItem({
   onReplace,
   onDelete,
 }: TestCaseItemProps) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-3.5 flex flex-col gap-2.5 transition-all hover:border-border/80">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-            Case #{test.ordinal}
-          </span>
+  const pointsId = `test-points-${test.ordinal}`;
 
-          <Badge variant="outline" className="text-[10px] font-mono">
-            In: {formatByteSize(test.inputSize)} • Out: {formatByteSize(test.expectedSize)}
+  return (
+    <div className="flex flex-col gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20">
+      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="text-xs font-bold tracking-wider uppercase">Case #{test.ordinal}</span>
+
+          <Badge variant="outline" className="font-mono text-[10px]">
+            in {formatByteSize(test.inputSize)} · out {formatByteSize(test.expectedSize)}
           </Badge>
 
-          <div className="flex items-center gap-1">
-            <label className="text-[11px] text-muted-foreground">Points:</label>
+          <span className="flex items-center gap-1.5">
+            <label htmlFor={pointsId} className="text-[11px] text-muted-foreground">
+              Points
+            </label>
             <Input
+              id={pointsId}
               type="number"
+              inputMode="numeric"
               min={0}
               value={points}
               onChange={(e) => onPointChange(test.ordinal, Number(e.target.value))}
-              className="h-6 w-16 text-[11px] font-mono text-center p-1"
+              className="h-6 w-16 p-1 text-center font-mono text-[11px]"
             />
-          </div>
+          </span>
         </div>
 
-        {/* Actions for this test case */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex flex-wrap items-center gap-1">
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size="xs"
             onClick={() => onInspect(test.ordinal, "input")}
-            className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
-            title="Inspect full input data"
+            className="gap-1 text-muted-foreground hover:text-foreground"
           >
-            <Maximize2 className="h-3 w-3" /> Input
+            <Maximize2Icon /> Input
           </Button>
 
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size="xs"
             onClick={() => onInspect(test.ordinal, "expected")}
-            className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
-            title="Inspect full expected output data"
+            className="gap-1 text-muted-foreground hover:text-foreground"
           >
-            <Maximize2 className="h-3 w-3" /> Expected
+            <Maximize2Icon /> Expected
           </Button>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onDownload(test.ordinal, "input")}
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-            title="Download input file"
-          >
-            <Download className="h-3.5 w-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => onDownload(test.ordinal, "input")}
+                  aria-label={`Download input for case ${test.ordinal}`}
+                  className="text-muted-foreground hover:text-foreground"
+                />
+              }
+            >
+              <DownloadIcon />
+            </TooltipTrigger>
+            <TooltipContent>Download input file</TooltipContent>
+          </Tooltip>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onReplace(test)}
-            className="h-7 px-2 text-[11px] text-primary hover:bg-primary/10"
-            title="Replace or edit this test case"
-          >
-            Replace
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => onReplace(test)}
+                  aria-label={`Replace case ${test.ordinal}`}
+                  className="text-primary hover:bg-primary/10"
+                />
+              }
+            >
+              <ReplaceIcon />
+            </TooltipTrigger>
+            <TooltipContent>Replace this test case</TooltipContent>
+          </Tooltip>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onDelete(test.ordinal)}
-            className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
-            title="Delete test case"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => onDelete(test.ordinal)}
+                  aria-label={`Delete case ${test.ordinal}`}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                />
+              }
+            >
+              <Trash2Icon />
+            </TooltipTrigger>
+            <TooltipContent>Delete test case</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
-      {/* Preview snippets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] font-mono bg-muted/20 rounded p-2 border border-border/40">
-        <div className="truncate">
-          <span className="text-muted-foreground select-none">stdin: </span>
-          <span className="text-foreground/90">
-            {test.inputSnippet ? test.inputSnippet.replace(/\n/g, " ↵ ") : "(empty)"}
-          </span>
-        </div>
-        <div className="truncate">
-          <span className="text-muted-foreground select-none">stdout: </span>
-          <span className="text-foreground/90">
-            {test.expectedSnippet ? test.expectedSnippet.replace(/\n/g, " ↵ ") : "(empty)"}
-          </span>
-        </div>
+      <div className="grid gap-2 rounded-md border bg-muted/20 p-2 font-mono text-[11px] md:grid-cols-2">
+        <Snippet label="stdin" value={test.inputSnippet} />
+        <Snippet label="stdout" value={test.expectedSnippet} />
       </div>
     </div>
   );

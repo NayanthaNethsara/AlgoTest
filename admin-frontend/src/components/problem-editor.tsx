@@ -3,16 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
-  Save,
-  Globe,
-  AlertCircle,
-  CheckCircle2,
-  FileText,
-  BookOpen,
-  Cpu,
-  RotateCcw,
+  AlertCircleIcon,
+  ArrowLeftIcon,
+  CheckCircle2Icon,
+  BookOpenIcon,
+  CpuIcon,
+  FileTextIcon,
+  GlobeIcon,
+  RotateCcwIcon,
+  SaveIcon,
+  XIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import type {
   Difficulty,
   ProblemDetail,
@@ -21,8 +23,11 @@ import type {
   TestCaseMetadata,
 } from "@/types/problem";
 import { STARTER_PROBLEM_TEMPLATE } from "@/lib/templates";
+import { getErrorMessage } from "@/lib/errors";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MIN_EVALUATION_TEST_CASES } from "@/lib/testcase-utils";
 import { useProblemDraft } from "./problem-editor/use-problem-draft";
@@ -152,12 +157,12 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
     setError(null);
 
     if (!slug.trim() || !title.trim()) {
-      setError("Slug and Title are required.");
+      toast.error("A slug and a title are required.");
       return;
     }
 
     if (!statement.trim()) {
-      setError("Problem statement is required.");
+      toast.error("The problem statement is required.");
       setActiveWorkspaceTab("statement");
       return;
     }
@@ -165,9 +170,9 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
     const finalPublished = shouldPublish !== undefined ? shouldPublish : published;
 
     if (finalPublished && tests.length < MIN_EVALUATION_TEST_CASES) {
-      setError(
-        `A problem cannot be published with fewer than ${MIN_EVALUATION_TEST_CASES} evaluation test cases. Currently ${tests.length} provided.`
-      );
+      toast.warning("Not enough evaluation test cases", {
+        description: `Publishing requires at least ${MIN_EVALUATION_TEST_CASES} tests — ${tests.length} added so far.`,
+      });
       setActiveWorkspaceTab("tests");
       return;
     }
@@ -193,128 +198,118 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
         })),
       });
       clearDraftOnSuccess();
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to save problem.");
-      }
+      toast.success(finalPublished ? "Problem saved and published" : "Draft saved");
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to save the problem."));
     }
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-40 flex flex-col sm:flex-row sm:items-center justify-between border-b bg-card px-4 sm:px-6 py-2.5 sm:py-3 gap-2.5 shadow-xs">
-        <div className="flex items-center gap-2 sm:gap-4 flex-wrap min-w-0">
+    <div className="flex flex-1 flex-col">
+      <header className="sticky top-(--app-header-height) z-30 flex flex-col gap-2.5 border-b bg-card/95 px-4 py-2.5 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
           <Link
-            href="/"
+            href="/problems"
             className={buttonVariants({
               variant: "ghost",
               size: "sm",
-              className: "gap-1.5 text-xs text-muted-foreground h-8 px-2 shrink-0",
+              className: "shrink-0 gap-1.5 text-muted-foreground",
             })}
           >
-            <ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Back to Console</span>
+            <ArrowLeftIcon />
+            <span className="hidden sm:inline">Back to problems</span>
           </Link>
-          <div className="h-4 w-px bg-border hidden sm:block" />
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
-            <h1 className="text-sm sm:text-base font-semibold tracking-tight truncate max-w-[150px] sm:max-w-[260px]" title={title || "Untitled Problem"}>
-              {title || "Untitled Problem"}
+
+          <div className="hidden h-4 w-px bg-border sm:block" />
+
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
+            <h1
+              className="max-w-40 truncate text-sm font-semibold tracking-tight sm:max-w-65 sm:text-base"
+              title={title || "Untitled problem"}
+            >
+              {title || "Untitled problem"}
             </h1>
-            <Badge variant={published ? "default" : "secondary"} className="text-[10px] sm:text-xs">
+            <Badge variant={published ? "default" : "secondary"} className="text-[10px]">
               {published ? "Published" : "Draft"}
             </Badge>
             <Badge
               variant={tests.length >= MIN_EVALUATION_TEST_CASES ? "default" : "destructive"}
-              className="text-[10px] sm:text-[11px] font-mono"
+              className="font-mono text-[10px]"
             >
-              {tests.length}/{MIN_EVALUATION_TEST_CASES} Tests
+              {tests.length}/{MIN_EVALUATION_TEST_CASES} tests
             </Badge>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 justify-end shrink-0">
+        <div className="flex shrink-0 items-center justify-end gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => handleSaveInternal(false)}
             disabled={pending}
-            className="gap-1.5 text-xs h-8"
+            className="gap-1.5"
           >
-            <Save className="h-3.5 w-3.5" /> Save Draft
+            {pending ? <Spinner /> : <SaveIcon />} Save draft
           </Button>
 
           <Button
             size="sm"
             onClick={() => handleSaveInternal(true)}
             disabled={pending}
-            className="gap-1.5 text-xs h-8"
+            className="gap-1.5"
           >
-            <Globe className="h-3.5 w-3.5" /> {pending ? "Saving..." : "Save & Publish"}
+            {pending ? <Spinner /> : <GlobeIcon />} {pending ? "Saving…" : "Save & publish"}
           </Button>
         </div>
       </header>
 
       {/* Main Workspace Body */}
-      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-6 p-3 sm:p-6">
-        {/* Unsaved Draft Recovery Alert */}
+      <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 p-4 sm:p-6">
         {hasSavedDraft && (
-          <div className="rounded-md border border-primary/40 bg-primary/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-medium text-primary">
-            <div className="flex items-center gap-2">
-              <RotateCcw className="h-4 w-4 shrink-0" />
-              <span>An unsaved problem draft was recovered from your previous session.</span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button size="sm" variant="default" onClick={restoreDraft} className="h-7 text-xs">
-                Restore Draft
-              </Button>
-              <Button size="sm" variant="ghost" onClick={discardDraft} className="h-7 text-xs">
-                Discard
-              </Button>
-            </div>
-          </div>
+          <Alert>
+            <RotateCcwIcon />
+            <AlertTitle>Unsaved draft recovered</AlertTitle>
+            <AlertDescription className="flex flex-col items-start gap-2">
+              <span>
+                A problem draft from your previous session is still stored in this browser.
+              </span>
+              <span className="flex gap-1.5">
+                <Button size="xs" onClick={restoreDraft}>
+                  Restore
+                </Button>
+                <Button size="xs" variant="ghost" onClick={discardDraft}>
+                  Discard
+                </Button>
+              </span>
+            </AlertDescription>
+          </Alert>
         )}
 
         {draftRestored && (
-          <div className="rounded-md border border-success/40 bg-success/10 px-4 py-2 text-xs font-medium text-success flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>Draft restored successfully.</span>
-          </div>
+          <Alert className="border-success/30 bg-success/10 text-success">
+            <CheckCircle2Icon />
+            <AlertDescription className="text-success">Draft restored.</AlertDescription>
+          </Alert>
         )}
 
         {error && (
-          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-xs font-medium text-destructive flex items-start justify-between gap-3">
-            <div className="flex items-start gap-2.5 flex-1 min-w-0">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-xs text-destructive">Unable to save problem</p>
-                <p className="mt-1 font-mono text-[11px] break-words text-destructive/90 leading-relaxed">
-                  {error}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
+          <Alert variant="destructive">
+            <AlertCircleIcon />
+            <AlertTitle>Unable to save this problem</AlertTitle>
+            <AlertDescription className="font-mono text-[11px] break-words">
+              {error}
+            </AlertDescription>
+            <AlertAction>
               <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => navigator.clipboard.writeText(error)}
-                className="h-7 px-2 text-[11px] border-destructive/30 hover:bg-destructive/10 text-destructive"
-              >
-                Copy Error
-              </Button>
-              <Button
-                type="button"
+                size="icon-xs"
                 variant="ghost"
-                size="sm"
                 onClick={() => setError(null)}
-                className="h-7 px-2 text-[11px] text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+                aria-label="Dismiss error"
               >
-                Dismiss
+                <XIcon />
               </Button>
-            </div>
-          </div>
+            </AlertAction>
+          </Alert>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -348,23 +343,29 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
               className="w-full"
             >
               <TabsList className="h-10 w-full grid grid-cols-3 bg-muted/40 p-1">
-                <TabsTrigger value="statement" className="text-xs gap-1 sm:gap-1.5 h-8 px-1 sm:px-3">
-                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                <TabsTrigger
+                  value="statement"
+                  className="text-xs gap-1 sm:gap-1.5 h-8 px-1 sm:px-3"
+                >
+                  <FileTextIcon className="size-3.5 shrink-0" />
                   <span className="hidden sm:inline">Statement & Constraints</span>
                   <span className="sm:hidden">Statement</span>
                 </TabsTrigger>
 
                 <TabsTrigger value="samples" className="text-xs gap-1 sm:gap-1.5 h-8 px-1 sm:px-3">
-                  <BookOpen className="h-3.5 w-3.5 shrink-0" />
+                  <BookOpenIcon className="size-3.5 shrink-0" />
                   <span className="hidden sm:inline">Public Samples</span>
                   <span className="sm:hidden">Samples</span>
-                  <Badge variant="outline" className="text-[10px] ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0">
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0"
+                  >
                     {samples.length}
                   </Badge>
                 </TabsTrigger>
 
                 <TabsTrigger value="tests" className="text-xs gap-1 sm:gap-1.5 h-8 px-1 sm:px-3">
-                  <Cpu className="h-3.5 w-3.5 shrink-0" />
+                  <CpuIcon className="size-3.5 shrink-0" />
                   <span className="hidden sm:inline">Judging Test Cases</span>
                   <span className="sm:hidden">Tests</span>
                   <Badge

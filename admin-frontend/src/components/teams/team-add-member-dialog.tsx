@@ -1,13 +1,19 @@
+"use client";
+
 import { useState } from "react";
-import { UserPlus } from "lucide-react";
+import { UserPlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { SimpleSelect } from "@/components/ui/simple-select";
+import { Spinner } from "@/components/ui/spinner";
 import type { Team } from "@/types/team";
 import type { User } from "@/types/user";
 
@@ -26,9 +32,15 @@ export function TeamAddMemberDialog({
   onAdd,
   onClose,
 }: TeamAddMemberDialogProps) {
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedUserId, setSelectedUserId] = useState("");
 
   if (!team) return null;
+
+  const noneAvailable = unassignedCompetitors.length === 0;
+  const options = unassignedCompetitors.map((c) => ({
+    value: c.id,
+    label: c.displayName ? `${c.displayName} (${c.username})` : c.username,
+  }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,58 +49,49 @@ export function TeamAddMemberDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
+      <DialogContent>
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5 text-primary" />
-            <DialogTitle className="text-base font-semibold">Add Member</DialogTitle>
-          </div>
-          <DialogDescription className="text-xs">
+          <DialogTitle>Add member</DialogTitle>
+          <DialogDescription>
             Add an unassigned competitor to <strong className="text-foreground">{team.name}</strong>
             .
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">
-              Select Unassigned Competitor *
-            </label>
-            {unassignedCompetitors.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic py-2">
-                All competitors are currently assigned to teams.
-              </p>
-            ) : (
-              <select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                className="h-9 w-full rounded-md border bg-background px-3 text-xs"
-                required
-              >
-                <option value="">-- Choose Competitor --</option>
-                {unassignedCompetitors.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.displayName ? `${c.displayName} (${c.username})` : c.username}
-                  </option>
-                ))}
-              </select>
+        <form onSubmit={handleSubmit}>
+          <Field>
+            <FieldLabel htmlFor="add-member">Unassigned competitor</FieldLabel>
+            <SimpleSelect
+              id="add-member"
+              value={selectedUserId}
+              onValueChange={setSelectedUserId}
+              options={options}
+              placeholder={noneAvailable ? "No unassigned competitors" : "Choose a competitor…"}
+              disabled={noneAvailable}
+              className="text-xs"
+            />
+            {noneAvailable && (
+              <FieldDescription>
+                Every competitor already belongs to a team. Remove one from its current team first.
+              </FieldDescription>
             )}
-          </div>
+          </Field>
 
-          <div className="flex justify-end gap-2 pt-2 border-t">
+          <DialogFooter className="mt-5">
             <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
             <Button
               type="submit"
               size="sm"
-              disabled={pending || !selectedUserId || unassignedCompetitors.length === 0}
-              className="text-xs"
+              disabled={pending || !selectedUserId || noneAvailable}
+              className="gap-1.5"
             >
-              {pending ? "Adding..." : "Add Member"}
+              {pending ? <Spinner /> : <UserPlusIcon />}
+              {pending ? "Adding…" : "Add member"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

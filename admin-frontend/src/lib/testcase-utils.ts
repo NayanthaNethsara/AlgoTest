@@ -88,10 +88,7 @@ export function formatByteSize(bytes: number): string {
 /**
  * Summary calculations for points and distribution.
  */
-export function calculateScoringSummary(
-  tests: { points?: number }[],
-  maxScore: number
-) {
+export function calculateScoringSummary(tests: { points?: number }[], maxScore: number) {
   const customPointsSum = tests.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
   const hasCustomPoints = tests.some((t) => Number(t.points) > 0);
   const autoPointPerTest = tests.length > 0 ? Math.floor(maxScore / tests.length) : 0;
@@ -107,9 +104,10 @@ export function calculateScoringSummary(
 /**
  * Matches input/output file pairs without loading full contents into memory.
  */
-export function matchTestFilePairs(
-  files: File[]
-): { pairs: PairedTestFiles[]; unmatched: string[] } {
+export function matchTestFilePairs(files: File[]): {
+  pairs: PairedTestFiles[];
+  unmatched: string[];
+} {
   if (files.length === 0) {
     return { pairs: [], unmatched: [] };
   }
@@ -118,10 +116,8 @@ export function matchTestFilePairs(
 
   function normalizeKey(filename: string) {
     const lower = filename.toLowerCase();
-    const isInput =
-      lower.includes("in") && !lower.includes("out") && !lower.includes("ans");
-    const isOutput =
-      lower.includes("out") || lower.includes("ans") || lower.includes("expected");
+    const isInput = lower.includes("in") && !lower.includes("out") && !lower.includes("ans");
+    const isOutput = lower.includes("out") || lower.includes("ans") || lower.includes("expected");
 
     const numMatch = lower.match(/\d+/);
     const num = numMatch ? parseInt(numMatch[0], 10) : 999999;
@@ -207,4 +203,3 @@ export function getTextSnippet(text: string, maxLength: number = 45): string {
   if (singleLine.length <= maxLength) return singleLine;
   return `${singleLine.slice(0, maxLength)}...`;
 }
-

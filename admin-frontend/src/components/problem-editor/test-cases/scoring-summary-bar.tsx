@@ -1,8 +1,10 @@
 "use client";
 
-import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircleIcon, CheckCircle2Icon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { MIN_EVALUATION_TEST_CASES, type calculateScoringSummary } from "@/lib/testcase-utils";
+import { cn } from "@/lib/utils";
 
 interface ScoringSummaryBarProps {
   testCount: number;
@@ -21,39 +23,44 @@ export function ScoringSummaryBar({
   savingPoints,
   onSavePoints,
 }: ScoringSummaryBarProps) {
+  const ok = scoring.hasMinimumCases;
+
   return (
-    <div className="rounded-md border bg-muted/20 px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-      <div className="flex items-center gap-2">
-        {scoring.hasMinimumCases ? (
-          <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+    <div
+      className={cn(
+        "flex flex-col justify-between gap-2 rounded-lg border px-3.5 py-2.5 text-xs sm:flex-row sm:items-center",
+        ok ? "bg-muted/20" : "border-destructive/30 bg-destructive/5"
+      )}
+    >
+      <span className="flex items-start gap-2">
+        {ok ? (
+          <CheckCircle2Icon className="mt-px size-4 shrink-0 text-success" />
         ) : (
-          <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+          <AlertCircleIcon className="mt-px size-4 shrink-0 text-destructive" />
         )}
-        <span>
-          {!scoring.hasMinimumCases
-            ? `At least ${MIN_EVALUATION_TEST_CASES} distinct evaluation test cases required (currently ${testCount}).`
+        <span className={cn(!ok && "text-destructive")}>
+          {!ok
+            ? `At least ${MIN_EVALUATION_TEST_CASES} evaluation test cases are required — ${testCount} added.`
             : scoring.hasCustomPoints
-              ? `Custom scoring: ${scoring.customPointsSum} / ${maxScore} points assigned across ${testCount} cases.`
-              : `Auto-distribution: ${maxScore} max points distributed evenly (~${scoring.autoPointPerTest} pts per case).`}
+              ? `Custom scoring: ${scoring.customPointsSum} / ${maxScore} points across ${testCount} cases.`
+              : `Even distribution: ${maxScore} points across ${testCount} cases (~${scoring.autoPointPerTest} each).`}
         </span>
-      </div>
-      <div className="flex items-center gap-2">
+      </span>
+
+      <span className="flex shrink-0 items-center gap-2">
         {hasPendingPointChanges && (
           <Button
             type="button"
-            size="sm"
+            size="xs"
             onClick={onSavePoints}
             disabled={savingPoints}
-            className="h-7 text-xs gap-1.5"
+            className="gap-1.5"
           >
-            {savingPoints && <Loader2 className="h-3 w-3 animate-spin" />}
-            Save Points Distribution
+            {savingPoints && <Spinner />} Save points
           </Button>
         )}
-        <span className="text-[11px] text-muted-foreground font-mono">
-          Problem Max Score: {maxScore} pts
-        </span>
-      </div>
+        <span className="font-mono text-[11px] text-muted-foreground">Max {maxScore} pts</span>
+      </span>
     </div>
   );
 }

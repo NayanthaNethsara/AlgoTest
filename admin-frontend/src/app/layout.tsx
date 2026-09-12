@@ -2,6 +2,8 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Pixelify_Sans, Press_Start_2P } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -75,8 +77,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/icon.png" />
       </head>
-      <body className="antialiased min-h-screen bg-background text-foreground selection:bg-cyan-500/20 selection:text-cyan-300">
-        {children}
+      <body className="min-h-screen bg-background text-foreground antialiased selection:bg-primary/20">
+        <TooltipProvider delay={250}>{children}</TooltipProvider>
+        <Toaster />
       </body>
     </html>
   );

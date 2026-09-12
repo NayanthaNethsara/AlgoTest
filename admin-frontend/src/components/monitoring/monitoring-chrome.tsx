@@ -3,11 +3,18 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clock, RefreshCw, ShieldAlert } from "lucide-react";
+import { AlertTriangleIcon, ClockIcon, RefreshCwIcon, ShieldAlertIcon } from "lucide-react";
 
 import { FleetHeader } from "@/components/monitoring/fleet-header";
 import { FleetHeaderSkeleton } from "@/components/monitoring/skeletons";
 import { POLL_INTERVAL_MS, useMonitoring } from "@/components/monitoring/monitoring-context";
+import { PageHeader } from "@/components/shell/page-shell";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 /**
  * Everything the three monitoring pages share: title, refresh controls, the
@@ -37,75 +44,85 @@ export function MonitoringChrome({ children }: { children: ReactNode }) {
   const links = [
     {
       href: "/monitoring/risk",
-      label: "Risk & Evidence Findings",
-      count: loaded.risk ? `${highRiskCount} High Risk` : null,
+      label: "Risk & evidence",
+      count: loaded.risk ? `${highRiskCount} high` : null,
+      alarming: highRiskCount > 0,
     },
     {
       href: "/monitoring/telemetry",
-      label: "Live Telemetry Heartbeats",
-      count: loaded.telemetry ? `${onlineCount} Online` : null,
+      label: "Live telemetry",
+      count: loaded.telemetry ? `${onlineCount} online` : null,
+      alarming: false,
     },
     {
       href: "/monitoring/agents",
-      label: "Enrolled Agents",
+      label: "Enrolled agents",
       count: loaded.agents ? `${liveAgentCount}` : null,
+      alarming: false,
     },
   ];
 
+  const refreshSeconds = POLL_INTERVAL_MS / 1000;
+
   return (
-    <main className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border pb-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <ShieldAlert className="size-6 text-primary shrink-0" />
-            Onsite Proctoring &amp; Risk Control Center
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Real-time monitoring of contestant desktop heartbeats, LLM port probes, and
-            non-intrusive risk scoring.
-          </p>
-        </div>
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-6">
+      <PageHeader
+        className="border-b pb-4"
+        title={
+          <span className="flex items-center gap-2">
+            <ShieldAlertIcon className="size-5 shrink-0 text-primary" />
+            Onsite proctoring &amp; risk control
+          </span>
+        }
+        description="Real-time contestant desktop heartbeats, LLM port probes, and non-intrusive risk scoring."
+        actions={
+          <>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAutoRefreshActive(!isAutoRefreshActive)}
+                    aria-pressed={isAutoRefreshActive}
+                    className={cn(
+                      "gap-1.5",
+                      isAutoRefreshActive &&
+                        "border-success/30 bg-success/10 text-success hover:bg-success/20 hover:text-success"
+                    )}
+                  />
+                }
+              >
+                <ClockIcon />
+                <span className="hidden sm:inline">
+                  {isAutoRefreshActive ? `Auto ${refreshSeconds}s` : "Auto paused"}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isAutoRefreshActive
+                  ? `Polling every ${refreshSeconds} seconds — click to pause`
+                  : "Auto-refresh paused — click to resume"}
+              </TooltipContent>
+            </Tooltip>
 
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <button
-            onClick={() => setAutoRefreshActive(!isAutoRefreshActive)}
-            className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-              isAutoRefreshActive
-                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                : "bg-muted/50 text-muted-foreground border-border"
-            }`}
-          >
-            <Clock className="size-3.5 shrink-0" />
-            <span className="hidden sm:inline">
-              {isAutoRefreshActive
-                ? `Auto-refreshing (${POLL_INTERVAL_MS / 1000}s)`
-                : "Auto-refresh paused"}
-            </span>
-            <span className="sm:hidden">
-              {isAutoRefreshActive ? `${POLL_INTERVAL_MS / 1000}s` : "Paused"}
-            </span>
-          </button>
-
-          <button
-            onClick={refreshNow}
-            disabled={isRefreshing}
-            className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-          >
-            <RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-            <span>Refresh</span>
-          </button>
-        </div>
-      </div>
+            <Button size="sm" onClick={refreshNow} disabled={isRefreshing} className="gap-1.5">
+              {isRefreshing ? <Spinner /> : <RefreshCwIcon />} Refresh
+            </Button>
+          </>
+        }
+      />
 
       {loadError && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {loadError}
-        </div>
+        <Alert variant="destructive">
+          <AlertTriangleIcon />
+          <AlertTitle>Monitoring data may be stale</AlertTitle>
+          <AlertDescription>{loadError}</AlertDescription>
+        </Alert>
       )}
 
       {loaded.overview ? <FleetHeader overview={overview} /> : <FleetHeaderSkeleton />}
 
-      <nav className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <nav aria-label="Monitoring sections" className="flex flex-wrap items-center gap-2">
         {links.map((link) => {
           const active = pathname.startsWith(link.href);
           return (
@@ -113,20 +130,28 @@ export function MonitoringChrome({ children }: { children: ReactNode }) {
               key={link.href}
               href={link.href}
               aria-current={active ? "page" : undefined}
-              className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold rounded-lg border transition-colors ${
+              className={cn(
+                "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                 active
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:bg-muted"
-              }`}
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
             >
               {link.label}
-              {link.count !== null && ` (${link.count})`}
+              {link.count !== null && (
+                <Badge
+                  variant={link.alarming && !active ? "destructive" : "secondary"}
+                  className="px-1.5 py-0 text-[10px]"
+                >
+                  {link.count}
+                </Badge>
+              )}
             </Link>
           );
         })}
       </nav>
 
       {children}
-    </main>
+    </div>
   );
 }

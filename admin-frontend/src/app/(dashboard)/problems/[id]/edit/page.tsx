@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { use, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   getProblemDetailAction,
@@ -8,43 +8,40 @@ import {
   updateProblemAction,
 } from "@/lib/actions/problems";
 import { ProblemEditor } from "@/components/problem-editor";
+import { ErrorState } from "@/components/shell/data-states";
+import { PageShell } from "@/components/shell/page-shell";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAsyncData } from "@/hooks/use-async-data";
 import type { ProblemDetail, ProblemInput, TestCaseMetadata } from "@/types/problem";
+
+type EditorData = { problem: ProblemDetail | null; tests: TestCaseMetadata[] };
+
+const EMPTY: EditorData = { problem: null, tests: [] };
 
 export default function EditProblemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-
-  const [problem, setProblem] = useState<ProblemDetail | null>(null);
-  const [tests, setTests] = useState<TestCaseMetadata[]>([]);
-  const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [problemData, testsData] = await Promise.all([
-          getProblemDetailAction(id),
-          getProblemTestsAction(id).catch(() => []),
-        ]);
-        setProblem(problemData);
-        setTests(testsData || []);
-      } catch (err: unknown) {
-        if (err instanceof Error) setError(err.message);
-        else setError("Failed to load problem.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+  const loader = useCallback(async (): Promise<EditorData> => {
+    const [problem, tests] = await Promise.all([
+      getProblemDetailAction(id),
+      getProblemTestsAction(id).catch(() => [] as TestCaseMetadata[]),
+    ]);
+    return { problem, tests: tests || [] };
   }, [id]);
+
+  const { data, error, loading, refresh } = useAsyncData(
+    loader,
+    EMPTY,
+    "Failed to load this problem."
+  );
 
   async function handleSave(input: ProblemInput) {
     setPending(true);
     try {
       await updateProblemAction(id, input);
-      router.push("/");
+      router.push("/problems");
     } finally {
       setPending(false);
     }
@@ -52,30 +49,31 @@ export default function EditProblemPage({ params }: { params: Promise<{ id: stri
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-xs text-muted-foreground font-medium">
-        Loading problem details...
-      </div>
+      <PageShell width="wide">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-12">
+          <Skeleton className="h-96 lg:col-span-4" />
+          <Skeleton className="h-96 lg:col-span-8" />
+        </div>
+      </PageShell>
     );
   }
 
-  if (error || !problem) {
+  if (error || !data.problem) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4">
-        <p className="text-xs text-destructive mb-4 font-medium">{error || "Problem not found."}</p>
-        <button
-          onClick={() => router.push("/")}
-          className="px-4 py-2 text-xs rounded bg-primary text-primary-foreground font-medium"
-        >
-          Return to Console
-        </button>
-      </div>
+      <PageShell>
+        <ErrorState message={error || "Problem not found."} onRetry={refresh} />
+      </PageShell>
     );
   }
 
   return (
     <ProblemEditor
-      initialData={problem}
-      initialTests={tests}
+      initialData={data.problem}
+      initialTests={data.tests}
       onSave={handleSave}
       pending={pending}
     />

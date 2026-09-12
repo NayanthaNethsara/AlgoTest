@@ -2,8 +2,29 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { ServerOffIcon, ShieldOffIcon } from "lucide-react";
+import { toast } from "sonner";
 import { formatClock } from "@/lib/monitoring";
 import { revokeAgentAction } from "@/lib/actions/monitoring";
+import { getErrorMessage } from "@/lib/errors";
+import {
+  AccessReasonDialog,
+  type AccessReasonRequest,
+} from "@/components/proctoring/access-reason-dialog";
+import { DataPagination } from "@/components/shell/data-pagination";
+import { EmptyState } from "@/components/shell/data-states";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { usePagination } from "@/hooks/use-pagination";
 import type { EnrolledAgent } from "@/types/proctor";
 
 /**
@@ -20,117 +41,160 @@ export function AgentsTable({
   onChanged: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<EnrolledAgent | null>(null);
+
+  const pagination = usePagination(agents);
 
   const enrolmentCounts = agents.reduce<Record<string, number>>((acc, agent) => {
     acc[agent.userId] = (acc[agent.userId] ?? 0) + 1;
     return acc;
   }, {});
 
-  const revoke = (agent: EnrolledAgent) => {
-    const reason = window.prompt(
-      `Revoke the proctor enrolment for ${agent.displayName}?\n\nThey will have to enrol again before they can submit. Reason:`,
-      ""
-    );
-    if (reason === null) return;
+  function confirmRevoke(reason: string) {
+    const agent = revokeTarget;
+    if (!agent) return;
 
     startTransition(async () => {
-      const result = await revokeAgentAction(agent.id, reason.trim() || "revoked by organizer");
-      setError(result.error ?? null);
-      if (!result.error) onChanged();
+      try {
+        const result = await revokeAgentAction(agent.id, reason || "revoked by organizer");
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        setRevokeTarget(null);
+        toast.success("Enrolment revoked", { description: agent.displayName });
+        onChanged();
+      } catch (err) {
+        toast.error(getErrorMessage(err, "Failed to revoke the enrolment."));
+      }
     });
+  }
+
+  const revokeRequest: AccessReasonRequest | null = revokeTarget && {
+    title: "Revoke proctor enrolment",
+    consequence: `${revokeTarget.displayName} must enrol a proctor agent again before they can submit.`,
+    subject: `${revokeTarget.displayName} · ${revokeTarget.machineId.slice(0, 12)}`,
+    defaultReason: "revoked by organizer",
+    confirmLabel: "Revoke enrolment",
   };
 
-  return (
-    <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
-      {error && (
-        <p className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-xs text-destructive">
-          {error}
-        </p>
-      )}
+  if (agents.length === 0) {
+    return (
+      <EmptyState
+        icon={<ServerOffIcon />}
+        title="No agents enrolled"
+        description="Contestant proctor agents appear here as soon as they enrol."
+      />
+    );
+  }
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs text-left border-collapse">
-          <thead>
-            <tr className="border-b bg-muted/30 text-muted-foreground font-medium">
-              <th className="px-4 py-3">State</th>
-              <th className="px-4 py-3">Contestant</th>
-              <th className="px-4 py-3">Machine</th>
-              <th className="px-4 py-3">Platform &amp; version</th>
-              <th className="px-4 py-3">Enrolled</th>
-              <th className="px-4 py-3">Last report</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {agents.map((agent) => (
-              <tr key={agent.id} className="hover:bg-muted/20 transition-colors">
-                <td className="px-4 py-3">
-                  <AgentStateBadge agent={agent} />
-                </td>
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/monitoring/${agent.userId}`}
-                    className="font-semibold text-foreground hover:underline"
-                  >
-                    {agent.displayName}
-                  </Link>
-                  <div className="text-[11px] text-muted-foreground font-mono">
-                    @{agent.username}
-                    {enrolmentCounts[agent.userId] > 1 && (
-                      <span className="ml-1.5 text-destructive">
-                        · {enrolmentCounts[agent.userId]} enrolments
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 font-mono text-[11px]">{agent.machineId.slice(0, 12)}</td>
-                <td className="px-4 py-3">
-                  <div>{agent.platform || "unknown"}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono">
-                    v{agent.agentVersion || "?"}
-                    {agent.loopbackPort > 0 && ` · port ${agent.loopbackPort}`}
-                    {agent.binaryHash && (
-                      <span title={`SHA-256: ${agent.binaryHash}`}>
-                        {` · ${agent.binaryHash.slice(0, 8)}`}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">{formatClock(agent.enrolledAt)}</td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  {formatClock(agent.lastSeenAt)}
-                  {agent.stoppedReason && (
-                    <div className="text-[10px] text-muted-foreground">{agent.stoppedReason}</div>
-                  )}
-                  {agent.revokedReason && (
-                    <div className="text-[10px] text-muted-foreground">{agent.revokedReason}</div>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {!agent.revokedAt && (
-                    <button
-                      onClick={() => revoke(agent)}
-                      disabled={isPending}
-                      className="rounded-md border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive disabled:opacity-50"
+  return (
+    <>
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead>State</TableHead>
+              <TableHead>Contestant</TableHead>
+              <TableHead>Machine</TableHead>
+              <TableHead>Platform &amp; version</TableHead>
+              <TableHead>Enrolled</TableHead>
+              <TableHead>Last report</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pagination.items.map((agent) => {
+              const enrolments = enrolmentCounts[agent.userId];
+              return (
+                <TableRow key={agent.id}>
+                  <TableCell>
+                    <AgentStateBadge agent={agent} />
+                  </TableCell>
+
+                  <TableCell className="max-w-56">
+                    <Link
+                      href={`/monitoring/${agent.userId}`}
+                      className="text-xs font-semibold hover:underline"
                     >
-                      Revoke
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {agents.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                  No agents have enrolled yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                      {agent.displayName}
+                    </Link>
+                    <div className="truncate font-mono text-[11px] text-muted-foreground">
+                      @{agent.username}
+                      {enrolments > 1 && (
+                        <span className="ml-1.5 text-destructive">· {enrolments} enrolments</span>
+                      )}
+                    </div>
+                  </TableCell>
+
+                  <TableCell>
+                    <Tooltip>
+                      <TooltipTrigger render={<span className="font-mono text-[11px]" />}>
+                        {agent.machineId.slice(0, 12)}
+                      </TooltipTrigger>
+                      <TooltipContent className="font-mono">{agent.machineId}</TooltipContent>
+                    </Tooltip>
+                  </TableCell>
+
+                  <TableCell>
+                    <div className="text-xs">{agent.platform || "unknown"}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">
+                      v{agent.agentVersion || "?"}
+                      {agent.loopbackPort > 0 && ` · port ${agent.loopbackPort}`}
+                      {agent.binaryHash && (
+                        <Tooltip>
+                          <TooltipTrigger render={<span />}>
+                            {` · ${agent.binaryHash.slice(0, 8)}`}
+                          </TooltipTrigger>
+                          <TooltipContent className="font-mono">
+                            SHA-256: {agent.binaryHash}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-xs whitespace-nowrap">
+                    {formatClock(agent.enrolledAt)}
+                  </TableCell>
+
+                  <TableCell className="text-xs whitespace-nowrap">
+                    {formatClock(agent.lastSeenAt)}
+                    {(agent.stoppedReason || agent.revokedReason) && (
+                      <div className="text-[10px] text-muted-foreground">
+                        {agent.revokedReason || agent.stoppedReason}
+                      </div>
+                    )}
+                  </TableCell>
+
+                  <TableCell className="text-right">
+                    {!agent.revokedAt && (
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => setRevokeTarget(agent)}
+                        disabled={isPending}
+                        className="gap-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <ShieldOffIcon /> Revoke
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+        <DataPagination state={pagination} itemLabel="agent" />
       </div>
-    </div>
+
+      <AccessReasonDialog
+        request={revokeRequest}
+        pending={isPending}
+        onConfirm={confirmRevoke}
+        onCancel={() => setRevokeTarget(null)}
+      />
+    </>
   );
 }
 
@@ -138,36 +202,38 @@ export function AgentsTable({
 // organizer acts on, and everything else stays neutral.
 function AgentStateBadge({ agent }: { agent: EnrolledAgent }) {
   if (agent.revokedAt) {
-    return <Pill tone="muted">REVOKED</Pill>;
+    return (
+      <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground">
+        REVOKED
+      </Badge>
+    );
   }
   if (agent.inGap) {
-    return <Pill tone="destructive">BLACKOUT</Pill>;
+    return (
+      <Badge
+        variant="outline"
+        className="border-destructive/20 bg-destructive/10 text-[10px] font-semibold text-destructive"
+      >
+        BLACKOUT
+      </Badge>
+    );
   }
   if (agent.stoppedAt) {
-    return <Pill tone="warning">STOPPED</Pill>;
+    return (
+      <Badge
+        variant="outline"
+        className="border-warning/20 bg-warning/10 text-[10px] font-semibold text-warning"
+      >
+        STOPPED
+      </Badge>
+    );
   }
-  return <Pill tone="success">ACTIVE</Pill>;
-}
-
-function Pill({
-  tone,
-  children,
-}: {
-  tone: "success" | "warning" | "destructive" | "muted";
-  children: React.ReactNode;
-}) {
-  const toneClass = {
-    success: "bg-success/10 text-success border-success/20",
-    warning: "bg-warning/10 text-warning border-warning/20",
-    destructive: "bg-destructive/10 text-destructive border-destructive/20",
-    muted: "text-muted-foreground border-border",
-  }[tone];
-
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${toneClass}`}
+    <Badge
+      variant="outline"
+      className="border-success/20 bg-success/10 text-[10px] font-semibold text-success"
     >
-      {children}
-    </span>
+      ACTIVE
+    </Badge>
   );
 }

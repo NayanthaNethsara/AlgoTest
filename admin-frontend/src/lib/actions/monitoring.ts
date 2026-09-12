@@ -61,15 +61,18 @@ export async function setProctorAccessAction(
   }
 
   try {
-    const response = await backendFetch(`/api/v1/admin/users/${encodeURIComponent(parsed.data.userId)}/access`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        webOnly: parsed.data.webOnly,
-        reason: parsed.data.reason,
-        hoursValid: parsed.data.hoursValid,
-      }),
-    });
+    const response = await backendFetch(
+      `/api/v1/admin/users/${encodeURIComponent(parsed.data.userId)}/access`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          webOnly: parsed.data.webOnly,
+          reason: parsed.data.reason,
+          hoursValid: parsed.data.hoursValid,
+        }),
+      }
+    );
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       return { error: err.error || "Failed to update proctor access" };
@@ -91,11 +94,14 @@ export async function revokeAgentAction(
   }
 
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/agents/${encodeURIComponent(parsed.data.agentId)}/revoke`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: parsed.data.reason }),
-    });
+    const response = await backendFetch(
+      `/api/v1/admin/proctor/agents/${encodeURIComponent(parsed.data.agentId)}/revoke`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: parsed.data.reason }),
+      }
+    );
     if (!response.ok) {
       return { error: "Failed to revoke agent enrolment" };
     }
@@ -142,9 +148,12 @@ export async function getAdminProctorFindingsAction(userId: string): Promise<{
   }
 
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/findings/${encodeURIComponent(parsed.data.userId)}`, {
-      method: "GET",
-    });
+    const response = await backendFetch(
+      `/api/v1/admin/proctor/findings/${encodeURIComponent(parsed.data.userId)}`,
+      {
+        method: "GET",
+      }
+    );
     if (!response.ok) {
       return { findings: [], error: "Failed to fetch findings" };
     }
@@ -166,14 +175,17 @@ export async function toggleProctorExemptionAction(
   }
 
   try {
-    const response = await backendFetch(`/api/v1/admin/users/${encodeURIComponent(parsed.data.userId)}/exemption`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        exempt: parsed.data.exempt,
-        reason: parsed.data.reason || (parsed.data.exempt ? "Granted by administrator" : ""),
-      }),
-    });
+    const response = await backendFetch(
+      `/api/v1/admin/users/${encodeURIComponent(parsed.data.userId)}/exemption`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          exempt: parsed.data.exempt,
+          reason: parsed.data.reason || (parsed.data.exempt ? "Granted by administrator" : ""),
+        }),
+      }
+    );
     if (!response.ok) {
       const errBody = await response.json().catch(() => ({}));
       return { error: errBody.error || "Failed to update exemption status" };
@@ -194,9 +206,12 @@ export async function getAdminProctorTimelineAction(userId: string): Promise<{
   }
 
   try {
-    const response = await backendFetch(`/api/v1/admin/proctor/timeline/${encodeURIComponent(parsed.data.userId)}`, {
-      method: "GET",
-    });
+    const response = await backendFetch(
+      `/api/v1/admin/proctor/timeline/${encodeURIComponent(parsed.data.userId)}`,
+      {
+        method: "GET",
+      }
+    );
     if (!response.ok) {
       return { error: "Failed to load contestant evidence timeline" };
     }

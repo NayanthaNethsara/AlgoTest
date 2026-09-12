@@ -1,19 +1,37 @@
-import { useState } from "react";
-import { KeyRound, Trash2, ShieldCheck, ShieldOff, Users, Search, Ban, UserCheck } from "lucide-react";
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  BanIcon,
+  KeyRoundIcon,
+  ShieldCheckIcon,
+  ShieldOffIcon,
+  Trash2Icon,
+  UserCheckIcon,
+  UsersIcon,
+  UsersRoundIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SearchInput } from "@/components/ui/search-input";
 import {
   Table,
-  TableHeader,
-  TableRow,
-  TableHead,
   TableBody,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DataPagination } from "@/components/shell/data-pagination";
+import { EmptyState } from "@/components/shell/data-states";
+import { usePagination } from "@/hooks/use-pagination";
+import { cn } from "@/lib/utils";
 import type { User } from "@/types/user";
 import { FALLBACKS, grantOf, type AccessGrant } from "./types";
+
+type SubTab = "competitors" | "admins";
 
 interface UserTableProps {
   users: User[];
@@ -38,121 +56,140 @@ export function UserTable({
   onToggleFallback,
   onToggleSuspension,
 }: UserTableProps) {
-  const [subTab, setSubTab] = useState<"competitors" | "admins">("competitors");
+  const [subTab, setSubTab] = useState<SubTab>("competitors");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const competitorUsers = users.filter((u) => u.role === "competitor");
-  const adminUsers = users.filter((u) => u.role === "admin");
-
-  const currentList = subTab === "competitors" ? competitorUsers : adminUsers;
-  const filteredUsers = currentList.filter(
-    (u) =>
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.displayName && u.displayName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (u.teamName && u.teamName.toLowerCase().includes(searchQuery.toLowerCase()))
+  const { competitorUsers, adminUsers } = useMemo(
+    () => ({
+      competitorUsers: users.filter((u) => u.role === "competitor"),
+      adminUsers: users.filter((u) => u.role === "admin"),
+    }),
+    [users]
   );
 
+  const isCompetitorTab = subTab === "competitors";
+  const currentList = isCompetitorTab ? competitorUsers : adminUsers;
+
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return currentList;
+    return currentList.filter(
+      (u) =>
+        u.username.toLowerCase().includes(query) ||
+        u.displayName?.toLowerCase().includes(query) ||
+        u.teamName?.toLowerCase().includes(query)
+    );
+  }, [currentList, searchQuery]);
+
+  const pagination = usePagination(filteredUsers);
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <Tabs
-          value={subTab}
-          onValueChange={(v) => setSubTab(v as "competitors" | "admins")}
-          className="w-full sm:w-auto"
-        >
-          <TabsList className="h-8 w-full sm:w-auto grid grid-cols-2 sm:flex">
-            <TabsTrigger value="competitors" className="text-xs h-7 gap-1.5">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <Tabs value={subTab} onValueChange={(v) => setSubTab(v as SubTab)}>
+          <TabsList className="h-8">
+            <TabsTrigger value="competitors" className="h-7 gap-1.5 text-xs">
               Competitors
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                 {competitorUsers.length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="admins" className="text-xs h-7 gap-1.5">
+            <TabsTrigger value="admins" className="h-7 gap-1.5 text-xs">
               Admins
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                 {adminUsers.length}
               </Badge>
             </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, username, team..."
-            className="pl-8 h-8 text-xs w-full"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search name, username, or team…"
+          className="sm:max-w-xs"
+        />
       </div>
 
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>User</TableHead>
-              {subTab === "competitors" && <TableHead>Team</TableHead>}
-              <TableHead>Role</TableHead>
-              {subTab === "competitors" && <TableHead>Submission Access</TableHead>}
-              {subTab === "competitors" && <TableHead>Exemption</TableHead>}
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredUsers.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={subTab === "competitors" ? 6 : 3}
-                  className="p-8 text-center text-xs text-muted-foreground"
-                >
-                  {searchQuery
-                    ? "No users match your search query."
-                    : subTab === "competitors"
-                      ? 'No competitors found. Use "Add Competitor" or "Bulk Import" above.'
-                      : "No admin users found."}
-                </TableCell>
+      {filteredUsers.length === 0 ? (
+        <EmptyState
+          icon={<UsersIcon />}
+          title={
+            searchQuery ? "No matching users" : isCompetitorTab ? "No competitors yet" : "No admins"
+          }
+          description={
+            searchQuery
+              ? "Try a different name, username, or team."
+              : isCompetitorTab
+                ? "Add a competitor or import a roster to get started."
+                : "Admin accounts are provisioned from the server CLI."
+          }
+          action={
+            searchQuery ? (
+              <Button variant="outline" size="sm" onClick={() => setSearchQuery("")}>
+                Clear search
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>User</TableHead>
+                {isCompetitorTab && <TableHead>Team</TableHead>}
+                <TableHead>Role</TableHead>
+                {isCompetitorTab && <TableHead>Submission access</TableHead>}
+                {isCompetitorTab && <TableHead>Proctoring</TableHead>}
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ) : (
-              filteredUsers.map((u) => {
+            </TableHeader>
+            <TableBody>
+              {pagination.items.map((u) => {
                 const grant = grantOf(u);
                 const isSelf = u.id === currentUserId;
 
                 return (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 font-medium text-xs">
-                        {u.displayName || u.username}
+                  <TableRow key={u.id} className={cn(u.isSuspended && "bg-destructive/5")}>
+                    <TableCell className="max-w-64">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate text-xs font-medium">
+                          {u.displayName || u.username}
+                        </span>
                         {isSelf && (
-                          <Badge variant="outline" className="text-[10px] py-0">
+                          <Badge variant="outline" className="py-0 text-[10px]">
                             You
                           </Badge>
                         )}
                         {u.isSuspended && (
-                          <Badge
-                            variant="destructive"
-                            className="text-[10px] py-0"
-                            title={u.suspendedReason ? `Reason: ${u.suspendedReason}` : "Suspended"}
-                          >
-                            Suspended
-                          </Badge>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Badge variant="destructive" className="py-0 text-[10px]">
+                                  Suspended
+                                </Badge>
+                              }
+                            />
+                            <TooltipContent>
+                              {u.suspendedReason || "Suspended by an organizer"}
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
-                      <div className="text-[11px] font-mono text-muted-foreground">
+                      <div className="truncate font-mono text-[11px] text-muted-foreground">
                         {u.username}
                       </div>
                     </TableCell>
 
-                    {subTab === "competitors" && (
+                    {isCompetitorTab && (
                       <TableCell>
                         {u.teamName ? (
-                          <div className="flex items-center gap-1.5">
-                            <Badge variant="outline" className="text-[11px] font-medium">
-                              {u.teamName}
-                            </Badge>
-                          </div>
+                          <Badge variant="outline" className="text-[11px]">
+                            {u.teamName}
+                          </Badge>
                         ) : (
-                          <span className="text-[11px] text-destructive italic">No Team</span>
+                          <span className="text-[11px] text-warning">No team</span>
                         )}
                       </TableCell>
                     )}
@@ -166,123 +203,173 @@ export function UserTable({
                       </Badge>
                     </TableCell>
 
-                    {subTab === "competitors" && (
+                    {isCompetitorTab && (
                       <TableCell>
-                        <div className="flex items-center gap-1 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-1">
                           {FALLBACKS.map((f) => {
                             const active = grant[f.key];
                             return (
-                              <button
-                                key={f.key}
-                                type="button"
-                                onClick={() => onToggleFallback(u, f.key, !active)}
-                                disabled={pending}
-                                title={`${f.label}: ${f.cost}`}
-                                className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors ${
-                                  active
-                                    ? f.className
-                                    : "bg-muted/40 text-muted-foreground border-transparent hover:border-border"
-                                }`}
-                              >
-                                {f.badge}
-                              </button>
+                              <Tooltip key={f.key}>
+                                <TooltipTrigger
+                                  render={
+                                    <button
+                                      type="button"
+                                      onClick={() => onToggleFallback(u, f.key, !active)}
+                                      disabled={pending}
+                                      aria-pressed={active}
+                                      className={cn(
+                                        "rounded border px-1.5 py-0.5 font-mono text-[10px] transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50",
+                                        active
+                                          ? f.className
+                                          : "border-transparent bg-muted/40 text-muted-foreground hover:border-border"
+                                      )}
+                                    />
+                                  }
+                                >
+                                  {f.badge}
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  {active ? `Revoke — ${f.cost}` : f.cost}
+                                </TooltipContent>
+                              </Tooltip>
                             );
                           })}
                         </div>
                       </TableCell>
                     )}
 
-                    {subTab === "competitors" && (
+                    {isCompetitorTab && (
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onToggleExemption(u)}
-                          disabled={pending}
-                          className="h-7 text-xs gap-1 px-2"
-                        >
-                          {u.proctorExempt ? (
-                            <>
-                              <ShieldOff className="h-3.5 w-3.5 text-rose-500" />
-                              <span className="text-rose-500 font-medium text-[11px]">Exempt</span>
-                            </>
-                          ) : (
-                            <>
-                              <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span className="text-muted-foreground text-[11px]">Active</span>
-                            </>
-                          )}
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onToggleExemption(u)}
+                                disabled={pending}
+                                aria-pressed={Boolean(u.proctorExempt)}
+                                className="gap-1.5 px-2 text-[11px]"
+                              />
+                            }
+                          >
+                            {u.proctorExempt ? (
+                              <>
+                                <ShieldOffIcon className="text-destructive" />
+                                <span className="font-medium text-destructive">Exempt</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShieldCheckIcon className="text-muted-foreground" />
+                                <span className="text-muted-foreground">Enforced</span>
+                              </>
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {u.proctorExempt
+                              ? "Revoke the proctoring exemption"
+                              : "Grant a time-boxed proctoring exemption"}
+                          </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                     )}
 
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {subTab === "competitors" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onAssignTeam(u)}
-                            disabled={pending}
-                            title="Assign Team"
-                            className="h-8 w-8 text-foreground"
-                          >
-                            <Users className="h-4 w-4" />
-                          </Button>
+                      <div className="flex items-center justify-end gap-0.5">
+                        {isCompetitorTab && (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => onAssignTeam(u)}
+                                  disabled={pending}
+                                  aria-label={`Assign team for ${u.username}`}
+                                />
+                              }
+                            >
+                              <UsersRoundIcon />
+                            </TooltipTrigger>
+                            <TooltipContent>Assign team</TooltipContent>
+                          </Tooltip>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onToggleSuspension(u)}
-                          disabled={pending || isSelf}
-                          title={
-                            isSelf
-                              ? "Cannot suspend yourself"
+
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => onToggleSuspension(u)}
+                                disabled={pending || isSelf}
+                                aria-label={
+                                  u.isSuspended ? `Restore ${u.username}` : `Suspend ${u.username}`
+                                }
+                                className={cn(
+                                  "text-muted-foreground hover:bg-warning/10 hover:text-warning",
+                                  u.isSuspended && "text-warning"
+                                )}
+                              />
+                            }
+                          >
+                            {u.isSuspended ? <UserCheckIcon /> : <BanIcon />}
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {isSelf
+                              ? "You cannot suspend yourself"
                               : u.isSuspended
-                                ? "Unsuspend User"
-                                : "Suspend User"
-                          }
-                          className={`h-8 w-8 ${
-                            u.isSuspended
-                              ? "text-amber-500 hover:bg-amber-500/10"
-                              : "text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
-                          } disabled:opacity-30`}
-                        >
-                          {u.isSuspended ? (
-                            <UserCheck className="h-4 w-4" />
-                          ) : (
-                            <Ban className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onResetPassword(u)}
-                          disabled={pending}
-                          title="Reset Password"
-                          className="h-8 w-8 text-foreground"
-                        >
-                          <KeyRound className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onDeleteUser(u)}
-                          disabled={pending || isSelf}
-                          title={isSelf ? "Cannot delete yourself" : "Delete User"}
-                          className="h-8 w-8 text-destructive hover:bg-destructive/10 disabled:opacity-30"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                                ? "Restore access"
+                                : "Suspend user"}
+                          </TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => onResetPassword(u)}
+                                disabled={pending}
+                                aria-label={`Reset password for ${u.username}`}
+                              />
+                            }
+                          >
+                            <KeyRoundIcon />
+                          </TooltipTrigger>
+                          <TooltipContent>Reset password</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => onDeleteUser(u)}
+                                disabled={pending || isSelf}
+                                aria-label={`Delete ${u.username}`}
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              />
+                            }
+                          >
+                            <Trash2Icon />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {isSelf ? "You cannot delete yourself" : "Delete user"}
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </TableCell>
                   </TableRow>
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              })}
+            </TableBody>
+          </Table>
+          <DataPagination state={pagination} itemLabel="user" />
+        </div>
+      )}
     </div>
   );
 }

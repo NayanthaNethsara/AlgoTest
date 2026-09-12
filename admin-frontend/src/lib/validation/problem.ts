@@ -26,7 +26,11 @@ export const problemInputSchema = z
         /^[a-z0-9]+(-[a-z0-9]+)*$/,
         "Slug must be lowercase alphanumeric and hyphens only (e.g. 'two-sum')"
       ),
-    title: z.string().trim().min(1, "Title is required").max(120, "Title must be 120 characters or less"),
+    title: z
+      .string()
+      .trim()
+      .min(1, "Title is required")
+      .max(120, "Title must be 120 characters or less"),
     difficulty: z.enum(["Easy", "Medium", "Hard"], {
       error: "Difficulty must be Easy, Medium, or Hard",
     }),

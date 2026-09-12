@@ -1,14 +1,18 @@
+"use client";
+
 import { useState } from "react";
-import { Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 import type { Team } from "@/types/team";
 
 interface TeamEditDialogProps {
@@ -23,46 +27,53 @@ export function TeamEditDialog({ team, pending, onSave, onClose }: TeamEditDialo
 
   if (!team) return null;
 
+  const trimmed = name.trim();
+  const unchanged = trimmed === team.name;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!team || !name.trim()) return;
-    await onSave(team.id, name.trim());
+    if (!team || !trimmed || unchanged) return;
+    await onSave(team.id, trimmed);
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+    <Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
+      <DialogContent>
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <Edit2 className="h-5 w-5 text-primary" />
-            <DialogTitle className="text-base font-semibold">Rename Team</DialogTitle>
-          </div>
-          <DialogDescription className="text-xs">
-            Change the display name for team{" "}
-            <strong className="text-foreground">{team.name}</strong>.
+          <DialogTitle>Rename team</DialogTitle>
+          <DialogDescription>
+            Change the display name for <strong className="text-foreground">{team.name}</strong>.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-muted-foreground">Team Name *</label>
+        <form onSubmit={handleSubmit}>
+          <Field>
+            <FieldLabel htmlFor="edit-team-name">Team name</FieldLabel>
             <Input
+              id="edit-team-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Code Warriors"
+              placeholder="Code Warriors"
               required
+              autoFocus
               className="text-xs"
             />
-          </div>
+          </Field>
 
-          <div className="flex justify-end gap-2 pt-2 border-t">
+          <DialogFooter className="mt-5">
             <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={pending}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={pending || !name.trim()} className="text-xs">
-              {pending ? "Saving..." : "Save Changes"}
+            <Button
+              type="submit"
+              size="sm"
+              disabled={pending || !trimmed || unchanged}
+              className="gap-1.5"
+            >
+              {pending && <Spinner />}
+              {pending ? "Saving…" : "Save changes"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

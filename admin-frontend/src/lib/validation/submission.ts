@@ -4,10 +4,7 @@ export const reviewSubmissionSchema = z.object({
   status: z.enum(["accepted", "rejected"], {
     message: "Review status must be either 'accepted' or 'rejected'",
   }),
-  reason: z
-    .string()
-    .max(500, "Review reason must be 500 characters or less")
-    .optional(),
+  reason: z.string().max(500, "Review reason must be 500 characters or less").optional(),
 });
 
 export const rejudgeSubmissionSchema = z.object({

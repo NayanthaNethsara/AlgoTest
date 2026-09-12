@@ -126,14 +126,18 @@ export function EvidenceCard({ finding }: EvidenceCardProps) {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm text-foreground">{finding.title}</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${config.badgeBg}`}>
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${config.badgeBg}`}
+              >
                 {config.label}
               </span>
             </div>
             <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
               Rule: <span className="text-foreground/80">{finding.ruleId}</span> · Weight:{" "}
               <span className="font-semibold text-foreground">{finding.weight ?? 0}</span>
-              {finding.occurrences && finding.occurrences > 1 ? ` · Observed ${finding.occurrences} times` : ""}
+              {finding.occurrences && finding.occurrences > 1
+                ? ` · Observed ${finding.occurrences} times`
+                : ""}
             </p>
           </div>
         </div>
@@ -253,7 +257,8 @@ export function EvidenceCard({ finding }: EvidenceCardProps) {
         )}
 
         {/* Case 4: Unauthorized Foreground Application */}
-        {(finding.ruleId === "app.unauthorized_foreground" || finding.ruleId === "ai.fg.denylist") && (
+        {(finding.ruleId === "app.unauthorized_foreground" ||
+          finding.ruleId === "ai.fg.denylist") && (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-1">
               <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">
@@ -264,9 +269,13 @@ export function EvidenceCard({ finding }: EvidenceCardProps) {
                   <AppWindow className="size-3.5" />
                   {formatAppName(evidence.app) || "Unknown Application"}
                 </span>
-                {evidence.app && formatAppName(evidence.app).toLowerCase() !== String(evidence.app).toLowerCase() && (
-                  <span className="font-mono text-[10px] text-muted-foreground">({evidence.app})</span>
-                )}
+                {evidence.app &&
+                  formatAppName(evidence.app).toLowerCase() !==
+                    String(evidence.app).toLowerCase() && (
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      ({evidence.app})
+                    </span>
+                  )}
               </div>
             </div>
             {evidence.dwell_ms != null && (
@@ -297,9 +306,7 @@ export function EvidenceCard({ finding }: EvidenceCardProps) {
               <span className="text-[10px] text-muted-foreground uppercase font-semibold block">
                 Listening Port
               </span>
-              <span className="font-mono font-bold text-purple-400 text-xs">
-                :{evidence.port}
-              </span>
+              <span className="font-mono font-bold text-purple-400 text-xs">:{evidence.port}</span>
             </div>
           </div>
         )}

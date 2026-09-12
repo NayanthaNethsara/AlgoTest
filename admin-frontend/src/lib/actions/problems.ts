@@ -6,12 +6,7 @@ import {
   replaceTestsSchema,
   type ValidatedProblemInput,
 } from "@/lib/validation/problem";
-import type {
-  ProblemDetail,
-  ProblemInput,
-  TestCaseInput,
-  TestCaseMetadata,
-} from "@/types/problem";
+import type { ProblemDetail, ProblemInput, TestCaseInput, TestCaseMetadata } from "@/types/problem";
 
 function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -26,7 +21,10 @@ function extractHtmlError(html: string): string {
   if (h1Match && h1Match[1]) {
     return h1Match[1].trim();
   }
-  const clean = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const clean = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return clean.slice(0, 200);
 }
 
@@ -49,11 +47,14 @@ async function handleResponseError(res: Response, fallback: string): Promise<nev
 
   let finalMessage = "";
   if (res.status === 413) {
-    finalMessage = `Payload Too Large (HTTP 413): The problem or test cases exceed the server upload buffer. ${errDetail}`.trim();
+    finalMessage =
+      `Payload Too Large (HTTP 413): The problem or test cases exceed the server upload buffer. ${errDetail}`.trim();
   } else if (res.status === 502) {
-    finalMessage = `Bad Gateway (HTTP 502): The backend API server is unreachable. ${errDetail}`.trim();
+    finalMessage =
+      `Bad Gateway (HTTP 502): The backend API server is unreachable. ${errDetail}`.trim();
   } else if (res.status === 504) {
-    finalMessage = `Gateway Timeout (HTTP 504): The server timed out processing the request. ${errDetail}`.trim();
+    finalMessage =
+      `Gateway Timeout (HTTP 504): The server timed out processing the request. ${errDetail}`.trim();
   } else if (errDetail) {
     finalMessage = `${fallback} (${res.status}): ${errDetail}`;
   } else {

@@ -1,21 +1,54 @@
-import { useState, useMemo } from "react";
-import { Upload, AlertCircle, FileSpreadsheet, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
+"use client";
+
+import { useMemo, useRef, useState } from "react";
+import {
+  AlertCircleIcon,
+  CheckCircle2Icon,
+  FileSpreadsheetIcon,
+  UploadIcon,
+  XIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { SimpleSelect } from "@/components/ui/simple-select";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
-  TableHeader,
-  TableRow,
-  TableHead,
   TableBody,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import type { Team } from "@/types/team";
 import { parseCsvInput } from "./csv-utils";
 import type { ParsedCsvRow } from "./types";
+
+type BulkMode = "csv_with_teams" | "single_team";
+type TeamType = "existing" | "new";
+
+const MAX_CSV_BYTES = 512 * 1024;
+
+const MODES: { value: BulkMode; title: string; columns: string }[] = [
+  {
+    value: "csv_with_teams",
+    title: "CSV includes a team column",
+    columns: "username, [display_name], team_name, [password]",
+  },
+  {
+    value: "single_team",
+    title: "Assign every row to one team",
+    columns: "username, [display_name], [password]",
+  },
+];
 
 interface UserBulkDialogProps {
   teams: Team[];
@@ -32,266 +65,288 @@ export function UserBulkDialog({
   onSubmit,
   onCancel,
 }: UserBulkDialogProps) {
-  const [bulkMode, setBulkMode] = useState<"csv_with_teams" | "single_team">("csv_with_teams");
-  const [bulkDefaultTeamId, setBulkDefaultTeamId] = useState("");
-  const [bulkDefaultNewTeamName, setBulkDefaultNewTeamName] = useState("");
-  const [bulkDefaultTeamType, setBulkDefaultTeamType] = useState<"existing" | "new">("existing");
+  const [bulkMode, setBulkMode] = useState<BulkMode>("csv_with_teams");
+  const [teamType, setTeamType] = useState<TeamType>("existing");
+  const [defaultTeamId, setDefaultTeamId] = useState("");
+  const [defaultNewTeamName, setDefaultNewTeamName] = useState("");
   const [csvText, setCsvText] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parsedRows: ParsedCsvRow[] = useMemo(() => {
     if (!csvText.trim()) return [];
     return parseCsvInput(
       csvText,
       bulkMode === "single_team",
-      bulkDefaultTeamType === "existing"
-        ? teams.find((t) => t.id === bulkDefaultTeamId)?.name
-        : bulkDefaultNewTeamName.trim()
+      teamType === "existing"
+        ? teams.find((t) => t.id === defaultTeamId)?.name
+        : defaultNewTeamName.trim()
     );
-  }, [csvText, bulkMode, bulkDefaultTeamId, bulkDefaultNewTeamName, bulkDefaultTeamType, teams]);
+  }, [csvText, bulkMode, defaultTeamId, defaultNewTeamName, teamType, teams]);
 
-  const validRowsCount = parsedRows.filter((r) => r.isValid).length;
-  const invalidRowsCount = parsedRows.filter((r) => !r.isValid).length;
+  const validRows = parsedRows.filter((r) => r.isValid);
+  const invalidCount = parsedRows.length - validRows.length;
 
-  async function handleBulkSubmit() {
+  async function handleFile(file: File) {
+    if (file.size > MAX_CSV_BYTES) {
+      toast.error("File too large", { description: "Keep the roster under 512 KB." });
+      return;
+    }
+    setCsvText(await file.text());
+    setLocalError(null);
+  }
+
+  async function handleSubmit() {
     setLocalError(null);
     if (parsedRows.length === 0) {
-      setLocalError("Please paste or type CSV/TSV user records.");
+      setLocalError("Paste rows or upload a CSV file first.");
       return;
     }
-    if (validRowsCount === 0) {
-      setLocalError("No valid rows found. Every row must have a username and team assigned.");
+    if (validRows.length === 0) {
+      setLocalError("No valid rows — every row needs a username and a team.");
       return;
     }
-    await onSubmit(parsedRows.filter((r) => r.isValid));
+    await onSubmit(validRows);
   }
 
   return (
-    <Card className="p-5 border-border shadow-sm space-y-4">
-      <div className="flex items-center justify-between border-b pb-3">
-        <div>
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <FileSpreadsheet className="h-4 w-4 text-primary" /> Bulk Import Competitors
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Import multiple competitor accounts at once. Teams will be created automatically if they
-            do not exist.
-          </p>
-        </div>
-      </div>
-
-      {localError && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{localError}</span>
-        </div>
-      )}
-
-      {bulkErrors.length > 0 && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 space-y-1">
-          <div className="text-xs font-semibold text-destructive flex items-center gap-1.5">
-            <AlertCircle className="h-4 w-4" /> {bulkErrors.length} row(s) failed during creation:
-          </div>
-          <div className="max-h-24 overflow-y-auto text-[11px] font-mono text-destructive/90 space-y-0.5">
-            {bulkErrors.map((err, i) => (
-              <div key={i}>
-                - {err.username}: {err.error}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Mode selection */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label
-          className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-            bulkMode === "csv_with_teams" ? "border-primary bg-primary/5" : "bg-muted/10"
-          }`}
+    <Card>
+      <CardHeader className="border-b">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <FileSpreadsheetIcon className="size-4 text-primary" /> Bulk import competitors
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Teams that do not exist yet are created automatically.
+        </p>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onCancel}
+          disabled={pending}
+          aria-label="Close bulk import"
+          className="col-start-2 row-start-1 self-start justify-self-end"
         >
-          <input
-            type="radio"
-            name="bulkMode"
-            checked={bulkMode === "csv_with_teams"}
-            onChange={() => setBulkMode("csv_with_teams")}
-            className="mt-0.5"
-          />
-          <div>
-            <div className="text-xs font-semibold">CSV Includes Teams Column</div>
-            <div className="text-[11px] text-muted-foreground font-mono">
-              username, display_name, team_name, password
+          <XIcon />
+        </Button>
+      </CardHeader>
+
+      <CardContent className="flex flex-col gap-4">
+        {localError && (
+          <Alert variant="destructive" role="alert">
+            <AlertCircleIcon />
+            <AlertDescription>{localError}</AlertDescription>
+          </Alert>
+        )}
+
+        {bulkErrors.length > 0 && (
+          <Alert variant="destructive">
+            <AlertCircleIcon />
+            <AlertTitle>{bulkErrors.length} row(s) failed during creation</AlertTitle>
+            <AlertDescription>
+              <ul className="max-h-24 space-y-0.5 overflow-y-auto font-mono text-[11px]">
+                {bulkErrors.map((err) => (
+                  <li key={err.username}>
+                    {err.username}: {err.error}
+                  </li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <fieldset className="grid gap-2 sm:grid-cols-2">
+          <legend className="sr-only">Import mode</legend>
+          {MODES.map((mode) => {
+            const selected = bulkMode === mode.value;
+            return (
+              <label
+                key={mode.value}
+                className={cn(
+                  "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
+                  selected ? "border-primary bg-primary/5" : "bg-muted/10 hover:bg-muted/30"
+                )}
+              >
+                <input
+                  type="radio"
+                  name="bulkMode"
+                  value={mode.value}
+                  checked={selected}
+                  onChange={() => setBulkMode(mode.value)}
+                  className="mt-0.5 accent-primary"
+                />
+                <span>
+                  <span className="block text-xs font-semibold">{mode.title}</span>
+                  <span className="block font-mono text-[11px] text-muted-foreground">
+                    {mode.columns}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+
+        {bulkMode === "single_team" && (
+          <Field className="rounded-lg border bg-muted/10 p-3">
+            <FieldLabel>Target team for every row</FieldLabel>
+            <Tabs value={teamType} onValueChange={(v) => setTeamType(v as TeamType)}>
+              <TabsList className="h-8 w-full">
+                <TabsTrigger
+                  value="existing"
+                  disabled={teams.length === 0}
+                  className="h-7 flex-1 text-xs"
+                >
+                  Existing team
+                </TabsTrigger>
+                <TabsTrigger value="new" className="h-7 flex-1 text-xs">
+                  New team
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {teamType === "existing" ? (
+              <SimpleSelect
+                value={defaultTeamId}
+                onValueChange={setDefaultTeamId}
+                options={teams.map((t) => ({ value: t.id, label: t.name }))}
+                placeholder="Choose a team…"
+                aria-label="Target team"
+                className="text-xs"
+              />
+            ) : (
+              <Input
+                value={defaultNewTeamName}
+                onChange={(e) => setDefaultNewTeamName(e.target.value)}
+                placeholder="New team name…"
+                aria-label="New team name"
+                className="text-xs"
+              />
+            )}
+          </Field>
+        )}
+
+        <Field>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <FieldLabel htmlFor="bulk-csv">Paste rows or upload a file</FieldLabel>
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {bulkMode === "csv_with_teams"
+                  ? "username, [display_name], team_name, [password]"
+                  : "username, [display_name], [password]"}
+              </span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.tsv,.txt,text/csv,text/plain"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleFile(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="xs"
+                onClick={() => fileInputRef.current?.click()}
+                className="gap-1"
+              >
+                <UploadIcon /> Upload CSV
+              </Button>
             </div>
           </div>
-        </label>
-
-        <label
-          className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
-            bulkMode === "single_team" ? "border-primary bg-primary/5" : "bg-muted/10"
-          }`}
-        >
-          <input
-            type="radio"
-            name="bulkMode"
-            checked={bulkMode === "single_team"}
-            onChange={() => setBulkMode("single_team")}
-            className="mt-0.5"
+          <Textarea
+            id="bulk-csv"
+            value={csvText}
+            onChange={(e) => setCsvText(e.target.value)}
+            rows={6}
+            spellCheck={false}
+            placeholder={
+              bulkMode === "csv_with_teams"
+                ? "alice, Alice Walker, Team Alpha, secret123\nbob, Bob Smith, Team Beta"
+                : "alice, Alice Walker, secret123\nbob, Bob Smith"
+            }
+            className="font-mono text-xs"
           />
-          <div>
-            <div className="text-xs font-semibold">Assign All Rows to One Team</div>
-            <div className="text-[11px] text-muted-foreground font-mono">
-              username, display_name, password
-            </div>
-          </div>
-        </label>
-      </div>
+          <FieldDescription>
+            A header row is optional. Comma- or tab-separated values both work.
+          </FieldDescription>
+        </Field>
 
-      {/* Target team selector for single team mode */}
-      {bulkMode === "single_team" && (
-        <div className="rounded-lg border bg-muted/10 p-3 space-y-2">
-          <label className="text-xs font-semibold text-foreground block">
-            Target Team for All Rows *
-          </label>
-          <div className="flex items-center gap-4 text-xs mb-2">
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="radio"
-                name="bulkTeamType"
-                checked={bulkDefaultTeamType === "existing"}
-                onChange={() => setBulkDefaultTeamType("existing")}
-              />
-              Existing Team
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="radio"
-                name="bulkTeamType"
-                checked={bulkDefaultTeamType === "new"}
-                onChange={() => setBulkDefaultTeamType("new")}
-              />
-              Create New Team
-            </label>
-          </div>
-
-          {bulkDefaultTeamType === "existing" ? (
-            <select
-              value={bulkDefaultTeamId}
-              onChange={(e) => setBulkDefaultTeamId(e.target.value)}
-              className="h-8 w-full rounded-md border bg-background px-3 text-xs"
-            >
-              <option value="">-- Choose Team --</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <Input
-              value={bulkDefaultNewTeamName}
-              onChange={(e) => setBulkDefaultNewTeamName(e.target.value)}
-              placeholder="Team Name..."
-              className="h-8 text-xs"
-            />
-          )}
-        </div>
-      )}
-
-      {/* CSV Input textarea */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-medium text-muted-foreground">
-            Paste CSV / TSV Rows (Header optional)
-          </label>
-          <span className="text-[11px] text-muted-foreground font-mono">
-            {bulkMode === "csv_with_teams"
-              ? "username, [display_name], team_name, [password]"
-              : "username, [display_name], [password]"}
-          </span>
-        </div>
-        <Textarea
-          value={csvText}
-          onChange={(e) => setCsvText(e.target.value)}
-          rows={6}
-          placeholder={
-            bulkMode === "csv_with_teams"
-              ? `alice, Alice Walker, Team Alpha, secret123\nbob, Bob Smith, Team Beta\ncharlie, Charlie Brown, Team Alpha`
-              : `alice, Alice Walker, secret123\nbob, Bob Smith\ncharlie, Charlie Brown`
-          }
-          className="font-mono text-xs"
-        />
-      </div>
-
-      {/* Live Preview Table */}
-      {parsedRows.length > 0 && (
-        <div className="space-y-2 border rounded-lg p-3 bg-muted/10">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold flex items-center gap-2">
-              <span>Parsed Rows Preview ({parsedRows.length})</span>
-              <Badge variant="outline" className="text-[10px] gap-1">
-                <CheckCircle2 className="h-3 w-3 text-success" /> {validRowsCount} Valid
+        {parsedRows.length > 0 && (
+          <div className="flex flex-col gap-2 rounded-lg border bg-muted/10 p-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+              <span>Preview ({parsedRows.length} rows)</span>
+              <Badge variant="outline" className="gap-1 text-[10px]">
+                <CheckCircle2Icon className="size-3 text-success" /> {validRows.length} valid
               </Badge>
-              {invalidRowsCount > 0 && (
-                <Badge variant="destructive" className="text-[10px] gap-1">
-                  <AlertCircle className="h-3 w-3" /> {invalidRowsCount} Invalid
+              {invalidCount > 0 && (
+                <Badge variant="destructive" className="gap-1 text-[10px]">
+                  <AlertCircleIcon className="size-3" /> {invalidCount} invalid
                 </Badge>
               )}
             </div>
-          </div>
 
-          <div className="max-h-48 overflow-y-auto rounded border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-[11px] h-7">Status</TableHead>
-                  <TableHead className="text-[11px] h-7">Username</TableHead>
-                  <TableHead className="text-[11px] h-7">Display Name</TableHead>
-                  <TableHead className="text-[11px] h-7">Team</TableHead>
-                  <TableHead className="text-[11px] h-7">Password</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {parsedRows.map((row, idx) => (
-                  <TableRow key={idx} className={row.isValid ? "" : "bg-destructive/5"}>
-                    <TableCell className="py-1 text-xs">
-                      {row.isValid ? (
-                        <span className="text-success font-semibold text-[11px]">OK</span>
-                      ) : (
-                        <span className="text-destructive text-[11px] font-medium">
-                          {row.validationError}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-1 text-xs font-mono">{row.username || "—"}</TableCell>
-                    <TableCell className="py-1 text-xs">{row.displayName || "—"}</TableCell>
-                    <TableCell className="py-1 text-xs font-medium">
-                      {row.teamName || <span className="text-destructive">None</span>}
-                    </TableCell>
-                    <TableCell className="py-1 text-xs font-mono text-muted-foreground">
-                      {row.password ? "Provided" : "Auto-gen"}
-                    </TableCell>
+            <div className="max-h-48 overflow-auto rounded-lg border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="h-7 text-[11px]">Status</TableHead>
+                    <TableHead className="h-7 text-[11px]">Username</TableHead>
+                    <TableHead className="h-7 text-[11px]">Display name</TableHead>
+                    <TableHead className="h-7 text-[11px]">Team</TableHead>
+                    <TableHead className="h-7 text-[11px]">Password</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {parsedRows.map((row, idx) => (
+                    <TableRow
+                      key={`${row.username}-${idx}`}
+                      className={cn(!row.isValid && "bg-destructive/5")}
+                    >
+                      <TableCell className="py-1 text-[11px]">
+                        {row.isValid ? (
+                          <span className="font-semibold text-success">OK</span>
+                        ) : (
+                          <span className="font-medium text-destructive">
+                            {row.validationError}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-1 font-mono text-xs">
+                        {row.username || "—"}
+                      </TableCell>
+                      <TableCell className="py-1 text-xs">{row.displayName || "—"}</TableCell>
+                      <TableCell className="py-1 text-xs font-medium">
+                        {row.teamName || <span className="text-destructive">None</span>}
+                      </TableCell>
+                      <TableCell className="py-1 font-mono text-xs text-muted-foreground">
+                        {row.password ? "Provided" : "Auto-gen"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="flex justify-end gap-2 pt-2 border-t">
-        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={pending}>
-          Cancel
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          onClick={handleBulkSubmit}
-          disabled={pending || validRowsCount === 0}
-          className="gap-1.5 text-xs"
-        >
-          <Upload className="h-3.5 w-3.5" />
-          {pending ? "Importing..." : `Import ${validRowsCount} Competitors`}
-        </Button>
-      </div>
+        <div className="flex justify-end gap-2 border-t pt-3">
+          <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={pending}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSubmit}
+            disabled={pending || validRows.length === 0}
+            className="gap-1.5"
+          >
+            {pending ? <Spinner /> : <UploadIcon />}
+            {pending ? "Importing…" : `Import ${validRows.length} competitor(s)`}
+          </Button>
+        </div>
+      </CardContent>
     </Card>
   );
 }

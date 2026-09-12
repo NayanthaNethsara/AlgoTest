@@ -110,8 +110,8 @@ export function TimerControlDock({
           </Button>
         </div>
       ) : (
-        <div className="w-full max-w-5xl px-4 mt-6">
-          <div className="pixel-raised bg-card/90 p-3 sm:p-4 shadow-[0px_6px_0px_#000000] flex flex-col gap-3">
+        <div className="w-full max-w-5xl px-4 mt-3 sm:mt-6 [@media(max-height:820px)]:mt-1.5">
+          <div className="pixel-raised bg-card/90 p-2.5 sm:p-4 shadow-[0px_6px_0px_#000000] flex flex-col gap-2 sm:gap-3 [@media(max-height:820px)]:p-2 [@media(max-height:820px)]:gap-2">
             {/* Top Toolbar Row */}
             <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b-2 border-black">
               {/* Live Sync Status */}
@@ -146,9 +146,7 @@ export function TimerControlDock({
                   ) : (
                     <VolumeX className="h-3 w-3" />
                   )}
-                  <span className="hidden sm:inline">
-                    {isAudioEnabled ? "AUDIO ON" : "MUTED"}
-                  </span>
+                  <span className="hidden sm:inline">{isAudioEnabled ? "AUDIO ON" : "MUTED"}</span>
                 </button>
 
                 <button
@@ -165,7 +163,9 @@ export function TimerControlDock({
                   type="button"
                   onClick={onToggleFullscreen}
                   className="pixel-press px-3 py-1.5 text-[9px] border-2 border-black bg-primary text-primary-foreground font-bold flex items-center gap-1.5 cursor-pointer shadow-[0_2px_0_#000000]"
-                  title={isProjectorFullscreen ? "Exit Fullscreen (F)" : "Enter Projector Fullscreen (F)"}
+                  title={
+                    isProjectorFullscreen ? "Exit Fullscreen (F)" : "Enter Projector Fullscreen (F)"
+                  }
                 >
                   {isProjectorFullscreen ? (
                     <>
@@ -209,7 +209,11 @@ export function TimerControlDock({
                     disabled={isLoading}
                     className="pixel-press flex items-center gap-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-4 py-2 border-2 border-black shadow-[0_4px_0_#000000] cursor-pointer"
                   >
-                    {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pause className="h-3.5 w-3.5" />}
+                    {isLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Pause className="h-3.5 w-3.5" />
+                    )}
                     <span>PAUSE CONTEST</span>
                   </button>
                 )}
@@ -231,8 +235,8 @@ export function TimerControlDock({
                 )}
 
                 {/* Scoreboard Freeze Toggle */}
-                {(isRunning || isPaused) && (
-                  isFrozen ? (
+                {(isRunning || isPaused) &&
+                  (isFrozen ? (
                     <button
                       type="button"
                       onClick={onUnfreezeContest}
@@ -262,8 +266,7 @@ export function TimerControlDock({
                       )}
                       <span>FREEZE SCOREBOARD</span>
                     </button>
-                  )
-                )}
+                  ))}
 
                 {/* End Contest Button */}
                 {(isRunning || isPaused) && (
@@ -282,9 +285,7 @@ export function TimerControlDock({
               {/* Time Extension Shortcuts (+5m, +10m, +15m, +30m, Custom) */}
               {(isRunning || isPaused || isEnded) && (
                 <div className="flex flex-wrap items-center gap-1.5 border-t sm:border-t-0 sm:border-l-2 border-black pt-2 sm:pt-0 sm:pl-3 font-pixel-header text-[9px]">
-                  <span className="text-muted-foreground mr-1">
-                    ADD:
-                  </span>
+                  <span className="text-muted-foreground mr-1">ADD:</span>
                   {[5, 10, 15, 30, 60].map((mins) => (
                     <button
                       key={mins}
@@ -348,7 +349,8 @@ export function TimerControlDock({
           </DialogHeader>
           <div className="flex flex-col gap-4 py-3 font-pixel-body">
             <p className="text-sm text-muted-foreground">
-              Starting the contest will unlock challenge access and start the countdown timer immediately for all competitors.
+              Starting the contest will unlock challenge access and start the countdown timer
+              immediately for all competitors.
             </p>
 
             <div className="flex flex-col gap-1.5">
@@ -403,7 +405,11 @@ export function TimerControlDock({
               disabled={isLoading}
               className="pixel-press px-3.5 py-1.5 border-2 border-black bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer shadow-[0_3px_0_#000000] flex items-center gap-1.5"
             >
-              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />}
+              {isLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Play className="h-3 w-3 fill-current" />
+              )}
               <span>START NOW</span>
             </button>
           </DialogFooter>

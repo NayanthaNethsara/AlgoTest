@@ -31,6 +31,14 @@ export function ConfirmDialog({
   variant = "default",
   onConfirm,
 }: ConfirmDialogProps) {
+  // AlertDialogAction is a plain button, not a Close primitive — it never
+  // dismisses the dialog on its own. Closing here means a caller's onConfirm
+  // can't forget to, whatever async work it goes on to do.
+  function handleConfirm() {
+    onOpenChange(false);
+    onConfirm();
+  }
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -43,7 +51,7 @@ export function ConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
+            onClick={handleConfirm}
             className={
               variant === "destructive"
                 ? buttonVariants({ variant: "destructive" })

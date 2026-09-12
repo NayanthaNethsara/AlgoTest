@@ -1,20 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
-  AlertCircle,
-  Ban,
-  CheckCircle2,
-  Clock,
-  Eye,
-  Loader2,
-  Play,
-  RefreshCw,
-  RotateCcw,
-  ShieldAlert,
-  Undo2,
-  XCircle,
+  AlertTriangleIcon,
+  BanIcon,
+  CheckCircle2Icon,
+  ClockIcon,
+  EyeIcon,
+  HistoryIcon,
+  PlayIcon,
+  RefreshCwIcon,
+  RotateCcwIcon,
+  ShieldAlertIcon,
+  Undo2Icon,
+  XCircleIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   listAdminSubmissionsAction,
   rejudgeSubmissionAction,
@@ -22,6 +23,13 @@ import {
   unstickTeamAction,
 } from "@/lib/actions/submissions";
 import type { AdminSubmission } from "@/types/submission";
+import { getErrorMessage } from "@/lib/errors";
+import { useAsyncData } from "@/hooks/use-async-data";
+import { usePagination } from "@/hooks/use-pagination";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { DataPagination } from "@/components/shell/data-pagination";
+import { EmptyState, ErrorState, TableSkeleton } from "@/components/shell/data-states";
+import { PageHeader, PageShell } from "@/components/shell/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +41,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { SimpleSelect } from "@/components/ui/simple-select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
   TableBody,
@@ -42,448 +53,529 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "queued", label: "Queued" },
+  { value: "running", label: "Running" },
+  { value: "passed", label: "Passed" },
+  { value: "failed", label: "Failed" },
+];
+
+const NO_SUBMISSIONS: AdminSubmission[] = [];
 
 export default function AdminSubmissionsPage() {
-  const [submissions, setSubmissions] = useState<AdminSubmission[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const loader = useCallback(async () => {
+    const res = await listAdminSubmissionsAction(statusFilter === "all" ? "" : statusFilter);
+    return res.submissions || NO_SUBMISSIONS;
+  }, [statusFilter]);
+
+  const {
+    data: submissions,
+    error,
+    loading,
+    refreshing,
+    refresh,
+  } = useAsyncData(loader, NO_SUBMISSIONS, "Failed to load submissions.");
 
   const [selectedSubmission, setSelectedSubmission] = useState<AdminSubmission | null>(null);
   const [reviewTarget, setReviewTarget] = useState<AdminSubmission | null>(null);
   const [reviewReason, setReviewReason] = useState("");
+  const [unstickTarget, setUnstickTarget] = useState<AdminSubmission | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
-  const [actionMessage, setActionMessage] = useState<{
-    text: string;
-    type: "success" | "error";
-  } | null>(null);
 
-  const fetchSubmissions = useCallback(async () => {
-    setLoading(true);
-    const filter = statusFilter === "all" ? "" : statusFilter;
-    const res = await listAdminSubmissionsAction(filter);
-    setSubmissions(res.submissions || []);
-    setLoading(false);
-  }, [statusFilter]);
+  const counts = useMemo(
+    () => ({
+      queued: submissions.filter((s) => s.status === "queued").length,
+      running: submissions.filter((s) => s.status === "running").length,
+      passed: submissions.filter((s) => s.status === "passed").length,
+      failed: submissions.filter((s) => s.status === "failed").length,
+      rejected: submissions.filter((s) => s.reviewStatus === "rejected").length,
+    }),
+    [submissions]
+  );
 
-  useEffect(() => {
-    fetchSubmissions();
-  }, [fetchSubmissions]);
+  const pagination = usePagination(submissions);
 
-  async function handleRejudge(id: string) {
-    setActionMessage(null);
-    const res = await rejudgeSubmissionAction(id);
-    if (res.success) {
-      setActionMessage({ text: "Submission re-queued for judging.", type: "success" });
-      fetchSubmissions();
-    } else {
-      setActionMessage({ text: res.error || "Failed to re-judge", type: "error" });
+  async function handleRejudge(sub: AdminSubmission) {
+    setBusyId(sub.submissionId);
+    try {
+      const res = await rejudgeSubmissionAction(sub.submissionId);
+      if (!res.success) throw new Error(res.error);
+      toast.success("Re-queued for judging", { description: sub.submissionId.slice(0, 8) });
+      await refresh();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to re-judge the submission."));
+    } finally {
+      setBusyId(null);
     }
   }
 
   async function handleReject() {
     if (!reviewTarget || !reviewReason.trim()) return;
     setReviewing(true);
-    const res = await reviewSubmissionAction(
-      reviewTarget.submissionId,
-      "rejected",
-      reviewReason.trim()
-    );
-    setReviewing(false);
-    if (res.success) {
+    try {
+      const res = await reviewSubmissionAction(
+        reviewTarget.submissionId,
+        "rejected",
+        reviewReason.trim()
+      );
+      if (!res.success) throw new Error(res.error);
       setReviewTarget(null);
       setReviewReason("");
-      setActionMessage({
-        text: "Submission rejected. The team's best score for this problem was recomputed.",
-        type: "success",
+      toast.success("Submission rejected", {
+        description: "The team's best score for this problem was recomputed.",
       });
-      fetchSubmissions();
-    } else {
-      setActionMessage({ text: res.error || "Failed to reject", type: "error" });
+      await refresh();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to reject the submission."));
+    } finally {
+      setReviewing(false);
     }
   }
 
   async function handleRestore(sub: AdminSubmission) {
-    setActionMessage(null);
-    const res = await reviewSubmissionAction(sub.submissionId, "accepted", "");
-    if (res.success) {
-      setActionMessage({
-        text: "Submission restored. It counts towards the leaderboard again.",
-        type: "success",
+    setBusyId(sub.submissionId);
+    try {
+      const res = await reviewSubmissionAction(sub.submissionId, "accepted", "");
+      if (!res.success) throw new Error(res.error);
+      toast.success("Submission restored", {
+        description: "It counts towards the leaderboard again.",
       });
-      fetchSubmissions();
-    } else {
-      setActionMessage({ text: res.error || "Failed to restore", type: "error" });
+      await refresh();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to restore the submission."));
+    } finally {
+      setBusyId(null);
     }
   }
 
-  async function handleUnstick(teamId: string, teamName: string) {
-    if (
-      !confirm(`Are you sure you want to clear active submission locks for team "${teamName}"?`)
-    ) {
-      return;
-    }
-    setActionMessage(null);
-    const res = await unstickTeamAction(teamId);
-    if (res.success) {
-      setActionMessage({ text: `Submission locks cleared for ${teamName}.`, type: "success" });
-      fetchSubmissions();
-    } else {
-      setActionMessage({ text: res.error || "Failed to unstick team", type: "error" });
+  async function confirmUnstick() {
+    if (!unstickTarget) return;
+    const target = unstickTarget;
+    const teamName = target.teamName || target.userName;
+    setUnstickTarget(null);
+    setBusyId(target.submissionId);
+    try {
+      const res = await unstickTeamAction(target.teamId);
+      if (!res.success) throw new Error(res.error);
+      toast.success("Submission locks cleared", { description: teamName });
+      await refresh();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to clear the submission lock."));
+    } finally {
+      setBusyId(null);
     }
   }
-
-  const queuedCount = submissions.filter((s) => s.status === "queued").length;
-  const runningCount = submissions.filter((s) => s.status === "running").length;
-  const passedCount = submissions.filter((s) => s.status === "passed").length;
-  const failedCount = submissions.filter((s) => s.status === "failed").length;
-  const rejectedCount = submissions.filter((s) => s.reviewStatus === "rejected").length;
 
   return (
-    <main className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">Submissions & Judge Monitor</h2>
-          <p className="text-xs text-muted-foreground">
-            Inspect database execution logs, re-judge stuck tasks, and manage submission locks.
-          </p>
-        </div>
+    <PageShell width="wide">
+      <PageHeader
+        title="Submissions & judge monitor"
+        description="Inspect execution logs, re-judge stuck tasks, and manage team submission locks."
+        actions={
+          <>
+            <SimpleSelect
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+              options={STATUS_OPTIONS}
+              aria-label="Filter by status"
+              className="w-36 text-xs"
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={refresh}
+              disabled={refreshing}
+              className="gap-1.5"
+            >
+              {refreshing ? <Spinner /> : <RefreshCwIcon />} Refresh
+            </Button>
+          </>
+        }
+      />
 
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-8 sm:h-9 flex-1 sm:w-40 rounded-md border bg-background px-3 text-xs shadow-xs"
-          >
-            <option value="all">All Statuses</option>
-            <option value="queued">Queued</option>
-            <option value="running">Running</option>
-            <option value="passed">Passed</option>
-            <option value="failed">Failed</option>
-          </select>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={fetchSubmissions}
-            className="h-8 sm:h-9 gap-1.5 text-xs shrink-0"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </Button>
-        </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <MetricCard
+          label="Queued"
+          value={counts.queued}
+          icon={<ClockIcon className="size-4 text-warning" />}
+          loading={loading}
+        />
+        <MetricCard
+          label="Running"
+          value={counts.running}
+          icon={<PlayIcon className="size-4 text-primary" />}
+          loading={loading}
+        />
+        <MetricCard
+          label="Passed"
+          value={counts.passed}
+          icon={<CheckCircle2Icon className="size-4 text-success" />}
+          valueClassName="text-success"
+          loading={loading}
+        />
+        <MetricCard
+          label="Failed / errors"
+          value={counts.failed}
+          icon={<XCircleIcon className="size-4 text-destructive" />}
+          valueClassName="text-destructive"
+          hint={`${counts.rejected} rejected by an organizer`}
+          loading={loading}
+        />
       </div>
 
-      {actionMessage && (
-        <div
-          className={`flex items-center gap-2 rounded-lg p-3 text-xs ${
-            actionMessage.type === "success"
-              ? "bg-success/15 text-success border border-success/30"
-              : "bg-destructive/15 text-destructive border border-destructive/30"
-          }`}
-        >
-          {actionMessage.type === "success" ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-          ) : (
-            <AlertCircle className="h-4 w-4 shrink-0" />
-          )}
-          <span>{actionMessage.text}</span>
+      {loading ? (
+        <TableSkeleton columns={7} />
+      ) : error && submissions.length === 0 ? (
+        <ErrorState message={error} onRetry={refresh} />
+      ) : submissions.length === 0 ? (
+        <EmptyState
+          icon={<HistoryIcon />}
+          title="No submissions"
+          description={
+            statusFilter === "all"
+              ? "Nothing has been submitted yet."
+              : `No submission currently has the "${statusFilter}" status.`
+          }
+          action={
+            statusFilter !== "all" ? (
+              <Button variant="outline" size="sm" onClick={() => setStatusFilter("all")}>
+                Show all statuses
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>ID</TableHead>
+                <TableHead>Competitor / team</TableHead>
+                <TableHead>Problem</TableHead>
+                <TableHead>Lang</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Score</TableHead>
+                <TableHead>Review</TableHead>
+                <TableHead>Submitted</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pagination.items.map((sub) => {
+                const rejected = sub.reviewStatus === "rejected";
+                const busy = busyId === sub.submissionId;
+
+                return (
+                  <TableRow key={sub.submissionId} className={cn(rejected && "opacity-60")}>
+                    <TableCell className="font-mono text-xs font-semibold">
+                      {sub.submissionId.slice(0, 8)}
+                    </TableCell>
+                    <TableCell className="max-w-56">
+                      <div className="truncate text-xs font-medium">
+                        {sub.teamName || sub.userName}
+                      </div>
+                      <div className="truncate text-[11px] text-muted-foreground">
+                        {sub.userName}
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-56 truncate text-xs font-medium">
+                      {sub.problemTitle || sub.problemId}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs uppercase">{sub.language}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={sub.status} verdict={sub.verdict} />
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">
+                      <span className={cn(rejected && "line-through")}>
+                        {sub.score} / {sub.maxScore}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <ReviewCell submission={sub} />
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(sub.createdAt).toLocaleTimeString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-0.5">
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => setSelectedSubmission(sub)}
+                                aria-label="Inspect submission"
+                              />
+                            }
+                          >
+                            <EyeIcon />
+                          </TooltipTrigger>
+                          <TooltipContent>Inspect code &amp; logs</TooltipContent>
+                        </Tooltip>
+
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => handleRejudge(sub)}
+                                disabled={busy}
+                                aria-label="Re-judge submission"
+                              />
+                            }
+                          >
+                            {busy ? <Spinner /> : <RotateCcwIcon />}
+                          </TooltipTrigger>
+                          <TooltipContent>Re-judge</TooltipContent>
+                        </Tooltip>
+
+                        {rejected ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => handleRestore(sub)}
+                                  disabled={busy}
+                                  aria-label="Restore submission"
+                                />
+                              }
+                            >
+                              <Undo2Icon />
+                            </TooltipTrigger>
+                            <TooltipContent>Count this submission again</TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => {
+                                    setReviewReason("");
+                                    setReviewTarget(sub);
+                                  }}
+                                  disabled={busy}
+                                  aria-label="Reject submission"
+                                />
+                              }
+                            >
+                              <BanIcon />
+                            </TooltipTrigger>
+                            <TooltipContent>Stop counting on the leaderboard</TooltipContent>
+                          </Tooltip>
+                        )}
+
+                        {sub.teamId && (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => setUnstickTarget(sub)}
+                                  disabled={busy}
+                                  aria-label="Clear team submission lock"
+                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                />
+                              }
+                            >
+                              <ShieldAlertIcon />
+                            </TooltipTrigger>
+                            <TooltipContent>Clear team submission lock</TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          <DataPagination state={pagination} itemLabel="submission" />
         </div>
       )}
 
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="shadow-sm">
-          <CardHeader className="py-3 px-4 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Queued Jobs</CardTitle>
-            <Clock className="h-4 w-4 text-warning" />
-          </CardHeader>
-          <CardContent className="py-2 px-4">
-            <div className="text-2xl font-bold font-mono">{queuedCount}</div>
-          </CardContent>
-        </Card>
+      {/* A reason is required: this is the decision that gets challenged. */}
+      <Dialog
+        open={Boolean(reviewTarget)}
+        onOpenChange={(open) => !open && !reviewing && setReviewTarget(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reject this submission</DialogTitle>
+            <DialogDescription>
+              {reviewTarget?.teamName || reviewTarget?.userName} ·{" "}
+              {reviewTarget?.problemTitle || reviewTarget?.problemId} · {reviewTarget?.score} /{" "}
+              {reviewTarget?.maxScore}
+            </DialogDescription>
+          </DialogHeader>
 
-        <Card className="shadow-sm">
-          <CardHeader className="py-3 px-4 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Running Jobs
-            </CardTitle>
-            <Play className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent className="py-2 px-4">
-            <div className="text-2xl font-bold font-mono">{runningCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm">
-          <CardHeader className="py-3 px-4 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Passed</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent className="py-2 px-4">
-            <div className="text-2xl font-bold font-mono text-success">{passedCount}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm">
-          <CardHeader className="py-3 px-4 flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Failed / Errors
-            </CardTitle>
-            <XCircle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent className="py-2 px-4">
-            <div className="text-2xl font-bold font-mono text-destructive">{failedCount}</div>
-            <p className="text-[11px] text-muted-foreground">
-              {rejectedCount} rejected by an organizer
+          <div className="flex flex-col gap-3">
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              The submission keeps its verdict and stays visible to the competitor. It stops
+              counting towards the team&apos;s best score for this problem, and the leaderboard
+              falls back to their next best accepted submission.
             </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Submissions Table */}
-      <Card className="shadow-sm">
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading submissions...
-            </div>
-          ) : submissions.length === 0 ? (
-            <div className="flex h-36 items-center justify-center text-sm text-muted-foreground">
-              No submissions found.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-24">ID</TableHead>
-                  <TableHead>Competitor / Team</TableHead>
-                  <TableHead>Problem</TableHead>
-                  <TableHead>Lang</TableHead>
-                  <TableHead>Status / Verdict</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Review</TableHead>
-                  <TableHead>Submitted At</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {submissions.map((sub) => {
-                  const rejected = sub.reviewStatus === "rejected";
-                  return (
-                    <TableRow
-                      key={sub.submissionId}
-                      className={rejected ? "opacity-60" : undefined}
-                    >
-                      <TableCell className="font-mono text-xs font-semibold">
-                        {sub.submissionId.slice(0, 8)}...
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col text-xs">
-                          <span className="font-medium text-foreground">
-                            {sub.teamName || sub.userName}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">{sub.userName}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs font-medium">
-                        {sub.problemTitle || sub.problemId}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs uppercase">{sub.language}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={sub.status} verdict={sub.verdict} />
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        <span className={rejected ? "line-through" : undefined}>
-                          {sub.score} / {sub.maxScore}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <ReviewCell submission={sub} />
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(sub.createdAt).toLocaleTimeString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedSubmission(sub)}
-                            className="h-7 w-7 p-0"
-                            title="Inspect Code"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRejudge(sub.submissionId)}
-                            className="h-7 px-2 text-[11px] gap-1"
-                            title="Re-judge Submission"
-                          >
-                            <RotateCcw className="h-3 w-3" /> Rejudge
-                          </Button>
-
-                          {rejected ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRestore(sub)}
-                              className="h-7 px-2 text-[11px] gap-1"
-                              title="Count this submission again"
-                            >
-                              <Undo2 className="h-3 w-3" /> Restore
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setReviewReason("");
-                                setReviewTarget(sub);
-                              }}
-                              className="h-7 px-2 text-[11px] gap-1"
-                              title="Stop this submission counting towards the leaderboard"
-                            >
-                              <Ban className="h-3 w-3" /> Reject
-                            </Button>
-                          )}
-
-                          {sub.teamId && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                handleUnstick(sub.teamId, sub.teamName || sub.userName)
-                              }
-                              className="h-7 px-2 text-[11px] text-destructive hover:bg-destructive/10 gap-1"
-                              title="Clear Team Submission Lock"
-                            >
-                              <ShieldAlert className="h-3 w-3" /> Unstick
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Rejection Dialog: a reason is required, because this is the decision that gets challenged. */}
-      {reviewTarget && (
-        <Dialog open onOpenChange={() => setReviewTarget(null)}>
-          <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-base">Reject this submission</DialogTitle>
-              <DialogDescription className="text-xs">
-                {reviewTarget.teamName || reviewTarget.userName} ·{" "}
-                {reviewTarget.problemTitle || reviewTarget.problemId} · {reviewTarget.score} /{" "}
-                {reviewTarget.maxScore}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-3 text-xs">
-              <p className="text-muted-foreground">
-                The submission keeps its verdict and stays visible to the competitor. It stops
-                counting towards the team&apos;s best score for this problem, and the leaderboard
-                falls back to their next best accepted submission.
-              </p>
+            <Field>
+              <FieldLabel htmlFor="reject-reason">Reason</FieldLabel>
               <Textarea
+                id="reject-reason"
                 value={reviewReason}
                 onChange={(e) => setReviewReason(e.target.value)}
-                placeholder="Why is this being rejected? Recorded against your account."
+                placeholder="Why is this being rejected?"
                 rows={3}
+                autoFocus
                 className="text-xs"
               />
-            </div>
+              <FieldDescription>Recorded against your account.</FieldDescription>
+            </Field>
+          </div>
 
-            <DialogFooter>
-              <Button variant="ghost" size="sm" onClick={() => setReviewTarget(null)}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={!reviewReason.trim() || reviewing}
-                onClick={handleReject}
-                className="gap-1.5"
-              >
-                {reviewing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Ban className="h-3.5 w-3.5" />
-                )}
-                Reject submission
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setReviewTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={!reviewReason.trim() || reviewing}
+              onClick={handleReject}
+              className="gap-1.5"
+            >
+              {reviewing ? <Spinner /> : <BanIcon />} Reject submission
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Code & Execution Inspection Dialog */}
-      {selectedSubmission && (
-        <Dialog open={Boolean(selectedSubmission)} onOpenChange={() => setSelectedSubmission(null)}>
-          <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between text-base">
-                <span>Submission Detail ({selectedSubmission.submissionId.slice(0, 8)})</span>
+      <ConfirmDialog
+        open={Boolean(unstickTarget)}
+        onOpenChange={(open) => !open && setUnstickTarget(null)}
+        title="Clear submission lock"
+        description={
+          <>
+            Clear the active submission lock for{" "}
+            <strong className="text-foreground">
+              {unstickTarget?.teamName || unstickTarget?.userName}
+            </strong>
+            ? Any in-flight submission for that team is released so they can submit again.
+          </>
+        }
+        actionLabel="Clear lock"
+        variant="destructive"
+        onConfirm={confirmUnstick}
+      />
+
+      <Dialog
+        open={Boolean(selectedSubmission)}
+        onOpenChange={(open) => !open && setSelectedSubmission(null)}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex flex-wrap items-center gap-2">
+              <span>Submission {selectedSubmission?.submissionId.slice(0, 8)}</span>
+              {selectedSubmission && (
                 <StatusBadge
                   status={selectedSubmission.status}
                   verdict={selectedSubmission.verdict}
                 />
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Team: {selectedSubmission.teamName || "N/A"} · User: {selectedSubmission.userName} ·
-                Language: {selectedSubmission.language}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 text-xs">
-              {selectedSubmission.reviewStatus === "rejected" && (
-                <div className="rounded-md border border-dashed bg-muted/50 p-3">
-                  <span className="font-semibold flex items-center gap-1.5">
-                    <Ban className="h-3.5 w-3.5" /> Rejected — not counted on the leaderboard
-                  </span>
-                  <p className="mt-1 text-muted-foreground">
-                    {selectedSubmission.reviewReason || "No reason recorded."}
-                  </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {selectedSubmission.reviewedBy && `by ${selectedSubmission.reviewedBy}`}
-                    {selectedSubmission.reviewedAt &&
-                      ` · ${new Date(selectedSubmission.reviewedAt).toLocaleString()}`}
-                  </p>
-                </div>
               )}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedSubmission?.teamName || "No team"} · {selectedSubmission?.userName} ·{" "}
+              {selectedSubmission?.language}
+            </DialogDescription>
+          </DialogHeader>
 
-              {selectedSubmission.compileError && (
-                <div className="rounded-md border bg-destructive/10 p-3 text-destructive font-mono">
-                  <span className="font-semibold block mb-1">Compilation Error Log:</span>
-                  <pre className="whitespace-pre-wrap">{selectedSubmission.compileError}</pre>
-                </div>
-              )}
+          <div className="flex flex-col gap-4 text-xs">
+            {selectedSubmission?.reviewStatus === "rejected" && (
+              <div className="rounded-lg border border-dashed bg-muted/50 p-3">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <BanIcon className="size-3.5" /> Rejected — not counted on the leaderboard
+                </span>
+                <p className="mt-1 text-muted-foreground">
+                  {selectedSubmission.reviewReason || "No reason recorded."}
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {selectedSubmission.reviewedBy && `by ${selectedSubmission.reviewedBy}`}
+                  {selectedSubmission.reviewedAt &&
+                    ` · ${new Date(selectedSubmission.reviewedAt).toLocaleString()}`}
+                </p>
+              </div>
+            )}
 
-              <div>
-                <span className="font-semibold text-muted-foreground block mb-1">Source Code:</span>
-                <pre className="rounded-md border bg-muted/50 p-4 font-mono text-xs overflow-x-auto max-h-96">
-                  {selectedSubmission.code}
+            {selectedSubmission?.compileError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 font-mono text-destructive">
+                <span className="mb-1 block font-semibold">Compilation error</span>
+                <pre className="overflow-x-auto whitespace-pre-wrap">
+                  {selectedSubmission.compileError}
                 </pre>
               </div>
+            )}
+
+            <div>
+              <span className="mb-1 block font-semibold text-muted-foreground">Source code</span>
+              <pre className="max-h-96 overflow-auto rounded-lg border bg-muted/50 p-4 font-mono text-xs">
+                {selectedSubmission?.code}
+              </pre>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
-    </main>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </PageShell>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  icon,
+  hint,
+  valueClassName,
+  loading,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
+  hint?: string;
+  valueClassName?: string;
+  loading?: boolean;
+}) {
+  return (
+    <Card size="sm">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <CardTitle className="text-xs font-medium text-muted-foreground">{label}</CardTitle>
+        {icon}
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-7 w-12" />
+        ) : (
+          <div className={cn("font-mono text-2xl font-bold", valueClassName)}>{value}</div>
+        )}
+        {hint && !loading && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      </CardContent>
+    </Card>
   );
 }
 
 /**
  * Neutral on purpose. Status/verdict already owns the success/destructive palette
- * in this table, so review carries its meaning through the icon, the dimmed row and
- * the struck-through score rather than competing for the same colours.
+ * in this table, so review carries its meaning through the icon, the dimmed row
+ * and the struck-through score rather than competing for the same colours.
  */
 function ReviewCell({ submission }: { submission: AdminSubmission }) {
   if (submission.reviewStatus !== "rejected") {
@@ -491,16 +583,18 @@ function ReviewCell({ submission }: { submission: AdminSubmission }) {
   }
   return (
     <div className="flex flex-col gap-0.5">
-      <Badge variant="outline" className="w-fit gap-1 text-[10px] border-dashed">
-        <Ban className="h-3 w-3" /> Rejected
+      <Badge variant="outline" className="w-fit gap-1 border-dashed text-[10px]">
+        <BanIcon className="size-3" /> Rejected
       </Badge>
       {submission.reviewReason && (
-        <span
-          className="max-w-[180px] truncate text-[10px] text-muted-foreground"
-          title={submission.reviewReason}
-        >
-          {submission.reviewReason}
-        </span>
+        <Tooltip>
+          <TooltipTrigger
+            render={<span className="max-w-45 truncate text-[10px] text-muted-foreground" />}
+          >
+            {submission.reviewReason}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">{submission.reviewReason}</TooltipContent>
+        </Tooltip>
       )}
     </div>
   );
@@ -509,24 +603,24 @@ function ReviewCell({ submission }: { submission: AdminSubmission }) {
 function StatusBadge({ status, verdict }: { status: string; verdict?: string }) {
   if (status === "queued") {
     return (
-      <Badge variant="outline" className="text-warning border-warning/40 text-[10px]">
-        Queued
+      <Badge variant="outline" className="border-warning/40 text-[10px] text-warning">
+        <ClockIcon className="size-3" /> Queued
       </Badge>
     );
   }
   if (status === "running") {
     return (
-      <Badge variant="outline" className="text-primary border-primary/40 text-[10px]">
-        Evaluating...
+      <Badge variant="outline" className="border-primary/40 text-[10px] text-primary">
+        <Spinner className="size-3" /> Evaluating
       </Badge>
     );
   }
   if (status === "passed") {
-    return <Badge className="bg-success/15 text-success text-[10px]">{verdict || "AC"}</Badge>;
+    return <Badge className="bg-success/15 text-[10px] text-success">{verdict || "AC"}</Badge>;
   }
   return (
     <Badge variant="destructive" className="text-[10px]">
-      {verdict || "Failed"}
+      <AlertTriangleIcon className="size-3" /> {verdict || "Failed"}
     </Badge>
   );
 }

@@ -20,10 +20,7 @@ export const createTeamInputSchema = z.object({
     .trim()
     .min(1, "Team name is required")
     .max(100, "Team name must be 100 characters or less"),
-  members: z
-    .array(teamMemberInputSchema)
-    .max(3, "A team can have at most 3 members")
-    .optional(),
+  members: z.array(teamMemberInputSchema).max(3, "A team can have at most 3 members").optional(),
 });
 
 export const updateTeamInputSchema = z.object({

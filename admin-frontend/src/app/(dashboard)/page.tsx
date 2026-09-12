@@ -1,58 +1,67 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { listProblemsAction } from "@/lib/actions/problems";
-import { AdminProblems } from "@/components/admin-problems";
-import type { ProblemDetail } from "@/types/problem";
+import { listUsersAction } from "@/lib/actions/users";
+import { listTeamsAction } from "@/lib/actions/teams";
+import { listAdminSubmissionsAction } from "@/lib/actions/submissions";
+import { getAdminContestStateAction } from "@/lib/actions/contest";
+import { getMonitoringSnapshotAction } from "@/lib/actions/monitoring";
+import { AdminDashboard, type DashboardData } from "@/components/dashboard/admin-dashboard";
+import { ErrorState } from "@/components/shell/data-states";
+import { PageShell } from "@/components/shell/page-shell";
+import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
+import { useAsyncData } from "@/hooks/use-async-data";
 
-export default function ProblemsPage() {
-  const [problems, setProblems] = useState<ProblemDetail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const EMPTY: DashboardData = {
+  problems: [],
+  users: [],
+  teams: [],
+  submissions: [],
+  contest: null,
+  proctor: null,
+};
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const problemsData = await listProblemsAction();
-      setProblems(problemsData);
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
-      else setError("Failed to load problem list.");
-    } finally {
-      setLoading(false);
-    }
+export default function OverviewPage() {
+  // Each panel degrades on its own: a monitoring outage must not blank the
+  // roster counts an organizer is standing in front of.
+  const loader = useCallback(async (): Promise<DashboardData> => {
+    const [problems, users, teams, submissions, contest, monitoring] = await Promise.all([
+      listProblemsAction().catch(() => EMPTY.problems),
+      listUsersAction().catch(() => EMPTY.users),
+      listTeamsAction().catch(() => EMPTY.teams),
+      listAdminSubmissionsAction("")
+        .then((res) => res.submissions || EMPTY.submissions)
+        .catch(() => EMPTY.submissions),
+      getAdminContestStateAction().catch(() => null),
+      getMonitoringSnapshotAction(["overview"]).catch(() => ({ snapshot: undefined })),
+    ]);
+
+    return {
+      problems,
+      users,
+      teams,
+      submissions,
+      contest,
+      proctor: monitoring.snapshot?.overview ?? null,
+    };
   }, []);
 
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center text-xs text-muted-foreground font-medium">
-        Loading Problems...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-96 flex-col items-center justify-center p-4">
-        <p className="text-xs text-destructive mb-4 font-medium">{error}</p>
-        <button
-          onClick={loadData}
-          className="px-4 py-2 text-xs rounded bg-primary text-primary-foreground font-medium cursor-pointer"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+  const { data, error, loading, refreshing, refresh } = useAsyncData(
+    loader,
+    EMPTY,
+    "Failed to load the contest overview."
+  );
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <AdminProblems problems={problems} onRefresh={loadData} />
-    </main>
+    <PageShell width="wide">
+      {loading ? (
+        <DashboardSkeleton />
+      ) : error && data.problems.length === 0 && data.users.length === 0 ? (
+        <ErrorState message={error} onRetry={refresh} />
+      ) : (
+        <AdminDashboard data={data} refreshing={refreshing} loadError={error} onRefresh={refresh} />
+      )}
+    </PageShell>
   );
 }

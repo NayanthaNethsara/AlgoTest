@@ -12,6 +12,16 @@ import {
 import { useMonitoring } from "@/components/monitoring/monitoring-context";
 import { MonitoringFilters } from "@/components/monitoring/monitoring-filters";
 import { TableSkeleton } from "@/components/monitoring/skeletons";
+import { DataPagination } from "@/components/shell/data-pagination";
+import { usePagination } from "@/hooks/use-pagination";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const STATUS_OPTIONS = ["ALL", "ONLINE", "STALE", "OFFLINE", "GAP"];
 
@@ -41,80 +51,83 @@ export default function TelemetryPage() {
     return matchesStatus && matchesQuery;
   });
 
+  const pagination = usePagination(filtered);
+
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5">
       <MonitoringFilters options={STATUS_OPTIONS} />
 
       {!loaded.telemetry ? (
         <TableSkeleton headers={HEADERS} />
       ) : (
-        <div className="rounded-lg border border-border bg-card overflow-x-auto shadow-sm">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-border bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase">
-              <tr>
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
                 {HEADERS.map((h) => (
-                  <th key={h} className="px-4 py-3">
+                  <TableHead key={h} className="text-[11px] uppercase">
                     {h}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={HEADERS.length} className="p-8 text-center text-muted-foreground">
-                    No contestant heartbeats match your criteria.
-                  </td>
-                </tr>
+                <TableRow className="hover:bg-transparent">
+                  <TableCell
+                    colSpan={HEADERS.length}
+                    className="p-8 text-center text-xs text-muted-foreground"
+                  >
+                    No contestant heartbeat matches these filters.
+                  </TableCell>
+                </TableRow>
               ) : (
-                filtered.map((item) => (
-                  <tr key={item.user_id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-3 font-medium text-foreground">
+                pagination.items.map((item) => (
+                  <TableRow key={item.user_id}>
+                    <TableCell className="max-w-56">
                       <Link
                         href={`/monitoring/${item.user_id}`}
-                        className="font-semibold hover:underline"
+                        className="text-xs font-semibold hover:underline"
                       >
                         {item.display_name}
                       </Link>
-                      <div className="text-[11px] text-muted-foreground">
+                      <div className="truncate text-[11px] text-muted-foreground">
                         @{item.username}
                         {item.team_name && ` · ${item.team_name}`}
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       <ModeBadge item={item} />
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       <StatusBadge status={item.status} inGap={item.in_gap} />
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       <DarkForCell item={item} />
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
-                      <div>{item.ip_address || "—"}</div>
-                    </td>
-                    <td className="px-4 py-3 text-[11px] text-muted-foreground font-mono">
+                    </TableCell>
+                    <TableCell className="font-mono text-[11px] text-muted-foreground">
+                      {item.ip_address || "—"}
+                    </TableCell>
+                    <TableCell className="max-w-40 font-mono text-[11px] text-muted-foreground">
                       <div>{item.agent_version || "—"}</div>
                       {item.os_info && (
-                        <div
-                          className="text-[10px] text-muted-foreground/70 truncate max-w-[160px]"
-                          title={item.os_info}
-                        >
+                        <div className="truncate text-[10px] opacity-70" title={item.os_info}>
                           {item.os_info}
                         </div>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell>
                       <SignalsCell item={item} />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
                       {formatTimeAgo(item.last_ping_at)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
+          <DataPagination state={pagination} itemLabel="contestant" />
         </div>
       )}
     </div>

@@ -25,12 +25,9 @@ import { Input } from "@/components/ui/input";
 import { CONTEST_STATUS, type ContestState } from "@/types/contest";
 import { CountdownDisplay } from "./countdown-display";
 import { TimerControlDock } from "./timer-control-dock";
-import {
-  playContestEndSound,
-  playContestStartSound,
-  playContestWarningSound,
-} from "./timer-audio";
+import { playContestEndSound, playContestStartSound, playContestWarningSound } from "./timer-audio";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ContestTimerClientProps {
   initialContestState: ContestState;
@@ -39,11 +36,9 @@ interface ContestTimerClientProps {
 export function ContestTimerClient({ initialContestState }: ContestTimerClientProps) {
   const [state, setState] = useState<ContestState>(initialContestState);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(
-    initialContestState.remainingSeconds,
+    initialContestState.remainingSeconds
   );
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(
-    initialContestState.elapsedSeconds,
-  );
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(initialContestState.elapsedSeconds);
   const [clockOffset, setClockOffset] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(new Date());
@@ -58,22 +53,20 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
 
   const [settingsTitle, setSettingsTitle] = useState(initialContestState.title);
   const [settingsDuration, setSettingsDuration] = useState(
-    String(Math.floor(initialContestState.durationSeconds / 60)),
+    String(Math.floor(initialContestState.durationSeconds / 60))
   );
-  const [settingsFreeze, setSettingsFreeze] = useState(
-    String(initialContestState.freezeMinutes),
-  );
+  const [settingsFreeze, setSettingsFreeze] = useState(String(initialContestState.freezeMinutes));
   const [settingsFullscreen, setSettingsFullscreen] = useState(
-    Boolean(initialContestState.requireFullscreen),
+    Boolean(initialContestState.requireFullscreen)
   );
   const [settingsMinVersion, setSettingsMinVersion] = useState(
-    initialContestState.minClientVersion || "0.2.0",
+    initialContestState.minClientVersion || "0.2.0"
   );
   const [settingsEnforceHash, setSettingsEnforceHash] = useState(
-    Boolean(initialContestState.enforceBinaryHash),
+    Boolean(initialContestState.enforceBinaryHash)
   );
   const [settingsAuthorizedHashes, setSettingsAuthorizedHashes] = useState(
-    initialContestState.authorizedBinaryHashes || "",
+    initialContestState.authorizedBinaryHashes || ""
   );
 
   const stateRef = useRef(state);
@@ -253,9 +246,7 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
       const target = e.target as HTMLElement | null;
       if (
         target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
       ) {
         return;
       }
@@ -351,17 +342,17 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
 
   return (
     <div
-      className={`min-h-screen w-full flex flex-col items-center justify-between p-4 sm:p-8 transition-colors duration-500 ${
+      className={cn(
+        "flex w-full flex-col items-center justify-between gap-2 p-2 transition-colors duration-500 sm:gap-4 sm:p-6 [@media(max-height:820px)]:gap-1 [@media(max-height:820px)]:p-1.5",
         isFullscreen
-          ? "fixed inset-0 z-50 bg-background overflow-y-auto"
-          : "relative bg-background/50"
-      }`}
+          ? "fixed inset-0 z-50 min-h-screen overflow-y-auto bg-background"
+          : // Sits under the sticky navbar, so the viewport height has to lose it
+            // or the page scrolls by exactly the header's height.
+            "relative min-h-[calc(100svh-var(--app-header-height))] bg-background/50"
+      )}
     >
-      {/* Top spacer / header */}
-      <div className="w-full flex justify-end" />
-
       {/* Main Digital Clock Hero View */}
-      <div className="w-full flex-1 flex flex-col items-center justify-center py-6">
+      <div className="flex w-full flex-1 flex-col items-center justify-center">
         <CountdownDisplay
           contestState={state}
           remainingSeconds={remainingSeconds}
@@ -429,9 +420,7 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
           </DialogHeader>
           <div className="flex flex-col gap-4 py-3 font-pixel-body">
             <div className="flex flex-col gap-1.5">
-              <label className="font-pixel-header text-[9px] text-foreground">
-                CONTEST TITLE
-              </label>
+              <label className="font-pixel-header text-[9px] text-foreground">CONTEST TITLE</label>
               <Input
                 value={settingsTitle}
                 onChange={(e) => setSettingsTitle(e.target.value)}
@@ -468,7 +457,10 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
 
             <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
               <div className="flex flex-col gap-0.5">
-                <label className="font-pixel-header text-[9px] text-foreground cursor-pointer" htmlFor="fullscreen-toggle">
+                <label
+                  className="font-pixel-header text-[9px] text-foreground cursor-pointer"
+                  htmlFor="fullscreen-toggle"
+                >
                   REQUIRE BROWSER FULLSCREEN
                 </label>
                 <span className="text-[10px] text-muted-foreground">
@@ -501,7 +493,10 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
 
             <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
               <div className="flex flex-col gap-0.5">
-                <label className="font-pixel-header text-[9px] text-foreground cursor-pointer" htmlFor="enforce-hash-toggle">
+                <label
+                  className="font-pixel-header text-[9px] text-foreground cursor-pointer"
+                  htmlFor="enforce-hash-toggle"
+                >
                   ENFORCE BINARY RELEASE HASH
                 </label>
                 <span className="text-[10px] text-muted-foreground">

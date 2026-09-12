@@ -11,15 +11,25 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  RefreshCw,
+  RefreshCwIcon,
   ShieldAlert,
   Terminal,
-  UserCheck,
+  UserCheckIcon,
   WifiOff,
+  AlertTriangleIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import { getAdminProctorTimelineAction, readmitContestantAction } from "@/lib/actions/monitoring";
 import { formatAppName, formatClock, formatDuration } from "@/lib/monitoring";
+import { getErrorMessage } from "@/lib/errors";
 import { EvidenceCard } from "@/components/monitoring/evidence-card";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { EmptyState } from "@/components/shell/data-states";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
 import type { EvidenceFinding, ProctorTimeline, TimelineEntry } from "@/types/proctor";
 
 type FindingDetail = {
@@ -96,8 +106,10 @@ function groupTimelineEntries(entries: TimelineEntry[]): ConsolidatedSnapshot[] 
         problemTitle: entry.label,
         verdict: entry.detail || "Evaluating",
         score: entry.weight ?? 0,
-        language: (entry.payload as Record<string, unknown> | undefined)?.language as string | undefined,
-        maxScore: (entry.payload as Record<string, unknown> | undefined)?.max_score as number | undefined,
+        language: (entry.payload as Record<string, unknown> | undefined)?.language as
+          string | undefined,
+        maxScore: (entry.payload as Record<string, unknown> | undefined)?.max_score as
+          number | undefined,
       };
     } else if (entry.kind === "finding") {
       const ruleId = entry.label;
@@ -164,7 +176,7 @@ export default function ContestantTimelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const [readmitSuccess, setReadmitSuccess] = useState(false);
+  const [readmitOpen, setReadmitOpen] = useState(false);
 
   const load = useCallback(() => {
     startTransition(async () => {
@@ -174,18 +186,21 @@ export default function ContestantTimelinePage() {
     });
   }, [userId]);
 
-  const handleReadmit = () => {
-    if (!window.confirm(`Re-admit ${timeline?.displayName || "contestant"} to the competition?\n\nThis will clear the exit lockout and allow them to re-enter and submit.`)) {
-      return;
-    }
+  const confirmReadmit = () => {
+    setReadmitOpen(false);
     startTransition(async () => {
-      const res = await readmitContestantAction(userId);
-      if (res.error) {
-        setError(res.error);
-      } else {
-        setReadmitSuccess(true);
-        setTimeout(() => setReadmitSuccess(false), 4000);
+      try {
+        const res = await readmitContestantAction(userId);
+        if (res.error) {
+          toast.error(res.error);
+          return;
+        }
+        toast.success("Contestant re-admitted", {
+          description: "The exit lockout was cleared — they can re-enter and submit.",
+        });
         load();
+      } catch (err) {
+        toast.error(getErrorMessage(err, "Failed to re-admit the contestant."));
       }
     });
   };
@@ -194,7 +209,9 @@ export default function ContestantTimelinePage() {
     load();
   }, [load]);
 
-  const [filter, setFilter] = useState<"ALL" | "GAPS" | "FINDINGS" | "BROWSER" | "SUBMISSIONS" | "APPS">("ALL");
+  const [filter, setFilter] = useState<
+    "ALL" | "GAPS" | "FINDINGS" | "BROWSER" | "SUBMISSIONS" | "APPS"
+  >("ALL");
 
   const rawEntries = timeline?.entries ?? [];
   const snapshots = groupTimelineEntries(rawEntries);
@@ -213,7 +230,8 @@ export default function ContestantTimelinePage() {
     if (filter === "FINDINGS") return s.findings.length > 0 || s.kind === "violation";
     if (filter === "BROWSER") return isBrowserMoment(s);
     if (filter === "SUBMISSIONS") return s.kind === "submission";
-    if (filter === "APPS") return Boolean(s.foregroundApp) || s.primaryTitle.toLowerCase().includes("switched");
+    if (filter === "APPS")
+      return Boolean(s.foregroundApp) || s.primaryTitle.toLowerCase().includes("switched");
     return true;
   });
 
@@ -223,20 +241,24 @@ export default function ContestantTimelinePage() {
   const submissionCount = snapshots.filter((s) => s.kind === "submission").length;
 
   return (
-    <main className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto w-full">
+    <div className="mx-auto w-full max-w-5xl space-y-6 p-4 sm:p-6">
       <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Link
             href="/monitoring"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className={buttonVariants({
+              variant: "ghost",
+              size: "sm",
+              className: "-ml-2 gap-1.5 text-muted-foreground",
+            })}
           >
             <ArrowLeft className="size-3.5" />
             Back to monitoring
           </Link>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground">
+          <h1 className="mt-2 text-xl font-bold tracking-tight sm:text-2xl">
             {timeline?.displayName ?? "Contestant"}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             {timeline ? (
               <>
                 @{timeline.username}
@@ -252,74 +274,81 @@ export default function ContestantTimelinePage() {
         <div className="flex items-center gap-2.5">
           {timeline && <SeverityPill severity={timeline.severity} score={timeline.score} />}
 
-          <button
-            type="button"
-            onClick={handleReadmit}
+          <Button
+            size="sm"
+            onClick={() => setReadmitOpen(true)}
             disabled={isPending}
-            className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50 cursor-pointer shadow-sm"
+            className="gap-1.5 bg-success text-background font-semibold hover:bg-success/90"
           >
-            <UserCheck className="size-3.5" />
-            Re-admit Contestant
-          </button>
+            <UserCheckIcon /> Re-admit
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={load}
             disabled={isPending}
-            className="inline-flex items-center gap-1.5 rounded-md bg-muted hover:bg-muted/80 px-3 py-1.5 text-xs font-semibold text-foreground border border-border transition-colors disabled:opacity-50 cursor-pointer"
+            className="gap-1.5"
           >
-            <RefreshCw className={`size-3.5 ${isPending ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
+            {isPending ? <Spinner /> : <RefreshCwIcon />} Refresh
+          </Button>
         </div>
       </div>
 
-      {readmitSuccess && (
-        <p className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-400 font-semibold animate-in slide-in-from-top-1">
-          Contestant successfully re-admitted to the competition.
-        </p>
-      )}
-
       {error && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-xs text-destructive">
-          {error}
-        </p>
+        <Alert variant="destructive">
+          <AlertTriangleIcon />
+          <AlertTitle>Could not load the full timeline</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {/* Filter Chips Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex flex-wrap items-center gap-1.5 bg-muted/50 p-1 rounded-lg border border-border">
+        <div
+          role="group"
+          aria-label="Filter timeline"
+          className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/50 p-1"
+        >
           {(
             [
-              { id: "ALL", label: `All Moments (${snapshots.length})` },
-              { id: "FINDINGS", label: `Violations (${violationCount})` },
-              { id: "BROWSER", label: `Browser Lockdown (${browserCount})` },
-              { id: "GAPS", label: `Blackouts & Gaps (${gapCount})` },
-              { id: "SUBMISSIONS", label: `Submissions (${submissionCount})` },
-              { id: "APPS", label: "App Focus" },
+              { id: "ALL", label: "All moments", count: snapshots.length, tone: "neutral" },
+              { id: "FINDINGS", label: "Violations", count: violationCount, tone: "warning" },
+              { id: "BROWSER", label: "Browser lockdown", count: browserCount, tone: "warning" },
+              { id: "GAPS", label: "Blackouts", count: gapCount, tone: "destructive" },
+              { id: "SUBMISSIONS", label: "Submissions", count: submissionCount, tone: "neutral" },
+              { id: "APPS", label: "App focus", count: null, tone: "neutral" },
             ] as const
-          ).map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setFilter(t.id)}
-              className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors cursor-pointer ${
-                filter === t.id
-                  ? t.id === "GAPS" && gapCount > 0
-                    ? "bg-destructive text-destructive-foreground shadow-sm"
-                    : t.id === "BROWSER" && browserCount > 0
-                      ? "bg-orange-500 text-black shadow-sm font-bold"
-                      : "bg-background text-foreground shadow-sm"
-                  : t.id === "GAPS" && gapCount > 0
-                    ? "text-destructive hover:bg-destructive/10"
-                    : t.id === "BROWSER" && browserCount > 0
-                      ? "text-orange-400 hover:bg-orange-500/10"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+          ).map((t) => {
+            const active = filter === t.id;
+            const alarming = t.tone !== "neutral" && (t.count ?? 0) > 0;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setFilter(t.id)}
+                aria-pressed={active}
+                className={cn(
+                  "inline-flex cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                  active
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  !active && alarming && t.tone === "destructive" && "text-destructive",
+                  !active && alarming && t.tone === "warning" && "text-warning"
+                )}
+              >
+                {t.label}
+                {t.count !== null && (
+                  <Badge
+                    variant={alarming && t.tone === "destructive" ? "destructive" : "secondary"}
+                    className="px-1.5 py-0 text-[10px]"
+                  >
+                    {t.count}
+                  </Badge>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <span className="text-muted-foreground text-[11px]">
@@ -332,25 +361,53 @@ export default function ContestantTimelinePage() {
           <SnapshotBox key={snapshot.id} snapshot={snapshot} />
         ))}
         {filteredSnapshots.length === 0 && (
-          <li className="py-8 text-sm text-muted-foreground">
-            No events match the selected filter.
+          <li className="py-4">
+            <EmptyState
+              icon={<Activity />}
+              title="Nothing to show"
+              description="No timeline event matches the selected filter."
+              action={
+                filter !== "ALL" ? (
+                  <Button variant="outline" size="sm" onClick={() => setFilter("ALL")}>
+                    Show all moments
+                  </Button>
+                ) : undefined
+              }
+            />
           </li>
         )}
       </ol>
-    </main>
+
+      <ConfirmDialog
+        open={readmitOpen}
+        onOpenChange={setReadmitOpen}
+        title="Re-admit contestant"
+        description={
+          <>
+            Re-admit{" "}
+            <strong className="text-foreground">
+              {timeline?.displayName || "this contestant"}
+            </strong>{" "}
+            to the competition? The exit lockout is cleared and they can re-enter and submit again.
+          </>
+        }
+        actionLabel="Re-admit"
+        onConfirm={confirmReadmit}
+      />
+    </div>
   );
 }
 
 function SeverityPill({ severity, score }: { severity: "HIGH" | "MEDIUM" | "LOW"; score: number }) {
   const styles = {
-    HIGH: "bg-destructive/15 border-destructive/40 text-destructive",
-    MEDIUM: "bg-amber-500/15 border-amber-500/40 text-amber-400",
-    LOW: "bg-emerald-500/15 border-emerald-500/40 text-emerald-400",
+    HIGH: "border-destructive/40 bg-destructive/15 text-destructive",
+    MEDIUM: "border-warning/40 bg-warning/15 text-warning",
+    LOW: "border-success/40 bg-success/15 text-success",
   };
   return (
-    <span className={`rounded-full border px-3 py-1 text-xs font-bold ${styles[severity]}`}>
+    <Badge variant="outline" className={cn("font-bold", styles[severity])}>
       {severity} ({score})
-    </span>
+    </Badge>
   );
 }
 
@@ -390,7 +447,11 @@ function SnapshotBox({ snapshot }: { snapshot: ConsolidatedSnapshot }) {
         badgeLabel: "BROWSER LOCKDOWN",
       };
     }
-    if (snapshot.findings.length > 0 || snapshot.severity === "CRITICAL" || snapshot.severity === "HIGH") {
+    if (
+      snapshot.findings.length > 0 ||
+      snapshot.severity === "CRITICAL" ||
+      snapshot.severity === "HIGH"
+    ) {
       return {
         dot: "bg-amber-500 ring-amber-500/30",
         box: "border-amber-500/50 bg-card/90 shadow-sm",
@@ -416,7 +477,9 @@ function SnapshotBox({ snapshot }: { snapshot: ConsolidatedSnapshot }) {
         {/* Top Header Row */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-xs text-foreground">{snapshot.timeFormatted}</span>
+            <span className="font-mono font-bold text-xs text-foreground">
+              {snapshot.timeFormatted}
+            </span>
             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${theme.badge}`}>
               {theme.badgeLabel}
             </span>
@@ -466,8 +529,12 @@ function SnapshotBox({ snapshot }: { snapshot: ConsolidatedSnapshot }) {
               <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-bold">
                 Verdict: {snapshot.submission.verdict}
               </span>
-              <span>Score: {snapshot.submission.score} / {snapshot.submission.maxScore ?? 100}</span>
-              {snapshot.submission.language && <span className="text-muted-foreground">({snapshot.submission.language})</span>}
+              <span>
+                Score: {snapshot.submission.score} / {snapshot.submission.maxScore ?? 100}
+              </span>
+              {snapshot.submission.language && (
+                <span className="text-muted-foreground">({snapshot.submission.language})</span>
+              )}
             </div>
           )}
 
@@ -494,7 +561,9 @@ function SnapshotBox({ snapshot }: { snapshot: ConsolidatedSnapshot }) {
             {snapshot.foregroundApp && snapshot.foregroundApp !== "unknown" && (
               <div className="flex items-center gap-1.5 text-[11px]">
                 <AppWindow className="size-3.5 text-blue-400 shrink-0" />
-                <span className="text-[10px] uppercase font-semibold text-muted-foreground">Focus:</span>
+                <span className="text-[10px] uppercase font-semibold text-muted-foreground">
+                  Focus:
+                </span>
                 <span className="font-semibold text-foreground bg-muted px-1.5 py-0.5 rounded text-[10px]">
                   {formatAppName(snapshot.foregroundApp)}
                 </span>
@@ -549,7 +618,11 @@ function SnapshotBox({ snapshot }: { snapshot: ConsolidatedSnapshot }) {
           {snapshot.lanIp && <span>LAN: {snapshot.lanIp}</span>}
           {snapshot.totalProcesses != null && <span>Processes: {snapshot.totalProcesses}</span>}
           {snapshot.internetReachable != null && (
-            <span className={snapshot.internetReachable ? "text-cyan-400" : "text-destructive font-bold"}>
+            <span
+              className={
+                snapshot.internetReachable ? "text-cyan-400" : "text-destructive font-bold"
+              }
+            >
               {snapshot.internetReachable ? "Internet: Online" : "Internet: Offline"}
             </span>
           )}
@@ -565,4 +638,3 @@ function SnapshotBox({ snapshot }: { snapshot: ConsolidatedSnapshot }) {
     </li>
   );
 }
-

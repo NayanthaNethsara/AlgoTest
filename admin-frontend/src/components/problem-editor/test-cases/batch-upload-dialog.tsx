@@ -36,10 +36,7 @@ export function BatchUploadDialog({
   const hasPendingItems = queue.some((q) => q.status !== "success");
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(val) => !val && !isRunning && onOpenChange(false)}
-    >
+    <Dialog open={open} onOpenChange={(val) => !val && !isRunning && onOpenChange(false)}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-sm font-semibold flex items-center gap-2">
@@ -57,7 +54,8 @@ export function BatchUploadDialog({
 
           {queue.length === 0 ? (
             <div className="text-center py-8 text-xs text-muted-foreground">
-              No files selected. Click &quot;Upload Part-by-Part (Batch)&quot; to pick matching test case files.
+              No files selected. Click &quot;Upload Part-by-Part (Batch)&quot; to pick matching test
+              case files.
             </div>
           ) : (
             <div className="space-y-2">

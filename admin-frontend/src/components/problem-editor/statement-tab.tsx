@@ -1,9 +1,16 @@
+"use client";
+
 import { useState } from "react";
-import { Edit3, Eye } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
+import { EyeIcon, PencilIcon } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/components/markdown";
+
+type ViewMode = "edit" | "split" | "preview";
+
+const PLACEHOLDER = "Write the problem statement in Markdown. LaTeX via $…$ is supported.";
 
 interface StatementTabProps {
   statement: string;
@@ -12,91 +19,96 @@ interface StatementTabProps {
   onConstraintsChange: (val: string) => void;
 }
 
+function Preview({ statement }: { statement: string }) {
+  return (
+    <div className="max-h-112 min-h-88 overflow-y-auto rounded-lg border bg-muted/10 p-4">
+      <Markdown>{statement || "*No statement provided.*"}</Markdown>
+    </div>
+  );
+}
+
 export function StatementTab({
   statement,
   constraints = "",
   onStatementChange,
   onConstraintsChange,
 }: StatementTabProps) {
-  const [statementViewTab, setStatementViewTab] = useState<"edit" | "preview" | "split">("split");
+  const [view, setView] = useState<ViewMode>("split");
+
+  const editor = (
+    <Textarea
+      id="problem-statement"
+      value={statement}
+      onChange={(e) => onStatementChange(e.target.value)}
+      rows={16}
+      placeholder={PLACEHOLDER}
+      required
+      spellCheck={false}
+      className="min-h-88 font-mono text-xs leading-relaxed"
+    />
+  );
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card className="p-5 flex flex-col gap-4 shadow-sm border border-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Problem Statement (Markdown & MathJax)
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              The full problem description shown to competitors.
-            </p>
-          </div>
-
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader className="border-b">
+          <CardTitle className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+            Problem statement
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Markdown with LaTeX, shown to competitors exactly as previewed here.
+          </p>
           <Tabs
-            value={statementViewTab}
-            onValueChange={(v) => setStatementViewTab(v as "edit" | "preview" | "split")}
+            value={view}
+            onValueChange={(v) => setView(v as ViewMode)}
+            className="col-start-2 row-span-2 row-start-1 self-start justify-self-end"
           >
             <TabsList className="h-8">
-              <TabsTrigger value="edit" className="gap-1 text-xs h-7">
-                <Edit3 className="h-3 w-3" /> Edit
+              <TabsTrigger value="edit" className="h-7 gap-1 text-xs">
+                <PencilIcon className="size-3" />
+                <span className="hidden sm:inline">Edit</span>
               </TabsTrigger>
-              <TabsTrigger value="split" className="text-xs h-7">
+              <TabsTrigger value="split" className="hidden h-7 text-xs md:inline-flex">
                 Split
               </TabsTrigger>
-              <TabsTrigger value="preview" className="gap-1 text-xs h-7">
-                <Eye className="h-3 w-3" /> Preview
+              <TabsTrigger value="preview" className="h-7 gap-1 text-xs">
+                <EyeIcon className="size-3" />
+                <span className="hidden sm:inline">Preview</span>
               </TabsTrigger>
             </TabsList>
           </Tabs>
-        </div>
+        </CardHeader>
 
-        {statementViewTab === "edit" && (
-          <Textarea
-            value={statement}
-            onChange={(e) => onStatementChange(e.target.value)}
-            rows={16}
-            placeholder="Write problem statement in Markdown format..."
-            className="font-mono text-xs leading-relaxed"
-            required
-          />
-        )}
-
-        {statementViewTab === "preview" && (
-          <div className="min-h-[350px] rounded-md border bg-muted/10 p-5">
-            <Markdown>{statement || "*No statement provided.*"}</Markdown>
-          </div>
-        )}
-
-        {statementViewTab === "split" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Textarea
-              value={statement}
-              onChange={(e) => onStatementChange(e.target.value)}
-              rows={16}
-              placeholder="Write statement in Markdown format..."
-              className="font-mono text-xs leading-relaxed"
-              required
-            />
-            <div className="min-h-[350px] max-h-[400px] overflow-y-auto rounded-md border bg-muted/10 p-4">
-              <Markdown>{statement || "*No statement provided.*"}</Markdown>
+        <CardContent>
+          {view === "edit" && editor}
+          {view === "preview" && <Preview statement={statement} />}
+          {view === "split" && (
+            <div className="grid gap-4 md:grid-cols-2">
+              {editor}
+              <Preview statement={statement} />
             </div>
-          </div>
-        )}
+          )}
+        </CardContent>
       </Card>
 
-      {/* Constraints Block */}
-      <Card className="p-5 flex flex-col gap-3 shadow-sm border border-border">
-        <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Constraints (Markdown & LaTeX)
-        </label>
-        <Textarea
-          value={constraints}
-          onChange={(e) => onConstraintsChange(e.target.value)}
-          rows={4}
-          placeholder="- $1 \le N \le 10^5$&#10;- $0 \le A_i \le 10^9$"
-          className="font-mono text-xs"
-        />
+      <Card>
+        <CardContent>
+          <Field>
+            <FieldLabel htmlFor="problem-constraints">Constraints</FieldLabel>
+            <Textarea
+              id="problem-constraints"
+              value={constraints}
+              onChange={(e) => onConstraintsChange(e.target.value)}
+              rows={4}
+              spellCheck={false}
+              placeholder={"- $1 \\le N \\le 10^5$\n- $0 \\le A_i \\le 10^9$"}
+              className="font-mono text-xs"
+            />
+            <FieldDescription>
+              Rendered as a bullet list beneath the statement. Markdown and LaTeX both work.
+            </FieldDescription>
+          </Field>
+        </CardContent>
       </Card>
     </div>
   );

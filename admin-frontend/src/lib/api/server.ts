@@ -31,4 +31,3 @@ export async function backendFetch(path: string, init?: RequestInit): Promise<Re
     cache: "no-store",
   });
 }
-

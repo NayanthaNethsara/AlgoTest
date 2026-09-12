@@ -1,220 +1,252 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Activity,
-  FileCode2,
-  History,
-  LogOut,
-  Menu,
-  RefreshCw,
-  Timer,
-  Users,
-  Users2,
-  X,
+  ActivityIcon,
+  FileCode2Icon,
+  LayoutDashboardIcon,
+  HistoryIcon,
+  LogOutIcon,
+  MenuIcon,
+  RefreshCwIcon,
+  TimerIcon,
+  Users2Icon,
+  UsersIcon,
+  type LucideIcon,
 } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
 import type { User } from "@/types/user";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
+type NavLink = { href: string; label: string; shortLabel: string; icon: LucideIcon };
+
+const NAV_LINKS: NavLink[] = [
+  { href: "/", label: "Overview", shortLabel: "Overview", icon: LayoutDashboardIcon },
+  { href: "/problems", label: "Problems", shortLabel: "Problems", icon: FileCode2Icon },
+  { href: "/users", label: "Users", shortLabel: "Users", icon: UsersIcon },
+  { href: "/teams", label: "Teams", shortLabel: "Teams", icon: Users2Icon },
+  {
+    href: "/submissions",
+    label: "Submissions & Judge",
+    shortLabel: "Submissions",
+    icon: HistoryIcon,
+  },
+  { href: "/monitoring", label: "Onsite Monitoring", shortLabel: "Monitoring", icon: ActivityIcon },
+  { href: "/timer", label: "Contest Timer", shortLabel: "Timer", icon: TimerIcon },
+];
+
+function isActive(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function initialsOf(user: User) {
+  const source = (user.displayName || user.username).trim();
+  const parts = source.split(/\s+/).filter(Boolean);
+  const letters = parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : source.slice(0, 2);
+  return letters.toUpperCase();
+}
 
 export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [loggingOut, startLogout] = useTransition();
 
-  async function handleLogout() {
-    await logoutAction();
-    router.push("/login");
-    router.refresh();
+  function handleLogout() {
+    startLogout(async () => {
+      await logoutAction();
+      router.push("/login");
+      router.refresh();
+    });
   }
 
-  const isProblemsActive = pathname === "/" || pathname.startsWith("/problems");
-  const isUsersActive = pathname.startsWith("/users");
-  const isTeamsActive = pathname.startsWith("/teams");
-  const isSubmissionsActive = pathname.startsWith("/submissions");
-  const isMonitoringActive = pathname.startsWith("/monitoring");
-  const isTimerActive = pathname === "/timer" || pathname.startsWith("/timer");
-
-  const navLinks = [
-    { href: "/", label: "Problems", shortLabel: "Problems", icon: FileCode2, active: isProblemsActive },
-    { href: "/users", label: "Users", shortLabel: "Users", icon: Users, active: isUsersActive },
-    { href: "/teams", label: "Teams", shortLabel: "Teams", icon: Users2, active: isTeamsActive },
-    {
-      href: "/submissions",
-      label: "Submissions & Judge",
-      shortLabel: "Submissions",
-      icon: History,
-      active: isSubmissionsActive,
-    },
-    {
-      href: "/monitoring",
-      label: "Onsite Monitoring",
-      shortLabel: "Monitoring",
-      icon: Activity,
-      active: isMonitoringActive,
-    },
-    {
-      href: "/timer",
-      label: "Contest Timer",
-      shortLabel: "Timer",
-      icon: Timer,
-      active: isTimerActive,
-    },
-  ];
+  const displayName = user.displayName || user.username;
 
   return (
-    <>
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-card/90 backdrop-blur-xl transition-all shadow-xs">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 sm:px-6 py-2">
-          {/* Brand & Desktop Navigation */}
-          <div className="flex items-center gap-3 xl:gap-6 min-w-0">
-            <Link href="/" className="flex flex-col transition-opacity hover:opacity-90 shrink-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-sm font-bold tracking-tight text-foreground">MiniAlgothon</span>
-                <span className="rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-semibold text-primary uppercase tracking-wider">
-                  Admin
-                </span>
-              </div>
-              <p className="hidden sm:block text-[11px] text-muted-foreground leading-tight truncate max-w-[140px]">
-                <span className="font-medium text-foreground/90">
-                  {user.displayName || user.username}
-                </span>
-              </p>
-            </Link>
+    <header className="sticky top-0 z-40 h-(--app-header-height) border-b border-border bg-card/85 backdrop-blur-xl">
+      <div className="mx-auto flex h-full max-w-7xl items-center gap-3 px-3 sm:px-6">
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-2 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <span className="text-sm font-bold tracking-tight">MiniAlgothon</span>
+          <Badge
+            variant="outline"
+            className="border-primary/25 bg-primary/10 text-[10px] font-semibold tracking-wider text-primary uppercase"
+          >
+            Admin
+          </Badge>
+        </Link>
 
-            {/* Desktop Navigation Links (Visible on lg and above) */}
-            <nav className="hidden lg:flex items-center gap-1 border-l border-white/10 pl-3 xl:pl-5">
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={buttonVariants({
-                      variant: link.active ? "default" : "ghost",
-                      size: "sm",
-                      className: `gap-1.5 text-xs h-8 px-2.5 xl:px-3 font-medium transition-all ${
-                        link.active
-                          ? "bg-primary text-primary-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                      }`,
-                    })}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="hidden xl:inline">{link.label}</span>
-                    <span className="xl:hidden">{link.shortLabel}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Desktop Action Buttons */}
-          <div className="hidden lg:flex items-center gap-2">
-            {onRefresh && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onRefresh}
-                className="h-8 gap-1.5 text-xs border-white/10 bg-white/5 hover:bg-white/10 hover:text-foreground transition-all cursor-pointer"
+        <nav aria-label="Primary" className="hidden min-w-0 flex-1 items-center gap-0.5 lg:flex">
+          {NAV_LINKS.map((link) => {
+            const active = isActive(pathname, link.href);
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                className={buttonVariants({
+                  variant: active ? "secondary" : "ghost",
+                  size: "sm",
+                  className: cn(
+                    "gap-1.5 text-xs font-medium",
+                    active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  ),
+                })}
               >
-                <RefreshCw className="h-3.5 w-3.5" /> Refresh
-              </Button>
-            )}
+                <Icon className="size-3.5 shrink-0" />
+                <span className="hidden xl:inline">{link.label}</span>
+                <span className="xl:hidden">{link.shortLabel}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLogout}
-              className="h-8 gap-1.5 text-xs text-destructive hover:bg-destructive/15 hover:text-destructive border-destructive/20 bg-destructive/5 transition-all cursor-pointer"
-            >
-              <LogOut className="h-3.5 w-3.5" /> Logout
-            </Button>
-          </div>
-
-          {/* Mobile & Tablet Action Buttons */}
-          <div className="flex lg:hidden items-center gap-1.5 sm:gap-2">
-            {onRefresh && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onRefresh}
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                aria-label="Refresh Data"
+        <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
+          {onRefresh && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={onRefresh}
+                    aria-label="Refresh data"
+                  />
+                }
               >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            )}
+                <RefreshCwIcon />
+              </TooltipTrigger>
+              <TooltipContent>Refresh data</TooltipContent>
+            </Tooltip>
+          )}
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="h-9 w-9 text-foreground hover:bg-white/10"
-              aria-label="Toggle Navigation Menu"
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden max-w-[180px] gap-2 pl-1 lg:inline-flex"
+                  aria-label="Account menu"
+                />
+              }
             >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
-          </div>
-        </div>
-
-        {/* Mobile & Tablet Drawer Menu */}
-        {mobileMenuOpen && (
-          <div className="border-t border-white/10 bg-card/95 backdrop-blur-2xl px-4 py-4 lg:hidden animate-in slide-in-from-top-2 duration-150">
-            <div className="mb-3 px-2 flex items-center justify-between pb-2 border-b border-white/5">
-              <div className="min-w-0 pr-2">
-                <p className="text-xs font-semibold text-foreground truncate">
-                  {user.displayName || user.username}
-                </p>
-                <p className="text-[10px] text-muted-foreground font-mono">{user.role}</p>
-              </div>
-              <span className="rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-medium shrink-0">
-                Active Session
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                {initialsOf(user)}
               </span>
-            </div>
+              <span className="truncate text-xs font-medium">{displayName}</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span className="truncate text-xs font-medium text-foreground">
+                    {displayName}
+                  </span>
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    {user.username} · {user.role}
+                  </span>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={handleLogout} disabled={loggingOut}>
+                {loggingOut ? <Spinner /> : <LogOutIcon />}
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-            <nav className="flex flex-col gap-1">
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium transition-all ${
-                      link.active
-                        ? "bg-primary text-primary-foreground font-semibold"
-                        : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span>{link.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="lg:hidden"
+                  aria-label="Open navigation menu"
+                />
+              }
+            >
+              <MenuIcon />
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[min(20rem,85vw)] p-0">
+              <SheetHeader className="border-b px-4 py-4">
+                <SheetTitle className="flex items-center gap-2 text-sm">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+                    {initialsOf(user)}
+                  </span>
+                  <span className="truncate">{displayName}</span>
+                </SheetTitle>
+                <SheetDescription className="font-mono text-[11px]">
+                  {user.username} · {user.role}
+                </SheetDescription>
+              </SheetHeader>
 
-            <div className="mt-4 pt-3 border-t border-white/10 flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLogout}
-                className="w-full justify-center gap-2 text-xs text-destructive hover:bg-destructive/15 hover:text-destructive border-destructive/20 bg-destructive/5 h-9"
-              >
-                <LogOut className="h-3.5 w-3.5" /> Sign Out of Admin Console
-              </Button>
-            </div>
-          </div>
-        )}
-      </header>
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-xs"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-    </>
+              <nav aria-label="Primary" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
+                {NAV_LINKS.map((link) => {
+                  const active = isActive(pathname, link.href);
+                  const Icon = link.icon;
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setMenuOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium transition-colors",
+                        active
+                          ? "bg-secondary text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      {link.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="border-t p-3">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="w-full gap-1.5"
+                >
+                  {loggingOut ? <Spinner /> : <LogOutIcon />} Sign out
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </header>
   );
 }

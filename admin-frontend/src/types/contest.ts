@@ -5,8 +5,7 @@ export const CONTEST_STATUS = {
   ENDED: "ENDED",
 } as const;
 
-export type ContestStatus =
-  (typeof CONTEST_STATUS)[keyof typeof CONTEST_STATUS];
+export type ContestStatus = (typeof CONTEST_STATUS)[keyof typeof CONTEST_STATUS];
 
 export type ContestState = {
   title: string;

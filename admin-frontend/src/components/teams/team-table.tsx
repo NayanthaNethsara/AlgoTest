@@ -1,19 +1,35 @@
-import { Edit2, Trash2, UserPlus, UserMinus } from "lucide-react";
+"use client";
+
+import {
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UserMinusIcon,
+  UserPlusIcon,
+  Users2Icon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
-  TableHeader,
-  TableRow,
-  TableHead,
   TableBody,
   TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DataPagination } from "@/components/shell/data-pagination";
+import { EmptyState } from "@/components/shell/data-states";
+import { usePagination } from "@/hooks/use-pagination";
 import type { Team } from "@/types/team";
 import type { User } from "@/types/user";
 
 interface TeamTableProps {
   teams: Team[];
   pending: boolean;
+  searching?: boolean;
+  onClearSearch?: () => void;
+  onCreateTeam?: () => void;
   onEditTeam: (team: Team) => void;
   onDeleteTeam: (team: Team) => void;
   onAddMember: (team: Team) => void;
@@ -23,57 +39,92 @@ interface TeamTableProps {
 export function TeamTable({
   teams,
   pending,
+  searching = false,
+  onClearSearch,
+  onCreateTeam,
   onEditTeam,
   onDeleteTeam,
   onAddMember,
   onRemoveMember,
 }: TeamTableProps) {
+  const pagination = usePagination(teams);
+
+  if (teams.length === 0) {
+    return (
+      <EmptyState
+        icon={<Users2Icon />}
+        title={searching ? "No matching teams" : "No teams yet"}
+        description={
+          searching
+            ? "No team name or member matches that search."
+            : "Create a team, then assign competitors to it."
+        }
+        action={
+          searching ? (
+            <Button variant="outline" size="sm" onClick={onClearSearch}>
+              Clear search
+            </Button>
+          ) : (
+            onCreateTeam && (
+              <Button size="sm" onClick={onCreateTeam} className="gap-1.5">
+                <PlusIcon /> Create team
+              </Button>
+            )
+          )
+        }
+      />
+    );
+  }
+
   return (
-    <div className="rounded-md border bg-card">
+    <div className="overflow-hidden rounded-xl border bg-card">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>Team Name</TableHead>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Team</TableHead>
             <TableHead>Members</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {teams.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={3} className="p-8 text-center text-xs text-muted-foreground">
-                No teams found matching search.
-              </TableCell>
-            </TableRow>
-          ) : (
-            teams.map((t) => (
+          {pagination.items.map((t) => {
+            const memberCount = t.members?.length ?? 0;
+            return (
               <TableRow key={t.id}>
-                <TableCell>
-                  <div className="font-medium text-xs text-foreground">{t.name}</div>
-                  <div className="text-[11px] font-mono text-muted-foreground">
-                    {t.members?.length || 0} member(s)
+                <TableCell className="align-top">
+                  <div className="text-xs font-medium">{t.name}</div>
+                  <div className="font-mono text-[11px] text-muted-foreground">
+                    {memberCount} member{memberCount === 1 ? "" : "s"}
                   </div>
                 </TableCell>
 
-                <TableCell>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {t.members && t.members.length > 0 ? (
-                      t.members.map((m) => (
-                        <div
+                <TableCell className="whitespace-normal">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {memberCount > 0 ? (
+                      t.members!.map((m) => (
+                        <span
                           key={m.id}
-                          className="group flex items-center gap-1 rounded-md border bg-muted/40 px-2 py-1 text-xs"
+                          className="inline-flex items-center gap-1 rounded-md border bg-muted/40 py-0.5 pr-0.5 pl-2 text-xs"
                         >
                           <span className="font-medium">{m.displayName || m.username}</span>
-                          <button
-                            type="button"
-                            onClick={() => onRemoveMember(t, m)}
-                            disabled={pending}
-                            title="Remove from team"
-                            className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
-                          >
-                            <UserMinus className="h-3 w-3" />
-                          </button>
-                        </div>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  onClick={() => onRemoveMember(t, m)}
+                                  disabled={pending}
+                                  aria-label={`Remove ${m.username} from ${t.name}`}
+                                  className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                />
+                              }
+                            >
+                              <UserMinusIcon />
+                            </TooltipTrigger>
+                            <TooltipContent>Remove from team</TooltipContent>
+                          </Tooltip>
+                        </span>
                       ))
                     ) : (
                       <span className="text-xs text-muted-foreground italic">No members yet</span>
@@ -81,45 +132,67 @@ export function TeamTable({
                   </div>
                 </TableCell>
 
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onAddMember(t)}
-                      disabled={pending}
-                      title="Add Competitor to Team"
-                      className="h-8 w-8 text-foreground"
-                    >
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onEditTeam(t)}
-                      disabled={pending}
-                      title="Rename Team"
-                      className="h-8 w-8 text-foreground"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDeleteTeam(t)}
-                      disabled={pending}
-                      title="Delete Team"
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                <TableCell className="text-right align-top">
+                  <div className="flex items-center justify-end gap-0.5">
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => onAddMember(t)}
+                            disabled={pending}
+                            aria-label={`Add a competitor to ${t.name}`}
+                          />
+                        }
+                      >
+                        <UserPlusIcon />
+                      </TooltipTrigger>
+                      <TooltipContent>Add member</TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => onEditTeam(t)}
+                            disabled={pending}
+                            aria-label={`Rename ${t.name}`}
+                          />
+                        }
+                      >
+                        <PencilIcon />
+                      </TooltipTrigger>
+                      <TooltipContent>Rename team</TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => onDeleteTeam(t)}
+                            disabled={pending}
+                            aria-label={`Delete ${t.name}`}
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          />
+                        }
+                      >
+                        <Trash2Icon />
+                      </TooltipTrigger>
+                      <TooltipContent>Delete team</TooltipContent>
+                    </Tooltip>
                   </div>
                 </TableCell>
               </TableRow>
-            ))
-          )}
+            );
+          })}
         </TableBody>
       </Table>
+      <DataPagination state={pagination} itemLabel="team" />
     </div>
   );
 }

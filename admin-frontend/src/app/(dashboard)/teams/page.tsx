@@ -1,64 +1,51 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { listUsersAction } from "@/lib/actions/users";
 import { listTeamsAction } from "@/lib/actions/teams";
 import { AdminTeams } from "@/components/admin-teams";
+import { ErrorState, PageSkeleton } from "@/components/shell/data-states";
+import { PageShell } from "@/components/shell/page-shell";
+import { useAsyncData } from "@/hooks/use-async-data";
 import type { User } from "@/types/user";
 import type { Team } from "@/types/team";
 
-export default function TeamsPage() {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type TeamsPageData = { teams: Team[]; users: User[] };
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [teamsData, usersData] = await Promise.all([listTeamsAction(), listUsersAction()]);
-      setTeams(teamsData);
-      setUsers(usersData);
-    } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
-      else setError("Failed to load teams data.");
-    } finally {
-      setLoading(false);
-    }
+const EMPTY: TeamsPageData = { teams: [], users: [] };
+
+export default function TeamsPage() {
+  const loader = useCallback(async (): Promise<TeamsPageData> => {
+    const [teams, users] = await Promise.all([listTeamsAction(), listUsersAction()]);
+    return { teams, users };
   }, []);
 
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  const { data, error, loading, refreshing, refresh } = useAsyncData(
+    loader,
+    EMPTY,
+    "Failed to load teams."
+  );
 
-  if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center text-xs text-muted-foreground font-medium">
-        Loading Teams...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-96 flex-col items-center justify-center p-4">
-        <p className="text-xs text-destructive mb-4 font-medium">{error}</p>
-        <button
-          onClick={loadData}
-          className="px-4 py-2 text-xs rounded bg-primary text-primary-foreground font-medium cursor-pointer"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  const competitors = users.filter((u) => u.role === "competitor");
+  const competitors = useMemo(
+    () => data.users.filter((u) => u.role === "competitor"),
+    [data.users]
+  );
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <AdminTeams teams={teams} competitors={competitors} onRefresh={loadData} />
-    </main>
+    <PageShell>
+      {loading ? (
+        <PageSkeleton columns={3} />
+      ) : error && data.teams.length === 0 ? (
+        <ErrorState message={error} onRetry={refresh} />
+      ) : (
+        <AdminTeams
+          teams={data.teams}
+          competitors={competitors}
+          refreshing={refreshing}
+          loadError={error}
+          onRefresh={refresh}
+        />
+      )}
+    </PageShell>
   );
 }

@@ -1,9 +1,21 @@
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+"use client";
+
+import { AlertCircleIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle } from "lucide-react";
-import type { Difficulty } from "@/types/problem";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { SimpleSelect } from "@/components/ui/simple-select";
+import { Switch } from "@/components/ui/switch";
 import { MIN_EVALUATION_TEST_CASES } from "@/lib/testcase-utils";
+import type { Difficulty } from "@/types/problem";
+
+const DIFFICULTY_OPTIONS = [
+  { value: "Easy", label: "Easy" },
+  { value: "Medium", label: "Medium" },
+  { value: "Hard", label: "Hard" },
+];
 
 interface ProblemMetadataCardProps {
   slug: string;
@@ -42,111 +54,129 @@ export function ProblemMetadataCard({
   onMemoryLimitChange,
   onPublishedChange,
 }: ProblemMetadataCardProps) {
+  const blockedFromPublishing = testsCount < MIN_EVALUATION_TEST_CASES;
+
   return (
-    <Card className="p-5 flex flex-col gap-4 shadow-sm border border-border sticky top-20">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Problem Metadata
-        </h2>
-        <Badge variant="outline" className="text-[10px] font-mono">
-          ID: {slug || "new"}
+    <Card className="lg:sticky lg:top-4">
+      <CardHeader className="border-b">
+        <CardTitle className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+          Problem metadata
+        </CardTitle>
+        <Badge variant="outline" className="max-w-40 truncate font-mono text-[10px]">
+          {slug || "new"}
         </Badge>
-      </div>
+      </CardHeader>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-muted-foreground block">Problem Title *</label>
-        <Input
-          value={title}
-          onChange={(e) => onTitleChange(e.target.value)}
-          placeholder="e.g. Range Sum Queries"
-          required
-        />
-      </div>
+      <CardContent>
+        <FieldGroup className="gap-4">
+          <Field>
+            <FieldLabel htmlFor="problem-title">Title</FieldLabel>
+            <Input
+              id="problem-title"
+              value={title}
+              onChange={(e) => onTitleChange(e.target.value)}
+              placeholder="Range Sum Queries"
+              required
+            />
+          </Field>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-muted-foreground block">Slug *</label>
-        <Input
-          value={slug}
-          onChange={(e) => onSlugChange(e.target.value)}
-          placeholder="e.g. range-sum"
-          disabled={isEditing}
-          required
-          className="font-mono text-xs"
-        />
-      </div>
+          <Field>
+            <FieldLabel htmlFor="problem-slug">Slug</FieldLabel>
+            <Input
+              id="problem-slug"
+              value={slug}
+              onChange={(e) => onSlugChange(e.target.value)}
+              placeholder="range-sum"
+              disabled={isEditing}
+              required
+              spellCheck={false}
+              className="font-mono text-xs"
+            />
+            <FieldDescription>
+              {isEditing
+                ? "The slug is fixed once a problem exists — competitor links depend on it."
+                : "Generated from the title until you edit it."}
+            </FieldDescription>
+          </Field>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground block">Difficulty</label>
-          <select
-            value={difficulty}
-            onChange={(e) => onDifficultyChange(e.target.value as Difficulty)}
-            className="h-9 w-full rounded-md border bg-background px-3 text-xs"
-          >
-            <option value="Easy">Easy</option>
-            <option value="Medium">Medium</option>
-            <option value="Hard">Hard</option>
-          </select>
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field>
+              <FieldLabel htmlFor="problem-difficulty">Difficulty</FieldLabel>
+              <SimpleSelect
+                id="problem-difficulty"
+                value={difficulty}
+                onValueChange={(v) => onDifficultyChange(v as Difficulty)}
+                options={DIFFICULTY_OPTIONS}
+              />
+            </Field>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground block">Max Score</label>
-          <Input
-            type="number"
-            value={maxScore}
-            onChange={(e) => onMaxScoreChange(Number(e.target.value))}
-            min={1}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground block">Time Limit (ms)</label>
-          <Input
-            type="number"
-            value={timeLimitMs}
-            onChange={(e) => onTimeLimitChange(Number(e.target.value))}
-            step={500}
-            min={500}
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground block">
-            Memory Limit (MB)
-          </label>
-          <Input
-            type="number"
-            value={memoryLimitMb}
-            onChange={(e) => onMemoryLimitChange(Number(e.target.value))}
-            step={64}
-            min={64}
-          />
-        </div>
-      </div>
-
-      <div className="pt-3 border-t mt-1 space-y-2">
-        <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
-          <input
-            type="checkbox"
-            checked={published}
-            onChange={(e) => onPublishedChange(e.target.checked)}
-            className="rounded border h-4 w-4"
-          />
-          <span>Published to Contestants</span>
-        </label>
-
-        {published && testsCount < MIN_EVALUATION_TEST_CASES && (
-          <div className="rounded border border-destructive/30 bg-destructive/10 p-2 text-[11px] font-medium text-destructive flex items-start gap-1.5">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            <span>
-              Cannot publish with fewer than {MIN_EVALUATION_TEST_CASES} evaluation test cases (
-              {testsCount}/{MIN_EVALUATION_TEST_CASES} added).
-            </span>
+            <Field>
+              <FieldLabel htmlFor="problem-max-score">Max score</FieldLabel>
+              <Input
+                id="problem-max-score"
+                type="number"
+                inputMode="numeric"
+                value={maxScore}
+                onChange={(e) => onMaxScoreChange(Number(e.target.value))}
+                min={1}
+              />
+            </Field>
           </div>
-        )}
-      </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field>
+              <FieldLabel htmlFor="problem-time-limit">Time limit (ms)</FieldLabel>
+              <Input
+                id="problem-time-limit"
+                type="number"
+                inputMode="numeric"
+                value={timeLimitMs}
+                onChange={(e) => onTimeLimitChange(Number(e.target.value))}
+                step={500}
+                min={500}
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="problem-memory-limit">Memory (MB)</FieldLabel>
+              <Input
+                id="problem-memory-limit"
+                type="number"
+                inputMode="numeric"
+                value={memoryLimitMb}
+                onChange={(e) => onMemoryLimitChange(Number(e.target.value))}
+                step={64}
+                min={64}
+              />
+            </Field>
+          </div>
+
+          <Field orientation="horizontal" className="border-t pt-4">
+            <FieldLabel htmlFor="problem-published" className="flex-col items-start gap-0.5">
+              <FieldTitle>Published to contestants</FieldTitle>
+              <FieldDescription>
+                {testsCount}/{MIN_EVALUATION_TEST_CASES} evaluation tests added
+              </FieldDescription>
+            </FieldLabel>
+            <Switch
+              id="problem-published"
+              checked={published}
+              disabled={blockedFromPublishing && !published}
+              onCheckedChange={onPublishedChange}
+            />
+          </Field>
+
+          {published && blockedFromPublishing && (
+            <Alert variant="destructive">
+              <AlertCircleIcon />
+              <AlertDescription>
+                A problem needs at least {MIN_EVALUATION_TEST_CASES} evaluation test cases before it
+                can be published ({testsCount} added).
+              </AlertDescription>
+            </Alert>
+          )}
+        </FieldGroup>
+      </CardContent>
     </Card>
   );
 }

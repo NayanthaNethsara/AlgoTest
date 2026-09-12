@@ -3,6 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
+  ClockIcon,
+  MoreHorizontalIcon,
+  PauseIcon,
+  PlayIcon,
+  RotateCcwIcon,
+  Settings2Icon,
+  SnowflakeIcon,
+  StopCircleIcon,
+  TimerIcon,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
   endContestAction,
   extendContestAction,
   freezeContestAction,
@@ -14,63 +26,52 @@ import {
   unfreezeContestAction,
   updateContestSettingsAction,
 } from "@/lib/actions/contest";
+import { getErrorMessage } from "@/lib/errors";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ContestSettingsDialog } from "@/components/contest/contest-settings-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { CONTEST_STATUS, type ContestState } from "@/types/contest";
-import {
-  Clock,
-  Loader2,
-  Pause,
-  Play,
-  RotateCcw,
-  Settings2,
-  Snowflake,
-  StopCircle,
-  Timer,
-} from "lucide-react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CONTEST_STATUS, type ContestSettingsInput, type ContestState } from "@/types/contest";
+import { cn } from "@/lib/utils";
+
+const POLL_INTERVAL_MS = 12_000;
+const EXTEND_PRESETS = [5, 15, 30];
 
 function pad(num: number): string {
   return num.toString().padStart(2, "0");
 }
 
 function formatDuration(totalSeconds: number): string {
-  if (totalSeconds < 0) totalSeconds = 0;
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-  }
-  return `${pad(minutes)}:${pad(seconds)}`;
+  const safe = Math.max(0, totalSeconds);
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const seconds = safe % 60;
+  return hours > 0
+    ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+    : `${pad(minutes)}:${pad(seconds)}`;
 }
 
 export function ContestControlBar() {
   const pathname = usePathname();
   const [state, setState] = useState<ContestState | null>(null);
   const [loading, setLoading] = useState(false);
-  const [clockOffset, setClockOffset] = useState<number>(0);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+  const [clockOffset, setClockOffset] = useState(0);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
 
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-
-  const [settingsTitle, setSettingsTitle] = useState("");
-  const [settingsDuration, setSettingsDuration] = useState("120");
-  const [settingsFullscreen, setSettingsFullscreen] = useState(false);
-  const [settingsMinVersion, setSettingsMinVersion] = useState("0.2.0");
-  const [settingsEnforceHash, setSettingsEnforceHash] = useState(false);
-  const [settingsAuthorizedHashes, setSettingsAuthorizedHashes] = useState("");
 
   const stateRef = useRef(state);
   const clockOffsetRef = useRef(clockOffset);
@@ -85,16 +86,9 @@ export function ContestControlBar() {
       const data = await getAdminContestStateAction();
       setState(data);
       if (data.serverTime) {
-        const offset = new Date(data.serverTime).getTime() - Date.now();
-        setClockOffset(offset);
+        setClockOffset(new Date(data.serverTime).getTime() - Date.now());
       }
-      setSettingsTitle(data.title);
-      setSettingsDuration(String(Math.floor(data.durationSeconds / 60)));
-      setSettingsFullscreen(Boolean(data.requireFullscreen));
-      setSettingsMinVersion(data.minClientVersion || "0.2.0");
-      setSettingsEnforceHash(Boolean(data.enforceBinaryHash));
-      setSettingsAuthorizedHashes(data.authorizedBinaryHashes || "");
-    } catch (err: unknown) {
+    } catch (err) {
       console.error("Failed to load contest state:", err);
     }
   }, []);
@@ -102,159 +96,134 @@ export function ContestControlBar() {
   useEffect(() => {
     void loadState();
     const interval = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        void loadState();
-      }
-    }, 12_000);
+      if (document.visibilityState === "visible") void loadState();
+    }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [loadState]);
 
   useEffect(() => {
-    const calculateTick = () => {
+    const tick = () => {
       const current = stateRef.current;
       if (!current) return;
-      const offset = clockOffsetRef.current;
-      const now = Date.now() + offset;
+      const now = Date.now() + clockOffsetRef.current;
 
       switch (current.status) {
-        case CONTEST_STATUS.NOT_STARTED: {
+        case CONTEST_STATUS.NOT_STARTED:
           setRemainingSeconds(current.durationSeconds);
           break;
-        }
-
-        case CONTEST_STATUS.RUNNING: {
-          if (current.endTime) {
-            const endMs = new Date(current.endTime).getTime();
-            const remaining = Math.max(0, Math.floor((endMs - now) / 1000));
-            setRemainingSeconds(remaining);
-          } else {
-            setRemainingSeconds(current.durationSeconds);
-          }
+        case CONTEST_STATUS.RUNNING:
+          setRemainingSeconds(
+            current.endTime
+              ? Math.max(0, Math.floor((new Date(current.endTime).getTime() - now) / 1000))
+              : current.durationSeconds
+          );
           break;
-        }
-
-        case CONTEST_STATUS.PAUSED: {
+        case CONTEST_STATUS.PAUSED:
           setRemainingSeconds(current.remainingSeconds);
           break;
-        }
-
-        case CONTEST_STATUS.ENDED: {
+        case CONTEST_STATUS.ENDED:
           setRemainingSeconds(0);
           break;
-        }
       }
     };
 
-    calculateTick();
-    const interval = setInterval(calculateTick, 1000);
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  async function handleAction<T>(actionFn: () => Promise<T>) {
+  async function handleAction(actionFn: () => Promise<unknown>, successMessage: string) {
     setLoading(true);
     try {
       await actionFn();
       await loadState();
-    } catch (err: unknown) {
-      console.error("Contest action failed:", err);
+      toast.success(successMessage);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "The contest action failed."));
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSaveSettings() {
+  async function handleSaveSettings(input: ContestSettingsInput) {
     setLoading(true);
     try {
-      const dur = parseInt(settingsDuration, 10);
-      await updateContestSettingsAction({
-        title: settingsTitle,
-        durationMinutes: isNaN(dur) ? undefined : dur,
-        freezeMinutes: state?.freezeMinutes ?? 30,
-        requireFullscreen: settingsFullscreen,
-        minClientVersion: settingsMinVersion,
-        enforceBinaryHash: settingsEnforceHash,
-        authorizedBinaryHashes: settingsAuthorizedHashes,
-      });
+      await updateContestSettingsAction(input);
       setSettingsOpen(false);
       await loadState();
-    } catch (err: unknown) {
-      console.error("Failed to save settings:", err);
+      toast.success("Contest settings saved");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to save the contest settings."));
     } finally {
       setLoading(false);
     }
   }
 
-  if (!state || pathname === "/timer" || pathname.startsWith("/timer")) return null;
+  if (!state || pathname.startsWith("/timer")) return null;
 
   const isRunning = state.status === CONTEST_STATUS.RUNNING;
   const isPaused = state.status === CONTEST_STATUS.PAUSED;
   const isNotStarted = state.status === CONTEST_STATUS.NOT_STARTED;
   const isEnded = state.status === CONTEST_STATUS.ENDED;
   const isFrozen = state.isFrozen;
+  const isLive = isRunning || isPaused;
+  const canExtend = isLive || isEnded;
+
+  function toggleFreeze() {
+    if (isFrozen) {
+      void handleAction(() => unfreezeContestAction(), "Scoreboard unfrozen");
+    } else {
+      void handleAction(() => freezeContestAction(), "Scoreboard frozen");
+    }
+  }
 
   return (
-    <div className="border-b border-white/10 bg-card/70 backdrop-blur-md px-3 sm:px-6 py-2">
-      <div className="mx-auto flex max-w-7xl flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
-        {/* Status & Timer Indicator */}
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Timer className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="text-xs font-bold text-foreground truncate max-w-[140px] sm:max-w-[200px]" title={state.title}>
+    <div className="border-b bg-card/70 px-3 py-2 backdrop-blur-md sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="flex min-w-0 shrink items-center gap-1.5">
+            <TimerIcon className="size-3.5 shrink-0 text-primary" />
+            <span className="truncate text-xs font-bold" title={state.title}>
               {state.title}
             </span>
-          </div>
+          </span>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {isNotStarted && (
-              <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground border-white/15 bg-white/5 py-0 h-5">
-                NOT STARTED
-              </Badge>
-            )}
+          <StatusBadge status={state.status} />
 
-            {isRunning && (
-              <Badge className="bg-success text-success-foreground text-[10px] font-semibold py-0 h-5">
-                RUNNING
-              </Badge>
-            )}
+          {isFrozen && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Badge
+                    variant="outline"
+                    className="h-5 gap-1 border-sky-400/40 bg-sky-400/10 py-0 text-[10px] font-semibold text-sky-400"
+                  />
+                }
+              >
+                <SnowflakeIcon className="size-2.5" /> Frozen
+              </TooltipTrigger>
+              <TooltipContent>Leaderboard is frozen at its current scores</TooltipContent>
+            </Tooltip>
+          )}
 
-            {isPaused && (
-              <Badge className="bg-amber-500 text-black text-[10px] font-semibold animate-pulse py-0 h-5">
-                PAUSED
-              </Badge>
-            )}
-
-            {isEnded && (
-              <Badge variant="outline" className="text-[10px] font-semibold text-destructive border-destructive/30 bg-destructive/10 py-0 h-5">
-                ENDED
-              </Badge>
-            )}
-
-            {isFrozen && (
-              <Badge variant="outline" className="gap-1 border-sky-400/40 bg-sky-400/10 text-sky-400 text-[10px] px-1.5 py-0 h-5 font-semibold">
-                <Snowflake className="h-2.5 w-2.5" />
-                <span>Frozen</span>
-              </Badge>
-            )}
-
-            <div className="flex items-center gap-1 rounded bg-black/40 border border-white/10 px-2 py-0.5 font-mono text-xs font-bold text-foreground">
-              <Clock className="h-3 w-3 text-muted-foreground" />
-              <span>{formatDuration(remainingSeconds)}</span>
-            </div>
-          </div>
+          <span
+            className="flex items-center gap-1 rounded border bg-background/60 px-2 py-0.5 font-mono text-xs font-bold tabular-nums"
+            aria-label="Time remaining"
+          >
+            <ClockIcon className="size-3 text-muted-foreground" />
+            {formatDuration(remainingSeconds)}
+          </span>
         </div>
 
-        {/* Action Buttons Group */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-between sm:justify-end">
-          {/* Primary State Transition Button */}
+        <div className="flex flex-wrap items-center justify-between gap-1.5 sm:justify-end sm:gap-2">
           {isNotStarted && (
             <Button
               size="sm"
-              onClick={() => handleAction(() => startContestAction())}
+              onClick={() => handleAction(() => startContestAction(), "Contest started")}
               disabled={loading}
-              className="gap-1.5 bg-primary text-primary-foreground h-7.5 text-xs font-semibold"
+              className="gap-1.5 font-semibold"
             >
-              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />}
-              <span>Start Contest</span>
+              {loading ? <Spinner /> : <PlayIcon className="fill-current" />} Start contest
             </Button>
           )}
 
@@ -262,328 +231,184 @@ export function ContestControlBar() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => handleAction(() => pauseContestAction())}
+              onClick={() => handleAction(() => pauseContestAction(), "Contest paused")}
               disabled={loading}
-              className="gap-1.5 text-amber-400 border-amber-400/40 hover:bg-amber-400/10 h-7.5 text-xs font-medium"
+              className="gap-1.5 border-warning/40 text-warning hover:bg-warning/10 hover:text-warning"
             >
-              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pause className="h-3 w-3" />}
-              <span>Pause</span>
+              {loading ? <Spinner /> : <PauseIcon />} Pause
             </Button>
           )}
 
           {isPaused && (
             <Button
               size="sm"
-              onClick={() => handleAction(() => resumeContestAction())}
+              onClick={() => handleAction(() => resumeContestAction(), "Contest resumed")}
               disabled={loading}
-              className="gap-1.5 bg-success text-success-foreground hover:bg-success/90 h-7.5 text-xs font-semibold"
+              className="gap-1.5 bg-success text-background font-semibold hover:bg-success/90"
             >
-              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 fill-current" />}
-              <span>Resume</span>
+              {loading ? <Spinner /> : <PlayIcon className="fill-current" />} Resume
             </Button>
           )}
 
-          {/* Quick Extends */}
-          {(isRunning || isPaused || isEnded) && (
-            <div className="flex items-center gap-1">
-              {[5, 15].map((mins) => (
+          {canExtend && (
+            <div className="flex items-center gap-1" role="group" aria-label="Extend contest">
+              {EXTEND_PRESETS.map((mins) => (
                 <Button
                   key={mins}
-                  size="sm"
+                  size="xs"
                   variant="outline"
-                  onClick={() => handleAction(() => extendContestAction(mins))}
+                  onClick={() =>
+                    handleAction(
+                      () => extendContestAction(mins),
+                      `Contest extended by ${mins} minutes`
+                    )
+                  }
                   disabled={loading}
-                  className="h-7 px-1.5 text-[11px] font-mono hover:border-primary hover:text-primary transition-colors"
+                  className="font-mono hover:border-primary hover:text-primary"
                 >
                   +{mins}m
                 </Button>
               ))}
-              {/* Extra extends on large screens */}
-              <div className="hidden lg:flex items-center gap-1">
-                {[10, 30].map((mins) => (
-                  <Button
-                    key={mins}
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleAction(() => extendContestAction(mins))}
-                    disabled={loading}
-                    className="h-7 px-1.5 text-[11px] font-mono hover:border-primary hover:text-primary transition-colors"
-                  >
-                    +{mins}m
-                  </Button>
-                ))}
-              </div>
             </div>
           )}
 
-          {/* Direct Controls on Large Screens */}
-          <div className="hidden lg:flex items-center gap-1.5">
-            {(isRunning || isPaused) && (
-              isFrozen ? (
+          {canExtend && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={toggleFreeze}
+              disabled={loading}
+              className={cn(
+                "hidden gap-1.5 border-sky-400/40 text-sky-400 hover:bg-sky-400/10 hover:text-sky-300 md:inline-flex",
+                isFrozen && "bg-sky-500/15 text-sky-300"
+              )}
+            >
+              {loading ? <Spinner /> : <SnowflakeIcon />} {isFrozen ? "Unfreeze" : "Freeze"}
+            </Button>
+          )}
+
+          {isLive && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setEndConfirmOpen(true)}
+              disabled={loading}
+              className="hidden gap-1.5 md:inline-flex"
+            >
+              <StopCircleIcon /> End
+            </Button>
+          )}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
                 <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleAction(() => unfreezeContestAction())}
+                  size="icon-sm"
+                  variant="ghost"
                   disabled={loading}
-                  className="gap-1.5 bg-sky-500/15 text-sky-300 border-sky-400/50 hover:bg-sky-500/25 h-7.5 text-xs font-semibold"
-                  title="Unfreeze Scoreboard to show live scores"
+                  aria-label="More contest controls"
+                />
+              }
+            >
+              <MoreHorizontalIcon />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Contest controls</DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+
+              {canExtend && (
+                <DropdownMenuItem onClick={toggleFreeze} className="md:hidden">
+                  <SnowflakeIcon /> {isFrozen ? "Unfreeze scoreboard" : "Freeze scoreboard"}
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                <Settings2Icon /> Contest settings
+              </DropdownMenuItem>
+
+              {isLive && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setEndConfirmOpen(true)}
+                  className="md:hidden"
                 >
-                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Snowflake className="h-3 w-3 animate-pulse" />}
-                  <span>Unfreeze</span>
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleAction(() => freezeContestAction())}
-                  disabled={loading}
-                  className="gap-1.5 text-sky-400 border-sky-400/40 hover:bg-sky-400/10 h-7.5 text-xs font-medium"
-                  title="Freeze Scoreboard at current scores"
-                >
-                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Snowflake className="h-3 w-3" />}
-                  <span>Freeze</span>
-                </Button>
-              )
-            )}
+                  <StopCircleIcon /> End contest
+                </DropdownMenuItem>
+              )}
 
-            {(isRunning || isPaused) && (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setEndConfirmOpen(true)}
-                disabled={loading}
-                className="h-7.5 text-xs gap-1 font-medium"
-              >
-                <StopCircle className="h-3 w-3" />
-                <span>End</span>
-              </Button>
-            )}
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setResetConfirmOpen(true)}
-              disabled={loading}
-              className="h-7.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1"
-            >
-              <RotateCcw className="h-3 w-3" />
-              <span>Reset</span>
-            </Button>
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setSettingsOpen(true)}
-              disabled={loading}
-              className="h-7.5 px-2 text-muted-foreground hover:text-foreground"
-              aria-label="Contest Settings"
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-
-          {/* Dropdown Menu for Secondary Actions on Medium & Small Screens */}
-          <div className="flex lg:hidden items-center gap-1">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setSettingsOpen(true)}
-              disabled={loading}
-              className="h-7.5 px-2 text-muted-foreground hover:text-foreground"
-              aria-label="Contest Settings"
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-            </Button>
-
-            {(isRunning || isPaused || isEnded) && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  if (isFrozen) {
-                    handleAction(() => unfreezeContestAction());
-                  } else {
-                    handleAction(() => freezeContestAction());
-                  }
-                }}
-                disabled={loading}
-                className={`h-7.5 px-2 text-xs gap-1 ${
-                  isFrozen ? "text-sky-300 border-sky-400/50 bg-sky-500/15" : "text-sky-400 border-sky-400/40"
-                }`}
-                title={isFrozen ? "Unfreeze Scoreboard" : "Freeze Scoreboard"}
-              >
-                <Snowflake className="h-3 w-3" />
-                <span>{isFrozen ? "Unfreeze" : "Freeze"}</span>
-              </Button>
-            )}
-
-            {(isRunning || isPaused) && (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setEndConfirmOpen(true)}
-                disabled={loading}
-                className="h-7.5 text-xs px-2"
-                title="End Contest"
-              >
-                <StopCircle className="h-3 w-3" />
-              </Button>
-            )}
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setResetConfirmOpen(true)}
-              disabled={loading}
-              className="h-7.5 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              title="Reset Contest"
-            >
-              <RotateCcw className="h-3 w-3" />
-            </Button>
-          </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={() => setResetConfirmOpen(true)}>
+                <RotateCcwIcon /> Reset contest state
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       <ConfirmDialog
         open={endConfirmOpen}
         onOpenChange={setEndConfirmOpen}
-        title="End Contest Immediately?"
-        description="This will immediately set the contest state to ENDED, closing problem submissions for all competitors."
-        actionLabel="End Contest"
+        title="End contest now?"
+        description="The contest moves to ENDED immediately and submissions close for every competitor."
+        actionLabel="End contest"
         variant="destructive"
-        onConfirm={() => handleAction(() => endContestAction())}
+        onConfirm={() => handleAction(() => endContestAction(), "Contest ended")}
       />
 
       <ConfirmDialog
         open={resetConfirmOpen}
         onOpenChange={setResetConfirmOpen}
-        title="Reset Contest State?"
-        description="This will reset the contest status back to NOT_STARTED and clear start/end timestamps."
-        actionLabel="Reset to Not Started"
+        title="Reset contest state?"
+        description="The status returns to NOT_STARTED and the start and end timestamps are cleared. Submissions and scores are not deleted."
+        actionLabel="Reset to not started"
         variant="destructive"
-        onConfirm={() => handleAction(() => resetContestAction())}
+        onConfirm={() => handleAction(() => resetContestAction(), "Contest reset")}
       />
 
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Contest Settings</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Contest Title
-              </label>
-              <Input
-                value={settingsTitle}
-                onChange={(e) => setSettingsTitle(e.target.value)}
-                placeholder="e.g. MiniAlgothon 2026 Finals"
-                className="text-xs"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                Duration (Minutes)
-              </label>
-              <Input
-                type="number"
-                value={settingsDuration}
-                onChange={(e) => setSettingsDuration(e.target.value)}
-                min={1}
-                className="text-xs font-mono"
-              />
-            </div>
-
-            <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
-              <div className="flex flex-col gap-0.5">
-                <label className="text-xs font-semibold text-foreground cursor-pointer" htmlFor="cb-fullscreen-toggle">
-                  Require Browser Fullscreen
-                </label>
-                <span className="text-[11px] text-muted-foreground">
-                  Lock competitor web portal into HTML5 fullscreen mode
-                </span>
-              </div>
-              <input
-                id="cb-fullscreen-toggle"
-                type="checkbox"
-                checked={settingsFullscreen}
-                onChange={(e) => setSettingsFullscreen(e.target.checked)}
-                className="size-4 cursor-pointer accent-primary"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5 border-t border-border pt-3 mt-1">
-              <label className="text-xs font-semibold text-foreground">
-                Minimum Client Version
-              </label>
-              <Input
-                value={settingsMinVersion}
-                onChange={(e) => setSettingsMinVersion(e.target.value)}
-                placeholder="e.g. 0.2.0"
-                className="text-xs font-mono"
-              />
-              <span className="text-[11px] text-muted-foreground">
-                Clients with an older version will be blocked from enrolling.
-              </span>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-border pt-3 mt-1">
-              <div className="flex flex-col gap-0.5">
-                <label className="text-xs font-semibold text-foreground cursor-pointer" htmlFor="cb-enforce-hash-toggle">
-                  Enforce Binary Release Hash
-                </label>
-                <span className="text-[11px] text-muted-foreground">
-                  Verify client executable SHA-256 against authorized release checksums
-                </span>
-              </div>
-              <input
-                id="cb-enforce-hash-toggle"
-                type="checkbox"
-                checked={settingsEnforceHash}
-                onChange={(e) => setSettingsEnforceHash(e.target.checked)}
-                className="size-4 cursor-pointer accent-primary"
-              />
-            </div>
-
-            {settingsEnforceHash && (
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  Authorized Release Hashes (SHA-256)
-                </label>
-                <textarea
-                  value={settingsAuthorizedHashes}
-                  onChange={(e) => setSettingsAuthorizedHashes(e.target.value)}
-                  placeholder="Paste release checksums (comma-separated SHA-256 hex digests)..."
-                  rows={3}
-                  className="text-xs font-mono p-2 border rounded resize-none bg-background"
-                />
-                <span className="text-[11px] text-muted-foreground">
-                  Generated automatically during GitHub Actions release builds.
-                </span>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSettingsOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSaveSettings}
-              disabled={loading}
-              className="bg-primary text-primary-foreground font-semibold"
-            >
-              {loading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-              Save Settings
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ContestSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        state={state}
+        pending={loading}
+        onSave={handleSaveSettings}
+      />
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: ContestState["status"] }) {
+  switch (status) {
+    case CONTEST_STATUS.RUNNING:
+      return (
+        <Badge className="h-5 bg-success py-0 text-[10px] font-semibold text-background">
+          RUNNING
+        </Badge>
+      );
+    case CONTEST_STATUS.PAUSED:
+      return (
+        <Badge className="h-5 animate-pulse bg-warning py-0 text-[10px] font-semibold text-background">
+          PAUSED
+        </Badge>
+      );
+    case CONTEST_STATUS.ENDED:
+      return (
+        <Badge
+          variant="outline"
+          className="h-5 border-destructive/30 bg-destructive/10 py-0 text-[10px] font-semibold text-destructive"
+        >
+          ENDED
+        </Badge>
+      );
+    default:
+      return (
+        <Badge
+          variant="outline"
+          className="h-5 py-0 text-[10px] font-semibold text-muted-foreground"
+        >
+          NOT STARTED
+        </Badge>
+      );
+  }
 }
