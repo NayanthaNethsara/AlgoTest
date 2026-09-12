@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
@@ -165,6 +166,12 @@ func (h *handler) updateUserProctorExemption(c *gin.Context) {
 		return
 	}
 
+	h.recordAudit(c, audit.ActionUserExemptionUpdate, audit.TargetUser, targetID, audit.StatusSuccess, map[string]interface{}{
+		"exempt":     req.Exempt,
+		"hoursValid": req.HoursValid,
+		"reason":     req.Reason,
+	})
+
 	c.JSON(http.StatusOK, gin.H{"status": "updated"})
 }
 
@@ -214,6 +221,12 @@ func (h *handler) updateUserProctorAccess(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	h.recordAudit(c, audit.ActionUserAccessUpdate, audit.TargetUser, targetID, audit.StatusSuccess, map[string]interface{}{
+		"webOnly":    grant.WebOnly,
+		"hoursValid": req.HoursValid,
+		"reason":     reason,
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":       "updated",

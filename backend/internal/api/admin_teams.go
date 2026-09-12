@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/auth"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
@@ -64,6 +65,10 @@ func (h *handler) createTeam(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		h.recordAudit(c, audit.ActionTeamCreate, audit.TargetTeam, t.ID, audit.StatusSuccess, map[string]interface{}{
+			"name":        t.Name,
+			"memberCount": 0,
+		})
 		c.JSON(http.StatusCreated, gin.H{"team": t, "members": []createdMember{}})
 		return
 	}
@@ -118,6 +123,11 @@ func (h *handler) createTeam(c *gin.Context) {
 		created[i] = createdMember{User: u, Password: passwords[i]}
 	}
 
+	h.recordAudit(c, audit.ActionTeamCreate, audit.TargetTeam, t.ID, audit.StatusSuccess, map[string]interface{}{
+		"name":        t.Name,
+		"memberCount": len(createdUsers),
+	})
+
 	c.JSON(http.StatusCreated, gin.H{"team": t, "members": created})
 }
 
@@ -145,6 +155,9 @@ func (h *handler) updateTeam(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionTeamUpdate, audit.TargetTeam, t.ID, audit.StatusSuccess, map[string]interface{}{
+		"name": t.Name,
+	})
 	c.JSON(http.StatusOK, gin.H{"team": t})
 }
 
@@ -159,6 +172,7 @@ func (h *handler) deleteTeam(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionTeamDelete, audit.TargetTeam, id, audit.StatusSuccess, nil)
 	c.JSON(http.StatusOK, gin.H{"message": "team deleted successfully"})
 }
 
@@ -205,6 +219,9 @@ func (h *handler) addTeamMember(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch updated team"})
 			return
 		}
+		h.recordAudit(c, audit.ActionTeamMemberAdd, audit.TargetTeam, teamID, audit.StatusSuccess, map[string]interface{}{
+			"userId": req.UserID,
+		})
 		c.JSON(http.StatusOK, gin.H{"team": t})
 		return
 	}
@@ -259,6 +276,10 @@ func (h *handler) addTeamMember(c *gin.Context) {
 			return
 		}
 
+		h.recordAudit(c, audit.ActionTeamMemberAdd, audit.TargetTeam, teamID, audit.StatusSuccess, map[string]interface{}{
+			"userId":   createdUser.ID,
+			"username": createdUser.Username,
+		})
 		c.JSON(http.StatusOK, gin.H{"team": t, "user": createdUser, "password": pw})
 		return
 	}
@@ -286,5 +307,8 @@ func (h *handler) removeTeamMember(c *gin.Context) {
 		return
 	}
 
+	h.recordAudit(c, audit.ActionTeamMemberRemove, audit.TargetTeam, teamID, audit.StatusSuccess, map[string]interface{}{
+		"userId": userID,
+	})
 	c.JSON(http.StatusOK, gin.H{"team": t})
 }

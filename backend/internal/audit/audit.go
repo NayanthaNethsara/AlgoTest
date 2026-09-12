@@ -35,6 +35,13 @@ const (
 	ActionSubmissionReview      = "submission.review"
 	ActionProctorRevoke         = "proctor.revoke"
 	ActionProctorReadmit        = "proctor.readmit"
+	ActionUserExemptionUpdate   = "user.exemption_update"
+	ActionUserAccessUpdate      = "user.access_update"
+	ActionTeamCreate            = "team.create"
+	ActionTeamUpdate            = "team.update"
+	ActionTeamDelete            = "team.delete"
+	ActionTeamMemberAdd         = "team.member_add"
+	ActionTeamMemberRemove      = "team.member_remove"
 )
 
 // Status constants
@@ -49,6 +56,7 @@ const (
 const (
 	TargetAuth       = "auth"
 	TargetUser       = "user"
+	TargetTeam       = "team"
 	TargetContest    = "contest"
 	TargetProblem    = "problem"
 	TargetSubmission = "submission"
