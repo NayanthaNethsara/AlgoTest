@@ -29,10 +29,6 @@ const (
 	CodeAgentStale   = "AGENT_STALE"
 	CodeAgentStopped = "AGENT_STOPPED"
 	CodeNotAttested  = "NOT_ATTESTED"
-	// CodeClientNotAllowed is the browser turned away while the agent is perfectly
-	// healthy. Distinct from the AGENT_* codes on purpose: telling someone whose
-	// proctor client is running fine to restart it sends them in circles.
-	CodeClientNotAllowed = "CLIENT_NOT_ALLOWED"
 )
 
 type ActiveClient string
@@ -233,13 +229,7 @@ func Decide(in GateInput, now time.Time) Decision {
 			"reason":       "submitted from the browser fallback rather than the desktop client",
 			"claims_shell": in.ClaimsDesktop,
 			"shell_alive":  in.ShellAlive,
-			"granted":      grant.Allows(ModeWebWithAgent),
 		}})
-		if !grant.Allows(ModeWebWithAgent) {
-			d.Code = CodeClientNotAllowed
-			d.Remedy = "Scored submissions must come from the proctor client window. Open the contest there, or ask an organizer to allow browser access for your account."
-			return d
-		}
 	}
 
 	if !in.AttestOK {

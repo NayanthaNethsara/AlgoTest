@@ -126,7 +126,8 @@ func (r *Repository) GetTeamProgress(ctx context.Context, teamID string, userID 
 		SELECT ps.problem_id, ps.best_score, COALESCE(p.max_score, 100) AS max_score
 		FROM problem_scores ps
 		JOIN problems p ON ps.problem_id = p.id
-		WHERE (NULLIF($1, '')::uuid IS NOT NULL AND ps.team_id = $1::uuid) OR ps.user_id = $2::uuid;
+		WHERE (NULLIF($1, '') IS NOT NULL AND ps.team_id = NULLIF($1, '')::uuid)
+		   OR (NULLIF($2, '') IS NOT NULL AND ps.user_id = NULLIF($2, '')::uuid);
 	`
 	rows, err := r.pool.Query(ctx, query, teamID, userID)
 	if err != nil {

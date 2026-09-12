@@ -218,7 +218,6 @@ func (h *handler) updateUserProctorAccess(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":       "updated",
 		"allowedModes": grant.Modes(),
-		"webWithAgent": true,
 		"webOnly":      grant.WebOnly,
 	})
 }

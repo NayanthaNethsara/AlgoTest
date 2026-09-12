@@ -10,14 +10,13 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
 )
 
-// KeepaliveInterval is how often a heartbeat is persisted as an event even when
-// nothing changed, so a quiet endpoint still leaves a continuous trail. It is the
-// fallback for proctor.keepalive_seconds, which overrides it.
-//
-// This is the lever that decides how much the trail costs: every keepalive is a
-// row, so 300 agents at the default write 300 rows per five minutes on top of
-// whatever their signal changes produce.
 const KeepaliveInterval = 5 * time.Minute
+
+const (
+	incidentThresholdNumerator   = 3
+	incidentThresholdDenominator = 10
+	incidentMinFleet             = 10
+)
 
 type Service struct {
 	repo     *Repository
@@ -31,8 +30,6 @@ func NewService(repo *Repository, batcher *telemetry.Batcher, eval *proctor.Eval
 	return &Service{repo: repo, batcher: batcher, eval: eval, settings: settings, log: log}
 }
 
-// Policy is the live policy, served to agents and used to evaluate their reports.
-// This is an atomic pointer load, not a query — see Settings.
 func (s *Service) Policy() Policy {
 	if s.settings == nil {
 		return DefaultPolicy()
@@ -44,8 +41,6 @@ func (s *Service) Repo() *Repository { return s.repo }
 
 func (s *Service) Settings() *Settings { return s.settings }
 
-// Classify decides what this heartbeat says about the agent's own integrity,
-// independently of what it observed on the endpoint.
 func Classify(a Agent, hb Heartbeat, serverNow time.Time) Integrity {
 	var integ Integrity
 
@@ -54,9 +49,6 @@ func Classify(a Agent, hb Heartbeat, serverNow time.Time) Integrity {
 	integ.CleanRestart = integ.NewBoot && a.StoppedAt != nil
 	integ.SeqReplay = sameBoot && hb.Seq > 0 && hb.Seq <= a.Seq
 
-	// A wrong-but-steady clock is just a wrong clock. What matters is the offset
-	// *changing* — that is someone moving the clock during the contest. Buffered
-	// replays carry an old wall stamp by definition, so they are exempt.
 	if !hb.Buffered && !hb.WallTS.IsZero() {
 		offset := hb.WallTS.Sub(serverNow).Milliseconds()
 		if a.ClockOffsetMs != nil {
@@ -76,9 +68,6 @@ func clockOffset(hb Heartbeat, serverNow time.Time) int64 {
 	return hb.WallTS.Sub(serverNow).Milliseconds()
 }
 
-// Heartbeat ingests one live heartbeat: integrity first, then liveness, then
-// signal evaluation. Signal evaluation is skipped when the signal hash is
-// unchanged, which is what makes 33 heartbeats/second cheap.
 func (s *Service) Heartbeat(ctx context.Context, a Agent, hb Heartbeat, clientIP string) error {
 	if hb.Buffered {
 		return s.replay(ctx, a, hb)
@@ -93,8 +82,6 @@ func (s *Service) Heartbeat(ctx context.Context, a Agent, hb Heartbeat, clientIP
 			"reported_seq": hb.Seq,
 			"known_seq":    a.Seq,
 		})
-		// A replayed sequence is not evidence of liveness. Refuse it outright
-		// rather than letting a captured heartbeat hold the gate open.
 		return ErrUnknownAgent
 	}
 
@@ -201,14 +188,6 @@ func (s *Service) Heartbeat(ctx context.Context, a Agent, hb Heartbeat, clientIP
 	return nil
 }
 
-// replay files a heartbeat the agent buffered while the server was unreachable.
-//
-// A replay is *history*, not current state. It must never touch liveness, the live
-// signal row, or the agent's boot/sequence state: the buffer can span an agent
-// restart, so replaying it afterwards would rewind boot_id and make the next live
-// heartbeat look like a crash — and would overwrite current signals with stale
-// ones. It also must never move liveness forward, or an agent that is still
-// offline could hold the gate open by flushing an hour-old backlog.
 func (s *Service) replay(ctx context.Context, a Agent, hb Heartbeat) error {
 	observedAt := time.Now().UTC()
 	if !hb.WallTS.IsZero() {
@@ -223,8 +202,6 @@ func (s *Service) replay(ctx context.Context, a Agent, hb Heartbeat) error {
 	return s.repo.AppendEvent(ctx, a.UserID, a.ID, hb.BootID, "buffered", hb.SignalHash, hb.Seq, payload, observedAt)
 }
 
-// Shutdown records a deliberate stop. A clean stop is neutral evidence — the
-// contestant is allowed to turn proctoring off, it simply locks submissions.
 func (s *Service) Shutdown(ctx context.Context, a Agent, reason string) error {
 	if reason == "" {
 		reason = "contestant stopped proctoring"
@@ -244,5 +221,64 @@ func (s *Service) record(ctx context.Context, userID, ruleID string, weight int,
 	}
 	if err := s.eval.RecordEvent(ctx, userID, ruleID, weight, evidence); err != nil && s.log != nil {
 		s.log.Error("failed to record proctor event", "rule", ruleID, "user_id", userID, "error", err)
+	}
+}
+
+func (s *Service) Sweep(ctx context.Context) error {
+	staleSeconds := s.Policy().GateMaxStaleSeconds
+
+	health, err := s.repo.fleetHealth(ctx, staleSeconds)
+	if err != nil {
+		return err
+	}
+
+	fleetWide := health.Total >= incidentMinFleet &&
+		health.Stale*incidentThresholdDenominator >= health.Total*incidentThresholdNumerator
+
+	if fleetWide {
+		opened, err := s.repo.openIncident(ctx, health.Stale, health.Total)
+		if err != nil {
+			return err
+		}
+		if opened && s.log != nil {
+			s.log.Warn("fleet-wide telemetry loss; suppressing contestant gaps",
+				"stale", health.Stale, "total", health.Total)
+		}
+		if _, err := s.repo.discardGapsInIncident(ctx); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	closed, err := s.repo.closeIncident(ctx)
+	if err != nil {
+		return err
+	}
+	if closed && s.log != nil {
+		s.log.Info("fleet telemetry recovered", "stale", health.Stale, "total", health.Total)
+	}
+
+	if _, err := s.repo.closeGaps(ctx, staleSeconds); err != nil {
+		return err
+	}
+	if _, err := s.repo.openGaps(ctx, staleSeconds); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) StartSweeper(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := s.Sweep(ctx); err != nil && s.log != nil {
+				s.log.Error("agent sweep failed", "error", err)
+			}
+		}
 	}
 }

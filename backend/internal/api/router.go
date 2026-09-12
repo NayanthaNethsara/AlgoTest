@@ -3,10 +3,8 @@ package api
 import (
 	"context"
 	"log/slog"
-	"strings"
 	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -112,7 +110,7 @@ func NewRouter(
 		h.registerCompetitorRoutes(v1, gated)
 		h.registerAgentRoutes(v1)
 
-		admin := v1.Group("/admin", h.requireUser, h.requireAdmin, maxBodySizeMiddleware(200_000_000), rateLimitMiddleware(adminLimiter, userIDKeyFunc))
+		admin := v1.Group("/admin", h.requireUser, h.requireAdmin, maxBodySizeMiddleware(32_000_000), rateLimitMiddleware(adminLimiter, userIDKeyFunc))
 		h.registerAdminRoutes(admin)
 	}
 
@@ -191,8 +189,14 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 	admin.GET("/problems/:id", h.getAdminProblemByID)
 	admin.PUT("/problems/:id", h.updateProblem)
 	admin.PATCH("/problems/:id/publish", h.setProblemPublished)
-	admin.DELETE("/problems/:id", h.deleteProblem)
 	admin.GET("/problems/:id/tests", h.getAdminProblemTests)
+	admin.POST("/problems/:id/tests", h.addSingleTestCase)
+	admin.PUT("/problems/:id/tests/:ordinal", h.updateSingleTestCase)
+	admin.DELETE("/problems/:id/tests/:ordinal", h.deleteSingleTestCase)
+	admin.PATCH("/problems/:id/tests/points", h.updateTestPoints)
+	admin.GET("/problems/:id/tests/:ordinal/input", h.getAdminSingleTestInput)
+	admin.GET("/problems/:id/tests/:ordinal/expected", h.getAdminSingleTestExpected)
+	admin.GET("/problems/:id/tests/export", h.exportProblemTestsZip)
 	admin.PUT("/problems/:id/tests", h.replaceTestCases)
 	admin.POST("/problems/:id/rejudge", h.rejudgeProblem)
 
@@ -223,60 +227,4 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 	admin.POST("/contest/reset", h.adminResetContest)
 	admin.POST("/contest/end", h.adminEndContest)
 	admin.PUT("/contest/settings", h.adminUpdateContestSettings)
-}
-
-func userIDKeyFunc(c *gin.Context) string {
-	u, exists := c.Get(contextUserKey)
-	if !exists {
-		return ""
-	}
-	if usr, ok := u.(user.User); ok {
-		return usr.ID
-	}
-	return ""
-}
-
-func peerIPKeyFunc(c *gin.Context) string {
-	return c.RemoteIP()
-}
-
-func agentIDKeyFunc(c *gin.Context) string {
-	a, exists := c.Get(contextAgentKey)
-	if !exists {
-		return ""
-	}
-	if ag, ok := a.(agent.Agent); ok {
-		return ag.ID
-	}
-	return ""
-}
-
-func isTauriOrigin(origin string) bool {
-	return origin == "tauri://localhost" ||
-		strings.HasPrefix(origin, "tauri://") ||
-		origin == "http://tauri.localhost" ||
-		origin == "https://tauri.localhost"
-}
-
-func corsMiddleware(origins []string) gin.HandlerFunc {
-	allowedMap := make(map[string]bool, len(origins))
-	for _, o := range origins {
-		trimmed := strings.TrimSpace(o)
-		if trimmed != "" && trimmed != "*" {
-			allowedMap[trimmed] = true
-		}
-	}
-
-	c := cors.Config{
-		AllowOriginFunc: func(origin string) bool {
-			if isTauriOrigin(origin) {
-				return true
-			}
-			return allowedMap[origin]
-		},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept", "X-Requested-With", attestHeader, clientHeader},
-		AllowCredentials: true,
-	}
-	return cors.New(c)
 }

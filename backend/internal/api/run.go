@@ -29,7 +29,7 @@ func tryAcquireUserRun(userID string) (bool, string) {
 	defer activeRunsMu.Unlock()
 
 	now := time.Now()
-	if len(userLastRunTimes) > 256 {
+	if len(userLastRunTimes) > 1024 {
 		for uid, t := range userLastRunTimes {
 			if now.Sub(t) > 5*time.Minute {
 				delete(userLastRunTimes, uid)
@@ -124,6 +124,11 @@ func (h *handler) runCode(c *gin.Context) {
 		return
 	}
 	defer releaseUserRun(u.ID)
+
+	if h.runner == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "sandbox execution service unavailable"})
+		return
+	}
 
 	result, err := h.runner.Run(c.Request.Context(), runner.Request{
 		Language: req.Language,

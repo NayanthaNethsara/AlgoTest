@@ -134,10 +134,11 @@ func (h *handler) createSubmission(c *gin.Context) {
 			return
 		}
 	}
-	teamID := u.ID
-	if u.TeamID != nil && *u.TeamID != "" {
-		teamID = *u.TeamID
+	if u.TeamID == nil || *u.TeamID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "You must be assigned to a team to make submissions."})
+		return
 	}
+	teamID := *u.TeamID
 
 	if h.proctorEvaluator != nil && req.PastedChars != nil && req.TypedCount != nil {
 		pasted := *req.PastedChars

@@ -442,10 +442,9 @@ func autoProvisionUsers(client *http.Client, baseURL, adminToken string, count i
 		for _, r := range bulkOut.Results {
 			if r.Status == "created" && r.User.ID != "" {
 				accessBody, _ := json.Marshal(map[string]any{
-					"webWithAgent": true,
-					"webOnly":      true,
-					"reason":       "automated stress testing grant",
-					"hoursValid":   4,
+					"webOnly":    true,
+					"reason":     "automated stress testing grant",
+					"hoursValid": 4,
 				})
 				accessReq, _ := http.NewRequest(http.MethodPatch, baseURL+"/api/v1/admin/users/"+r.User.ID+"/access", bytes.NewReader(accessBody))
 				accessReq.Header.Set("Content-Type", "application/json")

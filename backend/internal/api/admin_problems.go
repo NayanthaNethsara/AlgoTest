@@ -11,15 +11,6 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 )
 
-const minEvaluationTestCases = 5
-
-type testCaseDTO struct {
-	Ordinal  int32  `json:"ordinal"`
-	Input    string `json:"input"`
-	Expected string `json:"expected"`
-	Points   int32  `json:"points"`
-}
-
 type problemPayload struct {
 	Slug          string                `json:"slug" binding:"required"`
 	Title         string                `json:"title" binding:"required"`
@@ -36,25 +27,6 @@ type problemPayload struct {
 
 type publishPayload struct {
 	Published bool `json:"published"`
-}
-
-type replaceTestsPayload struct {
-	Tests []testCaseDTO `json:"tests"`
-}
-
-func validateTestsAgainstSamples(samples []problem.SampleInput, tests []testCaseDTO) error {
-	for _, t := range tests {
-		tInput := strings.TrimSpace(t.Input)
-		tExpected := strings.TrimSpace(t.Expected)
-		for _, s := range samples {
-			sInput := strings.TrimSpace(s.Input)
-			sOutput := strings.TrimSpace(s.Output)
-			if tInput == sInput && tExpected == sOutput {
-				return fmt.Errorf("evaluation test case %d is identical to sample %d; evaluation test cases must be distinct from public samples", t.Ordinal, s.Ordinal)
-			}
-		}
-	}
-	return nil
 }
 
 // @Summary Admin List All Problems
@@ -206,11 +178,22 @@ func (h *handler) updateProblem(c *gin.Context) {
 		}
 	}
 
-	if req.Tests != nil {
-		if req.Published && len(req.Tests) < minEvaluationTestCases {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "published problems require at least 5 evaluation test cases"})
-			return
+	if req.Published {
+		if req.Tests != nil {
+			if len(req.Tests) < minEvaluationTestCases {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "published problems require at least 5 evaluation test cases"})
+				return
+			}
+		} else {
+			existingMeta, err := h.problems.GetTestMetadata(c.Request.Context(), id)
+			if err != nil || len(existingMeta) < minEvaluationTestCases {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "published problems require at least 5 evaluation test cases"})
+				return
+			}
 		}
+	}
+
+	if req.Tests != nil {
 		if err := validateTestsAgainstSamples(req.Samples, req.Tests); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -321,90 +304,4 @@ func (h *handler) deleteProblem(c *gin.Context) {
 	h.judge.InvalidateTests(id)
 
 	c.Status(http.StatusNoContent)
-}
-
-// @Summary Admin Replace Test Cases
-// @Description Replace official evaluation test cases for a problem.
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Problem ID"
-// @Param payload body replaceTestsPayload true "Test cases payload"
-// @Success 244 "No Content"
-// @Router /api/v1/admin/problems/{id}/tests [put]
-func (h *handler) replaceTestCases(c *gin.Context) {
-	id := c.Param("id")
-	var req replaceTestsPayload
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	detail, err := h.problems.GetByID(c.Request.Context(), id, false)
-	if err == nil {
-		sampleInputs := make([]problem.SampleInput, len(detail.Samples))
-		for i, s := range detail.Samples {
-			sampleInputs[i] = problem.SampleInput{
-				Ordinal: s.Ordinal,
-				Input:   s.Input,
-				Output:  s.Output,
-			}
-		}
-		if valErr := validateTestsAgainstSamples(sampleInputs, req.Tests); valErr != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": valErr.Error()})
-			return
-		}
-	}
-
-	inputs := make([]problem.TestInput, len(req.Tests))
-	for i, t := range req.Tests {
-		inputs[i] = problem.TestInput{
-			Ordinal:  t.Ordinal,
-			Input:    []byte(t.Input),
-			Expected: []byte(t.Expected),
-			Points:   t.Points,
-		}
-	}
-
-	if err := h.problems.ReplaceTests(c.Request.Context(), id, inputs); err != nil {
-		if errors.Is(err, problem.ErrPointsMismatch) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	h.judge.InvalidateTests(id)
-
-	c.Status(http.StatusNoContent)
-}
-
-// @Summary Admin Get Problem Test Cases
-// @Description Fetch full input and expected output for test cases of a problem.
-// @Tags Admin
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Problem ID"
-// @Success 200 {object} map[string][]testCaseDTO
-// @Router /api/v1/admin/problems/{id}/tests [get]
-func (h *handler) getAdminProblemTests(c *gin.Context) {
-	id := c.Param("id")
-	tests, err := h.problems.GetFullTests(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch test cases"})
-		return
-	}
-
-	dtos := make([]testCaseDTO, len(tests))
-	for i, t := range tests {
-		dtos[i] = testCaseDTO{
-			Ordinal:  t.Ordinal,
-			Input:    string(t.Input),
-			Expected: string(t.Expected),
-			Points:   t.Points,
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"tests": dtos})
 }

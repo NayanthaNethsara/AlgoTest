@@ -112,8 +112,7 @@ func (s *Settings) RequireAgentAttest() bool {
 // wider than anyone asked.
 func (s *Settings) ContestAccessGrant() AccessGrant {
 	return AccessGrant{
-		WebWithAgent: s.bool("access.allow_web_with_agent", false),
-		WebOnly:      s.bool("access.allow_web_only", false),
+		WebOnly: s.bool("access.allow_web_only", false),
 	}
 }
 

@@ -2,10 +2,7 @@ package problem
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
-	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -68,9 +65,15 @@ func (r *Repository) ListPublished(ctx context.Context) ([]Problem, error) {
 
 func (r *Repository) ListAll(ctx context.Context) ([]Problem, error) {
 	query := `
-		SELECT id, slug, title, difficulty, statement, constraints, time_limit_ms, memory_limit_mb, max_score, published, created_at, updated_at
-		FROM problems
-		ORDER BY created_at DESC;
+		SELECT p.id, p.slug, p.title, p.difficulty, p.statement, p.constraints, p.time_limit_ms, p.memory_limit_mb, p.max_score, p.published, p.created_at, p.updated_at,
+		       COALESCE(tc.test_count, 0) AS test_count
+		FROM problems p
+		LEFT JOIN (
+			SELECT problem_id, COUNT(*) AS test_count
+			FROM problem_tests
+			GROUP BY problem_id
+		) tc ON tc.problem_id = p.id
+		ORDER BY p.created_at DESC;
 	`
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
@@ -80,7 +83,22 @@ func (r *Repository) ListAll(ctx context.Context) ([]Problem, error) {
 
 	var problems []Problem
 	for rows.Next() {
-		p, err := scanProblem(rows)
+		var p Problem
+		err := rows.Scan(
+			&p.ID,
+			&p.Slug,
+			&p.Title,
+			&p.Difficulty,
+			&p.Statement,
+			&p.Constraints,
+			&p.TimeLimitMs,
+			&p.MemoryLimitMb,
+			&p.MaxScore,
+			&p.Published,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+			&p.TestCount,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -322,71 +340,6 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 	return notFoundIfZero(cmd.RowsAffected(), err)
 }
 
-func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests []TestInput) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	var maxScore int32
-	if err := tx.QueryRow(ctx, `SELECT max_score FROM problems WHERE id = $1;`, problemID).Scan(&maxScore); err != nil {
-		return fmt.Errorf("failed to read problem max_score: %w", err)
-	}
-	if err := ValidateTestPoints(tests, maxScore); err != nil {
-		return err
-	}
-	DistributePoints(tests, maxScore)
-
-	if _, err := tx.Exec(ctx, `DELETE FROM problem_tests WHERE problem_id = $1;`, problemID); err != nil {
-		return err
-	}
-
-	insertTest := `
-		INSERT INTO problem_tests (problem_id, ordinal, input, expected, input_sha, expected_sha, points)
-		VALUES ($1, $2, $3, $4, $5, $6, $7);
-	`
-	for i, t := range tests {
-		ord := int32(i + 1)
-		inSha := sha256Hex(t.Input)
-		expSha := sha256Hex(t.Expected)
-		pts := t.Points
-		if pts <= 0 {
-			pts = 1
-		}
-		_, err := tx.Exec(ctx, insertTest, problemID, ord, t.Input, t.Expected, inSha, expSha, pts)
-		if err != nil {
-			return fmt.Errorf("failed to create test case %d: %w", ord, err)
-		}
-	}
-
-	return tx.Commit(ctx)
-}
-
-func (r *Repository) GetFullTests(ctx context.Context, problemID string) ([]TestInput, error) {
-	query := `
-		SELECT ordinal, input, expected, points
-		FROM problem_tests
-		WHERE problem_id = $1
-		ORDER BY ordinal;
-	`
-	rows, err := r.pool.Query(ctx, query, problemID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var result []TestInput
-	for rows.Next() {
-		var t TestInput
-		if err := rows.Scan(&t.Ordinal, &t.Input, &t.Expected, &t.Points); err != nil {
-			return nil, err
-		}
-		result = append(result, t)
-	}
-	return result, rows.Err()
-}
-
 func notFoundIfZero(n int64, err error) error {
 	if err != nil {
 		return err
@@ -397,7 +350,3 @@ func notFoundIfZero(n int64, err error) error {
 	return nil
 }
 
-func sha256Hex(data []byte) string {
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}

@@ -56,6 +56,7 @@ type Problem struct {
 	Published     bool      `json:"published"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
+	TestCount     int       `json:"testCount"`
 }
 
 type Sample struct {
@@ -74,6 +75,17 @@ type TestMetadata struct {
 	InputSHA    string `json:"inputSha"`
 	ExpectedSHA string `json:"expectedSha"`
 	Points      int32  `json:"points"`
+}
+
+type TestCaseMetadata struct {
+	Ordinal         int32  `json:"ordinal"`
+	InputSize       int64  `json:"inputSize"`
+	ExpectedSize    int64  `json:"expectedSize"`
+	InputSHA        string `json:"inputSha"`
+	ExpectedSHA     string `json:"expectedSha"`
+	InputSnippet    string `json:"inputSnippet"`
+	ExpectedSnippet string `json:"expectedSnippet"`
+	Points          int32  `json:"points"`
 }
 
 type ProblemDetail struct {

@@ -1,9 +1,9 @@
 package session
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"time"
+
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/crypto"
 )
 
 type Session struct {
@@ -12,6 +12,5 @@ type Session struct {
 }
 
 func hashToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
+	return crypto.HashToken(token)
 }

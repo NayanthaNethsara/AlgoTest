@@ -1,19 +1,13 @@
-// Package agent owns the proctor agent's own identity. The agent enrolls once
-// and holds a long-lived credential of its own, so liveness never depends on a
-// portal login inside the desktop webview — which is what lets the browser act
-// as a genuine fallback instead of a proctoring bypass.
 package agent
 
 import (
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/crypto"
 )
 
 var (
@@ -21,13 +15,64 @@ var (
 	ErrRevoked      = errors.New("agent enrollment revoked")
 )
 
-// GateMaxStaleSeconds is deliberately above three missed heartbeats. At the 45s
-// StatusOnline boundary a single congested-LAN drop locks someone out mid-submit.
-const GateMaxStaleSeconds = 90
+const (
+	GateMaxStaleSeconds  = 90
+	ClockSkewToleranceMs = 120_000
+)
 
-// ClockSkewToleranceMs is how far the wall clock may drift from the agent's
-// monotonic clock across one heartbeat before it reads as tampering.
-const ClockSkewToleranceMs = 120_000
+type AccessMode string
+
+const (
+	ModeDesktopShell AccessMode = "DESKTOP"
+	ModeWebWithAgent AccessMode = "WEB_WITH_AGENT"
+	ModeWebOnly      AccessMode = "WEB_ONLY"
+)
+
+var AllAccessModes = []AccessMode{ModeDesktopShell, ModeWebWithAgent, ModeWebOnly}
+
+type AccessGrant struct {
+	WebOnly bool `json:"web_only"`
+}
+
+func (g AccessGrant) Allows(m AccessMode) bool {
+	switch m {
+	case ModeDesktopShell, ModeWebWithAgent:
+		return true
+	case ModeWebOnly:
+		return g.WebOnly
+	default:
+		return false
+	}
+}
+
+func (g AccessGrant) Modes() []AccessMode {
+	modes := make([]AccessMode, 0, len(AllAccessModes))
+	for _, m := range AllAccessModes {
+		if g.Allows(m) {
+			modes = append(modes, m)
+		}
+	}
+	return modes
+}
+
+func (g AccessGrant) IsDefault() bool {
+	return !g.WebOnly
+}
+
+func UnionAccessGrant(a, b AccessGrant) AccessGrant {
+	return AccessGrant{
+		WebOnly: a.WebOnly || b.WebOnly,
+	}
+}
+
+func ParseAccessMode(raw string) (AccessMode, bool) {
+	for _, m := range AllAccessModes {
+		if AccessMode(raw) == m {
+			return m, true
+		}
+	}
+	return "", false
+}
 
 type Agent struct {
 	ID            string     `json:"id"`
@@ -49,8 +94,6 @@ type Agent struct {
 	StoppedReason string     `json:"stoppedReason,omitempty"`
 }
 
-// Policy is everything the agent needs to run that organizers may want to
-// change without rebuilding and redistributing 300 binaries.
 type Policy struct {
 	HeartbeatSeconds    int      `json:"heartbeat_seconds"`
 	PortProbeSeconds    int      `json:"port_probe_seconds"`
@@ -69,11 +112,6 @@ func DefaultPolicy() Policy {
 		KeepaliveSeconds:    300,
 		RulesRefreshSeconds: 300,
 		GateMaxStaleSeconds: GateMaxStaleSeconds,
-		// Terms are matched as whole words against the tokenized process name and
-		// command line, never as bare substrings — see tokenize() in the agent's
-		// signals/processes.rs. Multi-word terms must appear as a contiguous run,
-		// which is what lets "tabby serve" name TabbyML's actual invocation without
-		// flagging every contestant who uses the unrelated Tabby terminal emulator.
 		ProcessDenylist: []string{
 			"ollama", "lmstudio", "lm studio", "jan", "gpt4all", "llama-server",
 			"llama.cpp", "vllm", "koboldcpp", "localai", "text-generation-webui",
@@ -118,9 +156,6 @@ type PortMatch struct {
 	Confirmed bool   `json:"confirmed"`
 }
 
-// Signals is the full observable set. The agent sends the current matched sets
-// rather than diffs — they are 0–3 entries in practice, and SignalHash already
-// removes the cost of repeats.
 type Signals struct {
 	ForegroundDwell   map[string]int64 `json:"foreground_dwell"`
 	ForegroundApp     string           `json:"foreground_app"`
@@ -166,16 +201,14 @@ type EnrollRequest struct {
 }
 
 type EnrollResponse struct {
-	AgentID      string `json:"agent_id"`
-	AgentToken   string `json:"agent_token"`
-	UserID       string `json:"user_id"`
-	Username     string `json:"username"`
-	DisplayName  string `json:"display_name"`
-	Policy       Policy `json:"policy"`
+	AgentID     string `json:"agent_id"`
+	AgentToken  string `json:"agent_token"`
+	UserID      string `json:"user_id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+	Policy      Policy `json:"policy"`
 }
 
-// Integrity is what the server concluded about this heartbeat's provenance,
-// independent of what it observed on the endpoint.
 type Integrity struct {
 	NewBoot      bool
 	CleanRestart bool
@@ -184,38 +217,122 @@ type Integrity struct {
 	Rebound      bool
 }
 
-// NewToken returns the agent's long-lived credential. Its only power is sending
-// telemetry as its own enrollment, which is why it lives in a 0600 file on the
-// endpoint rather than behind an OS keychain prompt on 300 laptops.
+type Fleet struct {
+	Competitors   int `json:"competitors"`
+	Enrolled      int `json:"enrolled"`
+	Online        int `json:"online"`
+	Stale         int `json:"stale"`
+	Offline       int `json:"offline"`
+	NeverReported int `json:"neverReported"`
+	InGap         int `json:"inGap"`
+	Stopped       int `json:"stopped"`
+	BrowserActive int `json:"browserActive"`
+	Exempt        int `json:"exempt"`
+	HighRisk      int `json:"highRisk"`
+	MediumRisk    int `json:"mediumRisk"`
+}
+
+type Incident struct {
+	ID              string     `json:"id"`
+	StartedAt       time.Time  `json:"startedAt"`
+	EndedAt         *time.Time `json:"endedAt,omitempty"`
+	AffectedAgents  int        `json:"affectedAgents"`
+	EnrolledAgents  int        `json:"enrolledAgents"`
+	Note            string     `json:"note"`
+	DurationSeconds int        `json:"durationSeconds"`
+}
+
+type Overview struct {
+	Fleet    Fleet     `json:"fleet"`
+	Incident *Incident `json:"incident"`
+}
+
+const (
+	KindEvent      = "event"
+	KindGap        = "gap"
+	KindFinding    = "finding"
+	KindSubmission = "submission"
+	KindEnrollment = "enrollment"
+)
+
+type Entry struct {
+	Kind    string          `json:"kind"`
+	At      time.Time       `json:"at"`
+	EndedAt *time.Time      `json:"endedAt,omitempty"`
+	Label   string          `json:"label"`
+	Detail  string          `json:"detail,omitempty"`
+	Weight  int             `json:"weight,omitempty"`
+	Count   int             `json:"count,omitempty"`
+	Payload json.RawMessage `json:"payload,omitempty"`
+}
+
+type Timeline struct {
+	UserID      string  `json:"userId"`
+	Username    string  `json:"username"`
+	DisplayName string  `json:"displayName"`
+	TeamName    *string `json:"teamName,omitempty"`
+	Score       int     `json:"score"`
+	Severity    string  `json:"severity"`
+	SupportHint string  `json:"supportHint"`
+	Entries     []Entry `json:"entries"`
+}
+
+type CompetitorRiskItem struct {
+	UserID        string     `json:"user_id"`
+	Username      string     `json:"username"`
+	DisplayName   string     `json:"display_name"`
+	ProctorExempt bool       `json:"proctor_exempt"`
+	Score         int        `json:"score"`
+	Severity      string     `json:"severity"`
+	FindingCount  int        `json:"finding_count"`
+	LastPingAt    *time.Time `json:"last_ping_at"`
+	AllowWebOnly  bool       `json:"allow_web_only"`
+}
+
+type FindingItem struct {
+	ID           string         `json:"id"`
+	RuleID       string         `json:"rule_id"`
+	Title        string         `json:"title"`
+	Category     string         `json:"category"`
+	Weight       int            `json:"weight"`
+	Occurrences  int            `json:"occurrences"`
+	Evidence     any            `json:"evidence"`
+	SubmissionID *string        `json:"submission_id"`
+	FirstSeenAt  time.Time      `json:"first_seen_at"`
+	LastSeenAt   time.Time      `json:"last_seen_at"`
+}
+
+type AgentItem struct {
+	ID            string     `json:"id"`
+	UserID        string     `json:"user_id"`
+	Username      string     `json:"username"`
+	DisplayName   string     `json:"display_name"`
+	MachineID     string     `json:"machine_id"`
+	Platform      string     `json:"platform"`
+	AgentVersion  string     `json:"agent_version"`
+	LoopbackPort  int        `json:"loopback_port"`
+	EnrolledAt    time.Time  `json:"enrolled_at"`
+	LastSeenAt    *time.Time `json:"last_seen_at"`
+	StoppedAt     *time.Time `json:"stopped_at"`
+	StoppedReason string     `json:"stopped_reason"`
+	RevokedAt     *time.Time `json:"revoked_at"`
+	RevokedReason string     `json:"revoked_reason"`
+	InGap         bool       `json:"in_gap"`
+	BinaryHash    string     `json:"binary_hash"`
+}
+
 func NewToken() (string, error) {
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(buf), nil
+	return crypto.RandomURLSafe(32)
 }
 
-// NewNonce returns the rotating loopback attestation value. A portal that can
-// read it over 127.0.0.1 is on the same machine as this agent.
 func NewNonce() (string, error) {
-	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(buf), nil
+	return crypto.RandomHex(16)
 }
 
-// HashToken maps a raw token to its at-rest identifier, matching the session
-// repository: the token already carries 256 bits of entropy, so a fast hash is
-// sufficient and a database leak yields nothing replayable.
 func HashToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
+	return crypto.HashToken(token)
 }
 
-// CompareSemver compares two semantic versions (e.g. "0.2.0" and "0.1.9").
-// Leading 'v' or 'V' and pre-release components are handled.
-// Returns -1 if a < b, 0 if a == b, 1 if a > b.
 func CompareSemver(a, b string) int {
 	pa := parseSemverComponents(a)
 	pb := parseSemverComponents(b)
@@ -251,17 +368,9 @@ func parseSemverComponents(v string) [3]int {
 }
 
 func ComputeHMAC(key, data []byte) string {
-	mac := hmac.New(sha256.New, key)
-	mac.Write(data)
-	return hex.EncodeToString(mac.Sum(nil))
+	return crypto.ComputeHMAC(key, data)
 }
 
 func VerifyHMAC(key, data []byte, sigHex string) bool {
-	sig, err := hex.DecodeString(strings.TrimSpace(sigHex))
-	if err != nil {
-		return false
-	}
-	mac := hmac.New(sha256.New, key)
-	mac.Write(data)
-	return hmac.Equal(mac.Sum(nil), sig)
+	return crypto.VerifyHMAC(key, data, sigHex)
 }

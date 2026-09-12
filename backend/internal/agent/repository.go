@@ -22,10 +22,6 @@ const agentColumns = `id, user_id, machine_id, agent_version, platform, boot_id:
 	signal_hash, last_event_at, clock_offset_ms, loopback_port, attest_nonce,
 	enrolled_at, last_seen_at, stopped_at, stopped_reason, binary_hash`
 
-// Enroll issues a new enrollment and revokes any previous live one for the same
-// user. A revoked enrollment on a *different* machine is reported as rebound so
-// the caller can raise a finding — swapping machines mid-contest is exactly the
-// move a two-laptop setup makes.
 func (r *Repository) Enroll(
 	ctx context.Context,
 	userID, machineID, tokenHash, platform, agentVersion, consentVersion, binaryHash, consentIP string,
@@ -66,13 +62,6 @@ func (r *Repository) Enroll(
 		return "", false, fmt.Errorf("insert enrollment: %w", err)
 	}
 
-	// The consent log is append-only and outlives the enrollment it was given for.
-	// proctor_agents.consent_version is overwritten by the next enrollment and is
-	// deleted with the agent row, so on its own it cannot answer "what was this
-	// contestant shown, and when did they agree to it" months later at an appeal.
-	// Recorded in the same transaction as the enrollment: an agent that is
-	// collecting without a matching consent row is the one state that must be
-	// impossible.
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO proctor_consents (user_id, consent_version, ip_address)
 		VALUES ($1, $2, $3);
@@ -86,9 +75,6 @@ func (r *Repository) Enroll(
 	return agentID, rebound, nil
 }
 
-// LatestConsent reports the disclosure version a contestant last agreed to, so
-// organizers can see who is still running under superseded wording after the
-// disclosure is edited mid-contest.
 func (r *Repository) LatestConsent(ctx context.Context, userID string) (version string, agreedAt time.Time, err error) {
 	err = r.pool.QueryRow(ctx, `
 		SELECT consent_version, agreed_at FROM proctor_consents
@@ -128,17 +114,6 @@ func (r *Repository) GetByToken(ctx context.Context, tokenHash string) (Agent, e
 	return a, nil
 }
 
-// RecordHeartbeat advances the agent's liveness state from a *live* heartbeat.
-// Buffered replays never reach here — see Service.replay.
-//
-// Two deliberate details:
-//
-//   - The sequence counter resets when boot_id changes. It is only monotonic
-//     within a boot, so keeping the old boot's maximum would make a restarted
-//     agent's heartbeats read as replays and refuse them.
-//   - The previous nonce is retained: the agent rotates its nonce every heartbeat,
-//     so a portal that read one moments before a rotation would otherwise fail
-//     attestation through no fault of its own.
 func (r *Repository) RecordHeartbeat(ctx context.Context, agentID string, hb Heartbeat, clockOffsetMs int64, eventWritten bool) error {
 	_, err := r.pool.Exec(ctx, `
 		UPDATE proctor_agents SET
@@ -166,9 +141,6 @@ func (r *Repository) RecordHeartbeat(ctx context.Context, agentID string, hb Hea
 	return nil
 }
 
-// AppendEvent writes the append-only signal history. Called only when the signal
-// set actually changed or the keepalive window elapsed, which is what keeps 500
-// agents at ~20k meaningful rows instead of 500k duplicates.
 func (r *Repository) AppendEvent(
 	ctx context.Context,
 	userID, agentID, bootID, eventType, signalHash string,
@@ -214,12 +186,6 @@ func (r *Repository) Revoke(ctx context.Context, agentID, reason string) error {
 	return nil
 }
 
-// GateState is everything the submission gate needs in one round trip.
-//
-// It deliberately carries no attestation nonce. The nonce's whole value is that
-// it can only be read over loopback from the machine the agent runs on — serving
-// it from a user-authenticated endpoint would let a second machine fetch it and
-// forge co-location.
 type GateState struct {
 	Exempt       bool
 	ExemptReason string
@@ -232,17 +198,12 @@ type GateState struct {
 	ShellAlive   bool
 	ShellSeenAt  *time.Time
 	IncidentOpen bool
-	// Grant is this contestant's own grant, already emptied if it has lapsed. The
-	// contest-wide floor is merged in by the gate, not here.
 	Grant        AccessGrant
 	AccessReason string
 }
 
 func (r *Repository) GateState(ctx context.Context, userID string) (GateState, error) {
 	var s GateState
-	// An expired grant is read as no grant in the same expression that reads it, so
-	// no caller can forget the check. The reason is dropped with it: a lapsed
-	// justification presented as current is worse than none.
 	err := r.pool.QueryRow(ctx, `
 		SELECT
 			u.proctor_exempt AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now()),
@@ -295,9 +256,6 @@ func (r *Repository) fleetHealth(ctx context.Context, staleSeconds int) (fleetHe
 	return f, nil
 }
 
-// VerifyNonce reports whether nonce matches the live agent of userID, accepting
-// the previous value too so a rotation between reading and submitting doesn't
-// fail an honest contestant.
 func (r *Repository) VerifyNonce(ctx context.Context, userID, nonce string) (bool, error) {
 	if nonce == "" {
 		return false, nil
@@ -316,3 +274,357 @@ func (r *Repository) VerifyNonce(ctx context.Context, userID, nonce string) (boo
 	return match, nil
 }
 
+func (r *Repository) openGaps(ctx context.Context, staleSeconds int) (int64, error) {
+	tag, err := r.pool.Exec(ctx, `
+		INSERT INTO telemetry_gaps (user_id, agent_id, started_at, reason)
+		SELECT a.user_id, a.id, COALESCE(a.last_seen_at, a.enrolled_at), 'agent_unreachable'
+		FROM proctor_agents a
+		WHERE a.revoked_at IS NULL
+		  AND a.stopped_at IS NULL
+		  AND COALESCE(a.last_seen_at, a.enrolled_at) < now() - make_interval(secs => $1)
+		ON CONFLICT (user_id) WHERE ended_at IS NULL DO NOTHING;
+	`, staleSeconds)
+	if err != nil {
+		return 0, fmt.Errorf("open gaps: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+func (r *Repository) closeGaps(ctx context.Context, staleSeconds int) (int64, error) {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE telemetry_gaps g
+		SET ended_at = now(),
+		    duration_seconds = GREATEST(1, EXTRACT(EPOCH FROM now() - g.started_at)::int)
+		WHERE g.ended_at IS NULL
+		  AND EXISTS (
+			SELECT 1 FROM proctor_agents a
+			WHERE a.user_id = g.user_id
+			  AND a.revoked_at IS NULL
+			  AND (a.stopped_at IS NOT NULL
+			       OR COALESCE(a.last_seen_at, a.enrolled_at) >= now() - make_interval(secs => $1))
+		  );
+	`, staleSeconds)
+	if err != nil {
+		return 0, fmt.Errorf("close gaps: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+func (r *Repository) discardGapsInIncident(ctx context.Context) (int64, error) {
+	tag, err := r.pool.Exec(ctx, `
+		DELETE FROM telemetry_gaps g
+		WHERE g.ended_at IS NULL
+		  AND EXISTS (
+			SELECT 1 FROM telemetry_incidents i
+			WHERE i.ended_at IS NULL AND g.started_at >= i.started_at - interval '60 seconds'
+		  );
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("discard incident gaps: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+func (r *Repository) openIncident(ctx context.Context, affected, enrolled int) (bool, error) {
+	tag, err := r.pool.Exec(ctx, `
+		INSERT INTO telemetry_incidents (started_at, affected_agents, enrolled_agents, note)
+		SELECT now(), $1, $2, 'fleet-wide heartbeat loss; contestant gaps suppressed'
+		WHERE NOT EXISTS (SELECT 1 FROM telemetry_incidents WHERE ended_at IS NULL);
+	`, affected, enrolled)
+	if err != nil {
+		return false, fmt.Errorf("open incident: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+func (r *Repository) closeIncident(ctx context.Context) (bool, error) {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE telemetry_incidents SET ended_at = now() WHERE ended_at IS NULL;
+	`)
+	if err != nil {
+		return false, fmt.Errorf("close incident: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+func (r *Repository) IncidentOpen(ctx context.Context) (bool, error) {
+	var open bool
+	err := r.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM telemetry_incidents WHERE ended_at IS NULL);`).Scan(&open)
+	if err != nil {
+		return false, fmt.Errorf("check incident: %w", err)
+	}
+	return open, nil
+}
+
+func (r *Repository) Overview(ctx context.Context) (Overview, error) {
+	var o Overview
+
+	err := r.pool.QueryRow(ctx, `
+		SELECT
+			count(*),
+			count(a.id),
+			count(*) FILTER (WHERE h.last_ping_at >= now() - interval '45 seconds'),
+			count(*) FILTER (WHERE h.last_ping_at <  now() - interval '45 seconds'
+			                   AND h.last_ping_at >= now() - interval '2 minutes'),
+			count(*) FILTER (WHERE h.last_ping_at <  now() - interval '2 minutes'),
+			count(*) FILTER (WHERE a.id IS NOT NULL AND h.last_ping_at IS NULL),
+			count(*) FILTER (WHERE g.user_id IS NOT NULL),
+			count(*) FILTER (WHERE a.stopped_at IS NOT NULL),
+			count(*) FILTER (WHERE h.web_last_ping_at >= now() - interval '45 seconds'),
+			count(*) FILTER (WHERE u.proctor_exempt
+			                   AND (u.proctor_exempt_until IS NULL OR u.proctor_exempt_until > now())),
+			count(*) FILTER (WHERE risk.severity = 'HIGH'),
+			count(*) FILTER (WHERE risk.severity = 'MEDIUM')
+		FROM users u
+		LEFT JOIN proctor_agents a ON a.user_id = u.id AND a.revoked_at IS NULL
+		LEFT JOIN telemetry_heartbeats h ON h.user_id = u.id
+		LEFT JOIN telemetry_gaps g ON g.user_id = u.id AND g.ended_at IS NULL
+		LEFT JOIN proctor_risk risk ON risk.user_id = u.id
+		WHERE u.role = 'competitor';
+	`).Scan(
+		&o.Fleet.Competitors, &o.Fleet.Enrolled, &o.Fleet.Online, &o.Fleet.Stale, &o.Fleet.Offline,
+		&o.Fleet.NeverReported, &o.Fleet.InGap, &o.Fleet.Stopped, &o.Fleet.BrowserActive,
+		&o.Fleet.Exempt, &o.Fleet.HighRisk, &o.Fleet.MediumRisk,
+	)
+	if err != nil {
+		return Overview{}, fmt.Errorf("fleet overview: %w", err)
+	}
+
+	incident, err := r.latestIncident(ctx)
+	if err != nil {
+		return Overview{}, err
+	}
+	o.Incident = incident
+
+	return o, nil
+}
+
+func (r *Repository) latestIncident(ctx context.Context) (*Incident, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, started_at, ended_at, affected_agents, enrolled_agents, note,
+		       GREATEST(1, EXTRACT(EPOCH FROM COALESCE(ended_at, now()) - started_at)::int)
+		FROM telemetry_incidents
+		WHERE ended_at IS NULL OR ended_at > now() - interval '15 minutes'
+		ORDER BY started_at DESC
+		LIMIT 1;
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("latest incident: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, rows.Err()
+	}
+
+	var i Incident
+	if err := rows.Scan(&i.ID, &i.StartedAt, &i.EndedAt, &i.AffectedAgents,
+		&i.EnrolledAgents, &i.Note, &i.DurationSeconds); err != nil {
+		return nil, fmt.Errorf("scan incident: %w", err)
+	}
+	return &i, nil
+}
+
+func (r *Repository) Timeline(ctx context.Context, userID string, limit int) (Timeline, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 250
+	}
+
+	var t Timeline
+	err := r.pool.QueryRow(ctx, `
+		SELECT u.id, u.username, u.display_name, tm.name,
+		       COALESCE(risk.score, 0), COALESCE(risk.severity, 'LOW'),
+		       COALESCE(a.machine_id, '')
+		FROM users u
+		LEFT JOIN teams tm ON tm.id = u.team_id
+		LEFT JOIN proctor_risk risk ON risk.user_id = u.id
+		LEFT JOIN proctor_agents a ON a.user_id = u.id AND a.revoked_at IS NULL
+		WHERE u.id = $1;
+	`, userID).Scan(&t.UserID, &t.Username, &t.DisplayName, &t.TeamName,
+		&t.Score, &t.Severity, &t.SupportHint)
+	if err != nil {
+		return Timeline{}, fmt.Errorf("load timeline subject: %w", err)
+	}
+
+	rows, err := r.pool.Query(ctx, `
+		WITH merged AS (
+			SELECT 'event'::text AS kind, e.created_at AS at, NULL::timestamptz AS ended_at,
+			       e.event_type AS label, ''::text AS detail, 0 AS weight, 0 AS count,
+			       e.signals AS payload
+			FROM telemetry_events e
+			WHERE e.user_id = $1
+
+			UNION ALL
+			SELECT 'gap', g.started_at, g.ended_at,
+			       g.reason, ''::text, 0, COALESCE(g.duration_seconds, 0),
+			       '{}'::jsonb
+			FROM telemetry_gaps g
+			WHERE g.user_id = $1
+
+			UNION ALL
+			SELECT 'finding', f.last_seen_at, NULL::timestamptz,
+			       f.rule_id, rl.title, f.weight, f.occurrences,
+			       f.evidence
+			FROM proctor_findings f
+			JOIN proctor_rules rl ON rl.id = f.rule_id
+			WHERE f.user_id = $1
+
+			UNION ALL
+			SELECT 'submission', s.created_at, s.finished_at,
+			       p.title, COALESCE(s.verdict, s.state), s.score, 0,
+			       jsonb_build_object(
+			           'submission_id', s.id,
+			           'language', s.language,
+			           'max_score', s.max_score
+			       )
+			FROM submissions s
+			JOIN problems p ON p.id = s.problem_id
+			WHERE s.user_id = $1
+
+			UNION ALL
+			SELECT 'enrollment', a.enrolled_at, a.revoked_at,
+			       a.platform,
+			       CASE
+			           WHEN a.revoked_at IS NOT NULL THEN 'revoked: ' || a.revoked_reason
+			           ELSE 'active'
+			       END,
+			       0, 0,
+			       jsonb_build_object('machine_id', a.machine_id, 'agent_version', a.agent_version)
+			FROM proctor_agents a
+			WHERE a.user_id = $1
+
+			UNION ALL
+			SELECT 'event', a.stopped_at, NULL::timestamptz,
+			       'agent_stopped', a.stopped_reason, 0, 0,
+			       '{}'::jsonb
+			FROM proctor_agents a
+			WHERE a.user_id = $1 AND a.stopped_at IS NOT NULL
+		)
+		SELECT kind, at, ended_at, label, detail, weight, count, payload
+		FROM merged
+		ORDER BY at DESC
+		LIMIT $2;
+	`, userID, limit)
+	if err != nil {
+		return Timeline{}, fmt.Errorf("query timeline: %w", err)
+	}
+	defer rows.Close()
+
+	t.Entries = []Entry{}
+	for rows.Next() {
+		var e Entry
+		var payload []byte
+		if err := rows.Scan(&e.Kind, &e.At, &e.EndedAt, &e.Label, &e.Detail,
+			&e.Weight, &e.Count, &payload); err != nil {
+			return Timeline{}, fmt.Errorf("scan timeline entry: %w", err)
+		}
+		if len(payload) > 0 && string(payload) != "{}" {
+			e.Payload = payload
+		}
+		t.Entries = append(t.Entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		return Timeline{}, fmt.Errorf("iterate timeline: %w", err)
+	}
+
+	describeEvents(t.Entries)
+
+	return t, nil
+}
+
+func (r *Repository) ListProctorRisk(ctx context.Context) ([]CompetitorRiskItem, error) {
+	query := `
+		SELECT u.id, u.username, u.display_name, u.proctor_exempt,
+		       COALESCE(r.score, 0) as score,
+		       COALESCE(r.severity, 'LOW') as severity,
+		       COALESCE(r.finding_count, 0) as finding_count,
+		       h.last_ping_at,
+		       u.proctor_allow_web_only AND (u.proctor_access_until IS NULL OR u.proctor_access_until > now())
+		FROM users u
+		LEFT JOIN proctor_risk r ON u.id = r.user_id
+		LEFT JOIN telemetry_heartbeats h ON u.id = h.user_id
+		WHERE u.role = 'competitor'
+		ORDER BY r.score DESC NULLS LAST, u.username ASC;
+	`
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list proctor risk: %w", err)
+	}
+	defer rows.Close()
+
+	var items []CompetitorRiskItem
+	for rows.Next() {
+		var item CompetitorRiskItem
+		if err := rows.Scan(
+			&item.UserID, &item.Username, &item.DisplayName, &item.ProctorExempt,
+			&item.Score, &item.Severity, &item.FindingCount, &item.LastPingAt,
+			&item.AllowWebOnly,
+		); err != nil {
+			return nil, fmt.Errorf("scan proctor risk item: %w", err)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) GetProctorFindings(ctx context.Context, userID string) ([]FindingItem, error) {
+	query := `
+		SELECT f.id, f.rule_id, r.title, r.category, f.weight, f.occurrences,
+		       f.evidence, f.submission_id, f.first_seen_at, f.last_seen_at
+		FROM proctor_findings f
+		JOIN proctor_rules r ON f.rule_id = r.id
+		WHERE f.user_id = $1
+		ORDER BY f.last_seen_at DESC;
+	`
+	rows, err := r.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get proctor findings: %w", err)
+	}
+	defer rows.Close()
+
+	var items []FindingItem
+	for rows.Next() {
+		var item FindingItem
+		if err := rows.Scan(
+			&item.ID, &item.RuleID, &item.Title, &item.Category, &item.Weight,
+			&item.Occurrences, &item.Evidence, &item.SubmissionID, &item.FirstSeenAt, &item.LastSeenAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan proctor finding item: %w", err)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *Repository) ListAgents(ctx context.Context) ([]AgentItem, error) {
+	query := `
+		SELECT a.id, u.id, u.username, u.display_name, a.machine_id, a.platform,
+		       a.agent_version, a.loopback_port, a.enrolled_at, a.last_seen_at,
+		       a.stopped_at, a.stopped_reason, a.revoked_at, a.revoked_reason,
+		       EXISTS (SELECT 1 FROM telemetry_gaps g WHERE g.user_id = u.id AND g.ended_at IS NULL),
+		       COALESCE(a.binary_hash, '')
+		FROM proctor_agents a
+		JOIN users u ON u.id = a.user_id
+		ORDER BY a.revoked_at NULLS FIRST, a.last_seen_at DESC NULLS LAST;
+	`
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list agents: %w", err)
+	}
+	defer rows.Close()
+
+	var items []AgentItem
+	for rows.Next() {
+		var item AgentItem
+		if err := rows.Scan(
+			&item.ID, &item.UserID, &item.Username, &item.DisplayName,
+			&item.MachineID, &item.Platform, &item.AgentVersion, &item.LoopbackPort,
+			&item.EnrolledAt, &item.LastSeenAt, &item.StoppedAt, &item.StoppedReason,
+			&item.RevokedAt, &item.RevokedReason, &item.InGap, &item.BinaryHash,
+		); err != nil {
+			return nil, fmt.Errorf("scan agent item: %w", err)
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
