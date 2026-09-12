@@ -158,14 +158,36 @@ func (h *handler) resetPassword(c *gin.Context) {
 		}
 	}
 
-	if err := checkPasswordLength(req.Password); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password too short"})
+	id := c.Param("id")
+	ctx := c.Request.Context()
+	targetUser, err := h.users.GetByID(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	if targetUser.Role == user.RoleAdmin && id != currentUser(c).ID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "cannot reset another admin's password via API; use server CLI"})
+		return
+	}
+
+	minPasswordLen := minPasswordLength
+	if targetUser.Role == user.RoleAdmin {
+		minPasswordLen = 12
+	}
+
+	if req.Password != "" && len(req.Password) < minPasswordLen {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("password must be at least %d characters", minPasswordLen)})
 		return
 	}
 
 	password := req.Password
 	if password == "" {
-		password = auth.GeneratePassword(generatedPasswordLength)
+		length := generatedPasswordLength
+		if targetUser.Role == user.RoleAdmin {
+			length = 14
+		}
+		password = auth.GeneratePassword(length)
 	}
 	hash, err := auth.HashPassword(password)
 	if err != nil {
@@ -173,8 +195,6 @@ func (h *handler) resetPassword(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
-	id := c.Param("id")
 	if err := h.users.UpdatePassword(ctx, id, hash); err != nil {
 		writeUpdateError(c, err)
 		return
@@ -245,11 +265,23 @@ func (h *handler) deleteUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete yourself"})
 		return
 	}
-	if err := h.users.Delete(c.Request.Context(), id); err != nil {
+
+	ctx := c.Request.Context()
+	targetUser, err := h.users.GetByID(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	if targetUser.Role == user.RoleAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin accounts cannot be deleted via API; use server CLI"})
+		return
+	}
+
+	if err := h.users.Delete(ctx, id); err != nil {
 		writeUpdateError(c, err)
 		return
 	}
-	if err := h.sessions.DeleteByUser(c.Request.Context(), id); err != nil {
+	if err := h.sessions.DeleteByUser(ctx, id); err != nil {
 		log.Printf("failed to revoke sessions on delete for user %s: %v", id, err)
 	}
 	c.Status(http.StatusNoContent)
@@ -284,13 +316,24 @@ func (h *handler) suspendUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.users.UpdateSuspension(c.Request.Context(), id, req.Suspended, strings.TrimSpace(req.Reason)); err != nil {
+	ctx := c.Request.Context()
+	targetUser, err := h.users.GetByID(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	if targetUser.Role == user.RoleAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "admin accounts cannot be suspended via API; use server CLI"})
+		return
+	}
+
+	if err := h.users.UpdateSuspension(ctx, id, req.Suspended, strings.TrimSpace(req.Reason)); err != nil {
 		writeUpdateError(c, err)
 		return
 	}
 
 	if req.Suspended {
-		if err := h.sessions.DeleteByUser(c.Request.Context(), id); err != nil {
+		if err := h.sessions.DeleteByUser(ctx, id); err != nil {
 			log.Printf("failed to revoke sessions on suspension for user %s: %v", id, err)
 		}
 	}

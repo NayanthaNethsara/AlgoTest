@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -44,10 +45,19 @@ func (h *handler) login(c *gin.Context) {
 		return
 	}
 
+	normalizedUsername := strings.ToLower(strings.TrimSpace(req.Username))
+
+	if isLocked, remaining := loginAttemptTracker.IsLocked(normalizedUsername); isLocked {
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"error": fmt.Sprintf("Account temporarily locked due to too many failed attempts. Try again in %d minutes.", int(remaining.Minutes())+1),
+		})
+		return
+	}
+
 	ctx := c.Request.Context()
 
 	ip := c.ClientIP()
-	if !loginIPLimiter.Get(ip).Allow() || !loginUserLimiter.Get(strings.ToLower(req.Username)).Allow() {
+	if !loginIPLimiter.Get(ip).Allow() || !loginUserLimiter.Get(normalizedUsername).Allow() {
 		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many login attempts. Please wait a moment."})
 		return
 	}
@@ -57,14 +67,18 @@ func (h *handler) login(c *gin.Context) {
 
 	u, hash, err := h.users.GetForLogin(ctx, req.Username)
 	if err != nil {
+		loginAttemptTracker.RecordFailure(normalizedUsername)
 		auth.DummyCompare(req.Password)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid username or password"})
 		return
 	}
 	if !auth.CheckPassword(hash, req.Password) {
+		loginAttemptTracker.RecordFailure(normalizedUsername)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid username or password"})
 		return
 	}
+
+	loginAttemptTracker.RecordSuccess(normalizedUsername)
 
 	if u.IsSuspended {
 		msg := "Account has been suspended by an administrator."
@@ -81,7 +95,12 @@ func (h *handler) login(c *gin.Context) {
 		return
 	}
 
-	expiresAt := time.Now().Add(h.cfg.SessionTTL())
+	sessionTTL := h.cfg.SessionTTL()
+	if u.Role == user.RoleAdmin {
+		sessionTTL = h.cfg.AdminSessionTTL()
+	}
+
+	expiresAt := time.Now().Add(sessionTTL)
 	shouldRevokePriorSessions := u.Role != user.RoleAdmin
 	if err := h.sessions.Create(ctx, token, u.ID, expiresAt, shouldRevokePriorSessions); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
@@ -93,7 +112,7 @@ func (h *handler) login(c *gin.Context) {
 
 	c.JSON(http.StatusOK, loginResponse{
 		SessionToken:     token,
-		ExpiresInSeconds: int(h.cfg.SessionTTL().Seconds()),
+		ExpiresInSeconds: int(sessionTTL.Seconds()),
 		User:             u,
 	})
 }
@@ -158,12 +177,24 @@ func (h *handler) changePassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if len(req.NewPassword) < 8 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "new password must be at least 8 characters"})
+
+	usr := currentUser(c)
+
+	minPasswordLength := 8
+	if usr.Role == user.RoleAdmin {
+		minPasswordLength = 12
+	}
+
+	if len(req.NewPassword) < minPasswordLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("new password must be at least %d characters", minPasswordLength)})
 		return
 	}
 
-	usr := currentUser(c)
+	if strings.EqualFold(strings.TrimSpace(req.NewPassword), usr.Username) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password cannot match username"})
+		return
+	}
+
 	ctx := c.Request.Context()
 
 	_, hash, err := h.users.GetForLogin(ctx, usr.Username)

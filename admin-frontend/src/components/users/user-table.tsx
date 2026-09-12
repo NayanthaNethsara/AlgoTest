@@ -302,7 +302,7 @@ export function UserTable({
                                 variant="ghost"
                                 size="icon-sm"
                                 onClick={() => onToggleSuspension(u)}
-                                disabled={pending || isSelf}
+                                disabled={pending || isSelf || u.role === "admin"}
                                 aria-label={
                                   u.isSuspended ? `Restore ${u.username}` : `Suspend ${u.username}`
                                 }
@@ -318,9 +318,11 @@ export function UserTable({
                           <TooltipContent>
                             {isSelf
                               ? "You cannot suspend yourself"
-                              : u.isSuspended
-                                ? "Restore access"
-                                : "Suspend user"}
+                              : u.role === "admin"
+                                ? "Admin accounts cannot be suspended via console"
+                                : u.isSuspended
+                                  ? "Restore access"
+                                  : "Suspend user"}
                           </TooltipContent>
                         </Tooltip>
 
@@ -331,14 +333,18 @@ export function UserTable({
                                 variant="ghost"
                                 size="icon-sm"
                                 onClick={() => onResetPassword(u)}
-                                disabled={pending}
+                                disabled={pending || (u.role === "admin" && !isSelf)}
                                 aria-label={`Reset password for ${u.username}`}
                               />
                             }
                           >
                             <KeyRoundIcon />
                           </TooltipTrigger>
-                          <TooltipContent>Reset password</TooltipContent>
+                          <TooltipContent>
+                            {u.role === "admin" && !isSelf
+                              ? "Admin passwords must be reset via server CLI"
+                              : "Reset password"}
+                          </TooltipContent>
                         </Tooltip>
 
                         <Tooltip>
@@ -348,7 +354,7 @@ export function UserTable({
                                 variant="ghost"
                                 size="icon-sm"
                                 onClick={() => onDeleteUser(u)}
-                                disabled={pending || isSelf}
+                                disabled={pending || isSelf || u.role === "admin"}
                                 aria-label={`Delete ${u.username}`}
                                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                               />
@@ -357,7 +363,11 @@ export function UserTable({
                             <Trash2Icon />
                           </TooltipTrigger>
                           <TooltipContent>
-                            {isSelf ? "You cannot delete yourself" : "Delete user"}
+                            {isSelf
+                              ? "You cannot delete yourself"
+                              : u.role === "admin"
+                                ? "Admin accounts cannot be deleted via console"
+                                : "Delete user"}
                           </TooltipContent>
                         </Tooltip>
                       </div>

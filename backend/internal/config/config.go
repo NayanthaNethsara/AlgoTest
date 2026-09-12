@@ -29,8 +29,9 @@ type Config struct {
 	JudgeWorkers int
 	QueueSize    int
 
-	SessionCookieName string
-	SessionTTLHours   int
+	SessionCookieName    string
+	SessionTTLHours      int
+	AdminSessionTTLHours int
 
 	EnableTelemetry bool
 
@@ -66,8 +67,9 @@ func Load() Config {
 		JudgeWorkers:   getenvInt("JUDGE_WORKERS", -1),
 		QueueSize:      getenvInt("JUDGE_QUEUE_SIZE", 64),
 
-		SessionCookieName: getenv("SESSION_COOKIE_NAME", "session"),
-		SessionTTLHours:   getenvInt("SESSION_TTL_HOURS", 24*7),
+		SessionCookieName:    getenv("SESSION_COOKIE_NAME", "session"),
+		SessionTTLHours:      getenvInt("SESSION_TTL_HOURS", 24*7),
+		AdminSessionTTLHours: getenvInt("ADMIN_SESSION_TTL_HOURS", 12),
 
 		EnableTelemetry: getenvBool("ENABLE_TELEMETRY", true),
 
@@ -121,6 +123,14 @@ func (c Config) RequireIsolate() bool {
 // SessionTTL is how long a login session stays valid.
 func (c Config) SessionTTL() time.Duration {
 	return time.Duration(c.SessionTTLHours) * time.Hour
+}
+
+// AdminSessionTTL is how long an administrative session stays valid (default 12 hours).
+func (c Config) AdminSessionTTL() time.Duration {
+	if c.AdminSessionTTLHours > 0 {
+		return time.Duration(c.AdminSessionTTLHours) * time.Hour
+	}
+	return 12 * time.Hour
 }
 
 // RunCompileTimeout bounds how long the sandboxed compile step may run.

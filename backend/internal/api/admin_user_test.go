@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
@@ -64,3 +65,45 @@ func TestSessionRevocationPolicyByRole(t *testing.T) {
 		t.Fatal("expected admin sessions to permit concurrent sessions")
 	}
 }
+
+func TestLoginAttemptTracker(t *testing.T) {
+	tracker := NewLoginAttemptTracker(3, 50*time.Millisecond)
+	username := "test_operator"
+
+	if locked, _ := tracker.IsLocked(username); locked {
+		t.Fatal("expected user not to be locked initially")
+	}
+
+	// 2 failures should not lock
+	if tracker.RecordFailure(username) {
+		t.Fatal("expected user not to be locked after 1 failure")
+	}
+	if tracker.RecordFailure(username) {
+		t.Fatal("expected user not to be locked after 2 failures")
+	}
+	if locked, _ := tracker.IsLocked(username); locked {
+		t.Fatal("expected user not to be locked after 2 failures")
+	}
+
+	// 3rd failure locks the account
+	if !tracker.RecordFailure(username) {
+		t.Fatal("expected user to be locked on 3rd failure")
+	}
+	if locked, remaining := tracker.IsLocked(username); !locked || remaining <= 0 {
+		t.Fatal("expected user to be reported as locked")
+	}
+
+	// Wait for lockout duration to expire
+	time.Sleep(60 * time.Millisecond)
+	if locked, _ := tracker.IsLocked(username); locked {
+		t.Fatal("expected user lock to expire after duration")
+	}
+
+	// Success clears failure record
+	tracker.RecordFailure(username)
+	tracker.RecordSuccess(username)
+	if locked, _ := tracker.IsLocked(username); locked {
+		t.Fatal("expected user not to be locked after success")
+	}
+}
+
