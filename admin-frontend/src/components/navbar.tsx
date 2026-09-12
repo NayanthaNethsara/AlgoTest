@@ -175,6 +175,15 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
                 </DropdownMenuLabel>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem render={<Link href="/support" />}>
+                  Support &amp; FAQ
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link href="/privacy" />}>
+                  Privacy &amp; Policy
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={handleLogout} disabled={loggingOut}>
                 {loggingOut ? <Spinner /> : <LogOutIcon />}
                 Sign out
@@ -230,6 +239,21 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
                     </Link>
                   );
                 })}
+                <div className="my-2 border-t border-border/60" />
+                <Link
+                  href="/support"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  Support &amp; FAQ
+                </Link>
+                <Link
+                  href="/privacy"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  Privacy &amp; Policy
+                </Link>
               </nav>
 
               <div className="border-t p-3">

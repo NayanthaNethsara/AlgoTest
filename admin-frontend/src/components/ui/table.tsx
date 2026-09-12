@@ -1,15 +1,14 @@
 "use client";
 
 import * as React from "react";
-
-import { cn } from "@/lib/utils";
+import { cn } from "cn";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div data-slot="table-container" className="relative w-full overflow-x-auto">
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full caption-bottom text-xs", className)}
         {...props}
       />
     </div>
@@ -80,7 +79,7 @@ function TableCaption({ className, ...props }: React.ComponentProps<"caption">) 
   return (
     <caption
       data-slot="table-caption"
-      className={cn("mt-4 text-sm text-muted-foreground", className)}
+      className={cn("mt-4 text-xs text-muted-foreground", className)}
       {...props}
     />
   );

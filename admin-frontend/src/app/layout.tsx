@@ -1,14 +1,11 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Pixelify_Sans, Press_Start_2P } from "next/font/google";
+import { Geist_Mono, Pixelify_Sans, Press_Start_2P, Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geistSans = Geist({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 const geistMono = Geist_Mono({
   subsets: ["latin"],
@@ -63,7 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={cn(
         "dark font-sans",
-        geistSans.variable,
+        inter.variable,
         geistMono.variable,
         pixelHeader.variable,
         pixelBody.variable
