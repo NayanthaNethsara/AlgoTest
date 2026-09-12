@@ -263,7 +263,7 @@ type Entry struct {
 	Detail  string          `json:"detail,omitempty"`
 	Weight  int             `json:"weight,omitempty"`
 	Count   int             `json:"count,omitempty"`
-	Payload json.RawMessage `json:"payload,omitempty"`
+	Payload json.RawMessage `json:"payload,omitempty" swaggertype:"object"`
 }
 
 type Timeline struct {

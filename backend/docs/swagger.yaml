@@ -1,8 +1,272 @@
 basePath: /
 definitions:
+  agent.EnrollRequest:
+    properties:
+      agent_version:
+        type: string
+      binary_hash:
+        type: string
+      consent_version:
+        type: string
+      machine_id:
+        type: string
+      password:
+        type: string
+      platform:
+        type: string
+      username:
+        type: string
+    required:
+    - machine_id
+    - password
+    - username
+    type: object
+  agent.EnrollResponse:
+    properties:
+      agent_id:
+        type: string
+      agent_token:
+        type: string
+      display_name:
+        type: string
+      policy:
+        $ref: '#/definitions/agent.Policy'
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
+  agent.Entry:
+    properties:
+      at:
+        type: string
+      count:
+        type: integer
+      detail:
+        type: string
+      endedAt:
+        type: string
+      kind:
+        type: string
+      label:
+        type: string
+      payload:
+        type: object
+      weight:
+        type: integer
+    type: object
+  agent.EventsRequest:
+    properties:
+      heartbeats:
+        items:
+          $ref: '#/definitions/agent.Heartbeat'
+        type: array
+    required:
+    - heartbeats
+    type: object
+  agent.Fleet:
+    properties:
+      browserActive:
+        type: integer
+      competitors:
+        type: integer
+      enrolled:
+        type: integer
+      exempt:
+        type: integer
+      highRisk:
+        type: integer
+      inGap:
+        type: integer
+      mediumRisk:
+        type: integer
+      neverReported:
+        type: integer
+      offline:
+        type: integer
+      online:
+        type: integer
+      stale:
+        type: integer
+      stopped:
+        type: integer
+    type: object
+  agent.Heartbeat:
+    properties:
+      agent_version:
+        type: string
+      attest_nonce:
+        type: string
+      boot_id:
+        type: string
+      buffered:
+        type: boolean
+      loopback_port:
+        type: integer
+      mono_ms:
+        type: integer
+      seq:
+        type: integer
+      shell_alive:
+        type: boolean
+      signal_hash:
+        type: string
+      signals:
+        $ref: '#/definitions/agent.Signals'
+      wall_ts:
+        type: string
+    required:
+    - boot_id
+    type: object
+  agent.Incident:
+    properties:
+      affectedAgents:
+        type: integer
+      durationSeconds:
+        type: integer
+      endedAt:
+        type: string
+      enrolledAgents:
+        type: integer
+      id:
+        type: string
+      note:
+        type: string
+      startedAt:
+        type: string
+    type: object
+  agent.Overview:
+    properties:
+      fleet:
+        $ref: '#/definitions/agent.Fleet'
+      incident:
+        $ref: '#/definitions/agent.Incident'
+    type: object
+  agent.Policy:
+    properties:
+      foreground_allowlist:
+        items:
+          type: string
+        type: array
+      foreground_denylist:
+        items:
+          type: string
+        type: array
+      gate_max_stale_seconds:
+        type: integer
+      heartbeat_seconds:
+        type: integer
+      keepalive_seconds:
+        type: integer
+      port_probe_seconds:
+        type: integer
+      process_denylist:
+        items:
+          type: string
+        type: array
+      rules_refresh_seconds:
+        type: integer
+    type: object
+  agent.PortMatch:
+    properties:
+      confirmed:
+        type: boolean
+      port:
+        type: integer
+      product:
+        type: string
+      rule_id:
+        type: string
+    type: object
+  agent.Signals:
+    properties:
+      extension_matches:
+        items:
+          type: string
+        type: array
+      foreground_app:
+        type: string
+      foreground_dwell:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      internet_reachable:
+        type: boolean
+      lan_ip:
+        type: string
+      ports:
+        items:
+          $ref: '#/definitions/agent.PortMatch'
+        type: array
+      process_matches:
+        items:
+          type: string
+        type: array
+      total_processes:
+        type: integer
+    type: object
+  agent.Timeline:
+    properties:
+      displayName:
+        type: string
+      entries:
+        items:
+          $ref: '#/definitions/agent.Entry'
+        type: array
+      score:
+        type: integer
+      severity:
+        type: string
+      supportHint:
+        type: string
+      teamName:
+        type: string
+      userId:
+        type: string
+      username:
+        type: string
+    type: object
+  api.agentItem:
+    properties:
+      agentVersion:
+        type: string
+      binaryHash:
+        type: string
+      displayName:
+        type: string
+      enrolledAt:
+        type: string
+      id:
+        type: string
+      inGap:
+        type: boolean
+      lastSeenAt:
+        type: string
+      loopbackPort:
+        type: integer
+      machineId:
+        type: string
+      platform:
+        type: string
+      revokedAt:
+        type: string
+      revokedReason:
+        type: string
+      stoppedAt:
+        type: string
+      stoppedReason:
+        type: string
+      userId:
+        type: string
+      username:
+        type: string
+    type: object
   api.bulkCreateRequest:
     properties:
-      role:
+      teamId:
+        type: string
+      teamName:
         type: string
       users:
         items:
@@ -18,23 +282,42 @@ definitions:
       password:
         type: string
       status:
-        description: created | error
         type: string
       user:
         $ref: '#/definitions/user.User'
       username:
         type: string
     type: object
-  api.createAdminRequest:
+  api.changePasswordRequest:
     properties:
+      currentPassword:
+        type: string
+      newPassword:
+        type: string
+    required:
+    - currentPassword
+    - newPassword
+    type: object
+  api.competitorRiskItem:
+    properties:
+      allowWebOnly:
+        type: boolean
       displayName:
         type: string
-      password:
+      findingCount:
+        type: integer
+      lastPingAt:
+        type: string
+      proctorExempt:
+        type: boolean
+      score:
+        type: integer
+      severity:
+        type: string
+      userId:
         type: string
       username:
         type: string
-    required:
-    - username
     type: object
   api.createSubmissionRequest:
     properties:
@@ -42,9 +325,20 @@ definitions:
         type: string
       language:
         type: string
+      max_paste_size:
+        type: integer
+      paste_count:
+        type: integer
+      pasted_chars:
+        type: integer
+      problem_id:
+        type: string
+      typed_count:
+        type: integer
     required:
     - code
     - language
+    - problem_id
     type: object
   api.createTeamRequest:
     properties:
@@ -55,7 +349,6 @@ definitions:
       name:
         type: string
     required:
-    - members
     - name
     type: object
   api.createUserRequest:
@@ -66,10 +359,21 @@ definitions:
         type: string
       role:
         type: string
+      teamId:
+        type: string
+      teamName:
+        type: string
       username:
         type: string
     required:
     - username
+    type: object
+  api.extendContestRequest:
+    properties:
+      minutes:
+        type: integer
+    required:
+    - minutes
     type: object
   api.loginRequest:
     properties:
@@ -89,6 +393,32 @@ definitions:
         type: string
       user:
         $ref: '#/definitions/user.User'
+    type: object
+  api.monitoringSnapshot:
+    properties:
+      agents:
+        items:
+          $ref: '#/definitions/api.agentItem'
+        type: array
+      errors:
+        additionalProperties:
+          type: string
+        description: |-
+          Sections that failed, by name. One dead panel must not blank a console
+          somebody is running a contest from.
+        type: object
+      incidentOpen:
+        type: boolean
+      overview:
+        $ref: '#/definitions/agent.Overview'
+      risk:
+        items:
+          $ref: '#/definitions/api.competitorRiskItem'
+        type: array
+      telemetry:
+        items:
+          $ref: '#/definitions/telemetry.Heartbeat'
+        type: array
     type: object
   api.passwordRequest:
     properties:
@@ -115,6 +445,10 @@ definitions:
         type: string
       statement:
         type: string
+      tests:
+        items:
+          $ref: '#/definitions/api.testCaseDTO'
+        type: array
       timeLimitMs:
         type: integer
       title:
@@ -137,6 +471,15 @@ definitions:
           $ref: '#/definitions/api.testCaseDTO'
         type: array
     type: object
+  api.reviewSubmissionRequest:
+    properties:
+      reason:
+        type: string
+      status:
+        type: string
+    required:
+    - status
+    type: object
   api.roleRequest:
     properties:
       role:
@@ -155,6 +498,18 @@ definitions:
     required:
     - code
     - language
+    type: object
+  api.startContestRequest:
+    properties:
+      durationMinutes:
+        type: integer
+    type: object
+  api.suspendRequest:
+    properties:
+      reason:
+        type: string
+      suspended:
+        type: boolean
     type: object
   api.teamMemberRequest:
     properties:
@@ -178,15 +533,190 @@ definitions:
       points:
         type: integer
     type: object
-  judge.Result:
+  api.updateAccessRequest:
     properties:
-      output:
+      hoursValid:
+        type: integer
+      reason:
         type: string
-      status:
-        $ref: '#/definitions/judge.Status'
-      submission_id:
+      webOnly:
+        type: boolean
+    type: object
+  api.updateContestSettingsRequest:
+    properties:
+      authorizedBinaryHashes:
+        type: string
+      durationMinutes:
+        type: integer
+      enforceBinaryHash:
+        type: boolean
+      freezeMinutes:
+        type: integer
+      minClientVersion:
+        type: string
+      requireFullscreen:
+        type: boolean
+      title:
         type: string
     type: object
+  api.updateExemptionRequest:
+    properties:
+      exempt:
+        type: boolean
+      hoursValid:
+        type: integer
+      reason:
+        type: string
+    type: object
+  api.updatePointsPayload:
+    properties:
+      points:
+        additionalProperties:
+          format: int32
+          type: integer
+        type: object
+    required:
+    - points
+    type: object
+  contest.ContestState:
+    properties:
+      authorizedBinaryHashes:
+        type: string
+      durationSeconds:
+        type: integer
+      elapsedSeconds:
+        type: integer
+      endTime:
+        type: string
+      enforceBinaryHash:
+        type: boolean
+      freezeMinutes:
+        type: integer
+      freezeStartTime:
+        type: string
+      isFrozen:
+        type: boolean
+      minClientVersion:
+        type: string
+      pausedAt:
+        type: string
+      remainingSeconds:
+        type: integer
+      requireFullscreen:
+        type: boolean
+      serverTime:
+        type: string
+      startTime:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  judge.AdminSubmissionItem:
+    properties:
+      code:
+        type: string
+      compileError:
+        type: string
+      createdAt:
+        type: string
+      finishedAt:
+        type: string
+      language:
+        type: string
+      maxScore:
+        type: integer
+      problemId:
+        type: string
+      problemTitle:
+        type: string
+      queuePosition:
+        type: integer
+      reviewReason:
+        type: string
+      reviewStatus:
+        $ref: '#/definitions/judge.ReviewStatus'
+      reviewedAt:
+        type: string
+      reviewedBy:
+        type: string
+      score:
+        type: integer
+      status:
+        $ref: '#/definitions/judge.Status'
+      submissionId:
+        type: string
+      teamId:
+        type: string
+      teamName:
+        type: string
+      tests:
+        items:
+          $ref: '#/definitions/judge.SubmissionTest'
+        type: array
+      testsDone:
+        type: integer
+      testsTotal:
+        type: integer
+      userEmail:
+        type: string
+      userId:
+        type: string
+      userName:
+        type: string
+      verdict:
+        type: string
+    type: object
+  judge.Result:
+    properties:
+      compileError:
+        type: string
+      createdAt:
+        type: string
+      finishedAt:
+        type: string
+      maxScore:
+        type: integer
+      problemId:
+        type: string
+      queuePosition:
+        type: integer
+      reviewReason:
+        type: string
+      reviewStatus:
+        $ref: '#/definitions/judge.ReviewStatus'
+      reviewedAt:
+        type: string
+      score:
+        type: integer
+      status:
+        $ref: '#/definitions/judge.Status'
+      submissionId:
+        type: string
+      teamId:
+        type: string
+      tests:
+        items:
+          $ref: '#/definitions/judge.SubmissionTest'
+        type: array
+      testsDone:
+        type: integer
+      testsTotal:
+        type: integer
+      userId:
+        type: string
+      verdict:
+        type: string
+    type: object
+  judge.ReviewStatus:
+    enum:
+    - accepted
+    - rejected
+    type: string
+    x-enum-varnames:
+    - ReviewAccepted
+    - ReviewRejected
   judge.Status:
     enum:
     - queued
@@ -199,6 +729,21 @@ definitions:
     - StatusRunning
     - StatusPassed
     - StatusFailed
+  judge.SubmissionTest:
+    properties:
+      memoryKb:
+        type: integer
+      ordinal:
+        type: integer
+      points:
+        type: integer
+      submissionId:
+        type: string
+      timeMs:
+        type: integer
+      verdict:
+        type: string
+    type: object
   problem.Problem:
     properties:
       constraints:
@@ -219,6 +764,8 @@ definitions:
         type: string
       statement:
         type: string
+      testCount:
+        type: integer
       timeLimitMs:
         type: integer
       title:
@@ -250,6 +797,8 @@ definitions:
         type: string
       statement:
         type: string
+      testCount:
+        type: integer
       tests:
         items:
           $ref: '#/definitions/problem.TestMetadata'
@@ -286,6 +835,25 @@ definitions:
         type: integer
       output:
         type: string
+    type: object
+  problem.TestCaseMetadata:
+    properties:
+      expectedSha:
+        type: string
+      expectedSize:
+        type: integer
+      expectedSnippet:
+        type: string
+      inputSha:
+        type: string
+      inputSize:
+        type: integer
+      inputSnippet:
+        type: string
+      ordinal:
+        type: integer
+      points:
+        type: integer
     type: object
   problem.TestMetadata:
     properties:
@@ -325,7 +893,7 @@ definitions:
     - WA
     - TLE
     - MLE
-    - RE
+    - RTE
     - CE
     - OLE
     - IE
@@ -337,7 +905,7 @@ definitions:
       VerdictIE: Internal Sandbox Error
       VerdictMLE: Memory Limit Exceeded
       VerdictOLE: Output Limit Exceeded
-      VerdictRE: Runtime Error / Non-zero Exit
+      VerdictRTE: Runtime Error / Non-zero Exit
       VerdictSK: Skipped (budget exhausted)
       VerdictTLE: Time Limit Exceeded
       VerdictWA: Wrong Answer
@@ -356,24 +924,82 @@ definitions:
     - VerdictWA
     - VerdictTLE
     - VerdictMLE
-    - VerdictRE
+    - VerdictRTE
     - VerdictCE
     - VerdictOLE
     - VerdictIE
     - VerdictSK
-  team.Team:
+  telemetry.ClientType:
+    enum:
+    - DESKTOP
+    - WEB
+    - NONE
+    type: string
+    x-enum-varnames:
+    - ClientTypeDesktop
+    - ClientTypeWeb
+    - ClientTypeNone
+  telemetry.Heartbeat:
     properties:
-      createdAt:
+      active_window:
         type: string
-      id:
+      agent_version:
         type: string
-      members:
+      client_type:
+        $ref: '#/definitions/telemetry.ClientType'
+      display_name:
+        type: string
+      enrolled:
+        type: boolean
+      gap_started_at:
+        type: string
+      in_gap:
+        type: boolean
+      internet_reachable:
+        type: boolean
+      ip_address:
+        type: string
+      last_ping_at:
+        type: string
+      offline_seconds:
+        type: integer
+      os_info:
+        type: string
+      process_matches:
         items:
-          $ref: '#/definitions/user.User'
+          type: string
         type: array
-      name:
+      proctor_exempt:
+        type: boolean
+      risk_score:
+        type: integer
+      severity:
+        type: string
+      shell_alive:
+        type: boolean
+      status:
+        $ref: '#/definitions/telemetry.Status'
+      stopped_reason:
+        type: string
+      team_id:
+        type: string
+      team_name:
+        type: string
+      user_id:
+        type: string
+      username:
         type: string
     type: object
+  telemetry.Status:
+    enum:
+    - ONLINE
+    - STALE
+    - OFFLINE
+    type: string
+    x-enum-varnames:
+    - StatusOnline
+    - StatusStale
+    - StatusOffline
   user.User:
     properties:
       createdAt:
@@ -382,9 +1008,21 @@ definitions:
         type: string
       id:
         type: string
+      isSuspended:
+        type: boolean
       lastLoginAt:
         type: string
+      proctorAccessReason:
+        type: string
+      proctorAllowWebOnly:
+        type: boolean
+      proctorExempt:
+        type: boolean
       role:
+        type: string
+      suspendedAt:
+        type: string
+      suspendedReason:
         type: string
       teamId:
         type: string
@@ -400,43 +1038,329 @@ info:
   title: MiniAlgothon API
   version: "1.0"
 paths:
-  /api/v1/admin/admins:
-    post:
-      consumes:
-      - application/json
-      description: Create an administrator account without a team assignment.
+  /api/v1/admin/audit-logs:
+    get:
+      description: Fetch paginated administrative and security audit events.
       parameters:
-      - description: Admin account payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/api.createAdminRequest'
+      - description: Max logs to return (default 50, max 200)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      - description: Filter by action type
+        in: query
+        name: action
+        type: string
+      - description: Filter by status (success, failure, locked, blocked)
+        in: query
+        name: status
+        type: string
+      - description: Filter by actor username
+        in: query
+        name: actorUsername
+        type: string
+      - description: Filter by target resource type
+        in: query
+        name: targetType
+        type: string
       produces:
       - application/json
       responses:
-        "201":
-          description: Created
+        "200":
+          description: OK
           schema:
             additionalProperties: true
             type: object
-        "400":
-          description: Bad Request
+        "401":
+          description: Unauthorized
           schema:
             additionalProperties:
               type: string
             type: object
-        "409":
-          description: Conflict
+        "403":
+          description: Forbidden
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: Admin Create Administrator Account
+      summary: List Audit Logs
       tags:
       - Admin
+  /api/v1/admin/contest/end:
+    post:
+      description: Immediately terminate the contest and set status to ENDED.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin End Contest
+      tags:
+      - Admin Contest
+  /api/v1/admin/contest/extend:
+    post:
+      consumes:
+      - application/json
+      description: Add additional minutes to the active contest duration.
+      parameters:
+      - description: Extend contest payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.extendContestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Extend Contest Duration
+      tags:
+      - Admin Contest
+  /api/v1/admin/contest/freeze:
+    post:
+      description: Manually freeze the leaderboard standings at the current moment.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Freeze Contest Scoreboard
+      tags:
+      - Admin Contest
+  /api/v1/admin/contest/pause:
+    post:
+      description: Pause the active contest timer.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Pause Contest
+      tags:
+      - Admin Contest
+  /api/v1/admin/contest/reset:
+    post:
+      description: Reset contest lifecycle back to NOT_STARTED.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Reset Contest
+      tags:
+      - Admin Contest
+  /api/v1/admin/contest/resume:
+    post:
+      description: Resume a paused contest.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Resume Contest
+      tags:
+      - Admin Contest
+  /api/v1/admin/contest/settings:
+    put:
+      consumes:
+      - application/json
+      description: Update contest title, duration, and scoreboard freeze window.
+      parameters:
+      - description: Contest settings payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateContestSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Update Contest Settings
+      tags:
+      - Admin Contest
+  /api/v1/admin/contest/start:
+    post:
+      consumes:
+      - application/json
+      description: Start the contest timer immediately with given or default duration.
+      parameters:
+      - description: Start contest payload
+        in: body
+        name: payload
+        schema:
+          $ref: '#/definitions/api.startContestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Start Contest
+      tags:
+      - Admin Contest
+  /api/v1/admin/contest/unfreeze:
+    post:
+      description: Manually unfreeze the leaderboard standings to reveal live scores.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Unfreeze Contest Scoreboard
+      tags:
+      - Admin Contest
+  /api/v1/admin/monitoring:
+    get:
+      description: 'Every panel the proctoring console shows, in one call: fleet overview,
+        agent heartbeats, risk rollups and enrollments. Sections run concurrently
+        and are selected with `include`.'
+      parameters:
+      - description: Comma-separated subset of overview,telemetry,risk,agents (default
+          all)
+        in: query
+        name: include
+        type: string
+      - description: 'Telemetry filter: ONLINE, STALE, OFFLINE or GAP'
+        in: query
+        name: status
+        type: string
+      - description: 'Telemetry filter: match username or display name'
+        in: query
+        name: q
+        type: string
+      - description: Telemetry page size (default 100, max 500)
+        in: query
+        name: limit
+        type: integer
+      - description: Telemetry page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.monitoringSnapshot'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.monitoringSnapshot'
+      security:
+      - BearerAuth: []
+      summary: Monitoring Snapshot
+      tags:
+      - Admin Proctoring
   /api/v1/admin/problems:
     get:
       description: Fetch all problems including draft and published problems.
@@ -471,7 +1395,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new contest problem with metadata and sample test cases.
+      description: Create a new contest problem with metadata, sample test cases,
+        and optional evaluation test cases.
       parameters:
       - description: Problem definition
         in: body
@@ -559,7 +1484,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update existing problem statement, limits, and sample testcases.
+      description: Update existing problem statement, limits, sample testcases, and
+        optional evaluation test cases.
       parameters:
       - description: Problem ID
         in: path
@@ -624,6 +1550,51 @@ paths:
       tags:
       - Admin
   /api/v1/admin/problems/{id}/tests:
+    get:
+      description: Fetch test case metadata for a problem (does not transmit full
+        bodies).
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/problem.TestCaseMetadata'
+              type: array
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Get Problem Test Cases
+      tags:
+      - Admin
+    post:
+      consumes:
+      - multipart/form-data
+      - application/json
+      description: Add an evaluation test case with input and expected output (supports
+        multipart up to 20MB or JSON).
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Admin Add Single Test Case
+      tags:
+      - Admin
     put:
       consumes:
       - application/json
@@ -640,19 +1611,324 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/api.replaceTestsPayload'
+      produces:
+      - application/json
       responses:
-        "244":
+        "204":
           description: No Content
       security:
       - BearerAuth: []
       summary: Admin Replace Test Cases
       tags:
       - Admin
+  /api/v1/admin/problems/{id}/tests/{ordinal}:
+    delete:
+      description: Delete a test case and re-sequence remaining ordinals.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Test Case Ordinal
+        in: path
+        name: ordinal
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Admin Delete Single Test Case
+      tags:
+      - Admin
+    put:
+      consumes:
+      - multipart/form-data
+      - application/json
+      description: Update an existing test case's input, expected output, or points.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Test Case Ordinal
+        in: path
+        name: ordinal
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Admin Update Single Test Case
+      tags:
+      - Admin
+  /api/v1/admin/problems/{id}/tests/{ordinal}/expected:
+    get:
+      description: Download raw expected output file/content for a single test case.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Test Case Ordinal
+        in: path
+        name: ordinal
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Admin Get Single Test Expected Content
+      tags:
+      - Admin
+  /api/v1/admin/problems/{id}/tests/{ordinal}/input:
+    get:
+      description: Download raw input file/content for a single test case.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Test Case Ordinal
+        in: path
+        name: ordinal
+        required: true
+        type: integer
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Admin Get Single Test Input Content
+      tags:
+      - Admin
+  /api/v1/admin/problems/{id}/tests/export:
+    get:
+      description: Download all test cases for a problem bundled as a ZIP archive.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/zip
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Admin Export All Problem Test Cases as ZIP
+      tags:
+      - Admin
+  /api/v1/admin/problems/{id}/tests/points:
+    patch:
+      consumes:
+      - application/json
+      description: Update point values for multiple test cases.
+      parameters:
+      - description: Problem ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Points map by ordinal
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.updatePointsPayload'
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Admin Update Test Points
+      tags:
+      - Admin
+  /api/v1/admin/proctor/agents:
+    get:
+      description: Enrollment history and liveness per competitor, including revoked
+        enrollments.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List Enrolled Agents
+      tags:
+      - Admin Proctoring
+  /api/v1/admin/proctor/agents/{id}/revoke:
+    post:
+      consumes:
+      - application/json
+      description: Invalidate an agent credential, forcing a fresh enrollment on that
+        machine.
+      parameters:
+      - description: Agent ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Revoke An Agent Enrollment
+      tags:
+      - Admin Proctoring
+  /api/v1/admin/proctor/findings/{userId}:
+    get:
+      description: Fetch evidence findings for a specific competitor.
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get User Findings
+      tags:
+      - Admin Proctoring
+  /api/v1/admin/proctor/overview:
+    get:
+      description: Fleet-wide agent liveness counts and any open telemetry incident.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agent.Overview'
+      security:
+      - BearerAuth: []
+      summary: Proctoring Fleet Overview
+      tags:
+      - Admin Proctoring
+  /api/v1/admin/proctor/risk:
+    get:
+      description: Fetch risk scores, severities, and finding counts for all competitors.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List Competitor Risk Rollups
+      tags:
+      - Admin Proctoring
+  /api/v1/admin/proctor/timeline/{userId}:
+    get:
+      description: One ordered axis of telemetry events, blackouts, findings, submissions
+        and enrolments.
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: Maximum entries (default 250, max 500)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agent.Timeline'
+      security:
+      - BearerAuth: []
+      summary: Contestant Evidence Timeline
+      tags:
+      - Admin Proctoring
+  /api/v1/admin/proctor/users/{id}/readmit:
+    post:
+      description: Administrator clears the exit lockout and allows contestant to
+        re-enroll or re-enter competition.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Admin Re-admit Contestant
+      tags:
+      - Admin Proctoring
+  /api/v1/admin/submissions/{id}/review:
+    post:
+      consumes:
+      - application/json
+      description: Accept or reject a judged submission.
+      parameters:
+      - description: Submission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Review decision
+        in: body
+        name: review
+        required: true
+        schema:
+          $ref: '#/definitions/api.reviewSubmissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/judge.AdminSubmissionItem'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Review a Submission
+      tags:
+      - Submissions
   /api/v1/admin/teams:
     post:
       consumes:
       - application/json
-      description: Atomically create a team and 1 to 3 member user accounts.
+      description: Atomically create a team with optional member user accounts.
       parameters:
       - description: Team creation payload
         in: body
@@ -682,9 +1958,54 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Admin Create Team with Members
+      summary: Admin Create Team with Optional Members
       tags:
       - Admin
+  /api/v1/admin/telemetry:
+    get:
+      description: Fetch live agent telemetry and liveness for competitor accounts.
+      parameters:
+      - description: Filter by ONLINE, STALE or OFFLINE
+        in: query
+        name: status
+        type: string
+      - description: Match username or display name
+        in: query
+        name: q
+        type: string
+      - description: Page size (default 100, max 500)
+        in: query
+        name: limit
+        type: integer
+      - description: Page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List Telemetry Monitoring Data
+      tags:
+      - Admin Telemetry
   /api/v1/admin/users:
     get:
       description: Fetch all user accounts and team assignments.
@@ -781,6 +2102,75 @@ paths:
       summary: Admin Delete User
       tags:
       - Admin
+  /api/v1/admin/users/{id}/access:
+    patch:
+      consumes:
+      - application/json
+      description: Grant or revoke browser fallbacks for one competitor.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Access payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateAccessRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update User Submission Access
+      tags:
+      - Admin Proctoring
+  /api/v1/admin/users/{id}/exemption:
+    patch:
+      description: Grant or revoke proctoring exemption for a user.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Exemption payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.updateExemptionRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update User Proctor Exemption
+      tags:
+      - Admin Proctoring
   /api/v1/admin/users/{id}/reset-password:
     post:
       consumes:
@@ -834,6 +2224,8 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/api.roleRequest'
+      produces:
+      - application/json
       responses:
         "244":
           description: No Content
@@ -848,11 +2240,54 @@ paths:
       summary: Admin Update User Role
       tags:
       - Admin
+  /api/v1/admin/users/{id}/suspend:
+    patch:
+      consumes:
+      - application/json
+      description: Temporarily block or unblock user access.
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Suspension payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.suspendRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Suspend User
+      tags:
+      - Admin
   /api/v1/admin/users/bulk:
     post:
       consumes:
       - application/json
-      description: Bulk create user accounts.
+      description: Bulk create competitor user accounts.
       parameters:
       - description: Bulk user creation payload
         in: body
@@ -876,6 +2311,125 @@ paths:
       summary: Admin Bulk Create Users
       tags:
       - Admin
+  /api/v1/agent/enroll:
+    post:
+      consumes:
+      - application/json
+      description: Exchange contestant credentials for a long-lived agent credential.
+      parameters:
+      - description: Enrollment payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/agent.EnrollRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agent.EnrollResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Enroll Proctor Agent
+      tags:
+      - Agent
+  /api/v1/agent/events:
+    post:
+      consumes:
+      - application/json
+      description: Replay heartbeats an agent buffered while the server was unreachable.
+      parameters:
+      - description: Buffered heartbeats
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/agent.EventsRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Flush Buffered Heartbeats
+      tags:
+      - Agent
+  /api/v1/agent/heartbeat:
+    post:
+      consumes:
+      - application/json
+      description: Report endpoint signals and agent liveness.
+      parameters:
+      - description: Heartbeat payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/agent.Heartbeat'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Agent Heartbeat
+      tags:
+      - Agent
+  /api/v1/agent/rules:
+    get:
+      description: Fetch cadences and detection denylists so organizers can tune them
+        without rebuilding clients.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agent.Policy'
+      security:
+      - BearerAuth: []
+      summary: Agent Policy And Rules
+      tags:
+      - Agent
+  /api/v1/agent/shutdown:
+    post:
+      consumes:
+      - application/json
+      description: Record a deliberate stop so the blackout is not read as evasion.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Agent Shutdown
+      tags:
+      - Agent
   /api/v1/auth/login:
     post:
       consumes:
@@ -908,6 +2462,12 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
         "500":
           description: Internal Server Error
           schema:
@@ -928,6 +2488,37 @@ paths:
       summary: User Logout
       tags:
       - Auth
+  /api/v1/contest/state:
+    get:
+      description: Fetch the current contest lifecycle state, countdown timer, and
+        server timestamp.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contest.ContestState'
+      summary: Get Contest State
+      tags:
+      - Contest
+  /api/v1/leaderboard:
+    get:
+      description: Retrieve team leaderboard ranked by best scores per problem with
+        freeze metadata.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get Leaderboard Standings
+      tags:
+      - Leaderboard
   /api/v1/me:
     get:
       description: Fetch authenticated user profile details and team info.
@@ -949,6 +2540,44 @@ paths:
       summary: Get Current User Profile
       tags:
       - Auth
+  /api/v1/me/password:
+    post:
+      consumes:
+      - application/json
+      description: Update user's own password after verifying current credentials.
+      parameters:
+      - description: Change Password Payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.changePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change Password
+      tags:
+      - Auth
   /api/v1/problems:
     get:
       description: Fetch list of published contest problems for competitors.
@@ -958,10 +2587,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              items:
-                $ref: '#/definitions/problem.Problem'
-              type: array
+            additionalProperties: true
             type: object
         "401":
           description: Unauthorized
@@ -1005,6 +2631,12 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
         "404":
           description: Not Found
           schema:
@@ -1022,12 +2654,27 @@ paths:
       summary: Get Problem by Slug
       tags:
       - Problems
+  /api/v1/proctor/disclosure:
+    get:
+      description: Full disclosure of what the proctor agent collects, shown before
+        enrollment.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Proctoring Disclosure
+      tags:
+      - Proctoring
   /api/v1/run:
     post:
       consumes:
       - application/json
-      description: Execute untrusted code in isolate sandbox against user-supplied
-        stdin input.
+      description: Execute code against sample test cases or custom stdin in an isolated
+        sandbox.
       parameters:
       - description: Code execution request
         in: body
@@ -1048,6 +2695,18 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
         "503":
           description: Service Unavailable
           schema:
@@ -1056,10 +2715,18 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Run Code in Sandbox
+      summary: Execute Code
       tags:
-      - Sandbox
+      - Runner
   /api/v1/submissions:
+    get:
+      description: List submissions made by current user or team.
+      produces:
+      - application/json
+      responses: {}
+      summary: List User Submissions
+      tags:
+      - Submissions
     post:
       consumes:
       - application/json
@@ -1077,8 +2744,7 @@ paths:
         "202":
           description: Accepted
           schema:
-            additionalProperties:
-              type: string
+            additionalProperties: true
             type: object
         "400":
           description: Bad Request
@@ -1086,8 +2752,14 @@ paths:
             additionalProperties:
               type: string
             type: object
-        "503":
-          description: Service Unavailable
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
           schema:
             additionalProperties:
               type: string
@@ -1111,31 +2783,14 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/judge.Result'
-        "404":
-          description: Not Found
+        "403":
+          description: Forbidden
           schema:
             additionalProperties:
               type: string
             type: object
-      summary: Get Submission Result
-      tags:
-      - Submissions
-  /api/v1/teams:
-    get:
-      description: Fetch all teams and their assigned member accounts.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              items:
-                $ref: '#/definitions/team.Team'
-              type: array
-            type: object
-        "401":
-          description: Unauthorized
+        "404":
+          description: Not Found
           schema:
             additionalProperties:
               type: string
@@ -1146,11 +2801,75 @@ paths:
             additionalProperties:
               type: string
             type: object
+      summary: Get Submission Result
+      tags:
+      - Submissions
+  /api/v1/submissions/stream:
+    get:
+      description: Server-Sent Events stream for real-time submission progress and
+        result pushes.
+      produces:
+      - text/event-stream
+      responses: {}
+      summary: Stream Submission Status (SSE)
+      tags:
+      - Submissions
+  /api/v1/telemetry/browser-event:
+    post:
+      consumes:
+      - application/json
+      description: Ingest client-side browser proctoring violations (e.g. fullscreen
+        exits, window blur, tab switch, devtools attempt).
+      produces:
+      - application/json
+      responses: {}
       security:
       - BearerAuth: []
-      summary: List Teams
+      summary: Record Browser Violation Telemetry Event
       tags:
-      - Teams
+      - Telemetry
+  /api/v1/telemetry/leave-contest:
+    post:
+      description: Contestant voluntarily leaves the competition session. This revokes
+        active agent enrollment and locks submission access until re-admitted by an
+        admin.
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - BearerAuth: []
+      summary: Voluntary Contest Leave
+      tags:
+      - Telemetry
+  /api/v1/telemetry/self:
+    get:
+      description: Report the contestant's own agent liveness so the portal can warn
+        them while they still have time to fix it. Recording the caller's browser
+        presence is a side effect of the poll.
+      parameters:
+      - description: Whether the portal tab was foregrounded when polled
+        in: query
+        name: tab_visible
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Self Proctor Status
+      tags:
+      - Telemetry
   /healthz:
     get:
       description: Check backend database connection and API service health status.

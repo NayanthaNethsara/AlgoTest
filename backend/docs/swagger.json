@@ -9,14 +9,130 @@
     "host": "localhost:8080",
     "basePath": "/",
     "paths": {
-        "/api/v1/admin/admins": {
+        "/api/v1/admin/audit-logs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch paginated administrative and security audit events.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "List Audit Logs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Max logs to return (default 50, max 200)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by action type",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (success, failure, locked, blocked)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by actor username",
+                        "name": "actorUsername",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by target resource type",
+                        "name": "targetType",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/contest/end": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create an administrator account without a team assignment.",
+                "description": "Immediately terminate the contest and set status to ENDED.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Contest"
+                ],
+                "summary": "Admin End Contest",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/contest/extend": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Add additional minutes to the active contest duration.",
                 "consumes": [
                     "application/json"
                 ],
@@ -24,26 +140,256 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Admin"
+                    "Admin Contest"
                 ],
-                "summary": "Admin Create Administrator Account",
+                "summary": "Admin Extend Contest Duration",
                 "parameters": [
                     {
-                        "description": "Admin account payload",
+                        "description": "Extend contest payload",
                         "name": "payload",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.createAdminRequest"
+                            "$ref": "#/definitions/api.extendContestRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/contest/freeze": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Manually freeze the leaderboard standings at the current moment.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Contest"
+                ],
+                "summary": "Admin Freeze Contest Scoreboard",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/contest/pause": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Pause the active contest timer.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Contest"
+                ],
+                "summary": "Admin Pause Contest",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/contest/reset": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Reset contest lifecycle back to NOT_STARTED.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Contest"
+                ],
+                "summary": "Admin Reset Contest",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/contest/resume": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Resume a paused contest.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Contest"
+                ],
+                "summary": "Admin Resume Contest",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/contest/settings": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update contest title, duration, and scoreboard freeze window.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Contest"
+                ],
+                "summary": "Admin Update Contest Settings",
+                "parameters": [
+                    {
+                        "description": "Contest settings payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.updateContestSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/contest/start": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Start the contest timer immediately with given or default duration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Contest"
+                ],
+                "summary": "Admin Start Contest",
+                "parameters": [
+                    {
+                        "description": "Start contest payload",
+                        "name": "payload",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.startContestRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
                         }
                     },
                     "400": {
@@ -55,13 +401,119 @@
                             }
                         }
                     },
-                    "409": {
-                        "description": "Conflict",
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/contest/unfreeze": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Manually unfreeze the leaderboard standings to reveal live scores.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Contest"
+                ],
+                "summary": "Admin Unfreeze Contest Scoreboard",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/monitoring": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Every panel the proctoring console shows, in one call: fleet overview, agent heartbeats, risk rollups and enrollments. Sections run concurrently and are selected with `include`.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "Monitoring Snapshot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Comma-separated subset of overview,telemetry,risk,agents (default all)",
+                        "name": "include",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Telemetry filter: ONLINE, STALE, OFFLINE or GAP",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Telemetry filter: match username or display name",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Telemetry page size (default 100, max 500)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Telemetry page offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.monitoringSnapshot"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.monitoringSnapshot"
                         }
                     }
                 }
@@ -121,7 +573,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new contest problem with metadata and sample test cases.",
+                "description": "Create a new contest problem with metadata, sample test cases, and optional evaluation test cases.",
                 "consumes": [
                     "application/json"
                 ],
@@ -225,7 +677,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update existing problem statement, limits, and sample testcases.",
+                "description": "Update existing problem statement, limits, sample testcases, and optional evaluation test cases.",
                 "consumes": [
                     "application/json"
                 ],
@@ -361,6 +813,44 @@
             }
         },
         "/api/v1/admin/problems/{id}/tests": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch test case metadata for a problem (does not transmit full bodies).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Get Problem Test Cases",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Problem ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/problem.TestCaseMetadata"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             "put": {
                 "security": [
                     {
@@ -369,6 +859,9 @@
                 ],
                 "description": "Replace official evaluation test cases for a problem.",
                 "consumes": [
+                    "application/json"
+                ],
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
@@ -394,8 +887,507 @@
                     }
                 ],
                 "responses": {
-                    "244": {
+                    "204": {
                         "description": "No Content"
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Add an evaluation test case with input and expected output (supports multipart up to 20MB or JSON).",
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Add Single Test Case",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Problem ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/admin/problems/{id}/tests/export": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Download all test cases for a problem bundled as a ZIP archive.",
+                "produces": [
+                    "application/zip"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Export All Problem Test Cases as ZIP",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Problem ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/admin/problems/{id}/tests/points": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update point values for multiple test cases.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Update Test Points",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Problem ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Points map by ordinal",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.updatePointsPayload"
+                        }
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/admin/problems/{id}/tests/{ordinal}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update an existing test case's input, expected output, or points.",
+                "consumes": [
+                    "multipart/form-data",
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Update Single Test Case",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Problem ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Test Case Ordinal",
+                        "name": "ordinal",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a test case and re-sequence remaining ordinals.",
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Delete Single Test Case",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Problem ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Test Case Ordinal",
+                        "name": "ordinal",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/admin/problems/{id}/tests/{ordinal}/expected": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Download raw expected output file/content for a single test case.",
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Get Single Test Expected Content",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Problem ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Test Case Ordinal",
+                        "name": "ordinal",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/admin/problems/{id}/tests/{ordinal}/input": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Download raw input file/content for a single test case.",
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Get Single Test Input Content",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Problem ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Test Case Ordinal",
+                        "name": "ordinal",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/admin/proctor/agents": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Enrollment history and liveness per competitor, including revoked enrollments.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "List Enrolled Agents",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/proctor/agents/{id}/revoke": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Invalidate an agent credential, forcing a fresh enrollment on that machine.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "Revoke An Agent Enrollment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/proctor/findings/{userId}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch evidence findings for a specific competitor.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "Get User Findings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/proctor/overview": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fleet-wide agent liveness counts and any open telemetry incident.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "Proctoring Fleet Overview",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agent.Overview"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/proctor/risk": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch risk scores, severities, and finding counts for all competitors.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "List Competitor Risk Rollups",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/proctor/timeline/{userId}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "One ordered axis of telemetry events, blackouts, findings, submissions and enrolments.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "Contestant Evidence Timeline",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "userId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum entries (default 250, max 500)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agent.Timeline"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/proctor/users/{id}/readmit": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Administrator clears the exit lockout and allows contestant to re-enroll or re-enter competition.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "Admin Re-admit Contestant",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/admin/submissions/{id}/review": {
+            "post": {
+                "description": "Accept or reject a judged submission.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Submissions"
+                ],
+                "summary": "Review a Submission",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Submission ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Review decision",
+                        "name": "review",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.reviewSubmissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/judge.AdminSubmissionItem"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -407,7 +1399,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Atomically create a team and 1 to 3 member user accounts.",
+                "description": "Atomically create a team with optional member user accounts.",
                 "consumes": [
                     "application/json"
                 ],
@@ -417,7 +1409,7 @@
                 "tags": [
                     "Admin"
                 ],
-                "summary": "Admin Create Team with Members",
+                "summary": "Admin Create Team with Optional Members",
                 "parameters": [
                     {
                         "description": "Team creation payload",
@@ -448,6 +1440,76 @@
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/telemetry": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch live agent telemetry and liveness for competitor accounts.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Telemetry"
+                ],
+                "summary": "List Telemetry Monitoring Data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by ONLINE, STALE or OFFLINE",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Match username or display name",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 100, max 500)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -570,7 +1632,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Bulk create user accounts.",
+                "description": "Bulk create competitor user accounts.",
                 "consumes": [
                     "application/json"
                 ],
@@ -654,6 +1716,114 @@
                 }
             }
         },
+        "/api/v1/admin/users/{id}/access": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Grant or revoke browser fallbacks for one competitor.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "Update User Submission Access",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Access payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.updateAccessRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/users/{id}/exemption": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Grant or revoke proctoring exemption for a user.",
+                "tags": [
+                    "Admin Proctoring"
+                ],
+                "summary": "Update User Proctor Exemption",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Exemption payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.updateExemptionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/users/{id}/reset-password": {
             "post": {
                 "security": [
@@ -722,6 +1892,9 @@
                 "consumes": [
                     "application/json"
                 ],
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "Admin"
                 ],
@@ -750,6 +1923,261 @@
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/users/{id}/suspend": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Temporarily block or unblock user access.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Suspend User",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Suspension payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.suspendRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent/enroll": {
+            "post": {
+                "description": "Exchange contestant credentials for a long-lived agent credential.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Agent"
+                ],
+                "summary": "Enroll Proctor Agent",
+                "parameters": [
+                    {
+                        "description": "Enrollment payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agent.EnrollRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agent.EnrollResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent/events": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Replay heartbeats an agent buffered while the server was unreachable.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Agent"
+                ],
+                "summary": "Flush Buffered Heartbeats",
+                "parameters": [
+                    {
+                        "description": "Buffered heartbeats",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agent.EventsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent/heartbeat": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Report endpoint signals and agent liveness.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Agent"
+                ],
+                "summary": "Agent Heartbeat",
+                "parameters": [
+                    {
+                        "description": "Heartbeat payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agent.Heartbeat"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent/rules": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch cadences and detection denylists so organizers can tune them without rebuilding clients.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Agent"
+                ],
+                "summary": "Agent Policy And Rules",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agent.Policy"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agent/shutdown": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Record a deliberate stop so the blackout is not read as evasion.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Agent"
+                ],
+                "summary": "Agent Shutdown",
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -809,6 +2237,15 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -836,6 +2273,52 @@
                 "responses": {
                     "244": {
                         "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/api/v1/contest/state": {
+            "get": {
+                "description": "Fetch the current contest lifecycle state, countdown timer, and server timestamp.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Contest"
+                ],
+                "summary": "Get Contest State",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/contest.ContestState"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/leaderboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve team leaderboard ranked by best scores per problem with freeze metadata.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leaderboard"
+                ],
+                "summary": "Get Leaderboard Standings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
                     }
                 }
             }
@@ -874,6 +2357,66 @@
                 }
             }
         },
+        "/api/v1/me/password": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update user's own password after verifying current credentials.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Change Password",
+                "parameters": [
+                    {
+                        "description": "Change Password Payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.changePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/problems": {
             "get": {
                 "security": [
@@ -894,12 +2437,7 @@
                         "description": "OK",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/definitions/problem.Problem"
-                                }
-                            }
+                            "additionalProperties": true
                         }
                     },
                     "401": {
@@ -966,6 +2504,15 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -987,6 +2534,27 @@
                 }
             }
         },
+        "/api/v1/proctor/disclosure": {
+            "get": {
+                "description": "Full disclosure of what the proctor agent collects, shown before enrollment.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Proctoring"
+                ],
+                "summary": "Proctoring Disclosure",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/run": {
             "post": {
                 "security": [
@@ -994,7 +2562,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Execute untrusted code in isolate sandbox against user-supplied stdin input.",
+                "description": "Execute code against sample test cases or custom stdin in an isolated sandbox.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1002,9 +2570,9 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Sandbox"
+                    "Runner"
                 ],
-                "summary": "Run Code in Sandbox",
+                "summary": "Execute Code",
                 "parameters": [
                     {
                         "description": "Code execution request",
@@ -1032,6 +2600,24 @@
                             }
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
@@ -1045,6 +2631,17 @@
             }
         },
         "/api/v1/submissions": {
+            "get": {
+                "description": "List submissions made by current user or team.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Submissions"
+                ],
+                "summary": "List User Submissions",
+                "responses": {}
+            },
             "post": {
                 "description": "Queue code submission for official contest judging.",
                 "consumes": [
@@ -1073,9 +2670,7 @@
                         "description": "Accepted",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "additionalProperties": true
                         }
                     },
                     "400": {
@@ -1087,8 +2682,17 @@
                             }
                         }
                     },
-                    "503": {
-                        "description": "Service Unavailable",
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1097,6 +2701,19 @@
                         }
                     }
                 }
+            }
+        },
+        "/api/v1/submissions/stream": {
+            "get": {
+                "description": "Server-Sent Events stream for real-time submission progress and result pushes.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "Submissions"
+                ],
+                "summary": "Stream Submission Status (SSE)",
+                "responses": {}
             }
         },
         "/api/v1/submissions/{id}": {
@@ -1125,8 +2742,26 @@
                             "$ref": "#/definitions/judge.Result"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1137,45 +2772,78 @@
                 }
             }
         },
-        "/api/v1/teams": {
+        "/api/v1/telemetry/browser-event": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Ingest client-side browser proctoring violations (e.g. fullscreen exits, window blur, tab switch, devtools attempt).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Telemetry"
+                ],
+                "summary": "Record Browser Violation Telemetry Event",
+                "responses": {}
+            }
+        },
+        "/api/v1/telemetry/leave-contest": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Contestant voluntarily leaves the competition session. This revokes active agent enrollment and locks submission access until re-admitted by an admin.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Telemetry"
+                ],
+                "summary": "Voluntary Contest Leave",
+                "responses": {}
+            }
+        },
+        "/api/v1/telemetry/self": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Fetch all teams and their assigned member accounts.",
+                "description": "Report the contestant's own agent liveness so the portal can warn them while they still have time to fix it. Recording the caller's browser presence is a side effect of the poll.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Teams"
+                    "Telemetry"
                 ],
-                "summary": "List Teams",
+                "summary": "Self Proctor Status",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Whether the portal tab was foregrounded when polled",
+                        "name": "tab_visible",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/definitions/team.Team"
-                                }
-                            }
+                            "additionalProperties": true
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1220,13 +2888,414 @@
         }
     },
     "definitions": {
+        "agent.EnrollRequest": {
+            "type": "object",
+            "required": [
+                "machine_id",
+                "password",
+                "username"
+            ],
+            "properties": {
+                "agent_version": {
+                    "type": "string"
+                },
+                "binary_hash": {
+                    "type": "string"
+                },
+                "consent_version": {
+                    "type": "string"
+                },
+                "machine_id": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "agent.EnrollResponse": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "agent_token": {
+                    "type": "string"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "policy": {
+                    "$ref": "#/definitions/agent.Policy"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "agent.Entry": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "endedAt": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "object"
+                },
+                "weight": {
+                    "type": "integer"
+                }
+            }
+        },
+        "agent.EventsRequest": {
+            "type": "object",
+            "required": [
+                "heartbeats"
+            ],
+            "properties": {
+                "heartbeats": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agent.Heartbeat"
+                    }
+                }
+            }
+        },
+        "agent.Fleet": {
+            "type": "object",
+            "properties": {
+                "browserActive": {
+                    "type": "integer"
+                },
+                "competitors": {
+                    "type": "integer"
+                },
+                "enrolled": {
+                    "type": "integer"
+                },
+                "exempt": {
+                    "type": "integer"
+                },
+                "highRisk": {
+                    "type": "integer"
+                },
+                "inGap": {
+                    "type": "integer"
+                },
+                "mediumRisk": {
+                    "type": "integer"
+                },
+                "neverReported": {
+                    "type": "integer"
+                },
+                "offline": {
+                    "type": "integer"
+                },
+                "online": {
+                    "type": "integer"
+                },
+                "stale": {
+                    "type": "integer"
+                },
+                "stopped": {
+                    "type": "integer"
+                }
+            }
+        },
+        "agent.Heartbeat": {
+            "type": "object",
+            "required": [
+                "boot_id"
+            ],
+            "properties": {
+                "agent_version": {
+                    "type": "string"
+                },
+                "attest_nonce": {
+                    "type": "string"
+                },
+                "boot_id": {
+                    "type": "string"
+                },
+                "buffered": {
+                    "type": "boolean"
+                },
+                "loopback_port": {
+                    "type": "integer"
+                },
+                "mono_ms": {
+                    "type": "integer"
+                },
+                "seq": {
+                    "type": "integer"
+                },
+                "shell_alive": {
+                    "type": "boolean"
+                },
+                "signal_hash": {
+                    "type": "string"
+                },
+                "signals": {
+                    "$ref": "#/definitions/agent.Signals"
+                },
+                "wall_ts": {
+                    "type": "string"
+                }
+            }
+        },
+        "agent.Incident": {
+            "type": "object",
+            "properties": {
+                "affectedAgents": {
+                    "type": "integer"
+                },
+                "durationSeconds": {
+                    "type": "integer"
+                },
+                "endedAt": {
+                    "type": "string"
+                },
+                "enrolledAgents": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "agent.Overview": {
+            "type": "object",
+            "properties": {
+                "fleet": {
+                    "$ref": "#/definitions/agent.Fleet"
+                },
+                "incident": {
+                    "$ref": "#/definitions/agent.Incident"
+                }
+            }
+        },
+        "agent.Policy": {
+            "type": "object",
+            "properties": {
+                "foreground_allowlist": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "foreground_denylist": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "gate_max_stale_seconds": {
+                    "type": "integer"
+                },
+                "heartbeat_seconds": {
+                    "type": "integer"
+                },
+                "keepalive_seconds": {
+                    "type": "integer"
+                },
+                "port_probe_seconds": {
+                    "type": "integer"
+                },
+                "process_denylist": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "rules_refresh_seconds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "agent.PortMatch": {
+            "type": "object",
+            "properties": {
+                "confirmed": {
+                    "type": "boolean"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "product": {
+                    "type": "string"
+                },
+                "rule_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "agent.Signals": {
+            "type": "object",
+            "properties": {
+                "extension_matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "foreground_app": {
+                    "type": "string"
+                },
+                "foreground_dwell": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                },
+                "internet_reachable": {
+                    "type": "boolean"
+                },
+                "lan_ip": {
+                    "type": "string"
+                },
+                "ports": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agent.PortMatch"
+                    }
+                },
+                "process_matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "total_processes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "agent.Timeline": {
+            "type": "object",
+            "properties": {
+                "displayName": {
+                    "type": "string"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agent.Entry"
+                    }
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "severity": {
+                    "type": "string"
+                },
+                "supportHint": {
+                    "type": "string"
+                },
+                "teamName": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.agentItem": {
+            "type": "object",
+            "properties": {
+                "agentVersion": {
+                    "type": "string"
+                },
+                "binaryHash": {
+                    "type": "string"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "enrolledAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "inGap": {
+                    "type": "boolean"
+                },
+                "lastSeenAt": {
+                    "type": "string"
+                },
+                "loopbackPort": {
+                    "type": "integer"
+                },
+                "machineId": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "revokedAt": {
+                    "type": "string"
+                },
+                "revokedReason": {
+                    "type": "string"
+                },
+                "stoppedAt": {
+                    "type": "string"
+                },
+                "stoppedReason": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "api.bulkCreateRequest": {
             "type": "object",
             "required": [
                 "users"
             ],
             "properties": {
-                "role": {
+                "teamId": {
+                    "type": "string"
+                },
+                "teamName": {
                     "type": "string"
                 },
                 "users": {
@@ -1247,7 +3316,6 @@
                     "type": "string"
                 },
                 "status": {
-                    "description": "created | error",
                     "type": "string"
                 },
                 "user": {
@@ -1258,16 +3326,46 @@
                 }
             }
         },
-        "api.createAdminRequest": {
+        "api.changePasswordRequest": {
             "type": "object",
             "required": [
-                "username"
+                "currentPassword",
+                "newPassword"
             ],
             "properties": {
+                "currentPassword": {
+                    "type": "string"
+                },
+                "newPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.competitorRiskItem": {
+            "type": "object",
+            "properties": {
+                "allowWebOnly": {
+                    "type": "boolean"
+                },
                 "displayName": {
                     "type": "string"
                 },
-                "password": {
+                "findingCount": {
+                    "type": "integer"
+                },
+                "lastPingAt": {
+                    "type": "string"
+                },
+                "proctorExempt": {
+                    "type": "boolean"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "severity": {
+                    "type": "string"
+                },
+                "userId": {
                     "type": "string"
                 },
                 "username": {
@@ -1279,7 +3377,8 @@
             "type": "object",
             "required": [
                 "code",
-                "language"
+                "language",
+                "problem_id"
             ],
             "properties": {
                 "code": {
@@ -1287,13 +3386,27 @@
                 },
                 "language": {
                     "type": "string"
+                },
+                "max_paste_size": {
+                    "type": "integer"
+                },
+                "paste_count": {
+                    "type": "integer"
+                },
+                "pasted_chars": {
+                    "type": "integer"
+                },
+                "problem_id": {
+                    "type": "string"
+                },
+                "typed_count": {
+                    "type": "integer"
                 }
             }
         },
         "api.createTeamRequest": {
             "type": "object",
             "required": [
-                "members",
                 "name"
             ],
             "properties": {
@@ -1323,8 +3436,25 @@
                 "role": {
                     "type": "string"
                 },
+                "teamId": {
+                    "type": "string"
+                },
+                "teamName": {
+                    "type": "string"
+                },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "api.extendContestRequest": {
+            "type": "object",
+            "required": [
+                "minutes"
+            ],
+            "properties": {
+                "minutes": {
+                    "type": "integer"
                 }
             }
         },
@@ -1354,6 +3484,42 @@
                 },
                 "user": {
                     "$ref": "#/definitions/user.User"
+                }
+            }
+        },
+        "api.monitoringSnapshot": {
+            "type": "object",
+            "properties": {
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.agentItem"
+                    }
+                },
+                "errors": {
+                    "description": "Sections that failed, by name. One dead panel must not blank a console\nsomebody is running a contest from.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "incidentOpen": {
+                    "type": "boolean"
+                },
+                "overview": {
+                    "$ref": "#/definitions/agent.Overview"
+                },
+                "risk": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.competitorRiskItem"
+                    }
+                },
+                "telemetry": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/telemetry.Heartbeat"
+                    }
                 }
             }
         },
@@ -1401,6 +3567,12 @@
                 "statement": {
                     "type": "string"
                 },
+                "tests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.testCaseDTO"
+                    }
+                },
                 "timeLimitMs": {
                     "type": "integer"
                 },
@@ -1425,6 +3597,20 @@
                     "items": {
                         "$ref": "#/definitions/api.testCaseDTO"
                     }
+                }
+            }
+        },
+        "api.reviewSubmissionRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },
@@ -1454,6 +3640,25 @@
                 },
                 "stdin": {
                     "type": "string"
+                }
+            }
+        },
+        "api.startContestRequest": {
+            "type": "object",
+            "properties": {
+                "durationMinutes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.suspendRequest": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "suspended": {
+                    "type": "boolean"
                 }
             }
         },
@@ -1491,19 +3696,283 @@
                 }
             }
         },
-        "judge.Result": {
+        "api.updateAccessRequest": {
             "type": "object",
             "properties": {
-                "output": {
+                "hoursValid": {
+                    "type": "integer"
+                },
+                "reason": {
                     "type": "string"
+                },
+                "webOnly": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "api.updateContestSettingsRequest": {
+            "type": "object",
+            "properties": {
+                "authorizedBinaryHashes": {
+                    "type": "string"
+                },
+                "durationMinutes": {
+                    "type": "integer"
+                },
+                "enforceBinaryHash": {
+                    "type": "boolean"
+                },
+                "freezeMinutes": {
+                    "type": "integer"
+                },
+                "minClientVersion": {
+                    "type": "string"
+                },
+                "requireFullscreen": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.updateExemptionRequest": {
+            "type": "object",
+            "properties": {
+                "exempt": {
+                    "type": "boolean"
+                },
+                "hoursValid": {
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.updatePointsPayload": {
+            "type": "object",
+            "required": [
+                "points"
+            ],
+            "properties": {
+                "points": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            }
+        },
+        "contest.ContestState": {
+            "type": "object",
+            "properties": {
+                "authorizedBinaryHashes": {
+                    "type": "string"
+                },
+                "durationSeconds": {
+                    "type": "integer"
+                },
+                "elapsedSeconds": {
+                    "type": "integer"
+                },
+                "endTime": {
+                    "type": "string"
+                },
+                "enforceBinaryHash": {
+                    "type": "boolean"
+                },
+                "freezeMinutes": {
+                    "type": "integer"
+                },
+                "freezeStartTime": {
+                    "type": "string"
+                },
+                "isFrozen": {
+                    "type": "boolean"
+                },
+                "minClientVersion": {
+                    "type": "string"
+                },
+                "pausedAt": {
+                    "type": "string"
+                },
+                "remainingSeconds": {
+                    "type": "integer"
+                },
+                "requireFullscreen": {
+                    "type": "boolean"
+                },
+                "serverTime": {
+                    "type": "string"
+                },
+                "startTime": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "judge.AdminSubmissionItem": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "compileError": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "finishedAt": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "maxScore": {
+                    "type": "integer"
+                },
+                "problemId": {
+                    "type": "string"
+                },
+                "problemTitle": {
+                    "type": "string"
+                },
+                "queuePosition": {
+                    "type": "integer"
+                },
+                "reviewReason": {
+                    "type": "string"
+                },
+                "reviewStatus": {
+                    "$ref": "#/definitions/judge.ReviewStatus"
+                },
+                "reviewedAt": {
+                    "type": "string"
+                },
+                "reviewedBy": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "integer"
                 },
                 "status": {
                     "$ref": "#/definitions/judge.Status"
                 },
-                "submission_id": {
+                "submissionId": {
+                    "type": "string"
+                },
+                "teamId": {
+                    "type": "string"
+                },
+                "teamName": {
+                    "type": "string"
+                },
+                "tests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/judge.SubmissionTest"
+                    }
+                },
+                "testsDone": {
+                    "type": "integer"
+                },
+                "testsTotal": {
+                    "type": "integer"
+                },
+                "userEmail": {
+                    "type": "string"
+                },
+                "userId": {
+                    "type": "string"
+                },
+                "userName": {
+                    "type": "string"
+                },
+                "verdict": {
                     "type": "string"
                 }
             }
+        },
+        "judge.Result": {
+            "type": "object",
+            "properties": {
+                "compileError": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "finishedAt": {
+                    "type": "string"
+                },
+                "maxScore": {
+                    "type": "integer"
+                },
+                "problemId": {
+                    "type": "string"
+                },
+                "queuePosition": {
+                    "type": "integer"
+                },
+                "reviewReason": {
+                    "type": "string"
+                },
+                "reviewStatus": {
+                    "$ref": "#/definitions/judge.ReviewStatus"
+                },
+                "reviewedAt": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/judge.Status"
+                },
+                "submissionId": {
+                    "type": "string"
+                },
+                "teamId": {
+                    "type": "string"
+                },
+                "tests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/judge.SubmissionTest"
+                    }
+                },
+                "testsDone": {
+                    "type": "integer"
+                },
+                "testsTotal": {
+                    "type": "integer"
+                },
+                "userId": {
+                    "type": "string"
+                },
+                "verdict": {
+                    "type": "string"
+                }
+            }
+        },
+        "judge.ReviewStatus": {
+            "type": "string",
+            "enum": [
+                "accepted",
+                "rejected"
+            ],
+            "x-enum-varnames": [
+                "ReviewAccepted",
+                "ReviewRejected"
+            ]
         },
         "judge.Status": {
             "type": "string",
@@ -1519,6 +3988,29 @@
                 "StatusPassed",
                 "StatusFailed"
             ]
+        },
+        "judge.SubmissionTest": {
+            "type": "object",
+            "properties": {
+                "memoryKb": {
+                    "type": "integer"
+                },
+                "ordinal": {
+                    "type": "integer"
+                },
+                "points": {
+                    "type": "integer"
+                },
+                "submissionId": {
+                    "type": "string"
+                },
+                "timeMs": {
+                    "type": "integer"
+                },
+                "verdict": {
+                    "type": "string"
+                }
+            }
         },
         "problem.Problem": {
             "type": "object",
@@ -1549,6 +4041,9 @@
                 },
                 "statement": {
                     "type": "string"
+                },
+                "testCount": {
+                    "type": "integer"
                 },
                 "timeLimitMs": {
                     "type": "integer"
@@ -1596,6 +4091,9 @@
                 },
                 "statement": {
                     "type": "string"
+                },
+                "testCount": {
+                    "type": "integer"
                 },
                 "tests": {
                     "type": "array",
@@ -1651,6 +4149,35 @@
                 },
                 "output": {
                     "type": "string"
+                }
+            }
+        },
+        "problem.TestCaseMetadata": {
+            "type": "object",
+            "properties": {
+                "expectedSha": {
+                    "type": "string"
+                },
+                "expectedSize": {
+                    "type": "integer"
+                },
+                "expectedSnippet": {
+                    "type": "string"
+                },
+                "inputSha": {
+                    "type": "string"
+                },
+                "inputSize": {
+                    "type": "integer"
+                },
+                "inputSnippet": {
+                    "type": "string"
+                },
+                "ordinal": {
+                    "type": "integer"
+                },
+                "points": {
+                    "type": "integer"
                 }
             }
         },
@@ -1710,7 +4237,7 @@
                 "WA",
                 "TLE",
                 "MLE",
-                "RE",
+                "RTE",
                 "CE",
                 "OLE",
                 "IE",
@@ -1722,7 +4249,7 @@
                 "VerdictIE": "Internal Sandbox Error",
                 "VerdictMLE": "Memory Limit Exceeded",
                 "VerdictOLE": "Output Limit Exceeded",
-                "VerdictRE": "Runtime Error / Non-zero Exit",
+                "VerdictRTE": "Runtime Error / Non-zero Exit",
                 "VerdictSK": "Skipped (budget exhausted)",
                 "VerdictTLE": "Time Limit Exceeded",
                 "VerdictWA": "Wrong Answer"
@@ -1743,32 +4270,115 @@
                 "VerdictWA",
                 "VerdictTLE",
                 "VerdictMLE",
-                "VerdictRE",
+                "VerdictRTE",
                 "VerdictCE",
                 "VerdictOLE",
                 "VerdictIE",
                 "VerdictSK"
             ]
         },
-        "team.Team": {
+        "telemetry.ClientType": {
+            "type": "string",
+            "enum": [
+                "DESKTOP",
+                "WEB",
+                "NONE"
+            ],
+            "x-enum-varnames": [
+                "ClientTypeDesktop",
+                "ClientTypeWeb",
+                "ClientTypeNone"
+            ]
+        },
+        "telemetry.Heartbeat": {
             "type": "object",
             "properties": {
-                "createdAt": {
+                "active_window": {
                     "type": "string"
                 },
-                "id": {
+                "agent_version": {
                     "type": "string"
                 },
-                "members": {
+                "client_type": {
+                    "$ref": "#/definitions/telemetry.ClientType"
+                },
+                "display_name": {
+                    "type": "string"
+                },
+                "enrolled": {
+                    "type": "boolean"
+                },
+                "gap_started_at": {
+                    "type": "string"
+                },
+                "in_gap": {
+                    "type": "boolean"
+                },
+                "internet_reachable": {
+                    "type": "boolean"
+                },
+                "ip_address": {
+                    "type": "string"
+                },
+                "last_ping_at": {
+                    "type": "string"
+                },
+                "offline_seconds": {
+                    "type": "integer"
+                },
+                "os_info": {
+                    "type": "string"
+                },
+                "process_matches": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/user.User"
+                        "type": "string"
                     }
                 },
-                "name": {
+                "proctor_exempt": {
+                    "type": "boolean"
+                },
+                "risk_score": {
+                    "type": "integer"
+                },
+                "severity": {
+                    "type": "string"
+                },
+                "shell_alive": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "$ref": "#/definitions/telemetry.Status"
+                },
+                "stopped_reason": {
+                    "type": "string"
+                },
+                "team_id": {
+                    "type": "string"
+                },
+                "team_name": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }
+        },
+        "telemetry.Status": {
+            "type": "string",
+            "enum": [
+                "ONLINE",
+                "STALE",
+                "OFFLINE"
+            ],
+            "x-enum-varnames": [
+                "StatusOnline",
+                "StatusStale",
+                "StatusOffline"
+            ]
         },
         "user.User": {
             "type": "object",
@@ -1782,10 +4392,28 @@
                 "id": {
                     "type": "string"
                 },
+                "isSuspended": {
+                    "type": "boolean"
+                },
                 "lastLoginAt": {
                     "type": "string"
                 },
+                "proctorAccessReason": {
+                    "type": "string"
+                },
+                "proctorAllowWebOnly": {
+                    "type": "boolean"
+                },
+                "proctorExempt": {
+                    "type": "boolean"
+                },
                 "role": {
+                    "type": "string"
+                },
+                "suspendedAt": {
+                    "type": "string"
+                },
+                "suspendedReason": {
                     "type": "string"
                 },
                 "teamId": {
