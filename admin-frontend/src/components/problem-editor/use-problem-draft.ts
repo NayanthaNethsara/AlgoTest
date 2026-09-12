@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import type { Difficulty, Sample, TestCaseInput } from "@/types/problem";
+import { useState, useEffect, useRef } from "react";
+import type { Difficulty, Sample } from "@/types/problem";
 
 export const DRAFT_STORAGE_KEY = "mini_algothon_new_problem_draft";
 
@@ -13,7 +13,6 @@ export interface ProblemDraftState {
   statement: string;
   constraints?: string;
   samples: Sample[];
-  tests: TestCaseInput[];
   published: boolean;
 }
 
@@ -30,15 +29,42 @@ export function useProblemDraft(
       Boolean(localStorage.getItem(DRAFT_STORAGE_KEY))
   );
 
-  // Auto-save draft on every change when creating a new problem
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-save problem metadata draft with debouncing
   useEffect(() => {
     if (isEditing || typeof window === "undefined") return;
 
-    try {
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(currentState));
-    } catch {
-      // Storage quota exceeded or private mode
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
+
+    debounceTimerRef.current = setTimeout(() => {
+      try {
+        // Exclude heavy data - only store statement, samples, and metadata
+        const safePayload: ProblemDraftState = {
+          slug: currentState.slug,
+          title: currentState.title,
+          difficulty: currentState.difficulty,
+          maxScore: currentState.maxScore,
+          timeLimitMs: currentState.timeLimitMs,
+          memoryLimitMb: currentState.memoryLimitMb,
+          statement: currentState.statement,
+          constraints: currentState.constraints,
+          samples: currentState.samples,
+          published: currentState.published,
+        };
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(safePayload));
+      } catch {
+        // Storage quota exceeded or private mode
+      }
+    }, 500);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [isEditing, currentState]);
 
   function restoreDraft() {

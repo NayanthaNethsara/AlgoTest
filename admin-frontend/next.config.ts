@@ -23,7 +23,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https: http:",
       "font-src 'self' data:",
-      "connect-src 'self'",
+      "connect-src 'self' https: http://127.0.0.1:* http://localhost:*",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: {
-      bodySizeLimit: "100mb",
+      bodySizeLimit: "32mb",
     },
   },
   async headers() {

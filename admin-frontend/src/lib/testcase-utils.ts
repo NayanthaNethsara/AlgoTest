@@ -68,10 +68,30 @@ export function parseBulkTestCases(
   };
 }
 
+export interface PairedTestFiles {
+  baseName: string;
+  inputFile: File;
+  expectedFile: File;
+  totalSize: number;
+}
+
+export function formatByteSize(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${bytes} B`;
+}
+
 /**
  * Summary calculations for points and distribution.
  */
-export function calculateScoringSummary(tests: TestCaseInput[], maxScore: number) {
+export function calculateScoringSummary(
+  tests: { points?: number }[],
+  maxScore: number
+) {
   const customPointsSum = tests.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
   const hasCustomPoints = tests.some((t) => Number(t.points) > 0);
   const autoPointPerTest = tests.length > 0 ? Math.floor(maxScore / tests.length) : 0;
@@ -85,14 +105,13 @@ export function calculateScoringSummary(tests: TestCaseInput[], maxScore: number
 }
 
 /**
- * Matches and reads input/output file pairs (e.g. t1in.txt & t1out.txt, 1.in & 1.out).
+ * Matches input/output file pairs without loading full contents into memory.
  */
-export async function parseFilePairs(
-  files: File[],
-  existingCount: number = 0
-): Promise<{ testCases: TestCaseInput[]; unmatched: string[]; error?: string }> {
+export function matchTestFilePairs(
+  files: File[]
+): { pairs: PairedTestFiles[]; unmatched: string[] } {
   if (files.length === 0) {
-    return { testCases: [], unmatched: [] };
+    return { pairs: [], unmatched: [] };
   }
 
   const groups = new Map<string, { key: string; input?: File; expected?: File; sortKey: number }>();
@@ -142,20 +161,17 @@ export async function parseFilePairs(
   const sortedGroups = Array.from(groups.values()).sort(
     (a, b) => a.sortKey - b.sortKey || a.key.localeCompare(b.key)
   );
-  const testCases: TestCaseInput[] = [];
+
+  const pairs: PairedTestFiles[] = [];
   const unmatched: string[] = [];
 
   for (const group of sortedGroups) {
     if (group.input && group.expected) {
-      const [inputText, expectedText] = await Promise.all([
-        group.input.text(),
-        group.expected.text(),
-      ]);
-      testCases.push({
-        ordinal: existingCount + testCases.length + 1,
-        input: inputText,
-        expected: expectedText,
-        points: 0,
+      pairs.push({
+        baseName: group.key,
+        inputFile: group.input,
+        expectedFile: group.expected,
+        totalSize: group.input.size + group.expected.size,
       });
     } else {
       if (group.input) unmatched.push(group.input.name);
@@ -163,7 +179,7 @@ export async function parseFilePairs(
     }
   }
 
-  return { testCases, unmatched };
+  return { pairs, unmatched };
 }
 
 /**

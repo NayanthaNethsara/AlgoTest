@@ -6,7 +6,12 @@ import {
   replaceTestsSchema,
   type ValidatedProblemInput,
 } from "@/lib/validation/problem";
-import type { ProblemDetail, ProblemInput, TestCaseInput } from "@/types/problem";
+import type {
+  ProblemDetail,
+  ProblemInput,
+  TestCaseInput,
+  TestCaseMetadata,
+} from "@/types/problem";
 
 function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -160,7 +165,7 @@ export async function deleteProblemAction(id: string): Promise<void> {
   }
 }
 
-export async function getProblemTestsAction(id: string): Promise<TestCaseInput[]> {
+export async function getProblemTestsAction(id: string): Promise<TestCaseMetadata[]> {
   try {
     const res = await backendFetch(`/api/v1/admin/problems/${id}/tests`);
     if (!res.ok) {

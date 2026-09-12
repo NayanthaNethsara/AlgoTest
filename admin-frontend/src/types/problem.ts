@@ -16,6 +16,17 @@ export type TestMetadata = {
   points: number;
 };
 
+export type TestCaseMetadata = {
+  ordinal: number;
+  inputSize: number;
+  expectedSize: number;
+  inputSha: string;
+  expectedSha: string;
+  inputSnippet: string;
+  expectedSnippet: string;
+  points: number;
+};
+
 export type Problem = {
   id: string;
   slug: string;
@@ -32,6 +43,7 @@ export type Problem = {
   updatedAt?: string;
   samples: Sample[];
   tests?: TestMetadata[];
+  testCount?: number;
 };
 
 export type ProblemDetail = Problem;

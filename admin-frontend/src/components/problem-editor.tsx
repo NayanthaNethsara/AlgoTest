@@ -18,13 +18,13 @@ import type {
   ProblemDetail,
   ProblemInput,
   Sample,
-  TestCaseInput,
+  TestCaseMetadata,
 } from "@/types/problem";
 import { STARTER_PROBLEM_TEMPLATE } from "@/lib/templates";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MIN_EVALUATION_TEST_CASES, findMatchingSample } from "@/lib/testcase-utils";
+import { MIN_EVALUATION_TEST_CASES } from "@/lib/testcase-utils";
 import { useProblemDraft } from "./problem-editor/use-problem-draft";
 import { ProblemMetadataCard } from "./problem-editor/problem-metadata-card";
 import { StatementTab } from "./problem-editor/statement-tab";
@@ -33,7 +33,7 @@ import { TestCasesTab } from "./problem-editor/test-cases-tab";
 
 type ProblemEditorProps = {
   initialData?: ProblemDetail | null;
-  initialTests?: TestCaseInput[];
+  initialTests?: TestCaseMetadata[];
   onSave: (input: ProblemInput) => Promise<void>;
   pending: boolean;
 };
@@ -71,7 +71,7 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
     initialData?.samples ?? STARTER_PROBLEM_TEMPLATE.samples
   );
 
-  const [tests, setTests] = useState<TestCaseInput[]>(() => initialTests ?? []);
+  const [tests, setTests] = useState<TestCaseMetadata[]>(() => initialTests ?? []);
   const [lastInitialTests, setLastInitialTests] = useState(initialTests);
 
   if (initialTests !== lastInitialTests) {
@@ -86,7 +86,7 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
   );
   const [error, setError] = useState<string | null>(null);
 
-  // Draft Recovery Hook
+  // Draft Recovery Hook (saves metadata without heavy test data)
   const { hasSavedDraft, draftRestored, restoreDraft, discardDraft, clearDraftOnSuccess } =
     useProblemDraft(
       isEditing,
@@ -100,7 +100,6 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
         statement,
         constraints,
         samples,
-        tests,
         published,
       },
       (draft) => {
@@ -113,7 +112,6 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
         if (draft.statement) setStatement(draft.statement);
         if (draft.constraints) setConstraints(draft.constraints);
         if (draft.samples) setSamples(draft.samples);
-        if (draft.tests) setTests(draft.tests);
         if (draft.published !== undefined) setPublished(draft.published);
       }
     );
@@ -150,27 +148,6 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
     setSamples((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   }
 
-  // Test case handlers
-  function handleAddTest() {
-    setTests((prev) => [...prev, { ordinal: prev.length + 1, input: "", expected: "", points: 0 }]);
-  }
-
-  function handleRemoveTest(index: number) {
-    setTests((prev) =>
-      prev.filter((_, i) => i !== index).map((t, idx) => ({ ...t, ordinal: idx + 1 }))
-    );
-  }
-
-  function handleTestChange(index: number, field: keyof TestCaseInput, value: string | number) {
-    setTests((prev) => prev.map((t, i) => (i === index ? { ...t, [field]: value } : t)));
-  }
-
-  function handleBulkAddTests(newTests: TestCaseInput[]) {
-    setTests((prev) => [...prev, ...newTests]);
-  }
-
-  const duplicateTestsCount = tests.filter((t) => Boolean(findMatchingSample(t, samples))).length;
-
   async function handleSaveInternal(shouldPublish?: boolean) {
     setError(null);
 
@@ -195,22 +172,6 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
       return;
     }
 
-    const duplicateTest = tests.find((t) => findMatchingSample(t, samples));
-    if (duplicateTest) {
-      const matched = findMatchingSample(duplicateTest, samples)!;
-      setError(
-        `Evaluation test case #${duplicateTest.ordinal} is identical to public Sample #${matched.ordinal}. Evaluation test cases must be distinct from public statement samples.`
-      );
-      setActiveWorkspaceTab("tests");
-      return;
-    }
-
-    if (tests.some((t) => !t.input.trim() || !t.expected.trim())) {
-      setError("All evaluation test cases must have non-empty Standard Input and Expected Output.");
-      setActiveWorkspaceTab("tests");
-      return;
-    }
-
     setPublished(finalPublished);
 
     try {
@@ -229,12 +190,6 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
           input: s.input,
           output: s.output,
           explanation: s.explanation || undefined,
-        })),
-        tests: tests.map((t, idx) => ({
-          ordinal: idx + 1,
-          input: t.input,
-          expected: t.expected,
-          points: Number(t.points) || 0,
         })),
       });
       clearDraftOnSuccess();
@@ -407,11 +362,7 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
                 <TabsTrigger value="tests" className="text-xs gap-1.5 h-8">
                   <Cpu className="h-3.5 w-3.5" /> Judging Test Cases
                   <Badge
-                    variant={
-                      tests.length >= MIN_EVALUATION_TEST_CASES && duplicateTestsCount === 0
-                        ? "default"
-                        : "destructive"
-                    }
+                    variant={tests.length >= MIN_EVALUATION_TEST_CASES ? "default" : "destructive"}
                     className="text-[10px] ml-1 px-1.5 py-0"
                   >
                     {tests.length}/{MIN_EVALUATION_TEST_CASES}
@@ -442,13 +393,12 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
               {/* TAB 3: Judging Test Cases */}
               <TabsContent value="tests" className="mt-4">
                 <TestCasesTab
+                  problemId={initialData?.id}
+                  problemSlug={slug}
                   tests={tests}
-                  samples={samples}
-                  maxScore={maxScore}
-                  onAddTest={handleAddTest}
-                  onRemoveTest={handleRemoveTest}
-                  onTestChange={handleTestChange}
-                  onBulkAddTests={handleBulkAddTests}
+                  maxScore={Number(maxScore) || 100}
+                  onTestsUpdated={setTests}
+                  onSaveDraftFirst={() => handleSaveInternal(false)}
                 />
               </TabsContent>
             </Tabs>

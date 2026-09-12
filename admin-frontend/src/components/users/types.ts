@@ -2,7 +2,7 @@ import type { User } from "@/types/user";
 
 export type Credential = { username: string; password: string; teamName?: string };
 
-export type AccessGrant = { webWithAgent: boolean; webOnly: boolean };
+export type AccessGrant = { webOnly: boolean };
 
 export const FALLBACKS: {
   key: keyof AccessGrant;
@@ -24,7 +24,6 @@ export const FALLBACKS: {
 
 export function grantOf(user: User): AccessGrant {
   return {
-    webWithAgent: true,
     webOnly: user.proctorAllowWebOnly ?? false,
   };
 }

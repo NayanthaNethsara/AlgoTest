@@ -137,44 +137,29 @@ visibility:
 | --- | --- | --- |
 | Desktop client, proctor running | contest opened inside the desktop app | **allowed** |
 | Browser, proctor running | desktop app installed and reporting, contest open in Chrome/Safari | needs a grant |
-| Browser, no proctor at all | nothing installed | needs a grant |
+| Browser, no proctor at all | nothing installed | needs a web-only grant |
 
-Test runs (`Run`) always work in every mode. Only **scored submissions** are gated. A contestant in a
-window they may not submit from gets a **full-screen notice** naming the mode they are in and the
-modes they hold (dismissible to the editor, since test runs still work), and any submission returns
-`423` with `code: "CLIENT_NOT_ALLOWED"`.
+Test runs (`Run`) always work in every mode. Only **scored submissions** are gated. Contestants running the proctor agent can submit from both the desktop client and a browser. If an enrolled agent is missing or stopped, submissions return `423 Locked` naming the remediation needed.
 
-**Grant one competitor** — Admin console → Users → *Submission Access*, two independent checkboxes.
-Either, both, or neither; the desktop client is always allowed. A reason is required and is recorded
-against every submission they make; the grant applies from their next attempt, with no restart:
+**Grant one competitor browser-only fallback** — Admin console → Users → *Submission Access*. A reason is required and is recorded against every submission they make; the grant applies from their next attempt, with no restart:
 
 ```sh
 curl -X PATCH http://localhost:8080/api/v1/admin/users/<user-id>/access \
   -H 'Content-Type: application/json' -H 'Authorization: Bearer <admin-session>' \
-  -d '{"webWithAgent":true,"webOnly":false,
-       "reason":"desktop shell will not open on this machine","hoursValid":0}'
+  -d '{"webOnly":true,
+       "reason":"machine cannot run proctor agent (locked Chromebook)","hoursValid":0}'
 ```
 
-The call carries the **whole grant**, not a delta, so two organizers on the same contestant cannot
-interleave into a combination neither chose. Send both flags `false` to revoke (no reason needed).
 `hoursValid: 0` keeps the grant for the rest of the contest.
 
-> **One combination to avoid:** `webOnly` **without** `webWithAgent` lets that contestant submit only
-> while the proctor client is *stopped* — you have made stopping proctoring the way to unlock
-> submissions. It is enforced as configured (occasionally that is what you want), so the API returns a
-> `warning`, the console asks you to confirm, and the monitoring row flags it. Tick both unless you
-> specifically mean it.
-
-**Open a fallback for everyone** — the right lever when the desktop client itself is the problem,
-rather than granting the same accommodation 300 times. Takes effect within 30 seconds:
+**Open a fallback for everyone** — the right lever when the desktop client itself is the problem, rather than granting the same accommodation 300 times. Takes effect within 30 seconds:
 
 ```sh
 docker compose exec postgres psql -U algothon -d algothon -c \
-  "UPDATE contest_settings SET value = 'true' WHERE key = 'access.allow_web_with_agent';"
+  "UPDATE contest_settings SET value = 'true' WHERE key = 'access.allow_web_only';"
 ```
 
-The other key is `access.allow_web_only`. Contestants get the **union** of the contest-wide switches
-and their personal grant, so opening one for everyone never narrows someone who already holds a grant.
+Contestants get the **union** of the contest-wide switches and their personal grant.
 
 > A **proctor exemption** is a different control: it switches proctoring off entirely for one person
 > for a few hours (break-glass). If you only need someone to work in a browser, grant access instead —

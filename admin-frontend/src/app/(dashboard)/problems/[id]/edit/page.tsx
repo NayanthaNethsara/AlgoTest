@@ -8,14 +8,14 @@ import {
   updateProblemAction,
 } from "@/lib/actions/problems";
 import { ProblemEditor } from "@/components/problem-editor";
-import type { ProblemDetail, ProblemInput, TestCaseInput } from "@/types/problem";
+import type { ProblemDetail, ProblemInput, TestCaseMetadata } from "@/types/problem";
 
 export default function EditProblemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
 
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
-  const [tests, setTests] = useState<TestCaseInput[]>([]);
+  const [tests, setTests] = useState<TestCaseMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);

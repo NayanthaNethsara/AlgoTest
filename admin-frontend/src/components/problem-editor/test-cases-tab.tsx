@@ -1,203 +1,339 @@
+"use client";
+
 import { useState, useRef } from "react";
 import {
   Cpu,
   Plus,
-  Trash2,
-  Upload,
-  FileUp,
   AlertCircle,
   CheckCircle2,
-  HelpCircle,
-  FileText,
-  ChevronDown,
-  ChevronRight,
-  ChevronsUpDown,
-  Maximize2,
   HardDrive,
+  Archive,
+  FolderUp,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import type { Sample, TestCaseInput } from "@/types/problem";
+import type { TestCaseMetadata } from "@/types/problem";
 import {
   MIN_EVALUATION_TEST_CASES,
-  findMatchingSample,
-  parseBulkTestCases,
-  parseFilePairs,
   calculateScoringSummary,
-  getTextStats,
-  getTextSnippet,
+  matchTestFilePairs,
 } from "@/lib/testcase-utils";
+import {
+  deleteSingleTestCase,
+  updateTestPoints,
+  fetchTestCaseContent,
+  downloadTestCaseFile,
+  downloadTestCasesZip,
+  uploadSingleTestCase,
+} from "@/lib/api/test-uploader";
+import { TestCaseItem } from "./test-cases/test-case-item";
+import { SingleTestDialog } from "./test-cases/single-test-dialog";
+import { BatchUploadDialog } from "./test-cases/batch-upload-dialog";
+import { TestContentInspectorDialog } from "./test-cases/test-content-inspector-dialog";
+import { ScoringSummaryBar } from "./test-cases/scoring-summary-bar";
+import type { BatchQueueItem, InspectModalState } from "./test-cases/types";
 
 interface TestCasesTabProps {
-  tests: TestCaseInput[];
-  samples: Sample[];
+  problemId?: string;
+  problemSlug?: string;
+  tests: TestCaseMetadata[];
   maxScore: number;
-  onAddTest: () => void;
-  onRemoveTest: (index: number) => void;
-  onTestChange: (index: number, field: keyof TestCaseInput, value: string | number) => void;
-  onBulkAddTests: (newTests: TestCaseInput[]) => void;
+  onTestsUpdated: (updatedTests: TestCaseMetadata[]) => void;
+  onSaveDraftFirst?: () => void;
 }
 
 export function TestCasesTab({
+  problemId,
+  problemSlug = "problem",
   tests,
-  samples,
   maxScore,
-  onAddTest,
-  onRemoveTest,
-  onTestChange,
-  onBulkAddTests,
+  onTestsUpdated,
+  onSaveDraftFirst,
 }: TestCasesTabProps) {
-  const [showBulkImport, setShowBulkImport] = useState(false);
-  const [bulkImportText, setBulkImportText] = useState("");
-  const [bulkImportError, setBulkImportError] = useState<string | null>(null);
-  const [fileImportNotice, setFileImportNotice] = useState<string | null>(null);
-  const [collapsedIndices, setCollapsedIndices] = useState<Record<number, boolean>>({});
+  const isNewProblem = !problemId;
 
-  // Fullscreen inspector modal state for massive testcases
-  const [inspectModal, setInspectModal] = useState<{
-    open: boolean;
-    caseIndex: number;
-    field: "input" | "expected";
-    title: string;
-    value: string;
-  }>({
+  // Single test modal state
+  const [singleModalOpen, setSingleModalOpen] = useState(false);
+  const [editTest, setEditTest] = useState<TestCaseMetadata | null>(null);
+
+  // Inspector modal state for on-demand inspection
+  const [inspectModal, setInspectModal] = useState<InspectModalState>({
     open: false,
-    caseIndex: 0,
+    ordinal: 1,
     field: "input",
     title: "",
-    value: "",
+    loading: false,
+    content: "",
+    error: null,
   });
+
+  // Batch Queue modal state
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchQueue, setBatchQueue] = useState<BatchQueueItem[]>([]);
+  const [batchIsRunning, setBatchIsRunning] = useState(false);
+  const [batchNotice, setBatchNotice] = useState<string | null>(null);
+
+  // Points inline edit state
+  const [pendingPoints, setPendingPoints] = useState<Record<number, number>>({});
+  const [savingPoints, setSavingPoints] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const batchFileInputRef = useRef<HTMLInputElement | null>(null);
   const scoring = calculateScoringSummary(tests, maxScore);
 
-  const areAllCollapsed =
-    tests.length > 0 && tests.every((_, idx) => collapsedIndices[idx] === true);
-
-  function toggleCollapse(idx: number) {
-    setCollapsedIndices((prev) => ({
-      ...prev,
-      [idx]: !prev[idx],
-    }));
+  function openAddSingleModal() {
+    setEditTest(null);
+    setSingleModalOpen(true);
   }
 
-  function handleToggleAllCollapse() {
-    if (areAllCollapsed) {
-      setCollapsedIndices({});
+  function openReplaceModal(test: TestCaseMetadata) {
+    setEditTest(test);
+    setSingleModalOpen(true);
+  }
+
+  function handleSingleSuccess(savedTest: TestCaseMetadata, isEdit: boolean) {
+    if (isEdit) {
+      onTestsUpdated(tests.map((t) => (t.ordinal === savedTest.ordinal ? savedTest : t)));
+      setActionSuccess(`Updated test case #${savedTest.ordinal} successfully.`);
     } else {
-      const next: Record<number, boolean> = {};
-      tests.forEach((_, idx) => {
-        next[idx] = true;
-      });
-      setCollapsedIndices(next);
+      onTestsUpdated([...tests, savedTest]);
+      setActionSuccess(`Test case #${savedTest.ordinal} added successfully.`);
     }
   }
 
-  function handleApplyBulkImport() {
-    setBulkImportError(null);
-    const { testCases, error } = parseBulkTestCases(bulkImportText, tests.length);
-    if (error) {
-      setBulkImportError(error);
+  async function handleDeleteTest(ordinal: number) {
+    if (!problemId) return;
+    if (!confirm(`Are you sure you want to permanently delete test case #${ordinal}?`)) {
       return;
     }
-    if (testCases.length > 0) {
-      onBulkAddTests(testCases);
-      setBulkImportText("");
-      setShowBulkImport(false);
-      // Auto-collapse imported large test cases if there are many
-      if (testCases.length > 3) {
-        const next = { ...collapsedIndices };
-        testCases.forEach((_, i) => {
-          next[tests.length + i] = true;
-        });
-        setCollapsedIndices(next);
-      }
+
+    setActionError(null);
+    try {
+      await deleteSingleTestCase(problemId, ordinal);
+      const remaining = tests
+        .filter((t) => t.ordinal !== ordinal)
+        .map((t) => (t.ordinal > ordinal ? { ...t, ordinal: t.ordinal - 1 } : t));
+      onTestsUpdated(remaining);
+      setActionSuccess(`Deleted test case #${ordinal}. Remaining tests re-sequenced.`);
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete test case.");
     }
   }
 
-  async function handleBatchFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    setFileImportNotice(null);
+  async function handleInspect(ordinal: number, field: "input" | "expected") {
+    if (!problemId) return;
+    setInspectModal({
+      open: true,
+      ordinal,
+      field,
+      title: `Case #${ordinal} ${field === "input" ? "Standard Input (stdin)" : "Expected Output (stdout)"}`,
+      loading: true,
+      content: "",
+      error: null,
+    });
+
+    try {
+      const text = await fetchTestCaseContent(problemId, ordinal, field);
+      setInspectModal((prev) => ({
+        ...prev,
+        loading: false,
+        content: text,
+      }));
+    } catch (err: unknown) {
+      setInspectModal((prev) => ({
+        ...prev,
+        loading: false,
+        error: err instanceof Error ? err.message : "Failed to load content",
+      }));
+    }
+  }
+
+  function handleBatchFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    try {
-      const { testCases, unmatched } = await parseFilePairs(files, tests.length);
-      if (testCases.length > 0) {
-        onBulkAddTests(testCases);
-        let notice = `Imported ${testCases.length} test case pair(s) from files.`;
-        if (unmatched.length > 0) {
-          notice += ` ${unmatched.length} file(s) had no matching pair: ${unmatched.join(", ")}`;
-        }
-        setFileImportNotice(notice);
+    const { pairs, unmatched } = matchTestFilePairs(files);
+    if (pairs.length === 0) {
+      setBatchNotice(
+        "Could not detect matching input/output pairs. Ensure pairs share a base name e.g. 01.in & 01.out or t1in.txt & t1out.txt."
+      );
+      setBatchModalOpen(true);
+      return;
+    }
 
-        // Auto-collapse imported test cases to keep UI clean and manageable
-        const next = { ...collapsedIndices };
-        testCases.forEach((_, i) => {
-          next[tests.length + i] = true;
-        });
-        setCollapsedIndices(next);
-      } else {
-        setFileImportNotice(
-          "Could not match input/output pairs. Ensure files are named e.g. t1in.txt & t1out.txt or 1.in & 1.out."
+    const newQueue: BatchQueueItem[] = pairs.map((p, idx) => ({
+      id: `${p.baseName}_${idx}`,
+      baseName: p.baseName,
+      inputFile: p.inputFile,
+      expectedFile: p.expectedFile,
+      totalSize: p.totalSize,
+      points: 0,
+      status: "queued",
+      progress: 0,
+    }));
+
+    let notice = `Found ${pairs.length} test case pair(s) ready to upload part-by-part.`;
+    if (unmatched.length > 0) {
+      notice += ` Note: ${unmatched.length} file(s) had no match: ${unmatched.slice(0, 5).join(", ")}`;
+    }
+    setBatchNotice(notice);
+    setBatchQueue(newQueue);
+    setBatchModalOpen(true);
+
+    if (batchFileInputRef.current) {
+      batchFileInputRef.current.value = "";
+    }
+  }
+
+  async function runBatchUploadQueue() {
+    if (!problemId || batchIsRunning) return;
+    setBatchIsRunning(true);
+
+    let currentTests = [...tests];
+
+    for (let i = 0; i < batchQueue.length; i++) {
+      const item = batchQueue[i];
+      if (item.status === "success") continue;
+
+      setBatchQueue((prev) =>
+        prev.map((q, idx) =>
+          idx === i ? { ...q, status: "uploading", progress: 0, error: undefined } : q
+        )
+      );
+
+      try {
+        const created = await uploadSingleTestCase(
+          problemId,
+          {
+            input: item.inputFile,
+            inputFileName: item.inputFile.name,
+            expected: item.expectedFile,
+            expectedFileName: item.expectedFile.name,
+            points: item.points,
+          },
+          (pct) => {
+            setBatchQueue((prev) =>
+              prev.map((q, idx) => (idx === i ? { ...q, progress: pct } : q))
+            );
+          }
+        );
+
+        currentTests = [...currentTests, created];
+        onTestsUpdated(currentTests);
+
+        setBatchQueue((prev) =>
+          prev.map((q, idx) =>
+            idx === i ? { ...q, status: "success", progress: 100 } : q
+          )
+        );
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Upload error";
+        setBatchQueue((prev) =>
+          prev.map((q, idx) =>
+            idx === i ? { ...q, status: "error", error: msg } : q
+          )
         );
       }
-    } catch {
-      setFileImportNotice("Failed to read files. Please try again.");
-    } finally {
-      if (batchFileInputRef.current) {
-        batchFileInputRef.current.value = "";
-      }
     }
+
+    setBatchIsRunning(false);
   }
 
-  async function handleSingleFileUpload(
-    idx: number,
-    field: "input" | "expected",
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleRetryBatchItem(index: number) {
+    if (!problemId) return;
+    const item = batchQueue[index];
+    if (!item) return;
+
+    setBatchQueue((prev) =>
+      prev.map((q, idx) =>
+        idx === index ? { ...q, status: "uploading", progress: 0, error: undefined } : q
+      )
+    );
+
     try {
-      const content = await file.text();
-      onTestChange(idx, field, content);
-    } catch {
-      // Ignore read errors
-    } finally {
-      e.target.value = "";
+      const created = await uploadSingleTestCase(
+        problemId,
+        {
+          input: item.inputFile,
+          inputFileName: item.inputFile.name,
+          expected: item.expectedFile,
+          expectedFileName: item.expectedFile.name,
+          points: item.points,
+        },
+        (pct) => {
+          setBatchQueue((prev) =>
+            prev.map((q, idx) => (idx === index ? { ...q, progress: pct } : q))
+          );
+        }
+      );
+
+      onTestsUpdated([...tests, created]);
+
+      setBatchQueue((prev) =>
+        prev.map((q, idx) =>
+          idx === index ? { ...q, status: "success", progress: 100 } : q
+        )
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Upload error";
+      setBatchQueue((prev) =>
+        prev.map((q, idx) =>
+          idx === index ? { ...q, status: "error", error: msg } : q
+        )
+      );
     }
   }
 
-  function openInspector(idx: number, field: "input" | "expected") {
-    const t = tests[idx];
-    if (!t) return;
-    const isInput = field === "input";
-    setInspectModal({
-      open: true,
-      caseIndex: idx,
-      field,
-      title: `Case #${idx + 1} ${isInput ? "Standard Input (stdin)" : "Expected Output (stdout)"}`,
-      value: isInput ? t.input : t.expected,
-    });
+  function handlePointChange(ordinal: number, pts: number) {
+    setPendingPoints((prev) => ({
+      ...prev,
+      [ordinal]: pts,
+    }));
   }
 
-  function handleSaveInspector() {
-    onTestChange(inspectModal.caseIndex, inspectModal.field, inspectModal.value);
-    setInspectModal((prev) => ({ ...prev, open: false }));
+  async function handleSavePoints() {
+    if (!problemId) return;
+    setActionError(null);
+    setSavingPoints(true);
+
+    const mergedPoints: Record<number, number> = {};
+    tests.forEach((t) => {
+      mergedPoints[t.ordinal] =
+        pendingPoints[t.ordinal] !== undefined ? pendingPoints[t.ordinal] : t.points;
+    });
+
+    const sum = Object.values(mergedPoints).reduce((a, b) => a + b, 0);
+    if (sum !== maxScore) {
+      setActionError(`Points sum (${sum}) must exactly equal problem max score (${maxScore}).`);
+      setSavingPoints(false);
+      return;
+    }
+
+    try {
+      await updateTestPoints(problemId, mergedPoints);
+      onTestsUpdated(
+        tests.map((t) => ({
+          ...t,
+          points: mergedPoints[t.ordinal] ?? t.points,
+        }))
+      );
+      setPendingPoints({});
+      setActionSuccess("Points updated successfully.");
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : "Failed to update points.");
+    } finally {
+      setSavingPoints(false);
+    }
   }
+
+  const hasPendingPointChanges = Object.keys(pendingPoints).length > 0;
 
   return (
     <Card className="p-5 flex flex-col gap-4 shadow-sm border border-border">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+      {/* Header and Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
         <div>
           <div className="flex items-center gap-2">
             <Cpu className="h-4 w-4 text-primary" />
@@ -212,23 +348,21 @@ export function TestCasesTab({
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Hidden from contestants. Used by the judge runner to score submissions.{" "}
-            <strong>Must be distinct from public statement samples.</strong>
+            Test cases are stored securely in the database and managed <strong>test-case-by-test-case</strong>. Max 20MB per file.
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {tests.length > 0 && (
+          {tests.length > 0 && !isNewProblem && (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleToggleAllCollapse}
+              onClick={() => downloadTestCasesZip(problemId, problemSlug)}
               className="h-8 text-xs gap-1.5"
-              title="Expand or collapse all test case cards"
+              title="Download all test cases as a ZIP archive"
             >
-              <ChevronsUpDown className="h-3.5 w-3.5" />
-              <span>{areAllCollapsed ? "Expand All" : "Collapse All"}</span>
+              <Archive className="h-3.5 w-3.5" /> Export All (.zip)
             </Button>
           )}
 
@@ -237,7 +371,7 @@ export function TestCasesTab({
             ref={batchFileInputRef}
             multiple
             accept=".txt,.in,.out,.ans,.dat"
-            onChange={handleBatchFileUpload}
+            onChange={handleBatchFilesSelected}
             className="hidden"
           />
 
@@ -245,382 +379,183 @@ export function TestCasesTab({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => batchFileInputRef.current?.click()}
+            onClick={() => {
+              if (isNewProblem) {
+                onSaveDraftFirst?.();
+                return;
+              }
+              batchFileInputRef.current?.click();
+            }}
             className="h-8 text-xs gap-1.5"
-            title="Select matching .in / .out or .txt files (e.g. t1in.txt & t1out.txt)"
+            title="Select matching .in / .out file pairs to upload part-by-part"
           >
-            <FileUp className="h-3.5 w-3.5" /> Batch Upload Files
+            <FolderUp className="h-3.5 w-3.5" /> Upload Part-by-Part (Batch)
           </Button>
 
           <Button
             type="button"
-            variant="outline"
             size="sm"
-            onClick={() => setShowBulkImport(!showBulkImport)}
+            onClick={() => {
+              if (isNewProblem) {
+                onSaveDraftFirst?.();
+                return;
+              }
+              openAddSingleModal();
+            }}
             className="h-8 text-xs gap-1.5"
           >
-            <Upload className="h-3.5 w-3.5" /> Bulk JSON Import
-          </Button>
-
-          <Button type="button" size="sm" onClick={onAddTest} className="h-8 text-xs gap-1.5">
             <Plus className="h-3.5 w-3.5" /> Add Test Case
           </Button>
         </div>
       </div>
 
-      {fileImportNotice && (
-        <div className="rounded-md border border-primary/30 bg-primary/10 px-3.5 py-2 flex items-center justify-between gap-2 text-xs">
-          <span className="text-primary font-medium">{fileImportNotice}</span>
+      {/* New problem draft warning banner */}
+      {isNewProblem && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 p-3.5 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-warning">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>
+              Save the problem as a draft first to enable granular test case uploads, file attachments, and batch queue imports.
+            </span>
+          </div>
+          {onSaveDraftFirst && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onSaveDraftFirst}
+              className="h-7 text-xs border-warning/40 text-warning hover:bg-warning/15"
+            >
+              Save Draft Now
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Action feedback banners */}
+      {actionError && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs font-medium text-destructive flex items-center justify-between">
+          <span>{actionError}</span>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setFileImportNotice(null)}
-            className="h-6 px-2 text-xs"
+            onClick={() => setActionError(null)}
+            className="h-6 px-2 text-[11px]"
           >
             Dismiss
           </Button>
         </div>
       )}
 
-      {/* Requirements and Scoring Banner */}
-      <div className="rounded-md border bg-muted/20 px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-2">
-          {scoring.hasMinimumCases ? (
-            <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-          ) : (
-            <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-          )}
-          <span>
-            {!scoring.hasMinimumCases
-              ? `At least ${MIN_EVALUATION_TEST_CASES} distinct evaluation test cases are required (currently ${tests.length}).`
-              : scoring.hasCustomPoints
-                ? `Custom scoring: ${scoring.customPointsSum} / ${maxScore} points assigned across ${tests.length} cases.`
-                : `Auto-distribution: ${maxScore} max points distributed evenly (~${scoring.autoPointPerTest} pts per case).`}
-          </span>
-        </div>
-        <div className="text-[11px] text-muted-foreground font-mono">
-          Problem Max Score: {maxScore} pts
-        </div>
-      </div>
-
-      {/* Bulk import panel */}
-      {showBulkImport && (
-        <div className="rounded-lg border bg-background/60 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs font-semibold text-foreground">
-              Paste Test Cases JSON Array
-            </label>
-            <span className="text-[11px] text-muted-foreground font-mono">
-              Format: [{`{"input": "...", "expected": "...", "points": 20}`}]
-            </span>
+      {actionSuccess && (
+        <div className="rounded-md border border-success/40 bg-success/10 p-3 text-xs font-medium text-success flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>{actionSuccess}</span>
           </div>
-
-          <Textarea
-            value={bulkImportText}
-            onChange={(e) => setBulkImportText(e.target.value)}
-            rows={5}
-            placeholder={`[\n  {\n    "input": "100\\n...",\n    "expected": "4950",\n    "points": 20\n  }\n]`}
-            className="font-mono text-xs max-h-48"
-          />
-
-          {bulkImportError && (
-            <p className="text-xs text-destructive font-medium">{bulkImportError}</p>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setShowBulkImport(false);
-                setBulkImportText("");
-                setBulkImportError(null);
-              }}
-              className="h-8 text-xs"
-            >
-              Cancel
-            </Button>
-            <Button type="button" size="sm" onClick={handleApplyBulkImport} className="h-8 text-xs">
-              Apply Import
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setActionSuccess(null)}
+            className="h-6 px-2 text-[11px]"
+          >
+            Dismiss
+          </Button>
         </div>
       )}
 
-      {/* Test cases list */}
+      {/* Scoring summary and points distribution bar */}
+      <ScoringSummaryBar
+        testCount={tests.length}
+        maxScore={maxScore}
+        scoring={scoring}
+        hasPendingPointChanges={hasPendingPointChanges}
+        savingPoints={savingPoints}
+        onSavePoints={handleSavePoints}
+      />
+
+      {/* Test Cases List */}
       <div className="flex flex-col gap-3">
         {tests.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
-            <HelpCircle className="h-8 w-8 text-muted-foreground/60 mx-auto" />
-            <p className="text-xs font-medium text-foreground">No Evaluation Test Cases</p>
+          <div className="rounded-lg border border-dashed p-10 text-center space-y-2">
+            <HardDrive className="h-8 w-8 text-muted-foreground/50 mx-auto" />
+            <p className="text-xs font-semibold text-foreground">No Evaluation Test Cases Added</p>
             <p className="text-xs text-muted-foreground max-w-md mx-auto">
-              Every problem requires at least {MIN_EVALUATION_TEST_CASES} evaluation test cases to
-              be judged. Evaluation test cases must be distinct from public statement samples.
+              Add test cases individually (up to 20MB each) or upload matching file pairs part-by-part with the sequential batch queue.
             </p>
-            <div className="pt-2 flex justify-center gap-2">
-              <Button type="button" size="sm" onClick={onAddTest} className="h-8 text-xs gap-1.5">
-                <Plus className="h-3.5 w-3.5" /> Add First Test Case
-              </Button>
-            </div>
+            {!isNewProblem && (
+              <div className="pt-2 flex justify-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => batchFileInputRef.current?.click()}
+                  className="h-8 text-xs gap-1.5"
+                >
+                  <FolderUp className="h-3.5 w-3.5" /> Upload File Pairs
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={openAddSingleModal}
+                  className="h-8 text-xs gap-1.5"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add First Test Case
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
-          tests.map((t, idx) => {
-            const matchedSample = findMatchingSample(t, samples);
-            const isDuplicate = Boolean(matchedSample);
-            const isCollapsed = Boolean(collapsedIndices[idx]);
-
-            const inStats = getTextStats(t.input);
-            const outStats = getTextStats(t.expected);
+          tests.map((t) => {
+            const currentPoints =
+              pendingPoints[t.ordinal] !== undefined ? pendingPoints[t.ordinal] : t.points;
 
             return (
-              <div
-                key={idx}
-                className={`rounded-lg border transition-all ${
-                  isDuplicate
-                    ? "border-destructive/60 bg-destructive/5"
-                    : "border-border bg-muted/10 hover:border-border/80"
-                }`}
-              >
-                {/* Header Row (Click to Collapse / Expand) */}
-                <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2 select-none">
-                  <button
-                    type="button"
-                    onClick={() => toggleCollapse(idx)}
-                    className="flex items-center gap-2 sm:gap-3 text-left flex-1 min-w-0 cursor-pointer group"
-                  >
-                    {isCollapsed ? (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-                    )}
-
-                    <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                      Case #{idx + 1}
-                    </span>
-
-                    <Badge variant="outline" className="text-[10px] font-mono shrink-0">
-                      {Number(t.points) > 0 ? `${t.points} pts` : "Auto-pts"}
-                    </Badge>
-
-                    {/* Data Size / Line Badge */}
-                    <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-muted-foreground shrink-0">
-                      <HardDrive className="h-3 w-3" />
-                      <span>
-                        In: {inStats.formattedSize} ({inStats.lines}L) • Out: {outStats.formattedSize} ({outStats.lines}L)
-                      </span>
-                    </div>
-
-                    {/* Collapsed single-line preview snippet */}
-                    {isCollapsed && (
-                      <div className="hidden md:flex items-center gap-2 text-[11px] font-mono text-muted-foreground truncate max-w-md">
-                        <span className="truncate">
-                          In: &quot;{getTextSnippet(t.input, 25)}&quot;
-                        </span>
-                        <span>→</span>
-                        <span className="truncate">
-                          Out: &quot;{getTextSnippet(t.expected, 20)}&quot;
-                        </span>
-                      </div>
-                    )}
-
-                    {isDuplicate && (
-                      <Badge variant="destructive" className="text-[10px] gap-1 shrink-0">
-                        <AlertCircle className="h-3 w-3" /> Duplicate
-                      </Badge>
-                    )}
-                  </button>
-
-                  {/* Actions Row */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex items-center gap-1.5">
-                      <label className="text-[11px] text-muted-foreground whitespace-nowrap hidden sm:inline">
-                        Points:
-                      </label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={t.points || 0}
-                        onChange={(e) => onTestChange(idx, "points", Number(e.target.value))}
-                        placeholder="0"
-                        className="h-7 w-16 sm:w-20 text-xs font-mono"
-                      />
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleCollapse(idx)}
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground hidden sm:flex"
-                    >
-                      {isCollapsed ? "Expand" : "Collapse"}
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onRemoveTest(idx)}
-                      className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                      title="Delete test case"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Collapsible Content Body */}
-                {!isCollapsed && (
-                  <div className="px-3 sm:px-4 pb-4 pt-1 border-t border-border/50 space-y-3">
-                    {isDuplicate && (
-                      <div className="rounded border border-destructive/30 bg-destructive/10 px-2.5 py-1 text-[11px] font-medium text-destructive">
-                        Evaluation test cases cannot be identical to public sample test cases. Please
-                        provide a distinct test case for judging.
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Input (stdin) Box */}
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">
-                              Input (stdin) *
-                            </label>
-                            <span className="text-[10px] font-mono text-muted-foreground/80">
-                              ({inStats.lines} lines, {inStats.formattedSize})
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openInspector(idx, "input")}
-                              className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
-                              title="Open full-screen editor for large input"
-                            >
-                              <Maximize2 className="h-3 w-3" />
-                              <span>View Full</span>
-                            </button>
-
-                            <label className="cursor-pointer inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
-                              <FileText className="h-3 w-3" />
-                              <span>Upload File</span>
-                              <input
-                                type="file"
-                                accept=".txt,.in,.dat"
-                                onChange={(e) => handleSingleFileUpload(idx, "input", e)}
-                                className="hidden"
-                              />
-                            </label>
-                          </div>
-                        </div>
-
-                        <Textarea
-                          value={t.input}
-                          onChange={(e) => onTestChange(idx, "input", e.target.value)}
-                          placeholder="Input data supplied to student code..."
-                          className="font-mono text-xs leading-relaxed h-36 max-h-52 overflow-y-auto resize-y"
-                          required
-                        />
-                      </div>
-
-                      {/* Expected Output (stdout) Box */}
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">
-                              Expected Output (stdout) *
-                            </label>
-                            <span className="text-[10px] font-mono text-muted-foreground/80">
-                              ({outStats.lines} lines, {outStats.formattedSize})
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openInspector(idx, "expected")}
-                              className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 cursor-pointer"
-                              title="Open full-screen editor for large output"
-                            >
-                              <Maximize2 className="h-3 w-3" />
-                              <span>View Full</span>
-                            </button>
-
-                            <label className="cursor-pointer inline-flex items-center gap-1 text-primary hover:underline text-[11px]">
-                              <FileText className="h-3 w-3" />
-                              <span>Upload File</span>
-                              <input
-                                type="file"
-                                accept=".txt,.out,.ans,.dat"
-                                onChange={(e) => handleSingleFileUpload(idx, "expected", e)}
-                                className="hidden"
-                              />
-                            </label>
-                          </div>
-                        </div>
-
-                        <Textarea
-                          value={t.expected}
-                          onChange={(e) => onTestChange(idx, "expected", e.target.value)}
-                          placeholder="Exact output expected from program..."
-                          className="font-mono text-xs leading-relaxed h-36 max-h-52 overflow-y-auto resize-y"
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <TestCaseItem
+                key={t.ordinal}
+                test={t}
+                points={currentPoints}
+                onPointChange={handlePointChange}
+                onInspect={handleInspect}
+                onDownload={(ord, field) => downloadTestCaseFile(problemId!, ord, field)}
+                onReplace={openReplaceModal}
+                onDelete={handleDeleteTest}
+              />
             );
           })
         )}
       </div>
 
-      {/* Large Content Inspector Modal */}
-      <Dialog
-        open={inspectModal.open}
-        onOpenChange={(open) => setInspectModal((prev) => ({ ...prev, open }))}
-      >
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold flex items-center justify-between pr-6">
-              <span>{inspectModal.title}</span>
-              <span className="text-xs font-mono text-muted-foreground font-normal">
-                {getTextStats(inspectModal.value).lines} lines • {getTextStats(inspectModal.value).formattedSize}
-              </span>
-            </DialogTitle>
-          </DialogHeader>
+      {/* Add / Edit Single Test Case Dialog */}
+      {problemId && (
+        <SingleTestDialog
+          open={singleModalOpen}
+          onOpenChange={setSingleModalOpen}
+          problemId={problemId}
+          editTest={editTest}
+          onSuccess={handleSingleSuccess}
+        />
+      )}
 
-          <div className="flex-1 py-2">
-            <Textarea
-              value={inspectModal.value}
-              onChange={(e) =>
-                setInspectModal((prev) => ({ ...prev, value: e.target.value }))
-              }
-              placeholder="Content..."
-              className="font-mono text-xs leading-relaxed h-[55vh] resize-none overflow-y-auto w-full"
-            />
-          </div>
+      {/* Batch Part-by-Part Upload Queue Dialog */}
+      <BatchUploadDialog
+        open={batchModalOpen}
+        onOpenChange={setBatchModalOpen}
+        queue={batchQueue}
+        notice={batchNotice}
+        isRunning={batchIsRunning}
+        onStartBatch={runBatchUploadQueue}
+        onRetryItem={handleRetryBatchItem}
+      />
 
-          <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setInspectModal((prev) => ({ ...prev, open: false }))}
-            >
-              Cancel
-            </Button>
-            <Button type="button" size="sm" onClick={handleSaveInspector}>
-              Save & Apply
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* On-demand Inspector Modal */}
+      <TestContentInspectorDialog
+        state={inspectModal}
+        onClose={() => setInspectModal((prev) => ({ ...prev, open: false }))}
+        onCopy={() => setActionSuccess("Content copied to clipboard.")}
+      />
     </Card>
   );
 }

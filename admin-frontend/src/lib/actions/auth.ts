@@ -31,3 +31,17 @@ export async function changePasswordAction(
 ): Promise<{ success: boolean; error?: string }> {
   return changeUserPassword(currentPassword, newPassword, ADMIN_SESSION_COOKIE);
 }
+
+export async function getAdminUploadConfigAction(): Promise<{ token: string; apiUrl: string } | null> {
+  const user = await getSessionUserAction();
+  if (!user) return null;
+
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || "http://localhost:8080";
+  return { token, apiUrl };
+}
+
