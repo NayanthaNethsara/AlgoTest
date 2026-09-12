@@ -21,5 +21,7 @@ export const config = {
     "/monitoring/:path*",
     "/timer",
     "/timer/:path*",
+    "/audit",
+    "/audit/:path*",
   ],
 };

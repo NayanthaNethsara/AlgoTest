@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 )
 
@@ -148,6 +149,12 @@ func (h *handler) createProblem(c *gin.Context) {
 		h.judge.InvalidateTests(created.ID)
 	}
 
+	h.recordAudit(c, audit.ActionProblemCreate, audit.TargetProblem, created.ID, audit.StatusSuccess, map[string]interface{}{
+		"slug":      created.Slug,
+		"title":     created.Title,
+		"published": created.Published,
+	})
+
 	c.JSON(http.StatusCreated, gin.H{"problem": created})
 }
 
@@ -242,6 +249,12 @@ func (h *handler) updateProblem(c *gin.Context) {
 		h.judge.InvalidateTests(id)
 	}
 
+	h.recordAudit(c, audit.ActionProblemUpdate, audit.TargetProblem, updated.ID, audit.StatusSuccess, map[string]interface{}{
+		"slug":      updated.Slug,
+		"title":     updated.Title,
+		"published": updated.Published,
+	})
+
 	c.JSON(http.StatusOK, gin.H{"problem": updated})
 }
 
@@ -280,6 +293,10 @@ func (h *handler) setProblemPublished(c *gin.Context) {
 		return
 	}
 
+	h.recordAudit(c, audit.ActionProblemPublish, audit.TargetProblem, id, audit.StatusSuccess, map[string]interface{}{
+		"published": req.Published,
+	})
+
 	c.Status(http.StatusNoContent)
 }
 
@@ -302,6 +319,8 @@ func (h *handler) deleteProblem(c *gin.Context) {
 		return
 	}
 	h.judge.InvalidateTests(id)
+
+	h.recordAudit(c, audit.ActionProblemDelete, audit.TargetProblem, id, audit.StatusSuccess, nil)
 
 	c.Status(http.StatusNoContent)
 }

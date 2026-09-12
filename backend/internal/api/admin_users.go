@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/auth"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
@@ -83,6 +84,11 @@ func (h *handler) createUser(c *gin.Context) {
 		writeCreateError(c, err)
 		return
 	}
+	h.recordAudit(c, audit.ActionUserCreate, audit.TargetUser, created.ID, audit.StatusSuccess, map[string]interface{}{
+		"username": created.Username,
+		"role":     created.Role,
+		"teamId":   created.TeamID,
+	})
 	c.JSON(http.StatusCreated, gin.H{"user": created, "password": password})
 }
 
@@ -131,6 +137,9 @@ func (h *handler) bulkCreateUsers(c *gin.Context) {
 		u := created
 		results = append(results, bulkResult{Username: u.Username, Status: "created", Password: password, User: &u})
 	}
+	h.recordAudit(c, audit.ActionUserBulkCreate, audit.TargetUser, "", audit.StatusSuccess, map[string]interface{}{
+		"count": len(results),
+	})
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
 
@@ -203,6 +212,10 @@ func (h *handler) resetPassword(c *gin.Context) {
 		log.Printf("failed to delete sessions for user %s: %v", id, err)
 	}
 
+	h.recordAudit(c, audit.ActionUserResetPassword, audit.TargetUser, id, audit.StatusSuccess, map[string]interface{}{
+		"username": targetUser.Username,
+	})
+
 	c.JSON(http.StatusOK, gin.H{"password": password})
 }
 
@@ -247,6 +260,9 @@ func (h *handler) updateRole(c *gin.Context) {
 	if err := h.sessions.DeleteByUser(c.Request.Context(), id); err != nil {
 		log.Printf("failed to revoke sessions on role update for user %s: %v", id, err)
 	}
+	h.recordAudit(c, audit.ActionUserRoleUpdate, audit.TargetUser, id, audit.StatusSuccess, map[string]interface{}{
+		"newRole": req.Role,
+	})
 	c.Status(http.StatusNoContent)
 }
 
@@ -284,6 +300,9 @@ func (h *handler) deleteUser(c *gin.Context) {
 	if err := h.sessions.DeleteByUser(ctx, id); err != nil {
 		log.Printf("failed to revoke sessions on delete for user %s: %v", id, err)
 	}
+	h.recordAudit(c, audit.ActionUserDelete, audit.TargetUser, id, audit.StatusSuccess, map[string]interface{}{
+		"username": targetUser.Username,
+	})
 	c.Status(http.StatusNoContent)
 }
 
@@ -337,6 +356,15 @@ func (h *handler) suspendUser(c *gin.Context) {
 			log.Printf("failed to revoke sessions on suspension for user %s: %v", id, err)
 		}
 	}
+
+	action := audit.ActionUserRestore
+	if req.Suspended {
+		action = audit.ActionUserSuspend
+	}
+	h.recordAudit(c, action, audit.TargetUser, id, audit.StatusSuccess, map[string]interface{}{
+		"username": targetUser.Username,
+		"reason":   req.Reason,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"status": "updated"})
 }

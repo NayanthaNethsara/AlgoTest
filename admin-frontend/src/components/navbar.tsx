@@ -11,6 +11,7 @@ import {
   LogOutIcon,
   MenuIcon,
   RefreshCwIcon,
+  ShieldCheckIcon,
   TimerIcon,
   Users2Icon,
   UsersIcon,
@@ -56,6 +57,7 @@ const NAV_LINKS: NavLink[] = [
   },
   { href: "/monitoring", label: "Onsite Monitoring", shortLabel: "Monitoring", icon: ActivityIcon },
   { href: "/timer", label: "Contest Timer", shortLabel: "Timer", icon: TimerIcon },
+  { href: "/audit", label: "Audit Logs", shortLabel: "Audit", icon: ShieldCheckIcon },
 ];
 
 function isActive(pathname: string, href: string) {

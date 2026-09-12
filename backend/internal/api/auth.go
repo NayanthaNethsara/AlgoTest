@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/auth"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
@@ -48,6 +49,9 @@ func (h *handler) login(c *gin.Context) {
 	normalizedUsername := strings.ToLower(strings.TrimSpace(req.Username))
 
 	if isLocked, remaining := loginAttemptTracker.IsLocked(normalizedUsername); isLocked {
+		h.recordAuditAuth(c, normalizedUsername, audit.ActionAuthLoginLocked, audit.StatusLocked, map[string]interface{}{
+			"remainingMinutes": int(remaining.Minutes()) + 1,
+		})
 		c.JSON(http.StatusTooManyRequests, gin.H{
 			"error": fmt.Sprintf("Account temporarily locked due to too many failed attempts. Try again in %d minutes.", int(remaining.Minutes())+1),
 		})
@@ -69,11 +73,17 @@ func (h *handler) login(c *gin.Context) {
 	if err != nil {
 		loginAttemptTracker.RecordFailure(normalizedUsername)
 		auth.DummyCompare(req.Password)
+		h.recordAuditAuth(c, normalizedUsername, audit.ActionAuthLoginFailure, audit.StatusFailure, map[string]interface{}{
+			"reason": "user_not_found",
+		})
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid username or password"})
 		return
 	}
 	if !auth.CheckPassword(hash, req.Password) {
 		loginAttemptTracker.RecordFailure(normalizedUsername)
+		h.recordAuditAuth(c, normalizedUsername, audit.ActionAuthLoginFailure, audit.StatusFailure, map[string]interface{}{
+			"reason": "invalid_password",
+		})
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid username or password"})
 		return
 	}
@@ -81,6 +91,10 @@ func (h *handler) login(c *gin.Context) {
 	loginAttemptTracker.RecordSuccess(normalizedUsername)
 
 	if u.IsSuspended {
+		h.recordAuditAuth(c, normalizedUsername, audit.ActionAuthLoginFailure, audit.StatusBlocked, map[string]interface{}{
+			"reason": "account_suspended",
+			"userId": u.ID,
+		})
 		msg := "Account has been suspended by an administrator."
 		if u.SuspendedReason != "" {
 			msg += " Reason: " + u.SuspendedReason
@@ -110,6 +124,12 @@ func (h *handler) login(c *gin.Context) {
 		log.Printf("failed to touch last login for user %s: %v", u.ID, err)
 	}
 
+	c.Set(contextUserKey, u)
+	h.recordAudit(c, audit.ActionAuthLoginSuccess, audit.TargetAuth, u.ID, audit.StatusSuccess, map[string]interface{}{
+		"username": u.Username,
+		"role":     u.Role,
+	})
+
 	c.JSON(http.StatusOK, loginResponse{
 		SessionToken:     token,
 		ExpiresInSeconds: int(sessionTTL.Seconds()),
@@ -136,6 +156,12 @@ func (h *handler) extractSessionToken(c *gin.Context) string {
 // @Router /api/v1/auth/logout [post]
 func (h *handler) logout(c *gin.Context) {
 	if token := h.extractSessionToken(c); token != "" {
+		if s, err := h.sessions.Get(c.Request.Context(), token); err == nil {
+			if u, err := h.users.GetByID(c.Request.Context(), s.UserID); err == nil {
+				c.Set(contextUserKey, u)
+				h.recordAudit(c, audit.ActionAuthLogout, audit.TargetAuth, u.ID, audit.StatusSuccess, nil)
+			}
+		}
 		if err := h.sessions.Delete(c.Request.Context(), token); err != nil {
 			log.Printf("failed to delete session during logout: %v", err)
 		}
@@ -222,6 +248,10 @@ func (h *handler) changePassword(c *gin.Context) {
 	if err := h.sessions.DeleteByUser(ctx, usr.ID); err != nil {
 		log.Printf("failed to revoke sessions on password update for user %s: %v", usr.ID, err)
 	}
+
+	h.recordAudit(c, audit.ActionAuthPasswordChange, audit.TargetUser, usr.ID, audit.StatusSuccess, map[string]interface{}{
+		"username": usr.Username,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"status": "password updated"})
 }

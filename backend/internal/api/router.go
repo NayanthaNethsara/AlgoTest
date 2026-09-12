@@ -12,6 +12,7 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/contest"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
@@ -55,6 +56,7 @@ func NewRouter(
 	proctorGate := agent.NewGate(agentRepo, agentService, settings)
 	contestRepo := contest.NewRepository(pool)
 	contestManager := contest.NewManager(contestRepo, log)
+	auditRepo := audit.NewRepository(pool, log)
 
 	ctx := context.Background()
 	if err := settings.Reload(ctx); err != nil && log != nil {
@@ -95,6 +97,7 @@ func NewRouter(
 		proctorEvaluator: proctorEval,
 		telemetryBatcher: telemetryBatcher,
 		contest:          contestManager,
+		audit:            auditRepo,
 		log:              log,
 	}
 
@@ -216,6 +219,8 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 	admin.GET("/proctor/agents", h.listAdminAgents)
 	admin.POST("/proctor/agents/:id/revoke", h.revokeAgent)
 	admin.POST("/proctor/users/:id/readmit", h.readmitContestant)
+
+	admin.GET("/audit-logs", h.listAuditLogs)
 
 	admin.GET("/contest/state", h.getContestState)
 	admin.POST("/contest/start", h.adminStartContest)

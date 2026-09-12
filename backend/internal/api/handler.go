@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/contest"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
@@ -39,11 +40,59 @@ type handler struct {
 	proctorEvaluator *proctor.Evaluator
 	telemetryBatcher *telemetry.Batcher
 	contest          *contest.Manager
+	audit            *audit.Repository
 	log              *slog.Logger
 }
 
 func currentUser(c *gin.Context) user.User {
 	return c.MustGet(contextUserKey).(user.User)
+}
+
+func (h *handler) recordAudit(c *gin.Context, action, targetType, targetID, status string, details map[string]interface{}) {
+	if h.audit == nil {
+		return
+	}
+	var (
+		actorID       string
+		actorUsername string
+		actorRole     string
+	)
+	if u, exists := c.Get(contextUserKey); exists {
+		if usr, ok := u.(user.User); ok {
+			actorID = usr.ID
+			actorUsername = usr.Username
+			actorRole = usr.Role
+		}
+	}
+	h.audit.RecordAsync(audit.LogEntry{
+		ActorID:       actorID,
+		ActorUsername: actorUsername,
+		ActorRole:     actorRole,
+		Action:        action,
+		TargetType:    targetType,
+		TargetID:      targetID,
+		Status:        status,
+		IPAddress:     c.ClientIP(),
+		UserAgent:     c.GetHeader("User-Agent"),
+		Details:       details,
+		CreatedAt:     time.Now(),
+	})
+}
+
+func (h *handler) recordAuditAuth(c *gin.Context, username, action, status string, details map[string]interface{}) {
+	if h.audit == nil {
+		return
+	}
+	h.audit.RecordAsync(audit.LogEntry{
+		ActorUsername: username,
+		Action:        action,
+		TargetType:    audit.TargetAuth,
+		Status:        status,
+		IPAddress:     c.ClientIP(),
+		UserAgent:     c.GetHeader("User-Agent"),
+		Details:       details,
+		CreatedAt:     time.Now(),
+	})
 }
 
 func (h *handler) requireAdmin(c *gin.Context) {

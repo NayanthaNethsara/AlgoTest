@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 )
 
 // disclosure is served rather than compiled into the client so the wording can be
@@ -239,6 +241,10 @@ func (h *handler) revokeAgent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	h.recordAudit(c, audit.ActionProctorRevoke, audit.TargetProctor, c.Param("id"), audit.StatusSuccess, map[string]interface{}{
+		"reason": req.Reason,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"status": "revoked"})
 }

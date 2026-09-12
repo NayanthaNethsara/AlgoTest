@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 )
 
 type startContestRequest struct {
@@ -29,6 +31,9 @@ func (h *handler) adminStartContest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionContestStart, audit.TargetContest, "", audit.StatusSuccess, map[string]interface{}{
+		"durationMinutes": req.DurationMinutes,
+	})
 	c.JSON(http.StatusOK, h.contest.GetState())
 }
 
@@ -45,6 +50,7 @@ func (h *handler) adminPauseContest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionContestPause, audit.TargetContest, "", audit.StatusSuccess, nil)
 	c.JSON(http.StatusOK, h.contest.GetState())
 }
 
@@ -61,6 +67,7 @@ func (h *handler) adminResumeContest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionContestResume, audit.TargetContest, "", audit.StatusSuccess, nil)
 	c.JSON(http.StatusOK, h.contest.GetState())
 }
 
@@ -89,6 +96,9 @@ func (h *handler) adminExtendContest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionContestExtend, audit.TargetContest, "", audit.StatusSuccess, map[string]interface{}{
+		"addedMinutes": req.Minutes,
+	})
 	c.JSON(http.StatusOK, h.contest.GetState())
 }
 
@@ -105,6 +115,7 @@ func (h *handler) adminFreezeContest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionContestFreeze, audit.TargetContest, "", audit.StatusSuccess, nil)
 	c.JSON(http.StatusOK, h.contest.GetState())
 }
 
@@ -121,6 +132,7 @@ func (h *handler) adminUnfreezeContest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionContestUnfreeze, audit.TargetContest, "", audit.StatusSuccess, nil)
 	c.JSON(http.StatusOK, h.contest.GetState())
 }
 
@@ -137,6 +149,7 @@ func (h *handler) adminResetContest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionContestReset, audit.TargetContest, "", audit.StatusSuccess, nil)
 	c.JSON(http.StatusOK, h.contest.GetState())
 }
 
@@ -153,6 +166,7 @@ func (h *handler) adminEndContest(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionContestEnd, audit.TargetContest, "", audit.StatusSuccess, nil)
 	c.JSON(http.StatusOK, h.contest.GetState())
 }
 
@@ -196,5 +210,10 @@ func (h *handler) adminUpdateContestSettings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionContestSettingsUpdate, audit.TargetContest, "", audit.StatusSuccess, map[string]interface{}{
+		"title":           req.Title,
+		"durationMinutes": req.DurationMinutes,
+		"freezeMinutes":   req.FreezeMinutes,
+	})
 	c.JSON(http.StatusOK, h.contest.GetState())
 }

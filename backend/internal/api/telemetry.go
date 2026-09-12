@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
 )
 
@@ -247,6 +248,8 @@ func (h *handler) readmitContestant(c *gin.Context) {
 			"action": "admin_readmitted",
 		})
 	}
+
+	h.recordAudit(c, audit.ActionProctorReadmit, audit.TargetUser, targetUserID, audit.StatusSuccess, nil)
 
 	c.JSON(http.StatusOK, gin.H{"status": "readmitted"})
 }

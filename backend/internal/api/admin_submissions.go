@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
 )
 
@@ -35,6 +36,7 @@ func (h *handler) rejudgeSubmission(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to rejudge submission: " + err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionSubmissionRejudge, audit.TargetSubmission, id, audit.StatusSuccess, nil)
 	c.JSON(http.StatusOK, gin.H{"message": "submission re-queued for judging"})
 }
 
@@ -46,6 +48,9 @@ func (h *handler) rejudgeProblem(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to rejudge problem submissions: " + err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionProblemRejudge, audit.TargetProblem, id, audit.StatusSuccess, map[string]interface{}{
+		"requeued": count,
+	})
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "problem submissions re-queued for judging",
 		"requeued": count,
@@ -58,6 +63,7 @@ func (h *handler) cancelSubmission(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cancel submission: " + err.Error()})
 		return
 	}
+	h.recordAudit(c, audit.ActionSubmissionCancel, audit.TargetSubmission, id, audit.StatusSuccess, nil)
 	c.JSON(http.StatusOK, gin.H{"message": "submission cancelled"})
 }
 
@@ -111,6 +117,11 @@ func (h *handler) reviewSubmission(c *gin.Context) {
 		"submission_id", item.SubmissionID, "status", status, "reviewer", u.Username)
 
 	h.judge.Broadcaster().Broadcast(item.Result)
+
+	h.recordAudit(c, audit.ActionSubmissionReview, audit.TargetSubmission, item.SubmissionID, audit.StatusSuccess, map[string]interface{}{
+		"status": status,
+		"reason": reason,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"submission": item})
 }
