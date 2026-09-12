@@ -322,7 +322,7 @@ export function AdminUsers({
       )}
 
       {/* Info Badge on Admin Provisioning */}
-      <div className="rounded-md border bg-muted/20 px-3.5 py-2.5 flex items-center justify-between text-xs text-muted-foreground">
+      <div className="rounded-md border bg-muted/20 px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-primary shrink-0" />
           <span>
@@ -333,7 +333,7 @@ export function AdminUsers({
             ) for infrastructure security.
           </span>
         </div>
-        <Badge variant="outline" className="text-[10px] font-mono">
+        <Badge variant="outline" className="text-[10px] font-mono shrink-0 w-fit">
           CLI Guarded
         </Badge>
       </div>

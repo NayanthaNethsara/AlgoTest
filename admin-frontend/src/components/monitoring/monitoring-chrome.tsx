@@ -66,28 +66,33 @@ export function MonitoringChrome({ children }: { children: ReactNode }) {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={() => setAutoRefreshActive(!isAutoRefreshActive)}
-            className={`inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+            className={`inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
               isAutoRefreshActive
                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
                 : "bg-muted/50 text-muted-foreground border-border"
             }`}
           >
-            <Clock className="size-3.5" />
-            {isAutoRefreshActive
-              ? `Auto-refreshing (${POLL_INTERVAL_MS / 1000}s)`
-              : "Auto-refresh paused"}
+            <Clock className="size-3.5 shrink-0" />
+            <span className="hidden sm:inline">
+              {isAutoRefreshActive
+                ? `Auto-refreshing (${POLL_INTERVAL_MS / 1000}s)`
+                : "Auto-refresh paused"}
+            </span>
+            <span className="sm:hidden">
+              {isAutoRefreshActive ? `${POLL_INTERVAL_MS / 1000}s` : "Paused"}
+            </span>
           </button>
 
           <button
             onClick={refreshNow}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
           >
             <RefreshCw className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-            Refresh
+            <span>Refresh</span>
           </button>
         </div>
       </div>
@@ -108,7 +113,7 @@ export function MonitoringChrome({ children }: { children: ReactNode }) {
               key={link.href}
               href={link.href}
               aria-current={active ? "page" : undefined}
-              className={`px-4 py-2 text-xs font-semibold rounded-lg border transition-colors ${
+              className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold rounded-lg border transition-colors ${
                 active
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-card text-muted-foreground border-border hover:bg-muted"

@@ -193,37 +193,38 @@ export function ContestControlBar() {
   const isFrozen = state.isFrozen;
 
   return (
-    <div className="border-b border-white/10 bg-card/60 backdrop-blur-md px-4 sm:px-6 py-2">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Timer className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-xs font-bold text-foreground">
+    <div className="border-b border-white/10 bg-card/70 backdrop-blur-md px-3 sm:px-6 py-2">
+      <div className="mx-auto flex max-w-7xl flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+        {/* Status & Timer Indicator */}
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Timer className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="text-xs font-bold text-foreground truncate max-w-[140px] sm:max-w-[200px]" title={state.title}>
               {state.title}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {isNotStarted && (
-              <Badge variant="outline" className="text-[11px] font-semibold text-muted-foreground border-white/15 bg-white/5">
+              <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground border-white/15 bg-white/5 py-0 h-5">
                 NOT STARTED
               </Badge>
             )}
 
             {isRunning && (
-              <Badge className="bg-success text-success-foreground text-[11px] font-semibold">
+              <Badge className="bg-success text-success-foreground text-[10px] font-semibold py-0 h-5">
                 RUNNING
               </Badge>
             )}
 
             {isPaused && (
-              <Badge className="bg-amber-500 text-black text-[11px] font-semibold animate-pulse">
+              <Badge className="bg-amber-500 text-black text-[10px] font-semibold animate-pulse py-0 h-5">
                 PAUSED
               </Badge>
             )}
 
             {isEnded && (
-              <Badge variant="outline" className="text-[11px] font-semibold text-destructive border-destructive/30 bg-destructive/10">
+              <Badge variant="outline" className="text-[10px] font-semibold text-destructive border-destructive/30 bg-destructive/10 py-0 h-5">
                 ENDED
               </Badge>
             )}
@@ -235,14 +236,16 @@ export function ContestControlBar() {
               </Badge>
             )}
 
-            <div className="flex items-center gap-1.5 rounded bg-black/40 border border-white/10 px-2 py-0.5 font-mono text-xs font-bold text-foreground">
+            <div className="flex items-center gap-1 rounded bg-black/40 border border-white/10 px-2 py-0.5 font-mono text-xs font-bold text-foreground">
               <Clock className="h-3 w-3 text-muted-foreground" />
               <span>{formatDuration(remainingSeconds)}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Action Buttons Group */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-between sm:justify-end">
+          {/* Primary State Transition Button */}
           {isNotStarted && (
             <Button
               size="sm"
@@ -280,88 +283,164 @@ export function ContestControlBar() {
             </Button>
           )}
 
-          {(isRunning || isPaused) && (
-            isFrozen ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleAction(() => unfreezeContestAction())}
-                disabled={loading}
-                className="gap-1.5 bg-sky-500/15 text-sky-300 border-sky-400/50 hover:bg-sky-500/25 h-7.5 text-xs font-semibold"
-                title="Unfreeze Scoreboard to show live scores"
-              >
-                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Snowflake className="h-3 w-3 animate-pulse" />}
-                <span>Unfreeze</span>
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleAction(() => freezeContestAction())}
-                disabled={loading}
-                className="gap-1.5 text-sky-400 border-sky-400/40 hover:bg-sky-400/10 h-7.5 text-xs font-medium"
-                title="Freeze Scoreboard at current scores"
-              >
-                {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Snowflake className="h-3 w-3" />}
-                <span>Freeze</span>
-              </Button>
-            )
-          )}
-
+          {/* Quick Extends */}
           {(isRunning || isPaused || isEnded) && (
-            <div className="flex items-center gap-1 border-l border-white/10 pl-2">
-              <span className="text-[10px] text-muted-foreground uppercase font-semibold hidden lg:inline mr-1">
-                Extend:
-              </span>
-              {[5, 10, 15, 30].map((mins) => (
+            <div className="flex items-center gap-1">
+              {[5, 15].map((mins) => (
                 <Button
                   key={mins}
                   size="sm"
                   variant="outline"
                   onClick={() => handleAction(() => extendContestAction(mins))}
                   disabled={loading}
-                  className="h-7 px-2 text-[11px] font-mono hover:border-primary hover:text-primary transition-colors"
+                  className="h-7 px-1.5 text-[11px] font-mono hover:border-primary hover:text-primary transition-colors"
                 >
                   +{mins}m
                 </Button>
               ))}
+              {/* Extra extends on large screens */}
+              <div className="hidden lg:flex items-center gap-1">
+                {[10, 30].map((mins) => (
+                  <Button
+                    key={mins}
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleAction(() => extendContestAction(mins))}
+                    disabled={loading}
+                    className="h-7 px-1.5 text-[11px] font-mono hover:border-primary hover:text-primary transition-colors"
+                  >
+                    +{mins}m
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
 
-          {(isRunning || isPaused) && (
+          {/* Direct Controls on Large Screens */}
+          <div className="hidden lg:flex items-center gap-1.5">
+            {(isRunning || isPaused) && (
+              isFrozen ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAction(() => unfreezeContestAction())}
+                  disabled={loading}
+                  className="gap-1.5 bg-sky-500/15 text-sky-300 border-sky-400/50 hover:bg-sky-500/25 h-7.5 text-xs font-semibold"
+                  title="Unfreeze Scoreboard to show live scores"
+                >
+                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Snowflake className="h-3 w-3 animate-pulse" />}
+                  <span>Unfreeze</span>
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleAction(() => freezeContestAction())}
+                  disabled={loading}
+                  className="gap-1.5 text-sky-400 border-sky-400/40 hover:bg-sky-400/10 h-7.5 text-xs font-medium"
+                  title="Freeze Scoreboard at current scores"
+                >
+                  {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Snowflake className="h-3 w-3" />}
+                  <span>Freeze</span>
+                </Button>
+              )
+            )}
+
+            {(isRunning || isPaused) && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setEndConfirmOpen(true)}
+                disabled={loading}
+                className="h-7.5 text-xs gap-1 font-medium"
+              >
+                <StopCircle className="h-3 w-3" />
+                <span>End</span>
+              </Button>
+            )}
+
             <Button
               size="sm"
-              variant="destructive"
-              onClick={() => setEndConfirmOpen(true)}
+              variant="ghost"
+              onClick={() => setResetConfirmOpen(true)}
               disabled={loading}
-              className="h-7.5 text-xs gap-1 font-medium ml-1"
+              className="h-7.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1"
             >
-              <StopCircle className="h-3 w-3" />
-              <span>End</span>
+              <RotateCcw className="h-3 w-3" />
+              <span>Reset</span>
             </Button>
-          )}
 
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setResetConfirmOpen(true)}
-            disabled={loading}
-            className="h-7.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1 ml-1"
-          >
-            <RotateCcw className="h-3 w-3" />
-            <span>Reset</span>
-          </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSettingsOpen(true)}
+              disabled={loading}
+              className="h-7.5 px-2 text-muted-foreground hover:text-foreground"
+              aria-label="Contest Settings"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
 
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setSettingsOpen(true)}
-            disabled={loading}
-            className="h-7.5 px-2 text-muted-foreground hover:text-foreground"
-            aria-label="Contest Settings"
-          >
-            <Settings2 className="h-3.5 w-3.5" />
-          </Button>
+          {/* Dropdown Menu for Secondary Actions on Medium & Small Screens */}
+          <div className="flex lg:hidden items-center gap-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setSettingsOpen(true)}
+              disabled={loading}
+              className="h-7.5 px-2 text-muted-foreground hover:text-foreground"
+              aria-label="Contest Settings"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </Button>
+
+            {(isRunning || isPaused || isEnded) && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  if (isFrozen) {
+                    handleAction(() => unfreezeContestAction());
+                  } else {
+                    handleAction(() => freezeContestAction());
+                  }
+                }}
+                disabled={loading}
+                className={`h-7.5 px-2 text-xs gap-1 ${
+                  isFrozen ? "text-sky-300 border-sky-400/50 bg-sky-500/15" : "text-sky-400 border-sky-400/40"
+                }`}
+                title={isFrozen ? "Unfreeze Scoreboard" : "Freeze Scoreboard"}
+              >
+                <Snowflake className="h-3 w-3" />
+                <span>{isFrozen ? "Unfreeze" : "Freeze"}</span>
+              </Button>
+            )}
+
+            {(isRunning || isPaused) && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setEndConfirmOpen(true)}
+                disabled={loading}
+                className="h-7.5 text-xs px-2"
+                title="End Contest"
+              >
+                <StopCircle className="h-3 w-3" />
+              </Button>
+            )}
+
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setResetConfirmOpen(true)}
+              disabled={loading}
+              className="h-7.5 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              title="Reset Contest"
+            >
+              <RotateCcw className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -386,7 +465,7 @@ export function ContestControlBar() {
       />
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Contest Settings</DialogTitle>
           </DialogHeader>

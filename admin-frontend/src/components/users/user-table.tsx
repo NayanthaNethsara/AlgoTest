@@ -58,9 +58,9 @@ export function UserTable({
         <Tabs
           value={subTab}
           onValueChange={(v) => setSubTab(v as "competitors" | "admins")}
-          className="w-auto"
+          className="w-full sm:w-auto"
         >
-          <TabsList className="h-8">
+          <TabsList className="h-8 w-full sm:w-auto grid grid-cols-2 sm:flex">
             <TabsTrigger value="competitors" className="text-xs h-7 gap-1.5">
               Competitors
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
@@ -82,7 +82,7 @@ export function UserTable({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name, username, team..."
-            className="pl-8 h-8 text-xs"
+            className="pl-8 h-8 text-xs w-full"
           />
         </div>
       </div>

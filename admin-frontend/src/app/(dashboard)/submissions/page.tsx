@@ -140,7 +140,7 @@ export default function AdminSubmissionsPage() {
 
   return (
     <main className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto w-full">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Submissions & Judge Monitor</h2>
           <p className="text-xs text-muted-foreground">
@@ -148,11 +148,11 @@ export default function AdminSubmissionsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap w-full sm:w-auto">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-9 w-40 rounded-md border bg-background px-3 text-xs shadow-sm"
+            className="h-8 sm:h-9 flex-1 sm:w-40 rounded-md border bg-background px-3 text-xs shadow-xs"
           >
             <option value="all">All Statuses</option>
             <option value="queued">Queued</option>
@@ -165,7 +165,7 @@ export default function AdminSubmissionsPage() {
             size="sm"
             variant="outline"
             onClick={fetchSubmissions}
-            className="h-9 gap-1.5 text-xs"
+            className="h-8 sm:h-9 gap-1.5 text-xs shrink-0"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>
@@ -190,7 +190,7 @@ export default function AdminSubmissionsPage() {
       )}
 
       {/* Metrics Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="shadow-sm">
           <CardHeader className="py-3 px-4 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-xs font-medium text-muted-foreground">Queued Jobs</CardTitle>
@@ -376,7 +376,7 @@ export default function AdminSubmissionsPage() {
       {/* Rejection Dialog: a reason is required, because this is the decision that gets challenged. */}
       {reviewTarget && (
         <Dialog open onOpenChange={() => setReviewTarget(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-base">Reject this submission</DialogTitle>
               <DialogDescription className="text-xs">
@@ -427,7 +427,7 @@ export default function AdminSubmissionsPage() {
       {/* Code & Execution Inspection Dialog */}
       {selectedSubmission && (
         <Dialog open={Boolean(selectedSubmission)} onOpenChange={() => setSelectedSubmission(null)}>
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between text-base">
                 <span>Submission Detail ({selectedSubmission.submissionId.slice(0, 8)})</span>
