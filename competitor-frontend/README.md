@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MiniAlgothon Competitor Portal
 
-## Getting Started
+The MiniAlgothon Competitor Portal is a Next.js web application designed for contest participants. It provides an intuitive coding interface with the Monaco code editor, real-time Server-Sent Events (SSE) submission updates, an interactive leaderboard, and background proctoring telemetry synchronization.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Key Features & User Interface
+
+### 1. Challenge Browser (`/challenges`)
+- Displays all published contest problems with point values, difficulty indicators, and participant completion status.
+- Real-time synchronization with contest lifecycle states (upcoming, active, frozen, ended).
+
+### 2. Code Solver & Editor (`/challenges/[id]`)
+- **Monaco Code Editor**: Full-featured code editor with syntax highlighting, autocomplete, and indentation formatting.
+- **Supported Programming Languages**:
+  - C++ (GCC 13, C++20)
+  - Python (Python 3.12)
+  - Java (OpenJDK 21)
+  - Rust (Rust 1.78+)
+  - Go (Go 1.25+)
+  - JavaScript (Node.js 20 LTS)
+- **Fast Test Execution (`Run`)**:
+  - Executes code against sample cases or custom standard input.
+  - Returns stdout, stderr, execution time, and memory usage within seconds.
+  - **Always allowed**: Does not require an active proctor agent.
+- **Official Submission (`Submit`)**:
+  - Atomically enqueues solution into the distributed PostgreSQL judge queue.
+  - Evaluated against full private test suites in the Linux `isolate` sandbox.
+  - **Proctor-Gated**: Requires an enrolled proctor agent or an administrative web-only fallback grant.
+
+### 3. Real-Time Submissions Feed (`/submissions`)
+- Connects directly to the Server-Sent Events (SSE) stream (`/api/v1/submissions/stream`).
+- Automatically updates submission status in real time (`queued` -> `running` -> final verdict).
+- Displays testcase pass/fail counts, execution time, and memory consumed.
+
+### 4. Contest Scoreboard (`/leaderboard`)
+- Dynamic ranking based on solved problems, partial testcase points, and cumulative penalty time.
+- **Scoreboard Freeze**: Automatically indicates when the scoreboard has been frozen by contest organizers.
+
+### 5. Participant Documentation (`/docs`)
+- Language-specific compiler flags, runtime versions, and standard I/O optimization tips (e.g. `cin.tie(NULL)`, `sys.stdin.read`).
+
+### 6. Public Informational Pages (`/terms`, `/privacy`, `/support`, `/rules`)
+- Contest rules, academic honesty policies, privacy disclosures, and technical support FAQs.
+
+---
+
+## Proctoring & Telemetry Integration
+
+The competitor portal integrates with the proctoring engine via [src/components/portal/browser-lockdown.tsx](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/competitor-frontend/src/components/portal/browser-lockdown.tsx) and [src/actions/telemetry.ts](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/competitor-frontend/src/actions/telemetry.ts):
+
+- **Event Monitoring**: Captures browser window focus loss, tab switching, and full-screen state transitions, reporting events to `/api/v1/telemetry/browser-event`.
+- **Loopback Attestation**: In desktop mode, probes the local background proctor daemon on `127.0.0.1:47615` to verify daemon health.
+- **Submission Gate**: If a contestant attempts an official submission without a verified proctor agent or an administrative override, the API responds with `423 Locked` and displays instructions for remediation.
+
+---
+
+## Environment Configuration
+
+Configure environment variables in `.env.local`:
+
+```ini
+# Backend API Base URL
+API_URL=http://127.0.0.1:8080
+
+# Platform Mode ('web' or 'desktop')
+NEXT_PUBLIC_PLATFORM=web
+
+# Telemetry Event Ingestion
+NEXT_PUBLIC_ENABLE_TELEMETRY=true
+
+# Secure Cookies (set true in HTTPS environments)
+COOKIE_SECURE=false
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Development & Build Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sh
+# Install dependencies
+pnpm install
 
-## Learn More
+# Start development server (port 3000)
+pnpm dev
 
-To learn more about Next.js, take a look at the following resources:
+# Build production bundle
+pnpm build
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Start production server
+pnpm start
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Run linter and type-checking
+pnpm lint
+```

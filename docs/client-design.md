@@ -46,25 +46,36 @@ mini-algothon-competitor             # contest shell: webview → portal. Spawns
 
 ## 1. Topology
 
-```
-Contestant laptop                                     Contest server
-┌────────────────────────────────────────────┐        ┌──────────────────────────────┐
-│  Their own IDE + their own compilers       │        │ nginx :80                    │
-│  (unwatched, unrestricted)                 │        │   /     → portal   :3000     │
-│              │ copy                        │        │   /api/ → Go API   :8080     │
-│              ▼                             │        ├──────────────────────────────┤
-│  ┌──────────────────────┐                  │        │ requireUser   → portal, run, │
-│  │ SHELL  (crashable)   │  webview ────────┼───────▶│                  submissions │
-│  │  tray-hidden window  │                  │        │ requireAgent  → heartbeat,   │
-│  └──────────┬───────────┘                  │        │                  events      │
-│             │ GET /status (loopback)       │        ├──────────────────────────────┤
-│             ▼                              │        │ proctor: gate · evaluator    │
-│  ┌──────────────────────┐   heartbeat /15s │        │ Postgres 16                  │
-│  │ AGENT  (must live)   │──────────────────┼───────▶│                              │
-│  │  own token · tray    │   own bearer     │        └──────────────────────────────┘
-│  │  127.0.0.1:47615     │◀─────────────────┼── browser fallback reads /status
-│  └──────────────────────┘                  │
-└────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Laptop["Contestant Laptop Environment"]
+        subgraph DevSpace["Developer Workspace"]
+            LocalIDE["Contestant IDE & Compilers (Unwatched & Unrestricted)"]
+        end
+
+        subgraph ClientProcesses["MiniAlgothon Client Processes"]
+            Shell["Contest Shell (Tauri Webview Window: Crashable)"]
+            Agent["Proctor Daemon (Background Process: Loopback 127.0.0.1:47615)"]
+        end
+    end
+
+    subgraph Server["Contest Server Infrastructure"]
+        Nginx["Nginx Reverse Proxy (Port 80 / 443)"]
+        Portal["Competitor Portal (Next.js Port 3000)"]
+        API["Go Backend API (Port 8080)"]
+        Postgres[("PostgreSQL 16 Database")]
+    end
+
+    LocalIDE -->|"Copy Code"| Shell
+    Shell -->|"GET /status (Loopback Attestation)"| Agent
+
+    Shell -->|"requireUser: Portal UI & Submissions"| Nginx
+    Agent -->|"requireAgent: Heartbeats every 15s"| Nginx
+
+    Nginx -->|"/ (SSR Pages)"| Portal
+    Nginx -->|"/api/ (REST Endpoints)"| API
+
+    API --- Postgres
 ```
 
 The agent is the only thing that talks to `requireAgent` routes. The shell and the browser are

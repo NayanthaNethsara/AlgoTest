@@ -8,28 +8,28 @@ on the host.
 
 ## Topology
 
-```
-                    internet
-                       |
-                    :80 :443
-                       |
-   ┌───────────────────────────────────────────────┐
-   │ GCE VM (Ubuntu 24.04, t2d-standard-16)        │
-   │                                               │
-   │  nginx ──► :8080  backend container           │
-   │    │              (privileged, isolate,       │
-   │    │               g++ / python3 / node)      │
-   │    └────► :3000  competitor frontend          │
-   │                                               │
-   │           :5432  postgres container + volume  │
-   └───────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Internet["Public Internet"]
+
+    subgraph GCE["Google Compute Engine VM (Ubuntu 24.04, t2d-standard-16)"]
+        Nginx["Host Nginx Reverse Proxy (Ports 80 & 443)"]
+        BackendContainer["Backend Container (Port 8080: Privileged Isolate Sandbox)"]
+        CompetitorFrontend["Competitor Frontend Container (Port 3000)"]
+        PostgresContainer[("PostgreSQL 16 Container (Port 5432: Persistent Volume)")]
+    end
+
+    Internet -->|":80 / :443 (TLS via Certbot)"| Nginx
+    Nginx -->|"/api/ and /api/v1/submissions/stream"| BackendContainer
+    Nginx -->|"/ (Portal Root)"| CompetitorFrontend
+    BackendContainer -->|"127.0.0.1:5432"| PostgresContainer
 ```
 
-Everything is on one VM. The judge queue is safe across several VMs
-(`FOR UPDATE SKIP LOCKED` plus leases), but the SSE broadcaster, rate limiters
-and the judge's test cache are per-process, so a second VM degrades live
-progress and doubles rate limits. One larger VM is the right answer until a
-node failing mid-contest is a bigger worry than throughput.
+MiniAlgothon supports both single-VM all-in-one deployments and multi-VM horizontally
+scaled worker clusters. Submissions are queued atomically in PostgreSQL using
+`FOR UPDATE SKIP LOCKED`, and real-time verdicts are broadcast across instances using
+PostgreSQL `LISTEN/NOTIFY`. A single larger VM is ideal for smaller contests, while
+separate worker nodes handle high-concurrency burst workloads.
 
 ## Why a privileged container, and why not Cloud Run
 
@@ -375,11 +375,25 @@ For a hall where only one machine has internet. Contestants reach a local box;
 it reaches GCP. Everything above still applies to the VM, minus the frontend
 container in Step 9.
 
-```
-   contestant LAN (no internet)        venue uplink        GCP VM
-     browser --> nginx :80 --+-- /api/ ------------------> backend :8080
-                             `-- /     --> Next :3000
-                                          (local, SSR)
+```mermaid
+flowchart LR
+    subgraph LAN["Contestant LAN (Air-Gapped / No Internet)"]
+        Browser["Contestant Browser / Desktop Client"]
+    end
+
+    subgraph VenueHost["Venue Local Machine (Docker Compose)"]
+        VenueNginx["Local Nginx Reverse Proxy (Port 80 / 443)"]
+        LocalSSR["Competitor Portal Container (Next.js Port 3000)"]
+    end
+
+    subgraph CloudGCP["GCP Production VM (Internet Uplink)"]
+        CloudBackend["Backend API Container (Port 8080)"]
+    end
+
+    Browser -->|"Direct LAN Request"| VenueNginx
+    VenueNginx -->|"/ (Serve Local SSR)"| LocalSSR
+    VenueNginx -->|"/api/ (Relay to Cloud)"| CloudBackend
+    LocalSSR -.->|"Server-side API calls"| CloudBackend
 ```
 
 This works because every backend call the portal makes runs on the server
@@ -492,6 +506,158 @@ recovery is `API_URL` plus the nginx upstream.
 
 ---
 
+## Horizontal Scaling: Multi-VM & Multi-Account Workers
+
+When running large competitions (e.g. 100–300+ competitors) or when per-account vCPU quotas require distributing worker compute across multiple cloud accounts, the platform scales by separating API traffic from background code execution workers.
+
+### Distributed Architecture
+
+```mermaid
+flowchart TD
+    Ingress["Ingress Traffic / Load Balancer (Port 80 / 443)"]
+    APIGateway["API Gateway VM: Node 1 (JUDGE_WORKERS=0)"]
+
+    subgraph StorageLayer["Database Layer (Persistent SSD)"]
+        PostgresDB[("PostgreSQL 16 Engine: FOR UPDATE SKIP LOCKED & LISTEN/NOTIFY")]
+    end
+
+    subgraph WorkerCluster["Distributed Worker Cluster (Multi-Account Scaling)"]
+        Worker1["Worker VM 1 (GCP Account A)<br/>cmd/worker (8 Isolate Boxes)"]
+        Worker2["Worker VM 2 (GCP Account B)<br/>cmd/worker (8 Isolate Boxes)"]
+        Worker3["Worker VM 3 (GCP Account C)<br/>cmd/worker (8 Isolate Boxes)"]
+    end
+
+    Ingress --> APIGateway
+    APIGateway -->|"Transactions & Event Notifications"| PostgresDB
+
+    PostgresDB -.->|"LISTEN: judge_new_submission"| Worker1
+    PostgresDB -.->|"LISTEN: judge_new_submission"| Worker2
+    PostgresDB -.->|"LISTEN: judge_new_submission"| Worker3
+
+    Worker1 -->|"Atomic Claim: SKIP LOCKED"| PostgresDB
+    Worker2 -->|"Atomic Claim: SKIP LOCKED"| PostgresDB
+    Worker3 -->|"Atomic Claim: SKIP LOCKED"| PostgresDB
+
+    Worker1 -.->|"NOTIFY: judge_verdicts"| PostgresDB
+    Worker2 -.->|"NOTIFY: judge_verdicts"| PostgresDB
+    Worker3 -.->|"NOTIFY: judge_verdicts"| PostgresDB
+
+    PostgresDB -.->|"Broadcast Verdicts"| APIGateway
+```
+
+### Worker Claim & Broadcast Mechanics
+
+1. **Atomic Queue Claiming**:
+   Worker processes (`./cmd/worker`) query PostgreSQL using:
+   ```sql
+   SELECT ... FROM submissions s
+   WHERE s.state = 'queued'
+   ORDER BY ((tc.pending_count - 1) * 10 - EXTRACT(EPOCH FROM (NOW() - s.created_at))) ASC
+   FOR UPDATE OF s SKIP LOCKED
+   LIMIT 1;
+   ```
+   Multiple workers running across different VMs claim distinct submissions simultaneously with zero lock contention or duplicate evaluations.
+2. **Event-Driven Wakeup (`LISTEN/NOTIFY`)**:
+   When a competitor submits, PostgreSQL executes `pg_notify('judge_new_submission', '')`. All workers wake up immediately without waiting for poll intervals (with a 1-second fallback).
+3. **Cross-VM Verdict Broadcasting**:
+   When any worker completes judging, it broadcasts the verdict over `pg_notify('judge_verdicts', ...)`. The API server listens on this channel and pushes the result via SSE stream to the competitor's browser in real time.
+4. **RAM Testcase Pre-warming**:
+   Workers pre-warm problem testcases into memory on boot using `testCache` and periodically sync updates, eliminating repetitive testcase queries from the database during high-frequency evaluation.
+
+### Worker Crash Resilience & Lease Reaper
+
+If a worker node crashes, is killed by OOM, or loses network connectivity mid-evaluation:
+- The row is **not** locked indefinitely. It holds an application lease (`lease_until = NOW() + 60s`).
+- The running worker sends heartbeats every 20 seconds. If the worker dies, heartbeats stop.
+- Every 10 seconds, the background lease reaper runs:
+  ```sql
+  UPDATE submissions
+  SET state = 'queued', attempts = attempts + 1,
+      claimed_at = NULL, claimed_by = NULL, lease_until = NULL
+  WHERE state = 'running' AND lease_until < NOW();
+  ```
+- The submission is automatically re-queued and claimed by another live worker VM.
+- **Poison-Pill Protection**: If faulty or toxic code crashes workers 3 times in a row (`attempts >= 3`), the reaper marks the submission as `failed` with verdict `IE` (Internal Error) instead of retrying forever.
+
+---
+
+## Multi-Account GCP Worker Networking
+
+If quota limits prevent provisioning all worker VMs in a single GCP project, workers can be distributed across multiple GCP accounts without opening the database to the public internet.
+
+### Option 1: Native GCP Firewall with Static External IPs (Recommended)
+
+1. **Reserve Static External IPs**:
+   - In each GCP Account (Worker VM 1, 2, 3), navigate to **VPC Network > IP addresses > Reserve External Static IP**.
+   - Attach the static IP to the respective worker VM (e.g. `35.200.20.2`, `34.300.30.3`).
+2. **Configure Database Firewall (Account 1)**:
+   - In the Database GCP project, create a firewall rule allowing TCP 5432 **only** from the specific worker static IPs:
+     ```text
+     Targets: Tag "postgres-server"
+     Source IPv4 ranges: 35.200.20.2/32, 34.300.30.3/32, <api-server-ip>/32
+     Protocols and ports: tcp:5432
+     ```
+   - Never use `0.0.0.0/0`.
+3. **Enforce SSL on PostgreSQL**:
+   - In `postgresql.conf`, configure `ssl = on`.
+   - In `pg_hba.conf`, require `hostssl` with SCRAM-SHA-256 authentication for external worker IPs.
+   - On worker VMs, connect using:
+     ```bash
+     DATABASE_URL=postgres://algothon:password@<DB-STATIC-IP>:5432/algothon?sslmode=require
+     ```
+
+### Option 2: Tailscale Mesh VPN (Zero Public Ports)
+
+1. Install Tailscale on the Database VM and all Worker VMs:
+   ```bash
+   curl -fsSL https://tailscale.com/install.sh | sh
+   sudo tailscale up
+   ```
+2. Each machine joins a private encrypted WireGuard mesh network and receives a private IP (`100.x.y.z`).
+3. Workers connect directly to the database via its Tailscale IP:
+   ```bash
+   DATABASE_URL=postgres://algothon:password@100.x.y.z:5432/algothon?sslmode=disable
+   ```
+4. Port 5432 remains completely closed to the external internet.
+
+---
+
+## PostgreSQL Sizing & Connection Limits
+
+| Component | Default Pool | Recommended for Scaling |
+| :--- | :--- | :--- |
+| **API Server** | `DB_MAX_CONNS=25`, `DB_MIN_CONNS=5` | `DB_MAX_CONNS=25`, `DB_MIN_CONNS=5` |
+| **Worker VM (per node)** | `DB_MAX_CONNS=25`, `DB_MIN_CONNS=5` | `DB_MAX_CONNS=8`, `DB_MIN_CONNS=2` |
+| **PostgreSQL Engine** | `max_connections=100` | `max_connections=250` (or `300`) |
+
+### Database VM Storage Persistence
+
+- In Google Cloud, VMs use **Persistent Disks (PD)**.
+- Data stored in mounted Docker volumes (e.g. `/var/lib/postgresql/data`) is persisted on the physical disk across VM stops, reboots, and starts.
+- For disaster recovery, schedule periodic disk snapshots via GCP Console: **Compute Engine > Disks > Create Snapshot**.
+
+---
+
+## Security & Audit Controls
+
+1. **Immutable Audit Logging**:
+   - Administrative and security events are logged to the `audit_logs` table via non-blocking asynchronous writes (`RecordAsync`).
+   - Monitored events include authentication successes/failures, account lockouts, user and team management, contest timer adjustments, problem changes, submission rejudges, and proctor overrides.
+   - Available in the Admin Portal under **Audit Logs** (`/audit`) and via `GET /api/v1/admin/audit-logs`.
+2. **Admin Account Protection**:
+   - Root administrator accounts cannot be deleted, suspended, demoted, or reset via the web API.
+   - Admin UI action buttons are visually disabled for admin rows with informative tooltips.
+3. **Brute-Force Lockout**:
+   - Failed login attempts are tracked per-username. 5 consecutive failures triggers an automatic 15-minute account lockout.
+4. **Session Lifetime Separation**:
+   - Administrator sessions expire after 12 hours (`ADMIN_SESSION_TTL_HOURS=12`).
+   - Competitor sessions expire after 3 hours (`SESSION_TTL_HOURS=3`).
+5. **Search Engine De-indexing**:
+   - Internal platform routes are blocked in `robots.ts` and marked with `noindex, nofollow` headers.
+   - Public informational pages are served at `/support` (FAQ & contact action), `/privacy` (telemetry disclosures & liability), and `/contact`.
+
+---
+
 ## Upgrading
 
 ```sh
@@ -508,15 +674,19 @@ check whether the release added any before rolling back.
 
 ## Settings that matter
 
-| Variable | Why |
-| --- | --- |
-| `RUN_WORK_ROOT` | Must point at the tmpfs. The server refuses to boot without it, because otherwise a submission can fill the host disk. |
-| `TRUSTED_PROXIES` | `127.0.0.1` behind nginx. Unset means every competitor's IP reads as loopback. |
-| `RUN_MAX_CONCURRENT` | Sandboxes at once. The entrypoint provisions isolate with a matching `num_boxes`; leave cores for the server and OS. |
-| `JUDGE_WORKERS` | Leave unset — it tracks `RUN_MAX_CONCURRENT - RUN_RESERVE`, so a bigger host needs one change, not two. |
-| `RUN_RESERVE` | Sandboxes held back from batch judging so interactive Run never queues behind submissions. |
-| `RUN_CPU_LIST` | Pins sandboxes to specific cores, keeping them off the ones running the server. |
-| `SESSION_TTL_HOURS` | Keep it near the contest length. A token stays valid this long, is accepted as a bearer token, and is readable by its owner out of devtools. |
-| `ENV` | `production` also disables the Swagger UI, which maps every route including the admin surface. |
-| `ALLOWED_ORIGINS` | Your real domain — but see below: this is not an access control. |
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | `postgres://...` | Connection URI for PostgreSQL database. |
+| `DB_MAX_CONNS` | `25` | Maximum active connections in pgxpool (tune to 8-10 on worker nodes). |
+| `DB_MIN_CONNS` | `5` | Warm idle connections kept open to prevent connection establishment storms. |
+| `JUDGE_WORKERS` | `-1` (auto) | Worker threads. Set to `0` on the API server for pure API gateway mode. |
+| `RUN_MAX_CONCURRENT` | `4` (dev) / `12` (prod) | Sandboxes provisioned in isolate. Match VM physical cores. |
+| `RUN_RESERVE` | `1` | Sandboxes reserved for interactive `/run` calls so test runs don't queue behind batch submissions. |
+| `RUN_WORK_ROOT` | `/judge-work` | Path to tmpfs mount for isolated sandbox workspaces. Refuses to start if unset. |
+| `RUN_CPU_LIST` | `""` | Pin sandboxes to specific cores (e.g. `4-15`), leaving cores 0-3 for OS and API server. |
+| `TRUSTED_PROXIES` | `""` | IP ranges allowed to set forwarded client IP headers (`127.0.0.1` behind reverse proxy). |
+| `SESSION_TTL_HOURS` | `168` (dev) / `3` (prod) | Competitor session token validity duration. |
+| `ADMIN_SESSION_TTL_HOURS` | `12` | Administrator session token validity duration. |
+| `ENV` | `development` | Setting to `production` disables Swagger UI and enforces strict security policies. |
+| `ALLOWED_ORIGINS` | `http://localhost:...` | Permitted browser origins for CORS headers. |
 

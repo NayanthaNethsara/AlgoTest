@@ -9,34 +9,36 @@ needs no interactive SSH session on the VM.
 
 ## Architecture Overview
 
-```
- ┌────────────────────────────────────────────────────────────────────────┐
- │ Single VM Hosting Environment                                         │
- │                                                                        │
- │   ┌──────────────────────┐        ┌──────────────────────┐             │
- │   │ Algothon Backend     │        │ Host VM / OS         │             │
- │   │  - JSON slog stdout  │        │  - CPU / Memory      │             │
- │   │  - :8080/metrics     │        │  - Disk / Network    │             │
- │   └──────────┬───────────┘        └──────────┬───────────┘             │
- │              │                               │                         │
- │     Metrics  │                      Metrics  │                         │
- │        ┌─────▼───────────────────────────────▼─────┐                   │
- │        │  Prometheus (:9090)                       │                   │
- │        │  - Scrapes backend & node-exporter        │                   │
- │        └─────────────────────┬─────────────────────┘                   │
- │                              │                                         │
- │     Logs                     │                                         │
- │        ┌─────────────────────▼─────────────────────┐                   │
- │        │  Promtail ──► Loki (:3100)                │                   │
- │        │  - Parses JSON slog & container streams   │                   │
- │        └─────────────────────┬─────────────────────┘                   │
- │                              │                                         │
- │        ┌─────────────────────▼─────────────────────┐                   │
- │        │  Bound to 127.0.0.1 -- read over an       │                   │
- │        │  IAP tunnel from a local Grafana.         │                   │
- │        │  No Grafana runs on the VM.               │                   │
- │        └───────────────────────────────────────────┘                   │
- └────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Host["Host VM Environment (Google Compute Engine)"]
+        subgraph Sources["Telemetry Sources"]
+            Backend["Algothon Backend API (Port 8080: JSON slog stdout & HTTP /metrics)"]
+            HostOS["Host OS Telemetry (CPU, Memory, Disk IO, Network)"]
+        end
+
+        subgraph Collectors["Local In-Host Collectors (Bound to 127.0.0.1)"]
+            Prometheus["Prometheus Engine (Port 9090: Scrapes backend & node-exporter)"]
+            Promtail["Promtail Agent (Parses JSON slog & Docker streams)"]
+            Loki["Grafana Loki (Port 3100: Compressed log chunk storage)"]
+            NodeExporter["Node Exporter (Port 9100: Host hardware metrics)"]
+        end
+    end
+
+    subgraph OperatorMachine["Operator Local Workstation"]
+        IAPTunnel["GCP IAP Encrypted Tunnel (Local 19090 -> VM 9090, Local 13100 -> VM 3100)"]
+        LocalGrafana["Local Grafana Instance (Port 3002: Pre-provisioned Dashboards)"]
+    end
+
+    Backend -->|"Scrape Metrics"| Prometheus
+    HostOS --> NodeExporter
+    NodeExporter -->|"Scrape System Metrics"| Prometheus
+    Backend -->|"Container Stdout Logs"| Promtail
+    Promtail -->|"Push Chunks"| Loki
+
+    Prometheus -->|"Loopback 127.0.0.1:9090"| IAPTunnel
+    Loki -->|"Loopback 127.0.0.1:3100"| IAPTunnel
+    IAPTunnel -->|"Forwarded Metrics & Logs"| LocalGrafana
 ```
 
 ---

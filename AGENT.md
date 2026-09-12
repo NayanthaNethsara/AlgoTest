@@ -1,17 +1,20 @@
 # Agent Rules
 
-General rules for working in this repo.
+General rules and technical conventions for working in the MiniAlgothon codebase.
 
 ## Code Style
 
 - Keep proper folder structure.
-- Code should be self-explanatory (clear names, small functions).
-- Do not comment. Only comment when strictly necessary.
-- No unused abstractions, no speculative/future-proofing code. Build only what is asked.
+- Code should be self-explanatory (clear descriptive names, small focused functions).
+- Do not comment. Only comment when strictly necessary to explain non-obvious business intent or hardware constraints.
+- No unused abstractions, no speculative or future-proofing code. Build only what is asked.
 - Use semantic color tokens (`bg-success`, `text-destructive`, etc.), not raw colors.
-- Keep one color language per visual signal. Don't reuse the same palette for two different meanings in the same view.
+- Keep one color language per visual signal. Do not reuse the same palette for two different meanings in the same view.
+- Strictly no emojis anywhere in responses, comments, or code.
 
-## Backend Domain File Structure & Naming Guide (`backend/`)
+---
+
+## Backend Domain Architecture (`backend/`)
 
 Every domain follows a standardized vertical layout:
 
@@ -29,8 +32,18 @@ Every domain follows a standardized vertical layout:
 
 ### 2. Transport & HTTP Layer (`backend/internal/api/`)
 - `<domain>.go`: Competitor-facing HTTP handlers (e.g. `problems.go`, `teams.go`, `contest.go`).
-- `admin_<domain>.go`: Admin-only HTTP handlers (e.g. `admin_problems.go`, `admin_teams.go`, `admin_contest.go`).
+- `admin_<domain>.go`: Admin-only HTTP handlers (e.g. `admin_problems.go`, `admin_teams.go`, `admin_contest.go`, `admin_audit.go`).
 - `router.go`: Registers all routes with appropriate middleware (`requireUser`, `requireAdmin`, `rateLimit`).
+
+### 3. Distributed Queue & Worker Rules
+- Submissions are claimed atomically via `SELECT ... FOR UPDATE OF s SKIP LOCKED LIMIT 1`.
+- The claim transaction commits immediately after updating `state = 'running'`, `claimed_by = $worker_id`, and `lease_until = NOW() + 60s`.
+- Submissions are **never** held in a database transaction while sandbox code is executing.
+- The lease reaper runs periodically (every 10 seconds) to requeue timed-out submissions (`lease_until < NOW()`), with a 3-attempt poison-pill cap.
+
+### 4. Audit Logging Standards
+- All authentication and administrative actions (user management, team changes, contest timer operations, problem edits, submission rejudges, and proctor overrides) must record an immutable audit entry via `RecordAsync`.
+- Audit writes must run asynchronously with a bounded background context (5 seconds) so database writes never block client HTTP responses.
 
 ---
 
@@ -57,14 +70,15 @@ Every domain on the frontend follows a standardized feature-driven layout:
 ### 4. Components & Pages
 - `src/components/<domain>/`: Feature-specific components, tables, modals, and forms.
 - `src/app/(dashboard)/<domain>/` or `src/app/(portal)/<domain>/`: Next.js App Router pages.
+- Admin UI must follow the zinc / base-lyra aesthetic with strict zero-radius corners (`rounded-none`).
 
 ---
 
-## Git
+## Git Conventions
 
 - Do not commit or push. The user reviews and commits changes themselves.
 - Do not add AI as a co-author in commit messages.
-- Commit messages should be short and to the point.
+- Commit messages should be short, descriptive, and to the point.
 
 ## Running the App
 
