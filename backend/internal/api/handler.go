@@ -14,6 +14,7 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/contest"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/metrics"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/proctor"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
@@ -92,6 +93,23 @@ func (h *handler) recordAuditAuth(c *gin.Context, username, action, status strin
 		UserAgent:     c.GetHeader("User-Agent"),
 		Details:       details,
 		CreatedAt:     time.Now(),
+	})
+}
+
+func (h *handler) respondError(c *gin.Context, statusCode int, clientMessage string, err error) {
+	if err != nil {
+		_ = c.Error(err)
+	}
+	if clientMessage == "" && err != nil {
+		clientMessage = err.Error()
+	}
+	reqID := c.GetString(metrics.ContextRequestIDKey)
+	if reqID == "" {
+		reqID = c.Writer.Header().Get(metrics.HeaderRequestID)
+	}
+	c.JSON(statusCode, gin.H{
+		"error":     clientMessage,
+		"requestId": reqID,
 	})
 }
 

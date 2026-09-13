@@ -1,6 +1,7 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
+import { parseApiError, getErrorMessage } from "@/lib/errors";
 import {
   createTeamInputSchema,
   updateTeamInputSchema,
@@ -10,16 +11,11 @@ import {
 import type { Team, CreateTeamInput } from "@/types/team";
 import type { User } from "@/types/user";
 
-function getErrorMessage(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback;
-}
-
 export async function listTeamsAction(): Promise<Team[]> {
   try {
     const res = await backendFetch("/api/v1/admin/teams");
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to fetch teams");
+      throw await parseApiError(res, "Failed to fetch teams");
     }
     const data = await res.json();
     return data.teams || [];
@@ -43,8 +39,7 @@ export async function createTeamAction(
       body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to create team");
+      throw await parseApiError(res, "Failed to create team");
     }
     return await res.json();
   } catch (err: unknown) {
@@ -80,8 +75,7 @@ export async function bulkCreateTeamsAction(
     });
 
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to bulk create teams");
+      throw await parseApiError(res, "Failed to bulk create teams");
     }
 
     const data = await res.json();
@@ -123,8 +117,7 @@ export async function updateTeamAction(id: string, name: string): Promise<Team> 
       body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to update team");
+      throw await parseApiError(res, "Failed to update team");
     }
     const data = await res.json();
     return data.team;
@@ -139,8 +132,7 @@ export async function deleteTeamAction(id: string): Promise<void> {
       method: "DELETE",
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to delete team");
+      throw await parseApiError(res, "Failed to delete team");
     }
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to delete team"));
@@ -166,8 +158,7 @@ export async function addTeamMemberAction(
       body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to add team member");
+      throw await parseApiError(res, "Failed to add team member");
     }
     return await res.json();
   } catch (err: unknown) {
@@ -181,8 +172,7 @@ export async function removeTeamMemberAction(teamId: string, userId: string): Pr
       method: "DELETE",
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to remove team member");
+      throw await parseApiError(res, "Failed to remove team member");
     }
     const data = await res.json();
     return data.team;

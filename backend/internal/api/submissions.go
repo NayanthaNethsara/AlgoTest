@@ -177,27 +177,22 @@ func (h *handler) createSubmission(c *gin.Context) {
 	created, err := h.judge.Submit(c.Request.Context(), submission)
 	if err != nil {
 		if errors.Is(err, judge.ErrSubmissionRateLimited) {
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Submission cooldown active. Please wait a few seconds before submitting again."})
+			h.respondError(c, http.StatusTooManyRequests, "Submission cooldown active. Please wait a few seconds before submitting again.", err)
 			return
 		}
 		if errors.Is(err, judge.ErrActiveSubmissionExists) {
-			c.JSON(http.StatusConflict, gin.H{"error": "Your team already has an active submission queued or running for this problem. Please wait for it to complete."})
+			h.respondError(c, http.StatusConflict, "Your team already has an active submission queued or running for this problem. Please wait for it to complete.", err)
 			return
 		}
 		if errors.Is(err, judge.ErrProblemNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Problem not found"})
+			h.respondError(c, http.StatusNotFound, "Problem not found", err)
 			return
 		}
 		if errors.Is(err, judge.ErrNoTestCases) {
-			h.log.Error("submission rejected: problem has no test cases",
-				"problem_id", problemID, "user_id", u.ID)
-			c.JSON(http.StatusUnprocessableEntity, gin.H{
-				"error": "This problem has no test cases configured yet. Please notify an organizer -- your submission was not recorded.",
-				"code":  "PROBLEM_NOT_GRADABLE",
-			})
+			h.respondError(c, http.StatusUnprocessableEntity, "This problem has no test cases configured yet. Please notify an organizer -- your submission was not recorded.", err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create submission: " + err.Error()})
+		h.respondError(c, http.StatusInternalServerError, "Failed to create submission: "+err.Error(), err)
 		return
 	}
 

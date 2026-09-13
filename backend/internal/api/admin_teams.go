@@ -84,14 +84,14 @@ func (h *handler) createTeam(c *gin.Context) {
 	t, created, err := h.createTeamOne(c.Request.Context(), req)
 	if err != nil {
 		if errors.Is(err, team.ErrDuplicateTeamName) {
-			c.JSON(http.StatusConflict, gin.H{"error": "team name already exists"})
+			h.respondError(c, http.StatusConflict, "team name already exists", err)
 			return
 		}
 		if errors.Is(err, user.ErrDuplicateUsername) {
-			c.JSON(http.StatusConflict, gin.H{"error": "one of the member usernames already exists"})
+			h.respondError(c, http.StatusConflict, "one of the member usernames already exists", err)
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.respondError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
@@ -197,14 +197,14 @@ func (h *handler) updateTeam(c *gin.Context) {
 	t, err := h.teams.UpdateTeam(c.Request.Context(), id, req.Name)
 	if err != nil {
 		if errors.Is(err, team.ErrTeamNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
+			h.respondError(c, http.StatusNotFound, "team not found", err)
 			return
 		}
 		if errors.Is(err, team.ErrDuplicateTeamName) {
-			c.JSON(http.StatusConflict, gin.H{"error": "team name already exists"})
+			h.respondError(c, http.StatusConflict, "team name already exists", err)
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.respondError(c, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 	h.recordAudit(c, audit.ActionTeamUpdate, audit.TargetTeam, t.ID, audit.StatusSuccess, map[string]interface{}{
@@ -218,10 +218,10 @@ func (h *handler) deleteTeam(c *gin.Context) {
 	err := h.teams.DeleteTeam(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, team.ErrTeamNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
+			h.respondError(c, http.StatusNotFound, "team not found", err)
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		h.respondError(c, http.StatusInternalServerError, err.Error(), err)
 		return
 	}
 	h.recordAudit(c, audit.ActionTeamDelete, audit.TargetTeam, id, audit.StatusSuccess, nil)

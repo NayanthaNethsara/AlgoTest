@@ -1,11 +1,17 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/metrics"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
@@ -154,5 +160,43 @@ func TestValidateUsername(t *testing.T) {
 func TestTeamMemberCapacityLimit(t *testing.T) {
 	if team.MaxTeamMembers != 3 {
 		t.Fatalf("expected MaxTeamMembers to be 3, got %d", team.MaxTeamMembers)
+	}
+}
+
+func TestRespondErrorFormat(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	c.Request = req
+
+	expectedReqID := "test-trace-id-12345"
+	c.Set(metrics.ContextRequestIDKey, expectedReqID)
+
+	h := &handler{}
+	origErr := errors.New("underlying root-cause failure")
+	h.respondError(c, http.StatusInternalServerError, "Operation failed", origErr)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", w.Code)
+	}
+
+	var resp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response JSON: %v", err)
+	}
+
+	if resp["error"] != "Operation failed" {
+		t.Fatalf("expected error message 'Operation failed', got '%s'", resp["error"])
+	}
+	if resp["requestId"] != expectedReqID {
+		t.Fatalf("expected requestId '%s', got '%s'", expectedReqID, resp["requestId"])
+	}
+
+	if len(c.Errors) == 0 {
+		t.Fatal("expected c.Errors to contain the underlying error for slog logging")
+	}
+	if !errors.Is(c.Errors.Last().Err, origErr) {
+		t.Fatalf("expected c.Errors to wrap origErr, got %v", c.Errors.Last().Err)
 	}
 }

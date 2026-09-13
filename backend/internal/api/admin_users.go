@@ -68,7 +68,7 @@ func (h *handler) createUser(c *gin.Context) {
 
 	created, password, err := h.createOne(c, req)
 	if err != nil {
-		writeCreateError(c, err)
+		h.writeCreateError(c, err)
 		return
 	}
 	h.recordAudit(c, audit.ActionUserCreate, audit.TargetUser, created.ID, audit.StatusSuccess, map[string]interface{}{
@@ -216,7 +216,7 @@ func (h *handler) resetPassword(c *gin.Context) {
 	}
 
 	if err := h.users.UpdatePassword(ctx, id, hash); err != nil {
-		writeUpdateError(c, err)
+		h.writeUpdateError(c, err)
 		return
 	}
 	if err := h.sessions.DeleteByUser(ctx, id); err != nil {
@@ -265,7 +265,7 @@ func (h *handler) updateRole(c *gin.Context) {
 		return
 	}
 	if err := h.users.UpdateRole(c.Request.Context(), id, req.Role); err != nil {
-		writeUpdateError(c, err)
+		h.writeUpdateError(c, err)
 		return
 	}
 	if err := h.sessions.DeleteByUser(c.Request.Context(), id); err != nil {
@@ -305,7 +305,7 @@ func (h *handler) deleteUser(c *gin.Context) {
 	}
 
 	if err := h.users.Delete(ctx, id); err != nil {
-		writeUpdateError(c, err)
+		h.writeUpdateError(c, err)
 		return
 	}
 	if err := h.sessions.DeleteByUser(ctx, id); err != nil {
@@ -358,7 +358,7 @@ func (h *handler) suspendUser(c *gin.Context) {
 	}
 
 	if err := h.users.UpdateSuspension(ctx, id, req.Suspended, strings.TrimSpace(req.Reason)); err != nil {
-		writeUpdateError(c, err)
+		h.writeUpdateError(c, err)
 		return
 	}
 
@@ -469,46 +469,46 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 	return created, password, nil
 }
 
-func writeCreateError(c *gin.Context, err error) {
+func (h *handler) writeCreateError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, user.ErrDuplicateUsername):
-		c.JSON(http.StatusConflict, gin.H{"error": "username already exists"})
+		h.respondError(c, http.StatusConflict, "username already exists", err)
 	case errors.Is(err, errAdminCreationNotAllowed):
-		c.JSON(http.StatusForbidden, gin.H{"error": "admin accounts cannot be created via API; use server CLI"})
+		h.respondError(c, http.StatusForbidden, "admin accounts cannot be created via API; use server CLI", err)
 	case errors.Is(err, user.ErrUsernameRequired),
 		errors.Is(err, user.ErrUsernameLength),
 		errors.Is(err, user.ErrUsernameInvalid),
 		errors.Is(err, user.ErrDisplayNameLength),
 		errors.Is(err, team.ErrTeamNameTooLong):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		h.respondError(c, http.StatusBadRequest, err.Error(), err)
 	case errors.Is(err, errInvalidRole):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
+		h.respondError(c, http.StatusBadRequest, "invalid role", err)
 	case errors.Is(err, user.ErrPasswordTooShort):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "password too short (min 8 characters)"})
+		h.respondError(c, http.StatusBadRequest, "password too short (min 8 characters)", err)
 	case errors.Is(err, errTeamRequired):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "team is required for competitor users"})
+		h.respondError(c, http.StatusBadRequest, "team is required for competitor users", err)
 	case errors.Is(err, team.ErrTeamNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
+		h.respondError(c, http.StatusNotFound, "team not found", err)
 	case errors.Is(err, team.ErrTeamFull):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "team capacity reached (max 3 members)"})
+		h.respondError(c, http.StatusBadRequest, "team capacity reached (max 3 members)", err)
 	case errors.Is(err, team.ErrUserAlreadyInTeam):
-		c.JSON(http.StatusConflict, gin.H{"error": "user is already assigned to a team"})
+		h.respondError(c, http.StatusConflict, "user is already assigned to a team", err)
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
+		h.respondError(c, http.StatusInternalServerError, "failed to create user", err)
 	}
 }
 
-func writeUpdateError(c *gin.Context, err error) {
+func (h *handler) writeUpdateError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, user.ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		h.respondError(c, http.StatusNotFound, "user not found", err)
 	case errors.Is(err, team.ErrTeamNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "team not found"})
+		h.respondError(c, http.StatusNotFound, "team not found", err)
 	case errors.Is(err, team.ErrTeamFull):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "team capacity reached (max 3 members)"})
+		h.respondError(c, http.StatusBadRequest, "team capacity reached (max 3 members)", err)
 	case errors.Is(err, team.ErrUserAlreadyInTeam):
-		c.JSON(http.StatusConflict, gin.H{"error": "user is already assigned to a team"})
+		h.respondError(c, http.StatusConflict, "user is already assigned to a team", err)
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "operation failed"})
+		h.respondError(c, http.StatusInternalServerError, "operation failed", err)
 	}
 }

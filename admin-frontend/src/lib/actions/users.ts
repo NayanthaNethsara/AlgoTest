@@ -1,6 +1,7 @@
 "use server";
 
 import { backendFetch } from "@/lib/api/server";
+import { parseApiError, getErrorMessage } from "@/lib/errors";
 import {
   createUserInputSchema,
   bulkCreateUsersSchema,
@@ -9,16 +10,11 @@ import {
 } from "@/lib/validation/user";
 import type { User, CreateUserInput, BulkResult } from "@/types/user";
 
-function getErrorMessage(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback;
-}
-
 export async function listUsersAction(): Promise<User[]> {
   try {
     const res = await backendFetch("/api/v1/admin/users");
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to fetch users");
+      throw await parseApiError(res, "Failed to fetch users");
     }
     const data = await res.json();
     return data.users || [];
@@ -42,8 +38,7 @@ export async function createUserAction(
       body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to create user");
+      throw await parseApiError(res, "Failed to create user");
     }
     return await res.json();
   } catch (err: unknown) {
@@ -76,8 +71,7 @@ export async function bulkCreateUsersAction(
       }),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Bulk import failed");
+      throw await parseApiError(res, "Bulk import failed");
     }
     return await res.json();
   } catch (err: unknown) {
@@ -93,8 +87,7 @@ export async function resetPasswordAction(userId: string): Promise<{ password: s
       body: JSON.stringify({}),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to reset password");
+      throw await parseApiError(res, "Failed to reset password");
     }
     return await res.json();
   } catch (err: unknown) {
@@ -115,8 +108,7 @@ export async function updateRoleAction(userId: string, role: string): Promise<vo
       body: JSON.stringify({ role: parsed.data.role }),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to update role");
+      throw await parseApiError(res, "Failed to update role");
     }
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to update user role"));
@@ -129,8 +121,7 @@ export async function deleteUserAction(userId: string): Promise<void> {
       method: "DELETE",
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to delete user");
+      throw await parseApiError(res, "Failed to delete user");
     }
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to delete user"));
@@ -154,8 +145,7 @@ export async function suspendUserAction(
       body: JSON.stringify(parsed.data),
     });
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
-      throw new Error(errBody.error || "Failed to update user suspension");
+      throw await parseApiError(res, "Failed to update user suspension");
     }
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to update user suspension"));
