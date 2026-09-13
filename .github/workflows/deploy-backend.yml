@@ -121,7 +121,7 @@ jobs:
             printf 'export GIT_REF=%q\n' "$GIT_REF"
             printf 'export GHCR_USER=%q\n' "$GHCR_USER"
             printf 'export GHCR_TOKEN=%q\n' "$GHCR_TOKEN"
-            printf 'export GHCR_IMAGE=%q\n' "$(echo "$REPO_SLUG/backend" | tr '[:upper:]' '[:lower:]')"
+            printf 'export GHCR_IMAGE=%q\n' "$(echo "ghcr.io/$REPO_SLUG/backend:latest" | tr '[:upper:]' '[:lower:]')"
             printf 'export DEPLOY_DIR=%q\n' "$DEPLOY_DIR"
             cat <<'REMOTE'
           set -euo pipefail
