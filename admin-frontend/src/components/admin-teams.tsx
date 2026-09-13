@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangleIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { AlertTriangleIcon, PlusIcon, RefreshCwIcon, UploadIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   createTeamAction,
+  bulkCreateTeamsAction,
   updateTeamAction,
   deleteTeamAction,
   addTeamMemberAction,
   removeTeamMemberAction,
 } from "@/lib/actions/teams";
-import type { Team } from "@/types/team";
+import type { Team, CreateTeamInput } from "@/types/team";
 import type { User } from "@/types/user";
 import { ConfirmDialog } from "./confirm-dialog";
 import { CredentialsAlert } from "./credentials-alert";
@@ -22,10 +23,11 @@ import { SearchInput } from "@/components/ui/search-input";
 import { Spinner } from "@/components/ui/spinner";
 import { TeamTable } from "./teams/team-table";
 import { TeamCreateDialog } from "./teams/team-create-dialog";
+import { TeamBulkDialog } from "./teams/team-bulk-dialog";
 import { TeamEditDialog } from "./teams/team-edit-dialog";
 import { TeamAddMemberDialog } from "./teams/team-add-member-dialog";
 
-type Credential = { username: string; password: string };
+type Credential = { username: string; password: string; teamName?: string };
 
 export function AdminTeams({
   teams,
@@ -46,12 +48,15 @@ export function AdminTeams({
 
   // Dialog states
   const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [showBulkTeams, setShowBulkTeams] = useState(false);
+  const [bulkErrors, setBulkErrors] = useState<{ name: string; error: string }[]>([]);
   const [editTeamTarget, setEditTeamTarget] = useState<Team | null>(null);
   const [deleteTeamTarget, setDeleteTeamTarget] = useState<Team | null>(null);
   const [addMemberTarget, setAddMemberTarget] = useState<Team | null>(null);
   const [removeMemberTarget, setRemoveMemberTarget] = useState<{ team: Team; user: User } | null>(
     null
   );
+
 
   const unassignedCompetitors = competitors.filter((c) => !c.teamId);
 
@@ -83,6 +88,48 @@ export function AdminTeams({
       onRefresh();
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to create the team."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleBulkCreateTeams(teamInputs: CreateTeamInput[]) {
+    setPending(true);
+    setBulkErrors([]);
+    try {
+      const result = await bulkCreateTeamsAction(teamInputs);
+      const createdCreds: Credential[] = [];
+
+      for (const item of result.created) {
+        if (item.members) {
+          for (const m of item.members) {
+            if (m.password) {
+              createdCreds.push({
+                username: m.user.username,
+                password: m.password,
+                teamName: item.team.name,
+              });
+            }
+          }
+        }
+      }
+
+      if (createdCreds.length > 0) {
+        setCreds((prev) => [...createdCreds, ...prev]);
+      }
+
+      if (result.errors.length > 0) {
+        setBulkErrors(result.errors);
+        toast.warning(`${result.created.length} team(s) created, ${result.errors.length} failed`, {
+          description: "Review the failed teams in the bulk import panel.",
+        });
+      } else {
+        setShowBulkTeams(false);
+        toast.success(`${result.created.length} team(s) created`);
+      }
+      onRefresh();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to import teams."));
     } finally {
       setPending(false);
     }
@@ -164,6 +211,14 @@ export function AdminTeams({
             >
               {refreshing ? <Spinner /> : <RefreshCwIcon />} Refresh
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowBulkTeams(true)}
+              className="gap-1.5"
+            >
+              <UploadIcon /> Bulk import
+            </Button>
             <Button size="sm" onClick={() => setShowCreateTeam(true)} className="gap-1.5">
               <PlusIcon /> Create team
             </Button>
@@ -188,6 +243,20 @@ export function AdminTeams({
           onCancel={() => setShowCreateTeam(false)}
         />
       )}
+
+      {showBulkTeams && (
+        <TeamBulkDialog
+          existingTeams={teams}
+          pending={pending}
+          bulkErrors={bulkErrors}
+          onSubmit={handleBulkCreateTeams}
+          onCancel={() => {
+            setShowBulkTeams(false);
+            setBulkErrors([]);
+          }}
+        />
+      )}
+
 
       <SearchInput
         value={searchQuery}

@@ -202,7 +202,7 @@ export function TestCasesTab({
     setBatchModalOpen(true);
   }
 
-  async function runBatchUploadQueue() {
+  async function runBatchUploadQueue(selectedIds?: Set<string>) {
     if (!problemId || batchIsRunning) return;
     setBatchIsRunning(true);
 
@@ -211,6 +211,7 @@ export function TestCasesTab({
     for (let i = 0; i < batchQueue.length; i++) {
       const item = batchQueue[i];
       if (item.status === "success") continue;
+      if (selectedIds && !selectedIds.has(item.id)) continue;
 
       setBatchQueue((prev) =>
         prev.map((q, idx) =>
@@ -251,6 +252,11 @@ export function TestCasesTab({
 
     setBatchIsRunning(false);
   }
+
+  function handleRemoveBatchItem(index: number) {
+    setBatchQueue((prev) => prev.filter((_, idx) => idx !== index));
+  }
+
 
   async function handleRetryBatchItem(index: number) {
     if (!problemId) return;
@@ -527,6 +533,7 @@ export function TestCasesTab({
         isRunning={batchIsRunning}
         onStartBatch={runBatchUploadQueue}
         onRetryItem={handleRetryBatchItem}
+        onRemoveItem={handleRemoveBatchItem}
       />
 
       {/* On-demand Inspector Modal */}

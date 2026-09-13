@@ -18,14 +18,30 @@ interface TestCaseItemProps {
   onDelete: (ordinal: number) => void;
 }
 
-function Snippet({ label, value }: { label: string; value?: string }) {
+function Snippet({ label, value, size }: { label: string; value?: string; size: number }) {
+  const isLarge = size > 256;
+  const cleaned = value?.trim();
+  const displayVal = cleaned
+    ? cleaned.includes("\n")
+      ? cleaned.split("\n").slice(0, 3).join(" ↵ ") + (isLarge ? " …" : "")
+      : cleaned.slice(0, 60) + (cleaned.length > 60 || isLarge ? " …" : "")
+    : "(empty)";
+
   return (
-    <div className="min-w-0 truncate">
-      <span className="text-muted-foreground select-none">{label}: </span>
-      <span className="text-foreground/90">{value ? value.replace(/\n/g, " ↵ ") : "(empty)"}</span>
+    <div className="flex items-center justify-between gap-2 min-w-0 font-mono text-[11px]">
+      <div className="min-w-0 truncate">
+        <span className="text-muted-foreground select-none font-semibold">{label}: </span>
+        <span className="text-foreground/90">{displayVal}</span>
+      </div>
+      {isLarge && (
+        <span className="text-[10px] text-muted-foreground shrink-0 select-none">
+          ({formatByteSize(size)})
+        </span>
+      )}
     </div>
   );
 }
+
 
 export function TestCaseItem({
   test,
@@ -142,8 +158,8 @@ export function TestCaseItem({
       </div>
 
       <div className="grid gap-2 rounded-md border bg-muted/20 p-2 font-mono text-[11px] md:grid-cols-2">
-        <Snippet label="stdin" value={test.inputSnippet} />
-        <Snippet label="stdout" value={test.expectedSnippet} />
+        <Snippet label="stdin" value={test.inputSnippet} size={test.inputSize} />
+        <Snippet label="stdout" value={test.expectedSnippet} size={test.expectedSize} />
       </div>
     </div>
   );

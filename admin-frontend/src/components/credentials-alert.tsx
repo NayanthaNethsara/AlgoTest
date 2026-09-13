@@ -5,6 +5,7 @@ import { CheckIcon, CopyIcon, DownloadIcon, KeyRoundIcon, XIcon } from "lucide-r
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { downloadTextFile } from "@/lib/file-utils";
 
 type Credential = { username: string; password: string; teamName?: string };
 
@@ -55,12 +56,8 @@ export function CredentialsAlert({
       ...credentials.map((c) => [c.username, c.teamName ?? "", c.password]),
     ];
     const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `minialgothon-credentials-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const filename = `minialgothon-credentials-${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadTextFile(filename, csv, "text/csv;charset=utf-8");
   }
 
   return (

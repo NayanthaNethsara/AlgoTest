@@ -1,4 +1,5 @@
 import { getAdminUploadConfigAction } from "@/lib/actions/auth";
+import { downloadBlob } from "@/lib/file-utils";
 import type { TestCaseMetadata } from "@/types/problem";
 
 export interface SingleTestUploadItem {
@@ -257,14 +258,7 @@ export async function downloadTestCaseFile(
   }
 
   const blob = await res.blob();
-  const blobUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = blobUrl;
-  anchor.download = `case_${ordinal}.${field === "input" ? "in" : "out"}`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(blobUrl);
+  downloadBlob(`case_${ordinal}.${field === "input" ? "in" : "out"}`, blob);
 }
 
 export async function downloadTestCasesZip(problemId: string, problemSlug: string): Promise<void> {
@@ -283,12 +277,5 @@ export async function downloadTestCasesZip(problemId: string, problemSlug: strin
   }
 
   const blob = await res.blob();
-  const blobUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = blobUrl;
-  anchor.download = `${problemSlug || "problem"}_tests.zip`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  URL.revokeObjectURL(blobUrl);
+  downloadBlob(`${problemSlug || "problem"}_tests.zip`, blob);
 }

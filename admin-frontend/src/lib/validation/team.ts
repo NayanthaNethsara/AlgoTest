@@ -38,6 +38,11 @@ export const addTeamMemberPayloadSchema = z.union([
   teamMemberInputSchema,
 ]);
 
+export const bulkCreateTeamsSchema = z.object({
+  teams: z.array(createTeamInputSchema).min(1, "At least one team is required"),
+});
+
 export type ValidatedCreateTeamInput = z.infer<typeof createTeamInputSchema>;
 export type ValidatedUpdateTeamInput = z.infer<typeof updateTeamInputSchema>;
 export type ValidatedTeamMemberInput = z.infer<typeof teamMemberInputSchema>;
+export type ValidatedBulkCreateTeamsInput = z.infer<typeof bulkCreateTeamsSchema>;

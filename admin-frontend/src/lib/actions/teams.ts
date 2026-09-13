@@ -5,6 +5,7 @@ import {
   createTeamInputSchema,
   updateTeamInputSchema,
   addTeamMemberPayloadSchema,
+  bulkCreateTeamsSchema,
 } from "@/lib/validation/team";
 import type { Team, CreateTeamInput } from "@/types/team";
 import type { User } from "@/types/user";
@@ -48,6 +49,64 @@ export async function createTeamAction(
     return await res.json();
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to create team"));
+  }
+}
+
+export type BulkTeamResult = {
+  created: Array<{ team: Team; members?: Array<{ user: User; password?: string }> }>;
+  errors: Array<{ name: string; error: string }>;
+};
+
+export async function bulkCreateTeamsAction(
+  teamInputs: CreateTeamInput[]
+): Promise<BulkTeamResult> {
+  const created: BulkTeamResult["created"] = [];
+  const errors: BulkTeamResult["errors"] = [];
+
+  if (teamInputs.length === 0) {
+    return { created, errors };
+  }
+
+  const parsed = bulkCreateTeamsSchema.safeParse({ teams: teamInputs });
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message || "Invalid bulk team input data");
+  }
+
+  try {
+    const res = await backendFetch("/api/v1/admin/teams/bulk", {
+      method: "POST",
+      body: JSON.stringify({ teams: parsed.data.teams }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || "Failed to bulk create teams");
+    }
+
+    const data = await res.json();
+    const results: Array<{
+      name: string;
+      status: "created" | "error";
+      team?: Team;
+      members?: Array<{ user: User; password?: string }>;
+      error?: string;
+    }> = data.results || [];
+
+    for (const item of results) {
+      if (item.status === "created" && item.team) {
+        created.push({ team: item.team, members: item.members });
+      } else {
+        errors.push({
+          name: item.name,
+          error: item.error || "Failed to create team",
+        });
+      }
+    }
+
+    return { created, errors };
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to bulk create teams"));
   }
 }
 

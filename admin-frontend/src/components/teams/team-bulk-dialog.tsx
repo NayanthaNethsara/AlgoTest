@@ -6,7 +6,7 @@ import {
   CheckCircle2Icon,
   CopyIcon,
   DownloadIcon,
-  FileSpreadsheetIcon,
+  FolderPlusIcon,
   UploadIcon,
   XIcon,
 } from "lucide-react";
@@ -16,8 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { SimpleSelect } from "@/components/ui/simple-select";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -27,93 +25,232 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { Team } from "@/types/team";
-import {
-  downloadUserSampleCsv,
-  getUserSampleCsvContent,
-  parseCsvInput,
-} from "./csv-utils";
-import type { ParsedCsvRow } from "./types";
+import { downloadTextFile } from "@/lib/file-utils";
+import { splitDelimitedLine } from "@/lib/csv-utils";
+import type { Team, CreateTeamInput } from "@/types/team";
 
-type BulkMode = "csv_with_teams" | "single_team";
-type TeamType = "existing" | "new";
+type BulkTeamMode = "names_only" | "with_members";
 type PreviewFilter = "all" | "selected" | "invalid";
 
 const MAX_CSV_BYTES = 512 * 1024;
+const MAX_MEMBERS_PER_TEAM = 3;
 
-const MODES: { value: BulkMode; title: string; columns: string }[] = [
+const MODES: { value: BulkTeamMode; title: string; columns: string }[] = [
   {
-    value: "csv_with_teams",
-    title: "CSV includes a team column",
-    columns: "username, [display_name], team_name, [password]",
+    value: "names_only",
+    title: "Team names only",
+    columns: "team_name (one per line)",
   },
   {
-    value: "single_team",
-    title: "Assign every row to one team",
-    columns: "username, [display_name], [password]",
+    value: "with_members",
+    title: "Teams with members",
+    columns: "team_name, username, [display_name], [password]",
   },
 ];
 
-interface UserBulkDialogProps {
-  teams: Team[];
+interface ParsedTeamItem {
+  name: string;
+  members: Array<{ username: string; displayName?: string; password?: string }>;
+  isValid: boolean;
+  validationError?: string;
+}
+
+interface TeamBulkDialogProps {
+  existingTeams: Team[];
   pending: boolean;
-  bulkErrors: { username: string; error: string }[];
-  onSubmit: (parsedRows: ParsedCsvRow[]) => Promise<void>;
+  bulkErrors: { name: string; error: string }[];
+  onSubmit: (teams: CreateTeamInput[]) => Promise<void>;
   onCancel: () => void;
 }
 
-export function UserBulkDialog({
-  teams,
+function getTeamSampleCsv(mode: BulkTeamMode): string {
+  if (mode === "names_only") {
+    return ["team_name", "Team Alpha", "Team Beta", "Team Gamma", "Team Delta"].join("\n");
+  }
+  return [
+    "team_name,username,display_name,password",
+    "Team Alpha,alice,Alice Walker,",
+    "Team Alpha,bob,Bob Smith,SecretPass123",
+    "Team Beta,carol,Carol White,",
+    "Team Beta,david,David Clark,",
+    "Team Gamma,elena,Elena Rostova,TempPass456",
+  ].join("\n");
+}
+
+function downloadTeamSampleCsv(mode: BulkTeamMode): void {
+  const content = getTeamSampleCsv(mode);
+  const filename = mode === "names_only" ? "teams_sample.csv" : "teams_with_members_sample.csv";
+  downloadTextFile(filename, content, "text/csv;charset=utf-8;");
+}
+
+function parseTeamsInput(
+  text: string,
+  mode: BulkTeamMode,
+  existingTeamNamesSet: Set<string>
+): ParsedTeamItem[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return [];
+
+  const firstLine = lines[0].toLowerCase();
+  const hasHeader =
+    firstLine.includes("team") ||
+    firstLine.includes("name") ||
+    firstLine.includes("username");
+
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  if (mode === "names_only") {
+    const seenInFile = new Set<string>();
+    return dataLines.map((line) => {
+      const parts = splitDelimitedLine(line);
+      const teamName = (parts[0] || "").trim();
+
+      if (!teamName) {
+        return {
+          name: "",
+          members: [],
+          isValid: false,
+          validationError: "Empty team name",
+        };
+      }
+
+      const lowerName = teamName.toLowerCase();
+      if (existingTeamNamesSet.has(lowerName)) {
+        return {
+          name: teamName,
+          members: [],
+          isValid: false,
+          validationError: "Team already exists in contest",
+        };
+      }
+
+      if (seenInFile.has(lowerName)) {
+        return {
+          name: teamName,
+          members: [],
+          isValid: false,
+          validationError: "Duplicate team name in file",
+        };
+      }
+
+      seenInFile.add(lowerName);
+      return {
+        name: teamName,
+        members: [],
+        isValid: true,
+      };
+    });
+  }
+
+  // Mode: with_members -> group rows by team name
+  const teamOrder: string[] = [];
+  const teamMap = new Map<
+    string,
+    {
+      originalName: string;
+      members: Array<{ username: string; displayName?: string; password?: string }>;
+    }
+  >();
+
+  for (const line of dataLines) {
+    const parts = splitDelimitedLine(line);
+    const rawTeamName = (parts[0] || "").trim();
+    if (!rawTeamName) continue;
+
+    const lowerName = rawTeamName.toLowerCase();
+    if (!teamMap.has(lowerName)) {
+      teamOrder.push(lowerName);
+      teamMap.set(lowerName, {
+        originalName: rawTeamName,
+        members: [],
+      });
+    }
+
+    const username = (parts[1] || "").trim();
+    const displayName = (parts[2] || "").trim() || undefined;
+    const password = (parts[3] || "").trim() || undefined;
+
+    if (username) {
+      teamMap.get(lowerName)!.members.push({ username, displayName, password });
+    }
+  }
+
+  return teamOrder.map((lowerKey) => {
+    const data = teamMap.get(lowerKey)!;
+    const teamName = data.originalName;
+
+    if (existingTeamNamesSet.has(lowerKey)) {
+      return {
+        name: teamName,
+        members: data.members,
+        isValid: false,
+        validationError: "Team already exists in contest",
+      };
+    }
+
+    if (data.members.length > MAX_MEMBERS_PER_TEAM) {
+      return {
+        name: teamName,
+        members: data.members,
+        isValid: false,
+        validationError: `Exceeds max ${MAX_MEMBERS_PER_TEAM} members per team (${data.members.length} found)`,
+      };
+    }
+
+    return {
+      name: teamName,
+      members: data.members,
+      isValid: true,
+    };
+  });
+}
+
+export function TeamBulkDialog({
+  existingTeams,
   pending,
   bulkErrors,
   onSubmit,
   onCancel,
-}: UserBulkDialogProps) {
-  const [bulkMode, setBulkMode] = useState<BulkMode>("csv_with_teams");
-  const [teamType, setTeamType] = useState<TeamType>("existing");
-  const [defaultTeamId, setDefaultTeamId] = useState("");
-  const [defaultNewTeamName, setDefaultNewTeamName] = useState("");
+}: TeamBulkDialogProps) {
+  const [mode, setMode] = useState<BulkTeamMode>("names_only");
   const [csvText, setCsvText] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [previewFilter, setPreviewFilter] = useState<PreviewFilter>("all");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isSingleTeamMode = bulkMode === "single_team";
+  const existingTeamNamesSet = useMemo(() => {
+    return new Set(existingTeams.map((t) => t.name.trim().toLowerCase()));
+  }, [existingTeams]);
 
-  const parsedRows: ParsedCsvRow[] = useMemo(() => {
+  const parsedTeams = useMemo(() => {
     if (!csvText.trim()) return [];
-    return parseCsvInput(
-      csvText,
-      isSingleTeamMode,
-      teamType === "existing"
-        ? teams.find((t) => t.id === defaultTeamId)?.name
-        : defaultNewTeamName.trim()
-    );
-  }, [csvText, isSingleTeamMode, defaultTeamId, defaultNewTeamName, teamType, teams]);
+    return parseTeamsInput(csvText, mode, existingTeamNamesSet);
+  }, [csvText, mode, existingTeamNamesSet]);
 
   const validIndices = useMemo(() => {
     const indices: number[] = [];
-    parsedRows.forEach((row, idx) => {
-      if (row.isValid) indices.push(idx);
+    parsedTeams.forEach((item, idx) => {
+      if (item.isValid) indices.push(idx);
     });
     return indices;
-  }, [parsedRows]);
+  }, [parsedTeams]);
 
-  // When new rows are parsed, auto-select all valid rows
   useEffect(() => {
     setSelectedIndices(new Set(validIndices));
     setPreviewFilter("all");
   }, [validIndices]);
 
-  const selectedValidRows = useMemo(() => {
-    return parsedRows.filter((r, idx) => r.isValid && selectedIndices.has(idx));
-  }, [parsedRows, selectedIndices]);
+  const selectedValidTeams = useMemo(() => {
+    return parsedTeams.filter((item, idx) => item.isValid && selectedIndices.has(idx));
+  }, [parsedTeams, selectedIndices]);
 
-  const invalidCount = parsedRows.length - validIndices.length;
+  const invalidCount = parsedTeams.length - validIndices.length;
   const isAllValidSelected =
     validIndices.length > 0 && validIndices.every((idx) => selectedIndices.has(idx));
 
@@ -137,23 +274,23 @@ export function UserBulkDialog({
     });
   }
 
-  const visibleRowsWithIndex = useMemo(() => {
-    return parsedRows
-      .map((row, index) => ({ row, index }))
-      .filter(({ row, index }) => {
+  const visibleTeamsWithIndex = useMemo(() => {
+    return parsedTeams
+      .map((item, index) => ({ item, index }))
+      .filter(({ item, index }) => {
         if (previewFilter === "selected") {
-          return row.isValid && selectedIndices.has(index);
+          return item.isValid && selectedIndices.has(index);
         }
         if (previewFilter === "invalid") {
-          return !row.isValid;
+          return !item.isValid;
         }
         return true;
       });
-  }, [parsedRows, previewFilter, selectedIndices]);
+  }, [parsedTeams, previewFilter, selectedIndices]);
 
   async function handleFile(file: File) {
     if (file.size > MAX_CSV_BYTES) {
-      toast.error("File too large", { description: "Keep the roster under 512 KB." });
+      toast.error("File too large", { description: "Keep the file under 512 KB." });
       return;
     }
     setCsvText(await file.text());
@@ -161,37 +298,43 @@ export function UserBulkDialog({
   }
 
   function handleCopyTemplate() {
-    const content = getUserSampleCsvContent(isSingleTeamMode);
+    const content = getTeamSampleCsv(mode);
     navigator.clipboard.writeText(content);
     toast.success("Sample template copied to clipboard");
   }
 
   function handleDownloadSample() {
-    downloadUserSampleCsv(isSingleTeamMode);
+    downloadTeamSampleCsv(mode);
     toast.success("Sample template downloaded");
   }
 
   async function handleSubmit() {
     setLocalError(null);
-    if (parsedRows.length === 0) {
+    if (parsedTeams.length === 0) {
       setLocalError("Paste rows or upload a CSV file first.");
       return;
     }
-    if (selectedValidRows.length === 0) {
-      setLocalError("Select at least one valid row to import.");
+    if (selectedValidTeams.length === 0) {
+      setLocalError("Select at least one valid team to import.");
       return;
     }
-    await onSubmit(selectedValidRows);
+
+    const payload: CreateTeamInput[] = selectedValidTeams.map((t) => ({
+      name: t.name,
+      members: t.members.length > 0 ? t.members : undefined,
+    }));
+
+    await onSubmit(payload);
   }
 
   return (
     <Card>
       <CardHeader className="border-b">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <FileSpreadsheetIcon className="size-4 text-primary" /> Bulk import competitors
+          <FolderPlusIcon className="size-4 text-primary" /> Bulk import teams
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Teams that do not exist yet are created automatically.
+          Import multiple teams at once. Member accounts will be created and linked automatically.
         </p>
         <Button
           variant="ghost"
@@ -216,12 +359,12 @@ export function UserBulkDialog({
         {bulkErrors.length > 0 && (
           <Alert variant="destructive">
             <AlertCircleIcon />
-            <AlertTitle>{bulkErrors.length} row(s) failed during creation</AlertTitle>
+            <AlertTitle>{bulkErrors.length} team(s) failed during creation</AlertTitle>
             <AlertDescription>
               <ul className="max-h-24 space-y-0.5 overflow-y-auto font-mono text-[11px]">
                 {bulkErrors.map((err) => (
-                  <li key={err.username}>
-                    {err.username}: {err.error}
+                  <li key={err.name}>
+                    {err.name}: {err.error}
                   </li>
                 ))}
               </ul>
@@ -231,11 +374,11 @@ export function UserBulkDialog({
 
         <fieldset className="grid gap-2 sm:grid-cols-2">
           <legend className="sr-only">Import mode</legend>
-          {MODES.map((mode) => {
-            const selected = bulkMode === mode.value;
+          {MODES.map((m) => {
+            const selected = mode === m.value;
             return (
               <label
-                key={mode.value}
+                key={m.value}
                 className={cn(
                   "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
                   selected ? "border-primary bg-primary/5" : "bg-muted/10 hover:bg-muted/30"
@@ -243,16 +386,16 @@ export function UserBulkDialog({
               >
                 <input
                   type="radio"
-                  name="bulkMode"
-                  value={mode.value}
+                  name="teamBulkMode"
+                  value={m.value}
                   checked={selected}
-                  onChange={() => setBulkMode(mode.value)}
+                  onChange={() => setMode(m.value)}
                   className="mt-0.5 accent-primary"
                 />
                 <span>
-                  <span className="block text-xs font-semibold">{mode.title}</span>
+                  <span className="block text-xs font-semibold">{m.title}</span>
                   <span className="block font-mono text-[11px] text-muted-foreground">
-                    {mode.columns}
+                    {m.columns}
                   </span>
                 </span>
               </label>
@@ -260,48 +403,9 @@ export function UserBulkDialog({
           })}
         </fieldset>
 
-        {bulkMode === "single_team" && (
-          <Field className="rounded-lg border bg-muted/10 p-3">
-            <FieldLabel>Target team for every row</FieldLabel>
-            <Tabs value={teamType} onValueChange={(v) => setTeamType(v as TeamType)}>
-              <TabsList className="h-8 w-full">
-                <TabsTrigger
-                  value="existing"
-                  disabled={teams.length === 0}
-                  className="h-7 flex-1 text-xs"
-                >
-                  Existing team
-                </TabsTrigger>
-                <TabsTrigger value="new" className="h-7 flex-1 text-xs">
-                  New team
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            {teamType === "existing" ? (
-              <SimpleSelect
-                value={defaultTeamId}
-                onValueChange={setDefaultTeamId}
-                options={teams.map((t) => ({ value: t.id, label: t.name }))}
-                placeholder="Choose a team…"
-                aria-label="Target team"
-                className="text-xs"
-              />
-            ) : (
-              <Input
-                value={defaultNewTeamName}
-                onChange={(e) => setDefaultNewTeamName(e.target.value)}
-                placeholder="New team name…"
-                aria-label="New team name"
-                className="text-xs"
-              />
-            )}
-          </Field>
-        )}
-
         <Field>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <FieldLabel htmlFor="bulk-csv">Paste rows or upload a file</FieldLabel>
+            <FieldLabel htmlFor="bulk-team-csv">Paste rows or upload a file</FieldLabel>
             <div className="flex flex-wrap items-center gap-1.5">
               <Button
                 type="button"
@@ -344,30 +448,32 @@ export function UserBulkDialog({
             </div>
           </div>
           <Textarea
-            id="bulk-csv"
+            id="bulk-team-csv"
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
             rows={5}
             spellCheck={false}
             placeholder={
-              bulkMode === "csv_with_teams"
-                ? "alice, Alice Walker, Team Alpha, secret123\nbob, Bob Smith, Team Beta"
-                : "alice, Alice Walker, secret123\nbob, Bob Smith"
+              mode === "names_only"
+                ? "Team Alpha\nTeam Beta\nTeam Gamma"
+                : "Team Alpha, alice, Alice Walker\nTeam Alpha, bob, Bob Smith\nTeam Beta, charlie, Charlie Brown"
             }
             className="font-mono text-xs"
           />
           <FieldDescription>
-            Comma- or tab-separated values both work. First row is treated as header if column names match.
+            {mode === "names_only"
+              ? "One team name per line or comma-separated column."
+              : "Multiple rows with the same team name are grouped together (up to 3 members per team)."}
           </FieldDescription>
         </Field>
 
-        {parsedRows.length > 0 && (
+        {parsedTeams.length > 0 && (
           <div className="flex flex-col gap-2.5 rounded-lg border bg-muted/10 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                <span>Preview ({parsedRows.length} rows)</span>
+                <span>Preview ({parsedTeams.length} teams)</span>
                 <Badge variant="outline" className="gap-1 text-[10px]">
-                  <CheckCircle2Icon className="size-3 text-success" /> {selectedValidRows.length} of {validIndices.length} selected
+                  <CheckCircle2Icon className="size-3 text-success" /> {selectedValidTeams.length} of {validIndices.length} selected
                 </Badge>
                 {invalidCount > 0 && (
                   <Badge variant="destructive" className="gap-1 text-[10px]">
@@ -384,7 +490,7 @@ export function UserBulkDialog({
                   onClick={() => setPreviewFilter("all")}
                   className="h-6 text-[11px]"
                 >
-                  All ({parsedRows.length})
+                  All ({parsedTeams.length})
                 </Button>
                 <Button
                   type="button"
@@ -393,7 +499,7 @@ export function UserBulkDialog({
                   onClick={() => setPreviewFilter("selected")}
                   className="h-6 text-[11px]"
                 >
-                  Selected ({selectedValidRows.length})
+                  Selected ({selectedValidTeams.length})
                 </Button>
                 {invalidCount > 0 && (
                   <Button
@@ -419,32 +525,30 @@ export function UserBulkDialog({
                         checked={isAllValidSelected}
                         onChange={toggleSelectAllValid}
                         disabled={validIndices.length === 0}
-                        aria-label="Select all valid rows"
+                        aria-label="Select all valid teams"
                         className="accent-primary"
                       />
                     </TableHead>
                     <TableHead className="h-7 text-[11px]">Status</TableHead>
-                    <TableHead className="h-7 text-[11px]">Username</TableHead>
-                    <TableHead className="h-7 text-[11px]">Display name</TableHead>
-                    <TableHead className="h-7 text-[11px]">Team</TableHead>
-                    <TableHead className="h-7 text-[11px]">Password</TableHead>
+                    <TableHead className="h-7 text-[11px]">Team Name</TableHead>
+                    <TableHead className="h-7 text-[11px]">Members</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {visibleRowsWithIndex.length === 0 ? (
+                  {visibleTeamsWithIndex.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-4 text-center text-xs text-muted-foreground">
-                        No rows match the active filter.
+                      <TableCell colSpan={4} className="py-4 text-center text-xs text-muted-foreground">
+                        No teams match the active filter.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    visibleRowsWithIndex.map(({ row, index }) => {
-                      const isSelected = row.isValid && selectedIndices.has(index);
+                    visibleTeamsWithIndex.map(({ item, index }) => {
+                      const isSelected = item.isValid && selectedIndices.has(index);
                       return (
                         <TableRow
-                          key={`${row.username}-${index}`}
+                          key={`${item.name}-${index}`}
                           className={cn(
-                            !row.isValid && "bg-destructive/5",
+                            !item.isValid && "bg-destructive/5",
                             isSelected && "bg-primary/5"
                           )}
                         >
@@ -452,30 +556,40 @@ export function UserBulkDialog({
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              disabled={!row.isValid}
+                              disabled={!item.isValid}
                               onChange={() => toggleRowSelection(index)}
-                              aria-label={`Select row ${index + 1}`}
+                              aria-label={`Select team ${item.name}`}
                               className="accent-primary disabled:opacity-30"
                             />
                           </TableCell>
                           <TableCell className="py-1 text-[11px]">
-                            {row.isValid ? (
+                            {item.isValid ? (
                               <span className="font-semibold text-success">Valid</span>
                             ) : (
                               <span className="font-medium text-destructive">
-                                {row.validationError}
+                                {item.validationError}
                               </span>
                             )}
                           </TableCell>
-                          <TableCell className="py-1 font-mono text-xs">
-                            {row.username || "—"}
+                          <TableCell className="py-1 text-xs font-semibold">
+                            {item.name || "—"}
                           </TableCell>
-                          <TableCell className="py-1 text-xs">{row.displayName || "—"}</TableCell>
-                          <TableCell className="py-1 text-xs font-medium">
-                            {row.teamName || <span className="text-destructive">None</span>}
-                          </TableCell>
-                          <TableCell className="py-1 font-mono text-xs text-muted-foreground">
-                            {row.password ? "Provided" : "Auto-gen"}
+                          <TableCell className="py-1 text-xs">
+                            {item.members.length === 0 ? (
+                              <span className="text-muted-foreground">No members</span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1">
+                                {item.members.map((m) => (
+                                  <Badge
+                                    key={m.username}
+                                    variant="secondary"
+                                    className="font-mono text-[10px]"
+                                  >
+                                    {m.username}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
@@ -495,15 +609,14 @@ export function UserBulkDialog({
             type="button"
             size="sm"
             onClick={handleSubmit}
-            disabled={pending || selectedValidRows.length === 0}
+            disabled={pending || selectedValidTeams.length === 0}
             className="gap-1.5"
           >
-            {pending ? <Spinner /> : <UploadIcon />}
-            {pending ? "Importing…" : `Import ${selectedValidRows.length} competitor(s)`}
+            {pending ? <Spinner /> : <FolderPlusIcon className="size-4" />}
+            {pending ? "Importing…" : `Import ${selectedValidTeams.length} team(s)`}
           </Button>
         </div>
       </CardContent>
     </Card>
   );
 }
-

@@ -13,7 +13,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { TestCaseMetadata } from "@/types/problem";
+import { formatByteSize } from "@/lib/testcase-utils";
 import { uploadSingleTestCase, updateSingleTestCase } from "@/lib/api/test-uploader";
+
 
 interface SingleTestDialogProps {
   open: boolean;
@@ -141,7 +143,7 @@ export function SingleTestDialog({
               </label>
               <label className="text-[11px] text-primary hover:underline cursor-pointer flex items-center gap-1">
                 <FileUp className="h-3 w-3" />
-                <span>{inputFile ? inputFile.name : "Select File (up to 20MB)"}</span>
+                <span>{inputFile ? "Change File" : "Select File (up to 20MB)"}</span>
                 <input
                   type="file"
                   accept=".txt,.in,.dat"
@@ -157,14 +159,37 @@ export function SingleTestDialog({
               </label>
             </div>
 
-            {!inputFile && (
-              <Textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Or paste standard input text directly here..."
-                rows={4}
-                className="font-mono text-xs"
-              />
+            {inputFile ? (
+              <div className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2 text-xs font-mono">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="font-semibold text-foreground truncate">{inputFile.name}</span>
+                  <span className="text-muted-foreground text-[11px]">({formatByteSize(inputFile.size)})</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setInputFile(null)}
+                  className="h-6 text-[11px] text-destructive hover:bg-destructive/10"
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {inputText.length > 200 && (
+                  <div className="flex justify-end text-[10px] font-mono text-muted-foreground">
+                    {inputText.split("\n").length} lines · {formatByteSize(new Blob([inputText]).size)}
+                  </div>
+                )}
+                <Textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder="Or paste standard input text directly here..."
+                  rows={4}
+                  className="font-mono text-xs"
+                />
+              </div>
             )}
           </div>
 
@@ -176,7 +201,7 @@ export function SingleTestDialog({
               </label>
               <label className="text-[11px] text-primary hover:underline cursor-pointer flex items-center gap-1">
                 <FileUp className="h-3 w-3" />
-                <span>{expFile ? expFile.name : "Select File (up to 20MB)"}</span>
+                <span>{expFile ? "Change File" : "Select File (up to 20MB)"}</span>
                 <input
                   type="file"
                   accept=".txt,.out,.ans,.dat"
@@ -192,14 +217,37 @@ export function SingleTestDialog({
               </label>
             </div>
 
-            {!expFile && (
-              <Textarea
-                value={expText}
-                onChange={(e) => setExpText(e.target.value)}
-                placeholder="Or paste expected output text directly here..."
-                rows={4}
-                className="font-mono text-xs"
-              />
+            {expFile ? (
+              <div className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2 text-xs font-mono">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="font-semibold text-foreground truncate">{expFile.name}</span>
+                  <span className="text-muted-foreground text-[11px]">({formatByteSize(expFile.size)})</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setExpFile(null)}
+                  className="h-6 text-[11px] text-destructive hover:bg-destructive/10"
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {expText.length > 200 && (
+                  <div className="flex justify-end text-[10px] font-mono text-muted-foreground">
+                    {expText.split("\n").length} lines · {formatByteSize(new Blob([expText]).size)}
+                  </div>
+                )}
+                <Textarea
+                  value={expText}
+                  onChange={(e) => setExpText(e.target.value)}
+                  placeholder="Or paste expected output text directly here..."
+                  rows={4}
+                  className="font-mono text-xs"
+                />
+              </div>
             )}
           </div>
 

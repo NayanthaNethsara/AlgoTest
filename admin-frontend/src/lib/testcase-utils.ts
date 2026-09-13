@@ -1,3 +1,4 @@
+import { downloadTextFile } from "./file-utils";
 import type { Sample, TestCaseInput } from "@/types/problem";
 
 export const MIN_EVALUATION_TEST_CASES = 5;
@@ -203,3 +204,100 @@ export function getTextSnippet(text: string, maxLength: number = 45): string {
   if (singleLine.length <= maxLength) return singleLine;
   return `${singleLine.slice(0, maxLength)}...`;
 }
+
+export interface HeadTailPreview {
+  isTruncated: boolean;
+  totalLines: number;
+  totalBytes: number;
+  headLinesCount: number;
+  tailLinesCount: number;
+  omittedLines: number;
+  headText: string;
+  tailText: string;
+  fullText: string;
+}
+
+export function formatHeadTailPreview(
+  text: string,
+  headLines = 25,
+  tailLines = 25
+): HeadTailPreview {
+  const str = text || "";
+  const lines = str.split("\n");
+  const totalLines = lines.length;
+  const totalBytes = new Blob([str]).size;
+
+  if (totalLines <= headLines + tailLines && totalBytes <= 4096) {
+    return {
+      isTruncated: false,
+      totalLines,
+      totalBytes,
+      headLinesCount: totalLines,
+      tailLinesCount: 0,
+      omittedLines: 0,
+      headText: str,
+      tailText: "",
+      fullText: str,
+    };
+  }
+
+  const headSlice = lines.slice(0, headLines);
+  const tailSlice = lines.slice(Math.max(headLines, totalLines - tailLines));
+  const omittedLines = Math.max(0, totalLines - headSlice.length - tailSlice.length);
+
+  return {
+    isTruncated: true,
+    totalLines,
+    totalBytes,
+    headLinesCount: headSlice.length,
+    tailLinesCount: tailSlice.length,
+    omittedLines,
+    headText: headSlice.join("\n"),
+    tailText: tailSlice.join("\n"),
+    fullText: str,
+  };
+}
+
+export async function readFileHeadTail(
+  file: File,
+  headBytes = 2048,
+  tailBytes = 2048
+): Promise<{
+  headText: string;
+  tailText: string;
+  isTruncated: boolean;
+  totalSize: number;
+}> {
+  if (file.size <= headBytes + tailBytes) {
+    const fullText = await file.text();
+    return {
+      headText: fullText,
+      tailText: "",
+      isTruncated: false,
+      totalSize: file.size,
+    };
+  }
+
+  const headBlob = file.slice(0, headBytes);
+  const tailBlob = file.slice(Math.max(0, file.size - tailBytes), file.size);
+
+  const [headText, tailText] = await Promise.all([headBlob.text(), tailBlob.text()]);
+
+  return {
+    headText,
+    tailText,
+    isTruncated: true,
+    totalSize: file.size,
+  };
+}
+
+export function downloadSampleTestCaseFiles(): void {
+  const sampleInput = "5\n1 2 3 4 5\n";
+  const sampleExpected = "15\n";
+
+  downloadTextFile("01.in", sampleInput);
+  setTimeout(() => {
+    downloadTextFile("01.out", sampleExpected);
+  }, 200);
+}
+
