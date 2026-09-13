@@ -2,7 +2,7 @@ name: algothon-prod
 
 services:
   backend:
-    image: ghcr.io/nayanthanethsara/algotest/backend:latest
+    image: ${GHCR_IMAGE:-ghcr.io/nayanthanethsara/algotest/backend:latest}
     container_name: algothon-backend
     privileged: true
     restart: unless-stopped

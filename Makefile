@@ -162,6 +162,7 @@ MONITORING = docker compose -f monitoring/docker-compose.monitoring.yml
 MONITORING_LOCAL = $(MONITORING) --profile local
 
 # Local ports for the IAP tunnel, offset so they never collide with a local stack.
+GCP_PROJECT ?= algothon-26
 VM_NAME ?= mini-algothon
 VM_ZONE ?= asia-southeast1-b
 REMOTE_PROM_PORT ?= 19090
@@ -185,7 +186,7 @@ monitoring-restart:
 # Forwards the VM's loopback-bound Prometheus and Loki onto this machine.
 # Leave it running in its own shell; pair with `make grafana-remote`.
 monitoring-tunnel:
-	gcloud compute ssh $(VM_NAME) --zone=$(VM_ZONE) --tunnel-through-iap -- -N \
+	gcloud compute ssh $(VM_NAME) --project=$(GCP_PROJECT) --zone=$(VM_ZONE) --tunnel-through-iap -- -N \
 	  -L $(REMOTE_PROM_PORT):localhost:9090 \
 	  -L $(REMOTE_LOKI_PORT):localhost:3100
 

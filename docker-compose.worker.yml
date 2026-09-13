@@ -2,7 +2,7 @@ name: algothon-worker
 
 services:
   judge-worker:
-    image: ghcr.io/nayanthanethsara/algotest/backend:latest
+    image: ${GHCR_IMAGE:-ghcr.io/nayanthanethsara/algotest/backend:latest}
     container_name: algothon-judge-worker
     privileged: true
     restart: unless-stopped
