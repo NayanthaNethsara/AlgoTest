@@ -36,7 +36,7 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "expr": "sum by (level) (count_over_time({job=\"containerlogs\"} [$__interval]))",
+          "expr": "sum by (level) (count_over_time({job=\"containerlogs\", host=~\"$host\"} [$__interval]))",
           "legendFormat": "{{level}}",
           "refId": "A"
         }
@@ -65,7 +65,7 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "expr": "sum(count_over_time({job=\"containerlogs\", level=\"error\"} [1h])) or vector(0)",
+          "expr": "sum(count_over_time({job=\"containerlogs\", host=~\"$host\", level=\"error\"} [1h])) or vector(0)",
           "legendFormat": "Errors",
           "refId": "A"
         }
@@ -97,7 +97,7 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "expr": "sum(count_over_time({job=\"containerlogs\", level=\"warn\"} [1h])) or vector(0)",
+          "expr": "sum(count_over_time({job=\"containerlogs\", host=~\"$host\", level=\"warn\"} [1h])) or vector(0)",
           "legendFormat": "Warnings",
           "refId": "A"
         }
@@ -136,7 +136,7 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "expr": "{job=\"containerlogs\"} |~ `(?i)${search:raw}`",
+          "expr": "{job=\"containerlogs\", host=~\"$host\"} |~ `(?i)${search:raw}`",
           "refId": "A"
         }
       ],
@@ -165,7 +165,7 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "expr": "{job=\"containerlogs\"} | level =~ `(?i)error|warn`",
+          "expr": "{job=\"containerlogs\", host=~\"$host\"} | level =~ `(?i)error|warn`",
           "refId": "A"
         }
       ],
@@ -192,7 +192,7 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
-          "expr": "{job=\"containerlogs\"} |= `\"msg\":\"http_request\"`",
+          "expr": "{job=\"containerlogs\", host=~\"$host\"} |= `\"msg\":\"http_request\"`",
           "refId": "A"
         }
       ],
@@ -211,6 +211,24 @@
   "tags": ["algothon", "logs", "loki"],
   "templating": {
     "list": [
+      {
+        "allValue": ".*",
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "datasource": { "type": "loki", "uid": "loki" },
+        "definition": "label_values(host)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Host VM",
+        "multi": false,
+        "name": "host",
+        "options": [],
+        "query": "label_values(host)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
       {
         "current": { "selected": false, "value": "" },
         "hide": 0,

@@ -14,6 +14,18 @@ services:
     networks:
       - algothon-worker-net
 
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: algothon-worker-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./monitoring/promtail/promtail-worker-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - algothon-worker-net
+
 networks:
   algothon-worker-net:
     name: algothon-worker-net

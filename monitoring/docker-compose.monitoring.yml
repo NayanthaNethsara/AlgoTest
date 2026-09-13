@@ -29,7 +29,7 @@ services:
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - algothon-loki-data:/loki
     ports:
-      - "127.0.0.1:3100:3100"
+      - "3100:3100"
     networks:
       - algothon-net
 
