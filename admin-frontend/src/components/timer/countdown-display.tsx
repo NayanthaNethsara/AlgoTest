@@ -2,6 +2,7 @@
 
 import { CONTEST_STATUS, type ContestState } from "@/types/contest";
 import { CalendarClock, Clock, Hourglass, Pause, Play, Snowflake, StopCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface CountdownDisplayProps {
   contestState: ContestState;
@@ -109,14 +110,27 @@ export function CountdownDisplay({
 
   return (
     <div className="w-full flex flex-col items-center justify-center select-none text-center">
-      {/* MiniAlgothon Logo Header (Large) */}
-      <div className="flex flex-col items-center gap-2 sm:gap-4 mb-2 sm:mb-6 [@media(max-height:820px)]:mb-1 [@media(max-height:820px)]:gap-1.5">
-        <div className="flex items-center justify-center pixel-raised bg-card px-6 sm:px-10 py-3 sm:py-4 shadow-[0px_4px_0px_#000000]">
+      {/* MiniAlgothon Logo Header */}
+      <div
+        className={cn(
+          "flex flex-col items-center gap-1.5 mb-1 sm:mb-2",
+          isProjectorFullscreen && "gap-2 sm:gap-4 mb-2 sm:mb-6"
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center justify-center pixel-raised bg-card px-4 sm:px-6 py-1.5 sm:py-2 shadow-[0px_3px_0px_#000000]",
+            isProjectorFullscreen && "px-6 sm:px-10 py-3 sm:py-4 shadow-[0px_4px_0px_#000000]"
+          )}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/mini-algothon.svg"
             alt="MiniAlgothon"
-            className="h-[clamp(1.75rem,min(6vw,7vh),5rem)] w-auto max-w-[85vw] shrink-0 object-contain sm:max-w-xl md:max-w-2xl"
+            className={cn(
+              "h-[clamp(1.5rem,min(4.5vw,4.5vh),3.25rem)] w-auto max-w-[85vw] shrink-0 object-contain sm:max-w-md",
+              isProjectorFullscreen && "h-[clamp(1.75rem,min(6vw,7vh),5rem)] sm:max-w-xl md:max-w-2xl"
+            )}
           />
         </div>
 
@@ -178,18 +192,19 @@ export function CountdownDisplay({
 
       {/* Hero Giant Digit Countdown in Retro Pixel Box Style */}
       <div
-        className={`flex items-center justify-center gap-2 sm:gap-4 md:gap-6 my-2 sm:my-5 transition-all duration-300 [@media(max-height:820px)]:my-1 ${pulseAnimation}`}
+        className={cn(
+          "flex items-center justify-center gap-2 sm:gap-4 md:gap-6 my-1 sm:my-2 transition-all duration-300",
+          pulseAnimation,
+          isProjectorFullscreen && "my-2 sm:my-5"
+        )}
         style={
           {
-            // Sized against the shorter viewport axis as well as the wider one,
-            // so a 720p laptop window scales the clock down instead of pushing
-            // the control dock off the bottom of the page.
             "--digit-size": isProjectorFullscreen
               ? "clamp(4.5rem, min(13vw, 20vh), 15rem)"
-              : "clamp(4rem, min(11vw, 16vh), 12rem)",
+              : "clamp(3.25rem, min(8.5vw, 13vh), 8.5rem)",
             "--digit-font": isProjectorFullscreen
               ? "clamp(1.25rem, min(4.2vw, 6.5vh), 3.75rem)"
-              : "clamp(1.1rem, min(3.6vw, 5.2vh), 3rem)",
+              : "clamp(1rem, min(2.6vw, 3.8vh), 2.25rem)",
           } as React.CSSProperties
         }
       >
@@ -220,8 +235,13 @@ export function CountdownDisplay({
       </div>
 
       {/* Retro Pixel Progress Bar */}
-      <div className="w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-2 sm:mt-6 [@media(max-height:820px)]:mt-1">
-        <div className="h-4 sm:h-5 w-full border-2 border-black bg-black p-0.5 shadow-[0_3px_0_#000000]">
+      <div
+        className={cn(
+          "w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-1 sm:mt-2",
+          isProjectorFullscreen && "mt-2 sm:mt-6"
+        )}
+      >
+        <div className="h-3.5 sm:h-4.5 w-full border-2 border-black bg-black p-0.5 shadow-[0_2px_0_#000000]">
           <div
             className={`h-full transition-all duration-1000 ${
               isCritical
@@ -234,14 +254,19 @@ export function CountdownDisplay({
           />
         </div>
 
-        <div className="flex justify-between items-center mt-2 px-1 text-[10px] sm:text-xs font-pixel-header text-muted-foreground">
+        <div className="flex justify-between items-center mt-1.5 px-1 text-[10px] sm:text-xs font-pixel-header text-muted-foreground">
           <span>{Math.round(progressPercent)}% ELAPSED</span>
           <span>{formatTotalDurationMinutes(contestState.durationSeconds)} TOTAL</span>
         </div>
       </div>
 
       {/* Contest Metadata Cards in Pixel Raised Style */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-2 sm:mt-6 [@media(max-height:820px)]:mt-1.5">
+      <div
+        className={cn(
+          "grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2.5 w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-1 sm:mt-2",
+          isProjectorFullscreen && "gap-2 sm:gap-3 mt-2 sm:mt-6"
+        )}
+      >
         {/* Elapsed Time Card */}
         <div className="flex items-center gap-2.5 pixel-raised bg-card px-3 py-2.5 text-left">
           <Hourglass className="h-4 w-4 text-primary shrink-0" />

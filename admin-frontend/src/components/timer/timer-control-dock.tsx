@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CONTEST_STATUS, type ContestState } from "@/types/contest";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -110,8 +111,18 @@ export function TimerControlDock({
           </Button>
         </div>
       ) : (
-        <div className="w-full max-w-5xl px-4 mt-3 sm:mt-6 [@media(max-height:820px)]:mt-1.5">
-          <div className="pixel-raised bg-card/90 p-2.5 sm:p-4 shadow-[0px_6px_0px_#000000] flex flex-col gap-2 sm:gap-3 [@media(max-height:820px)]:p-2 [@media(max-height:820px)]:gap-2">
+        <div
+          className={cn(
+            "w-full max-w-5xl px-4 mt-1 sm:mt-2",
+            isProjectorFullscreen && "mt-3 sm:mt-6"
+          )}
+        >
+          <div
+            className={cn(
+              "pixel-raised bg-card/90 p-2 sm:p-2.5 shadow-[0px_4px_0px_#000000] flex flex-col gap-1.5 sm:gap-2",
+              isProjectorFullscreen && "p-2.5 sm:p-4 shadow-[0px_6px_0px_#000000] gap-2 sm:gap-3"
+            )}
+          >
             {/* Top Toolbar Row */}
             <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 border-b-2 border-black">
               {/* Live Sync Status */}

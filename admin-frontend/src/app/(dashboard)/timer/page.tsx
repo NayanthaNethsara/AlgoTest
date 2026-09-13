@@ -11,7 +11,7 @@ export default async function ContestTimerPage() {
   const initialContestState = await getAdminContestStateAction();
 
   return (
-    <div className="flex min-h-full flex-col items-center justify-center">
+    <div className="flex h-full max-h-full w-full flex-1 flex-col items-center justify-between overflow-hidden">
       <ContestTimerClient initialContestState={initialContestState} />
     </div>
   );

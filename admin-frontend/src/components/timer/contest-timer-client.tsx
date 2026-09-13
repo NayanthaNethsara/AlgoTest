@@ -343,12 +343,10 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
   return (
     <div
       className={cn(
-        "flex w-full flex-col items-center justify-between gap-2 p-2 transition-colors duration-500 sm:gap-4 sm:p-6 [@media(max-height:820px)]:gap-1 [@media(max-height:820px)]:p-1.5",
+        "flex w-full flex-col items-center justify-between transition-colors duration-500",
         isFullscreen
-          ? "fixed inset-0 z-50 min-h-screen overflow-y-auto bg-background"
-          : // Sits under the sticky navbar, so the viewport height has to lose it
-            // or the page scrolls by exactly the header's height.
-            "relative min-h-[calc(100svh-var(--app-header-height))] bg-background/50"
+          ? "fixed inset-0 z-[100] min-h-screen overflow-y-auto bg-background gap-2 p-2 sm:gap-4 sm:p-6"
+          : "relative h-full max-h-full flex-1 overflow-hidden bg-background/50 gap-1 p-1.5 sm:p-3"
       )}
     >
       {/* Main Digital Clock Hero View */}
