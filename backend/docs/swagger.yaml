@@ -275,6 +275,15 @@ definitions:
     required:
     - users
     type: object
+  api.bulkCreateTeamsRequest:
+    properties:
+      teams:
+        items:
+          $ref: '#/definitions/api.createTeamRequest'
+        type: array
+    required:
+    - teams
+    type: object
   api.bulkResult:
     properties:
       error:
@@ -287,6 +296,21 @@ definitions:
         $ref: '#/definitions/user.User'
       username:
         type: string
+    type: object
+  api.bulkTeamResultItem:
+    properties:
+      error:
+        type: string
+      members:
+        items:
+          $ref: '#/definitions/api.createdMember'
+        type: array
+      name:
+        type: string
+      status:
+        type: string
+      team:
+        $ref: '#/definitions/team.Team'
     type: object
   api.changePasswordRequest:
     properties:
@@ -367,6 +391,13 @@ definitions:
         type: string
     required:
     - username
+    type: object
+  api.createdMember:
+    properties:
+      password:
+        type: string
+      user:
+        $ref: '#/definitions/user.User'
     type: object
   api.extendContestRequest:
     properties:
@@ -929,6 +960,19 @@ definitions:
     - VerdictOLE
     - VerdictIE
     - VerdictSK
+  team.Team:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      members:
+        items:
+          $ref: '#/definitions/user.User'
+        type: array
+      name:
+        type: string
+    type: object
   telemetry.ClientType:
     enum:
     - DESKTOP
@@ -1959,6 +2003,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Admin Create Team with Optional Members
+      tags:
+      - Admin
+  /api/v1/admin/teams/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Bulk create teams with optional initial members.
+      parameters:
+      - description: Bulk team creation payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/api.bulkCreateTeamsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/api.bulkTeamResultItem'
+              type: array
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Admin Bulk Create Teams
       tags:
       - Admin
   /api/v1/admin/telemetry:

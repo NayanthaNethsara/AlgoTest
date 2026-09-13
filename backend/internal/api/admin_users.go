@@ -15,24 +15,11 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
 )
 
-const (
-	generatedPasswordLength = 10
-	minPasswordLength       = 8
-)
-
 var (
-	errPasswordTooShort        = errors.New("password too short")
 	errInvalidRole             = errors.New("invalid role")
 	errTeamRequired            = errors.New("team is required for competitor users")
 	errAdminCreationNotAllowed = errors.New("admin accounts cannot be created via API; use server CLI")
 )
-
-func checkPasswordLength(password string) error {
-	if password != "" && len(password) < minPasswordLength {
-		return errPasswordTooShort
-	}
-	return nil
-}
 
 // @Summary Admin List Users
 // @Description Fetch all user accounts and team assignments.
@@ -122,6 +109,16 @@ func (h *handler) bulkCreateUsers(c *gin.Context) {
 		return
 	}
 
+	if len(req.Users) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no users provided in payload"})
+		return
+	}
+	if len(req.Users) > 500 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot import more than 500 users at once"})
+		return
+	}
+
+	seenInBatch := make(map[string]struct{})
 	results := make([]bulkResult, 0, len(req.Users))
 	for _, row := range req.Users {
 		row.Role = user.RoleCompetitor
@@ -129,6 +126,20 @@ func (h *handler) bulkCreateUsers(c *gin.Context) {
 			row.TeamID = req.TeamID
 			row.TeamName = req.TeamName
 		}
+		trimmedUsername := strings.TrimSpace(row.Username)
+		lowerUser := strings.ToLower(trimmedUsername)
+		if trimmedUsername != "" {
+			if _, exists := seenInBatch[lowerUser]; exists {
+				results = append(results, bulkResult{
+					Username: trimmedUsername,
+					Status:   "error",
+					Error:    "duplicate username in import file",
+				})
+				continue
+			}
+			seenInBatch[lowerUser] = struct{}{}
+		}
+
 		created, password, err := h.createOne(c, row)
 		if err != nil {
 			results = append(results, bulkResult{Username: row.Username, Status: "error", Error: err.Error()})
@@ -180,7 +191,7 @@ func (h *handler) resetPassword(c *gin.Context) {
 		return
 	}
 
-	minPasswordLen := minPasswordLength
+	minPasswordLen := user.MinPasswordLength
 	if targetUser.Role == user.RoleAdmin {
 		minPasswordLen = 12
 	}
@@ -192,7 +203,7 @@ func (h *handler) resetPassword(c *gin.Context) {
 
 	password := req.Password
 	if password == "" {
-		length := generatedPasswordLength
+		length := user.GeneratedPasswordLength
 		if targetUser.Role == user.RoleAdmin {
 			length = 14
 		}
@@ -366,10 +377,23 @@ func (h *handler) suspendUser(c *gin.Context) {
 		"reason":   req.Reason,
 	})
 
-	c.JSON(http.StatusOK, gin.H{"status": "updated"})
+		c.JSON(http.StatusOK, gin.H{"status": "updated"})
 }
 
 func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, string, error) {
+	req.Username = strings.TrimSpace(req.Username)
+	if err := user.ValidateUsername(req.Username); err != nil {
+		return user.User{}, "", err
+	}
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+	if len(req.DisplayName) > user.MaxDisplayNameLength {
+		return user.User{}, "", user.ErrDisplayNameLength
+	}
+	req.TeamName = strings.TrimSpace(req.TeamName)
+	if len(req.TeamName) > team.MaxTeamNameLength {
+		return user.User{}, "", team.ErrTeamNameTooLong
+	}
+
 	role := req.Role
 	if role == "" {
 		role = user.RoleCompetitor
@@ -377,7 +401,7 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 	if role != user.RoleCompetitor {
 		return user.User{}, "", errAdminCreationNotAllowed
 	}
-	if err := checkPasswordLength(req.Password); err != nil {
+	if err := user.CheckPasswordLength(req.Password); err != nil {
 		return user.User{}, "", err
 	}
 
@@ -387,7 +411,7 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 	}
 	password := req.Password
 	if password == "" {
-		password = auth.GeneratePassword(generatedPasswordLength)
+		password = auth.GeneratePassword(user.GeneratedPasswordLength)
 	}
 	hash, err := auth.HashPassword(password)
 	if err != nil {
@@ -402,10 +426,7 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 	if req.TeamID != "" {
 		t, err := h.teams.GetByID(ctx, req.TeamID)
 		if err != nil {
-			if errors.Is(err, team.ErrTeamNotFound) {
-				return user.User{}, "", team.ErrTeamNotFound
-			}
-			return user.User{}, "", fmt.Errorf("lookup team: %w", err)
+			return user.User{}, "", err
 		}
 		if len(t.Members) >= team.MaxTeamMembers {
 			return user.User{}, "", team.ErrTeamFull
@@ -413,22 +434,17 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 		targetTeamID = t.ID
 		targetTeamName = t.Name
 	} else if req.TeamName != "" {
-		trimmedName := strings.TrimSpace(req.TeamName)
-		if trimmedName == "" {
-			return user.User{}, "", errTeamRequired
-		}
-		t, err := h.teams.GetByName(ctx, trimmedName)
+		t, err := h.teams.GetByName(ctx, req.TeamName)
 		if err != nil {
-			if errors.Is(err, team.ErrTeamNotFound) {
-				newTeam, createErr := h.teams.CreateTeam(ctx, trimmedName)
-				if createErr != nil {
-					return user.User{}, "", fmt.Errorf("create team: %w", createErr)
-				}
-				targetTeamID = newTeam.ID
-				targetTeamName = newTeam.Name
-			} else {
-				return user.User{}, "", fmt.Errorf("lookup team: %w", err)
+			if !errors.Is(err, team.ErrTeamNotFound) {
+				return user.User{}, "", err
 			}
+			createdTeam, err := h.teams.CreateTeam(ctx, req.TeamName)
+			if err != nil {
+				return user.User{}, "", err
+			}
+			targetTeamID = createdTeam.ID
+			targetTeamName = createdTeam.Name
 		} else {
 			if len(t.Members) >= team.MaxTeamMembers {
 				return user.User{}, "", team.ErrTeamFull
@@ -436,11 +452,16 @@ func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, s
 			targetTeamID = t.ID
 			targetTeamName = t.Name
 		}
-	} else {
+	} else if role == user.RoleCompetitor {
 		return user.User{}, "", errTeamRequired
 	}
 
-	created, err := h.users.CreateWithTeam(ctx, req.Username, name, hash, role, &targetTeamID)
+	var teamIDPtr *string
+	if targetTeamID != "" {
+		teamIDPtr = &targetTeamID
+	}
+
+	created, err := h.users.CreateWithTeam(ctx, req.Username, name, hash, role, teamIDPtr)
 	if err != nil {
 		return user.User{}, "", err
 	}
@@ -454,9 +475,15 @@ func writeCreateError(c *gin.Context, err error) {
 		c.JSON(http.StatusConflict, gin.H{"error": "username already exists"})
 	case errors.Is(err, errAdminCreationNotAllowed):
 		c.JSON(http.StatusForbidden, gin.H{"error": "admin accounts cannot be created via API; use server CLI"})
+	case errors.Is(err, user.ErrUsernameRequired),
+		errors.Is(err, user.ErrUsernameLength),
+		errors.Is(err, user.ErrUsernameInvalid),
+		errors.Is(err, user.ErrDisplayNameLength),
+		errors.Is(err, team.ErrTeamNameTooLong):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, errInvalidRole):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
-	case errors.Is(err, errPasswordTooShort):
+	case errors.Is(err, user.ErrPasswordTooShort):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "password too short (min 8 characters)"})
 	case errors.Is(err, errTeamRequired):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "team is required for competitor users"})

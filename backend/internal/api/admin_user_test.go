@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,13 +11,13 @@ import (
 )
 
 func TestPasswordLengthValidation(t *testing.T) {
-	if err := checkPasswordLength("short"); !errors.Is(err, errPasswordTooShort) {
-		t.Fatalf("expected errPasswordTooShort for short password, got %v", err)
+	if err := user.CheckPasswordLength("short"); !errors.Is(err, user.ErrPasswordTooShort) {
+		t.Fatalf("expected ErrPasswordTooShort for short password, got %v", err)
 	}
-	if err := checkPasswordLength("validlength123"); err != nil {
+	if err := user.CheckPasswordLength("validlength123"); err != nil {
 		t.Fatalf("expected nil error for valid password, got %v", err)
 	}
-	if err := checkPasswordLength(""); err != nil {
+	if err := user.CheckPasswordLength(""); err != nil {
 		t.Fatalf("expected nil error for empty password (auto-generated), got %v", err)
 	}
 }
@@ -107,3 +108,51 @@ func TestLoginAttemptTracker(t *testing.T) {
 	}
 }
 
+func TestValidateUsername(t *testing.T) {
+	validUsernames := []string{
+		"alice",
+		"bob_123",
+		"team-lead-01",
+		"USER_NAME",
+		"abc",
+		strings.Repeat("a", 50),
+	}
+	for _, u := range validUsernames {
+		if err := user.ValidateUsername(u); err != nil {
+			t.Fatalf("expected username '%s' to be valid, got: %v", u, err)
+		}
+	}
+
+	invalidCases := []struct {
+		username    string
+		expectedErr error
+	}{
+		{"", user.ErrUsernameRequired},
+		{"   ", user.ErrUsernameRequired},
+		{"ab", user.ErrUsernameLength},
+		{"a", user.ErrUsernameLength},
+		{strings.Repeat("a", 51), user.ErrUsernameLength},
+		{"user name", user.ErrUsernameInvalid},
+		{"user@name", user.ErrUsernameInvalid},
+		{"user!name", user.ErrUsernameInvalid},
+		{"user#1", user.ErrUsernameInvalid},
+		{"user$1", user.ErrUsernameInvalid},
+		{"user%1", user.ErrUsernameInvalid},
+		{"user+1", user.ErrUsernameInvalid},
+	}
+	for _, tc := range invalidCases {
+		err := user.ValidateUsername(tc.username)
+		if err == nil {
+			t.Fatalf("expected error for username '%s', got nil", tc.username)
+		}
+		if !errors.Is(err, tc.expectedErr) {
+			t.Fatalf("expected error %v for username '%s', got %v", tc.expectedErr, tc.username, err)
+		}
+	}
+}
+
+func TestTeamMemberCapacityLimit(t *testing.T) {
+	if team.MaxTeamMembers != 3 {
+		t.Fatalf("expected MaxTeamMembers to be 3, got %d", team.MaxTeamMembers)
+	}
+}

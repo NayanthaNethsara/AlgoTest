@@ -1456,6 +1456,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/admin/teams/bulk": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Bulk create teams with optional initial members.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Admin Bulk Create Teams",
+                "parameters": [
+                    {
+                        "description": "Bulk team creation payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.bulkCreateTeamsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/api.bulkTeamResultItem"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/admin/telemetry": {
             "get": {
                 "security": [
@@ -3312,6 +3366,20 @@ const docTemplate = `{
                 }
             }
         },
+        "api.bulkCreateTeamsRequest": {
+            "type": "object",
+            "required": [
+                "teams"
+            ],
+            "properties": {
+                "teams": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.createTeamRequest"
+                    }
+                }
+            }
+        },
         "api.bulkResult": {
             "type": "object",
             "properties": {
@@ -3329,6 +3397,29 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "api.bulkTeamResultItem": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.createdMember"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "team": {
+                    "$ref": "#/definitions/team.Team"
                 }
             }
         },
@@ -3450,6 +3541,17 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "api.createdMember": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/user.User"
                 }
             }
         },
@@ -4282,6 +4384,26 @@ const docTemplate = `{
                 "VerdictIE",
                 "VerdictSK"
             ]
+        },
+        "team.Team": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/user.User"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
         },
         "telemetry.ClientType": {
             "type": "string",

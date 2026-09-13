@@ -148,10 +148,10 @@ func (r *Repository) AddSingleTest(ctx context.Context, problemID string, input 
 		return TestCaseMetadata{}, err
 	}
 
-	pts := points
-	if pts < 0 {
-		pts = 0
+	if points < 0 {
+		return TestCaseMetadata{}, errors.New("test case points cannot be negative")
 	}
+	pts := points
 
 	inSha := crypto.SHA256Hex(input)
 	expSha := crypto.SHA256Hex(expected)
@@ -212,7 +212,10 @@ func (r *Repository) UpdateSingleTest(ctx context.Context, problemID string, ord
 		finalExpected = expected
 	}
 	finalPoints := currentPoints
-	if points != nil && *points >= 0 {
+	if points != nil {
+		if *points < 0 {
+			return TestCaseMetadata{}, errors.New("test case points cannot be negative")
+		}
 		finalPoints = *points
 	}
 
@@ -282,7 +285,7 @@ func (r *Repository) UpdateTestPoints(ctx context.Context, problemID string, poi
 	updateQuery := `UPDATE problem_tests SET points = $3 WHERE problem_id = $1 AND ordinal = $2;`
 	for ord, pts := range pointsMap {
 		if pts < 0 {
-			pts = 0
+			return errors.New("test case points cannot be negative")
 		}
 		_, err := tx.Exec(ctx, updateQuery, problemID, ord, pts)
 		if err != nil {

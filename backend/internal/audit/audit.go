@@ -38,6 +38,7 @@ const (
 	ActionUserExemptionUpdate   = "user.exemption_update"
 	ActionUserAccessUpdate      = "user.access_update"
 	ActionTeamCreate            = "team.create"
+	ActionTeamBulkCreate        = "team.bulk_create"
 	ActionTeamUpdate            = "team.update"
 	ActionTeamDelete            = "team.delete"
 	ActionTeamMemberAdd         = "team.member_add"

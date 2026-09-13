@@ -2,6 +2,8 @@ package user
 
 import (
 	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -62,5 +64,46 @@ func TestUserJSONSerialization(t *testing.T) {
 	}
 	if unmarshaled.TeamID == nil || *unmarshaled.TeamID != teamID {
 		t.Errorf("team ID mismatch after json round-trip")
+	}
+}
+
+func TestValidateUsername(t *testing.T) {
+	valid := []string{"alice", "bob_123", "team-lead-01", "USER_NAME", "abc", strings.Repeat("a", 50)}
+	for _, u := range valid {
+		if err := ValidateUsername(u); err != nil {
+			t.Errorf("ValidateUsername(%q) unexpected error: %v", u, err)
+		}
+	}
+
+	invalid := []struct {
+		username string
+		wantErr  error
+	}{
+		{"", ErrUsernameRequired},
+		{"   ", ErrUsernameRequired},
+		{"ab", ErrUsernameLength},
+		{"a", ErrUsernameLength},
+		{strings.Repeat("a", 51), ErrUsernameLength},
+		{"user name", ErrUsernameInvalid},
+		{"user@name", ErrUsernameInvalid},
+		{"user!name", ErrUsernameInvalid},
+	}
+	for _, tc := range invalid {
+		err := ValidateUsername(tc.username)
+		if !errors.Is(err, tc.wantErr) {
+			t.Errorf("ValidateUsername(%q) = %v, want %v", tc.username, err, tc.wantErr)
+		}
+	}
+}
+
+func TestCheckPasswordLength(t *testing.T) {
+	if err := CheckPasswordLength("short"); !errors.Is(err, ErrPasswordTooShort) {
+		t.Fatalf("expected ErrPasswordTooShort, got %v", err)
+	}
+	if err := CheckPasswordLength("validlength123"); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+	if err := CheckPasswordLength(""); err != nil {
+		t.Fatalf("expected nil for empty, got %v", err)
 	}
 }

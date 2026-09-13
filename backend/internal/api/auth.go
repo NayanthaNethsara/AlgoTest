@@ -206,7 +206,7 @@ func (h *handler) changePassword(c *gin.Context) {
 
 	usr := currentUser(c)
 
-	minPasswordLength := 8
+	minPasswordLength := user.MinPasswordLength
 	if usr.Role == user.RoleAdmin {
 		minPasswordLength = 12
 	}

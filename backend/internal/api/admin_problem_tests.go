@@ -66,6 +66,25 @@ func (h *handler) replaceTestCases(c *gin.Context) {
 		return
 	}
 
+	if len(req.Tests) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "test cases list cannot be empty"})
+		return
+	}
+	for _, t := range req.Tests {
+		if t.Points < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("test case %d points cannot be negative", t.Ordinal)})
+			return
+		}
+		if len(t.Input) == 0 || len(t.Expected) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("test case %d input and expected output cannot be empty", t.Ordinal)})
+			return
+		}
+		if len(t.Input) > maxSingleTestFileSize || len(t.Expected) > maxSingleTestFileSize {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("test case %d exceeds max size of %d MB", t.Ordinal, maxSingleTestFileSize/(1024*1024))})
+			return
+		}
+	}
+
 	detail, err := h.problems.GetByID(c.Request.Context(), id, false)
 	if err == nil {
 		sampleInputs := make([]problem.SampleInput, len(detail.Samples))
@@ -197,6 +216,18 @@ func (h *handler) addSingleTestCase(c *gin.Context) {
 		points = req.Points
 	}
 
+	if points < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "test case points cannot be negative"})
+		return
+	}
+	if len(inputBytes) > maxSingleTestFileSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("input file exceeds max size of %d MB", maxSingleTestFileSize/(1024*1024))})
+		return
+	}
+	if len(expectedBytes) > maxSingleTestFileSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("expected output file exceeds max size of %d MB", maxSingleTestFileSize/(1024*1024))})
+		return
+	}
 	if len(inputBytes) == 0 || len(expectedBytes) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "both input and expected output are required"})
 		return
@@ -302,6 +333,19 @@ func (h *handler) updateSingleTestCase(c *gin.Context) {
 		points = &p
 	}
 
+	if points != nil && *points < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "test case points cannot be negative"})
+		return
+	}
+	if len(inputBytes) > maxSingleTestFileSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("input file exceeds max size of %d MB", maxSingleTestFileSize/(1024*1024))})
+		return
+	}
+	if len(expectedBytes) > maxSingleTestFileSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("expected output file exceeds max size of %d MB", maxSingleTestFileSize/(1024*1024))})
+		return
+	}
+
 	meta, err := h.problems.UpdateSingleTest(c.Request.Context(), id, int32(ord), inputBytes, expectedBytes, points)
 	if err != nil {
 		if errors.Is(err, problem.ErrNotFound) {
@@ -375,8 +419,21 @@ func (h *handler) updateTestPoints(c *gin.Context) {
 		return
 	}
 
+	if len(req.Points) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "points payload cannot be empty"})
+		return
+	}
+
 	var sum int32
-	for _, pts := range req.Points {
+	for ord, pts := range req.Points {
+		if ord < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("invalid test case ordinal %d", ord)})
+			return
+		}
+		if pts < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("test case %d points cannot be negative", ord)})
+			return
+		}
 		sum += pts
 	}
 	if sum != detail.MaxScore {

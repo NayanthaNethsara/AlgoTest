@@ -182,6 +182,7 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 
 	admin.GET("/teams", h.listAdminTeams)
 	admin.POST("/teams", h.createTeam)
+	admin.POST("/teams/bulk", h.bulkCreateTeams)
 	admin.PUT("/teams/:id", h.updateTeam)
 	admin.DELETE("/teams/:id", h.deleteTeam)
 	admin.POST("/teams/:id/members", h.addTeamMember)
