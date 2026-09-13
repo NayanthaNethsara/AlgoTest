@@ -51,6 +51,8 @@ func normalizeLanguage(lang string) string {
 		return "java"
 	case "js", "javascript", "node":
 		return "js"
+	case "rust", "rs":
+		return "rust"
 	default:
 		return l
 	}

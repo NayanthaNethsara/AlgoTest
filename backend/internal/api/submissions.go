@@ -36,6 +36,8 @@ var supportedLanguages = map[string]string{
 	"js":         "js",
 	"javascript": "js",
 	"node":       "js",
+	"rust":       "rust",
+	"rs":         "rust",
 }
 
 // @Summary Submit Code

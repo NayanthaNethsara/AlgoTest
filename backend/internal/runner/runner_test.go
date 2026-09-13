@@ -298,6 +298,19 @@ int main() { std::cout << "Hello C++" << std::endl; return 0; }`,
 			t.Errorf("Verdict = %v, want OK (stderr: %q)", res.Verdict, res.Stderr)
 		}
 	})
+
+	t.Run("rust", func(t *testing.T) {
+		res, err := r.Run(ctx, Request{
+			Language: "rust",
+			Code:     `fn main() { println!("Hello Rust"); }`,
+		})
+		if err != nil {
+			t.Fatalf("Run rust failed: %v", err)
+		}
+		if res.Verdict != VerdictAC {
+			t.Errorf("Verdict = %v, want AC (stderr: %q)", res.Verdict, res.Stderr)
+		}
+	})
 }
 
 // The workspace is writable by the sandboxed program and read back by a judge
@@ -701,6 +714,10 @@ func TestNormalizeLanguage(t *testing.T) {
 		{"js", "js"},
 		{"javascript", "js"},
 		{"node", "js"},
+		{"rust", "rust"},
+		{"Rust", "rust"},
+		{"rs", "rust"},
+		{"RS", "rust"},
 	}
 
 	for _, tc := range testCases {

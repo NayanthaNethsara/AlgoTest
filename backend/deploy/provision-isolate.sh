@@ -38,7 +38,8 @@ apt-get install -y --no-install-recommends \
     g++ \
     python3 \
     nodejs \
-    default-jdk-headless
+    default-jdk-headless \
+    rustc
 
 # The sandbox resolves bare command names against its own PATH, so the
 # versioned binaries need stable names.

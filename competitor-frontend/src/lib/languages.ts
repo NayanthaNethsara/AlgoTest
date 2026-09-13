@@ -70,6 +70,21 @@ function main() {
 main();
 `,
   },
+  {
+    id: "rust",
+    label: "Rust",
+    monaco: "rust",
+    starter: `use std::io::{self, Read};
+
+fn main() {
+    let mut input = String::new();
+    io::stdin().read_to_string(&mut input).unwrap();
+    let mut tokens = input.split_whitespace();
+
+    // Solution here
+}
+`,
+  },
 ];
 
 export const LANGUAGE_OPTIONS = LANGUAGES.map((lang) => ({

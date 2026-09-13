@@ -104,6 +104,12 @@ var specs = map[string]spec{
 		timeFactor:    2.0,
 		memoryBonusKB: 64 * 1024,
 	},
+	"rust": {
+		filename:   "main.rs",
+		compileCmd: []string{"rustc", "-O", "main.rs", "-o", "main"},
+		runCmd:     []string{"./main"},
+		timeFactor: 1.0,
+	},
 }
 
 type Config struct {
