@@ -10,6 +10,7 @@ services:
       - ./backend/.env
     environment:
       - JUDGE_WORKERS=0
+      - TRUSTED_PROXIES=127.0.0.1,172.16.0.0/12
     volumes:
       - /var/local/lib/algothon-work:/var/local/lib/algothon-work
     networks:

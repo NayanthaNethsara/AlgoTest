@@ -153,10 +153,10 @@ PORT=8080
 DATABASE_URL=postgres://algothon:<strong-password>@127.0.0.1:5432/algothon?sslmode=disable
 ALLOWED_ORIGINS=https://contest.example.com
 
-# nginx runs on the host and the container shares its network namespace, so
-# forwarded headers arrive from loopback. Without this every competitor's
-# recorded IP is 127.0.0.1 and the proctor's IP signals are worthless.
-TRUSTED_PROXIES=127.0.0.1
+# nginx runs on the host or in a bridge container. Without trusting the proxy,
+# Gin rejects forwarded headers and records the proxy's IP (e.g. 172.18.0.x or
+# 127.0.0.1), corrupting audit logs and proctoring IP signals.
+TRUSTED_PROXIES=127.0.0.1,172.16.0.0/12
 
 # 12 sandboxes on 16 cores, leaving 4 for the server, nginx and the OS.
 # JUDGE_WORKERS is left unset so it tracks RUN_MAX_CONCURRENT - RUN_RESERVE.

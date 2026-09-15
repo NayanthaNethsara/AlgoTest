@@ -75,17 +75,31 @@ export async function authenticateUser(
 }
 
 export async function revokeUserSession(cookieName: string = SESSION_COOKIE): Promise<void> {
-  const cookieStore = await cookies();
+  const [cookieStore, requestHeaders] = await Promise.all([
+    cookies(),
+    incomingHeaders().catch(() => null),
+  ]);
   const sessionToken = cookieStore.get(cookieName)?.value;
 
   if (sessionToken) {
     try {
+      const headers = new Headers({
+        Cookie: `${SESSION_COOKIE}=${sessionToken}`,
+        Authorization: `Bearer ${sessionToken}`,
+      });
+      if (requestHeaders) {
+        const forwardedFor = clientAddress(requestHeaders);
+        if (forwardedFor) {
+          headers.set("X-Forwarded-For", forwardedFor);
+        }
+        const userAgent = requestHeaders.get("user-agent");
+        if (userAgent) {
+          headers.set("User-Agent", userAgent);
+        }
+      }
       await fetch(`${API_URL}/api/v1/auth/logout`, {
         method: "POST",
-        headers: {
-          Cookie: `${SESSION_COOKIE}=${sessionToken}`,
-          Authorization: `Bearer ${sessionToken}`,
-        },
+        headers,
         cache: "no-store",
       });
     } catch {
@@ -97,7 +111,10 @@ export async function revokeUserSession(cookieName: string = SESSION_COOKIE): Pr
 
 export const fetchSessionUser = cache(
   async (cookieName: string = SESSION_COOKIE): Promise<SessionUser | null> => {
-    const cookieStore = await cookies();
+    const [cookieStore, requestHeaders] = await Promise.all([
+      cookies(),
+      incomingHeaders().catch(() => null),
+    ]);
     const sessionToken = cookieStore.get(cookieName)?.value;
 
     if (!sessionToken) {
@@ -105,11 +122,23 @@ export const fetchSessionUser = cache(
     }
 
     try {
+      const headers = new Headers({
+        Cookie: `${SESSION_COOKIE}=${sessionToken}`,
+        Authorization: `Bearer ${sessionToken}`,
+      });
+      if (requestHeaders) {
+        const forwardedFor = clientAddress(requestHeaders);
+        if (forwardedFor) {
+          headers.set("X-Forwarded-For", forwardedFor);
+        }
+        const userAgent = requestHeaders.get("user-agent");
+        if (userAgent) {
+          headers.set("User-Agent", userAgent);
+        }
+      }
+
       const response = await fetch(`${API_URL}/api/v1/me`, {
-        headers: {
-          Cookie: `${SESSION_COOKIE}=${sessionToken}`,
-          Authorization: `Bearer ${sessionToken}`,
-        },
+        headers,
         cache: "no-store",
       });
 
@@ -135,20 +164,35 @@ export async function changeUserPassword(
     return { success: false, error: firstIssue?.message || "Invalid password data" };
   }
 
-  const cookieStore = await cookies();
+  const [cookieStore, requestHeaders] = await Promise.all([
+    cookies(),
+    incomingHeaders().catch(() => null),
+  ]);
   const sessionToken = cookieStore.get(cookieName)?.value;
   if (!sessionToken) {
     return { success: false, error: "Unauthenticated" };
   }
 
   try {
+    const headers = new Headers({
+      "Content-Type": "application/json",
+      Cookie: `${SESSION_COOKIE}=${sessionToken}`,
+      Authorization: `Bearer ${sessionToken}`,
+    });
+    if (requestHeaders) {
+      const forwardedFor = clientAddress(requestHeaders);
+      if (forwardedFor) {
+        headers.set("X-Forwarded-For", forwardedFor);
+      }
+      const userAgent = requestHeaders.get("user-agent");
+      if (userAgent) {
+        headers.set("User-Agent", userAgent);
+      }
+    }
+
     const response = await fetch(`${API_URL}/api/v1/me/password`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Cookie: `${SESSION_COOKIE}=${sessionToken}`,
-        Authorization: `Bearer ${sessionToken}`,
-      },
+      headers,
       body: JSON.stringify({ currentPassword, newPassword }),
       cache: "no-store",
     });
@@ -169,3 +213,4 @@ export async function changeUserPassword(
     };
   }
 }
+
