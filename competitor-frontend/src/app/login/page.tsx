@@ -20,7 +20,7 @@ export default async function LoginPage() {
               <Terminal className="h-5 w-5" />
             </div>
             <h1 className="text-sm font-pixel-header text-primary tracking-widest mt-2">
-              MiniAlgothon
+              Algothon
             </h1>
             <p className="text-xs text-muted-foreground">
               Sign in with your competitor credentials

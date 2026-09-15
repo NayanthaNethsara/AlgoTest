@@ -1,6 +1,6 @@
-# MiniAlgothon Competitor Portal
+# Algothon Competitor Portal
 
-The MiniAlgothon Competitor Portal is a Next.js web application designed for contest participants. It provides an intuitive coding interface with the Monaco code editor, real-time Server-Sent Events (SSE) submission updates, an interactive leaderboard, and background proctoring telemetry synchronization.
+The Algothon Competitor Portal is a Next.js web application designed for contest participants. It provides an intuitive coding interface with the Monaco code editor, real-time Server-Sent Events (SSE) submission updates, an interactive leaderboard, and background proctoring telemetry synchronization.
 
 ---
 

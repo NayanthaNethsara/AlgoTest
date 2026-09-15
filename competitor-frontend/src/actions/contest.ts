@@ -5,7 +5,7 @@ import { contestStateSchema } from "@/lib/validation/contest";
 import { CONTEST_STATUS, type ContestState } from "@/types/contest";
 
 const defaultContestState: ContestState = {
-  title: "MiniAlgothon 2026",
+  title: "Algothon 2026",
   status: CONTEST_STATUS.NOT_STARTED,
   startTime: null,
   endTime: null,

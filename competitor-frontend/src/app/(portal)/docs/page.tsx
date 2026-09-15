@@ -6,7 +6,7 @@ import { proctorLocksContest } from "@/lib/proctor";
 import { readProctorGate } from "@/lib/proctor-gate";
 
 export const metadata: Metadata = {
-  title: "Language Documentation & Guides | MiniAlgothon",
+  title: "Language Documentation & Guides | Algothon",
   description:
     "Syntax and language reference guides for C++, Python, and JavaScript.",
 };

@@ -35,7 +35,11 @@ export function isDesktopClient(): boolean {
   }
   if (
     typeof window !== "undefined" &&
-    Boolean((window as Window & { __MINIALGOTHON_DESKTOP__?: boolean }).__MINIALGOTHON_DESKTOP__)
+    Boolean(
+      (window as Window & { __ALGOTHON_DESKTOP__?: boolean; __MINIALGOTHON_DESKTOP__?: boolean })
+        .__ALGOTHON_DESKTOP__ ||
+        (window as Window & { __MINIALGOTHON_DESKTOP__?: boolean }).__MINIALGOTHON_DESKTOP__,
+    )
   ) {
     return true;
   }

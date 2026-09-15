@@ -111,7 +111,7 @@ export function ProctorPill() {
     icon = <Radio className="h-3.5 w-3.5 animate-pulse text-amber-500" />;
     badgeClass = "border-amber-500/40 bg-amber-500/10 text-amber-500";
     statusText = "Agent Reconnecting";
-    title = "Waiting for local proctor agent on 127.0.0.1. Ensure MiniAlgothon Agent is running.";
+    title = "Waiting for local proctor agent on 127.0.0.1. Ensure Algothon Agent is running.";
   }
 
   return (
@@ -171,7 +171,7 @@ export function ProctorPill() {
 
           {!local && !exempt && accessMode !== "WEB_ONLY" && (
             <div className="p-2 border border-amber-500/40 bg-amber-500/10 pixel-flat mb-2.5 text-[11px] text-amber-600 dark:text-amber-400">
-              Local agent not detected on loopback. Ensure MiniAlgothon Agent is running on this computer.
+              Local agent not detected on loopback. Ensure Algothon Agent is running on this computer.
             </div>
           )}
 

@@ -25,12 +25,12 @@ export async function generateMetadata({
   const doc = getLanguageDoc(language);
   if (!doc) {
     return {
-      title: "Docs Not Found | MiniAlgothon",
+      title: "Docs Not Found | Algothon",
     };
   }
 
   return {
-    title: `${doc.name} Language Guide & Syntax Reference | MiniAlgothon`,
+    title: `${doc.name} Language Guide & Syntax Reference | Algothon`,
     description: doc.summary,
   };
 }

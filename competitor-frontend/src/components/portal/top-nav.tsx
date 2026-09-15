@@ -40,8 +40,8 @@ export function TopNav({ user }: { user: SessionUser | null }) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo/mini-algothon.svg"
-              alt="MiniAlgothon"
+              src="/logo/algothon.svg"
+              alt="Algothon"
               className="h-5 sm:h-6 w-auto max-w-[130px] sm:max-w-none object-contain shrink-0"
             />
           </Link>

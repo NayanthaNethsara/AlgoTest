@@ -9,7 +9,7 @@ export const contestStatusSchema = z.enum([
 ]);
 
 export const contestStateSchema = z.object({
-  title: z.string().default("MiniAlgothon 2026"),
+  title: z.string().default("Algothon 2026"),
   status: contestStatusSchema.default(CONTEST_STATUS.NOT_STARTED),
   startTime: z.string().nullable().optional(),
   endTime: z.string().nullable().optional(),

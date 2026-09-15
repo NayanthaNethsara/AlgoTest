@@ -44,7 +44,7 @@ export function ContestWaitingRoom() {
 
         <div className="space-y-2 max-w-lg">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            {state.title || "MiniAlgothon 2026"}
+            {state.title || "Algothon 2026"}
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             The contest has not started yet. Problem statements and code workspaces will unlock automatically when the timer begins.

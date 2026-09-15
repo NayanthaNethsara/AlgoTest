@@ -35,7 +35,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MiniAlgothon",
+  title: "Algothon",
   description: "Algorithm challenge platform",
 };
 

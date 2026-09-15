@@ -87,7 +87,7 @@ g++ -std=c++17 -fsanitize=address,undefined -g main.cpp -o debug_main
         {
           id: "cpp-cli-judge",
           name: "5. Judge Sandbox Evaluation Command",
-          syntax: `# How the MiniAlgothon judge compiles and runs your code in the sandbox:
+          syntax: `# How the Algothon judge compiles and runs your code in the sandbox:
 g++ -O2 -std=c++17 -o main main.cpp
 ./main  # (stdin piped in isolated Linux cgroup)`,
           description:
