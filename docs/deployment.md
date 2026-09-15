@@ -648,13 +648,18 @@ If quota limits prevent provisioning all worker VMs in a single GCP project, wor
    - Root administrator accounts cannot be deleted, suspended, demoted, or reset via the web API.
    - Admin UI action buttons are visually disabled for admin rows with informative tooltips.
 3. **Brute-Force Lockout**:
-   - Failed login attempts are tracked per-username. 5 consecutive failures triggers an automatic 15-minute account lockout.
+   - Failed login attempts are tracked per-username. 5 consecutive failures triggers an automatic 15-minute account lockout (`loginAttemptTracker`), independent of the rate limiters below.
 4. **Session Lifetime Separation**:
    - Administrator sessions expire after 12 hours (`ADMIN_SESSION_TTL_HOURS=12`).
    - Competitor sessions expire after 3 hours (`SESSION_TTL_HOURS=3`).
 5. **Search Engine De-indexing**:
    - Internal platform routes are blocked in `robots.ts` and marked with `noindex, nofollow` headers.
    - Public informational pages are served at `/support` (FAQ & contact action), `/privacy` (telemetry disclosures & liability), and `/contact`.
+6. **Rate Limiting** (edge + application, two independent layers):
+   - **Nginx, per real client IP** (`api-tls.conf` / `nginx.conf`): `/api/v1/auth/` at 20 req/s (burst 60); general `/api/` at 100 req/s (burst 150); the SSE submissions stream capped at 250 concurrent connections per IP. The key is the visitor's actual IP, not Cloudflare's edge IP: `real_ip_module` is configured with Cloudflare's published ranges via `set_real_ip_from` / `real_ip_header CF-Connecting-IP`, so the header is only trusted when the TCP connection genuinely originates from Cloudflare — a request that reaches the origin directly can't forge it.
+   - **Go application, per authenticated user** (`backend/internal/api/middleware.go`): submissions capped at 10/min (`submissionLimiter`) and code runs at 12/min (`runLimiter`), both keyed by session/user ID rather than IP, so they hold regardless of shared networks or IP rotation. Desktop agent enrollment is capped at 300/min per peer IP (`enrollIPLimiter`).
+   - **Login-specific**: `loginUserLimiter` throttles attempts to 5/min per username regardless of source IP, on top of the lockout in item 3.
+   - These guarantees depend on the competitor frontend staying co-located with the backend (its current deployment). A standalone/serverless (e.g. Vercel) deployment of the frontend would need the same real-IP trust chain re-established at that edge — otherwise server-to-server traffic from the serverless platform collapses many distinct competitors onto one shared egress IP for both rate limiting and audit logging.
 
 ---
 
