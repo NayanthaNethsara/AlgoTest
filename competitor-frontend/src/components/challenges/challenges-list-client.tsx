@@ -45,10 +45,7 @@ export function ChallengesListClient({
 
   const totalPoints = problems.reduce((acc, p) => acc + p.points, 0);
   const solvedCount = problems.filter((p) => {
-    const pr =
-      (p.id ? progress[p.id] : undefined) ||
-      (p.slug ? progress[p.slug] : undefined);
-    return pr?.status === CHALLENGE_STATUS.SOLVED;
+    return progress[p.id]?.status === CHALLENGE_STATUS.SOLVED;
   }).length;
 
   const earnedPoints = Object.values(progress).reduce(
@@ -62,12 +59,11 @@ export function ChallengesListClient({
       : 0;
 
   const filteredProblems = problems.filter((problem) => {
-    const pProgress = (problem.id ? progress[problem.id] : undefined) ||
-      (problem.slug ? progress[problem.slug] : undefined) || {
-        problemId: problem.id,
-        status: CHALLENGE_STATUS.NOT_ATTEMPTED,
-        bestScore: 0,
-      };
+    const pProgress = progress[problem.id] ?? {
+      problemId: problem.id,
+      status: CHALLENGE_STATUS.NOT_ATTEMPTED,
+      bestScore: 0,
+    };
 
     if (
       search.trim() &&
@@ -278,14 +274,11 @@ export function ChallengesListClient({
             }
           >
             {sortedProblems.map((problem) => {
-              const pProgress = (problem.id
-                ? progress[problem.id]
-                : undefined) ||
-                (problem.slug ? progress[problem.slug] : undefined) || {
-                  problemId: problem.id,
-                  status: CHALLENGE_STATUS.NOT_ATTEMPTED,
-                  bestScore: 0,
-                };
+              const pProgress = progress[problem.id] ?? {
+                problemId: problem.id,
+                status: CHALLENGE_STATUS.NOT_ATTEMPTED,
+                bestScore: 0,
+              };
 
               return (
                 <ChallengeCard
@@ -294,8 +287,8 @@ export function ChallengesListClient({
                   layout={layout}
                   progress={{
                     problemId: problem.id,
-                    status: pProgress.status || CHALLENGE_STATUS.NOT_ATTEMPTED,
-                    bestScore: pProgress.bestScore ?? 0,
+                    status: pProgress.status,
+                    bestScore: pProgress.bestScore,
                   }}
                 />
               );

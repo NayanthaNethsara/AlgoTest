@@ -16,8 +16,8 @@ export async function listUsersAction(): Promise<User[]> {
     if (!res.ok) {
       throw await parseApiError(res, "Failed to fetch users");
     }
-    const data = await res.json();
-    return data.users || [];
+    const data = (await res.json()) as { users?: User[] };
+    return data.users ?? [];
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to fetch users"));
   }
@@ -29,7 +29,7 @@ export async function createUserAction(
   const parsed = createUserInputSchema.safeParse(input);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid user input data");
+    throw new Error(firstIssue?.message ?? "Invalid user input data");
   }
 
   try {
@@ -40,7 +40,7 @@ export async function createUserAction(
     if (!res.ok) {
       throw await parseApiError(res, "Failed to create user");
     }
-    return await res.json();
+    return (await res.json()) as { user: User; password?: string };
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to create user"));
   }
@@ -58,7 +58,7 @@ export async function bulkCreateUsersAction(
   });
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid bulk user input data");
+    throw new Error(firstIssue?.message ?? "Invalid bulk user input data");
   }
 
   try {
@@ -99,7 +99,7 @@ export async function updateRoleAction(userId: string, role: string): Promise<vo
   const parsed = updateRoleSchema.safeParse({ role });
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid role");
+    throw new Error(firstIssue?.message ?? "Invalid role");
   }
 
   try {
@@ -136,7 +136,7 @@ export async function suspendUserAction(
   const parsed = suspendUserSchema.safeParse({ suspended, reason });
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid suspension data");
+    throw new Error(firstIssue?.message ?? "Invalid suspension data");
   }
 
   try {

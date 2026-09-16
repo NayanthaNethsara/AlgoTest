@@ -12,7 +12,10 @@ import type {
   SubmissionStatusResponse,
   SubmitResult,
 } from "@/types/code";
-import type { SubmissionItem } from "@/types/submission";
+import type {
+  BackendSubmissionItem,
+  SubmissionItem,
+} from "@/types/submission";
 
 export async function runCode(
   language: string,
@@ -21,7 +24,7 @@ export async function runCode(
 ): Promise<RunResult> {
   const parsed = runCodeInputSchema.safeParse({ language, code, stdin });
   if (!parsed.success) {
-    const errorMsg = parsed.error.issues[0]?.message || "Invalid run parameters";
+    const errorMsg = parsed.error.issues[0]?.message ?? "Invalid run parameters";
     return { stdout: "", stderr: `Error: ${errorMsg}`, exitCode: 1, timeMs: 0 };
   }
 
@@ -61,7 +64,7 @@ export async function submitCode(
   });
 
   if (!parsed.success) {
-    const errorMsg = parsed.error.issues[0]?.message || "Invalid submission parameters";
+    const errorMsg = parsed.error.issues[0]?.message ?? "Invalid submission parameters";
     return {
       error: errorMsg,
       subtasks: [],
@@ -150,17 +153,7 @@ export async function getSubmissionStatusAction(
       return null;
     }
 
-    const data = await res.json();
-    return {
-      id: data.id,
-      status: data.state || data.status,
-      verdict: data.verdict,
-      score: data.score,
-      maxScore: data.max_score,
-      queuePosition: data.queue_position,
-      compileError: data.compile_error,
-      tests: data.tests,
-    };
+    return (await res.json()) as SubmissionStatusResponse;
   } catch (err) {
     console.error("getSubmissionStatusAction error:", err);
     return null;
@@ -180,47 +173,32 @@ export async function listSubmissionsAction(
       return [];
     }
 
-    const data = await res.json();
-    const rawList: Record<string, unknown>[] = data.submissions || [];
+    const data = (await res.json()) as { submissions?: BackendSubmissionItem[] };
+    const submissions = data.submissions ?? [];
 
-    return rawList.map((item) => {
-      const id = String(item.submissionId || item.submission_id || item.id || "");
-      const createdAt = String(item.createdAt || item.created_at || "");
-      const timestamp = createdAt ? new Date(createdAt).getTime() : 0;
-      const submittedAt = createdAt
-        ? new Date(createdAt).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          })
-        : "";
+    return submissions.map((item) => {
+      const createdAt = item.createdAt;
+      const timestamp = new Date(createdAt).getTime();
+      const submittedAt = new Date(createdAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
 
       return {
-        id,
-        submissionId: id,
-        problemTitle: String(item.problemTitle || item.problem_title || ""),
-        submittedBy: String(item.userName || item.user_name || item.submittedBy || ""),
-        teamName: String(item.teamName || item.team_name || ""),
-        language: String(item.language || ""),
-        score: typeof item.score === "number" ? item.score : 0,
-        maxScore:
-          typeof item.maxScore === "number"
-            ? item.maxScore
-            : typeof item.max_score === "number"
-              ? item.max_score
-              : 100,
-        status: String(item.verdict || item.status || "queued"),
-        reviewStatus: (item.reviewStatus || item.review_status) as
-          | "accepted"
-          | "rejected"
-          | undefined,
-        reviewReason: item.reviewReason
-          ? String(item.reviewReason)
-          : item.review_reason
-            ? String(item.review_reason)
-            : undefined,
-        submittedAt: item.submittedAt ? String(item.submittedAt) : submittedAt,
-        timestamp: typeof item.timestamp === "number" ? item.timestamp : timestamp,
+        id: item.submissionId,
+        submissionId: item.submissionId,
+        problemTitle: item.problemTitle,
+        submittedBy: item.userName,
+        teamName: item.teamName,
+        language: item.language,
+        score: item.score,
+        maxScore: item.maxScore,
+        status: item.verdict ?? item.status,
+        reviewStatus: item.reviewStatus,
+        reviewReason: item.reviewReason,
+        submittedAt,
+        timestamp,
       };
     });
   } catch (err) {

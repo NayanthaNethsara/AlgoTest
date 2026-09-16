@@ -55,14 +55,18 @@ export async function uploadSingleTestCase(
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const data = JSON.parse(xhr.responseText);
-          resolve(data.test);
+          const result = data.test;
+          if (result && Array.isArray(data.tests)) {
+            result.allTests = data.tests;
+          }
+          resolve(result);
         } catch {
           reject(new Error("Invalid response from test upload server"));
         }
       } else {
         try {
           const errData = JSON.parse(xhr.responseText);
-          reject(new Error(errData.error || `Upload failed with HTTP ${xhr.status}`));
+          reject(new Error(errData.error ?? `Upload failed with HTTP ${xhr.status}`));
         } catch {
           reject(new Error(`Upload failed with HTTP ${xhr.status}`));
         }
@@ -81,16 +85,16 @@ export async function uploadSingleTestCase(
     if (typeof item.input === "string") {
       formData.append("input", item.input);
     } else {
-      formData.append("input", item.input, item.inputFileName || "input.txt");
+      formData.append("input", item.input, item.inputFileName ?? "input.txt");
     }
 
     if (typeof item.expected === "string") {
       formData.append("expected", item.expected);
     } else {
-      formData.append("expected", item.expected, item.expectedFileName || "output.txt");
+      formData.append("expected", item.expected, item.expectedFileName ?? "output.txt");
     }
 
-    formData.append("points", String(item.points || 0));
+    formData.append("points", String(item.points ?? 0));
 
     xhr.send(formData);
   });
@@ -135,7 +139,7 @@ export async function updateSingleTestCase(
       } else {
         try {
           const errData = JSON.parse(xhr.responseText);
-          reject(new Error(errData.error || `Update failed with HTTP ${xhr.status}`));
+          reject(new Error(errData.error ?? `Update failed with HTTP ${xhr.status}`));
         } catch {
           reject(new Error(`Update failed with HTTP ${xhr.status}`));
         }
@@ -183,7 +187,7 @@ export async function deleteSingleTestCase(problemId: string, ordinal: number): 
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Failed to delete test case #${ordinal}`);
+    throw new Error(data.error ?? `Failed to delete test case #${ordinal}`);
   }
 }
 
@@ -211,7 +215,7 @@ export async function updateTestPoints(
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "Failed to update test points");
+    throw new Error(data.error ?? "Failed to update test points");
   }
 }
 

@@ -17,8 +17,8 @@ export async function listTeamsAction(): Promise<Team[]> {
     if (!res.ok) {
       throw await parseApiError(res, "Failed to fetch teams");
     }
-    const data = await res.json();
-    return data.teams || [];
+    const data = (await res.json()) as { teams?: Team[] };
+    return data.teams ?? [];
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to fetch teams"));
   }
@@ -30,7 +30,7 @@ export async function createTeamAction(
   const parsed = createTeamInputSchema.safeParse(input);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid team input data");
+    throw new Error(firstIssue?.message ?? "Invalid team input data");
   }
 
   try {
@@ -65,7 +65,7 @@ export async function bulkCreateTeamsAction(
   const parsed = bulkCreateTeamsSchema.safeParse({ teams: teamInputs });
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid bulk team input data");
+    throw new Error(firstIssue?.message ?? "Invalid bulk team input data");
   }
 
   try {
@@ -85,7 +85,7 @@ export async function bulkCreateTeamsAction(
       team?: Team;
       members?: Array<{ user: User; password?: string }>;
       error?: string;
-    }> = data.results || [];
+    }> = data.results ?? [];
 
     for (const item of results) {
       if (item.status === "created" && item.team) {
@@ -93,7 +93,7 @@ export async function bulkCreateTeamsAction(
       } else {
         errors.push({
           name: item.name,
-          error: item.error || "Failed to create team",
+          error: item.error ?? "Failed to create team",
         });
       }
     }
@@ -108,7 +108,7 @@ export async function updateTeamAction(id: string, name: string): Promise<Team> 
   const parsed = updateTeamInputSchema.safeParse({ name });
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid team name");
+    throw new Error(firstIssue?.message ?? "Invalid team name");
   }
 
   try {
@@ -119,7 +119,7 @@ export async function updateTeamAction(id: string, name: string): Promise<Team> 
     if (!res.ok) {
       throw await parseApiError(res, "Failed to update team");
     }
-    const data = await res.json();
+    const data = (await res.json()) as { team: Team };
     return data.team;
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to update team"));
@@ -149,7 +149,7 @@ export async function addTeamMemberAction(
   const parsed = addTeamMemberPayloadSchema.safeParse(payload);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid team member data");
+    throw new Error(firstIssue?.message ?? "Invalid team member data");
   }
 
   try {
@@ -160,7 +160,7 @@ export async function addTeamMemberAction(
     if (!res.ok) {
       throw await parseApiError(res, "Failed to add team member");
     }
-    return await res.json();
+    return (await res.json()) as { team: Team; user?: User; password?: string };
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to add team member"));
   }
@@ -174,7 +174,7 @@ export async function removeTeamMemberAction(teamId: string, userId: string): Pr
     if (!res.ok) {
       throw await parseApiError(res, "Failed to remove team member");
     }
-    const data = await res.json();
+    const data = (await res.json()) as { team: Team };
     return data.team;
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to remove team member"));

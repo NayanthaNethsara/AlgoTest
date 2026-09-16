@@ -22,8 +22,10 @@ import type { TestCaseMetadata } from "@/types/problem";
 import {
   MIN_EVALUATION_TEST_CASES,
   calculateScoringSummary,
+  generateEvenPoints,
   matchTestFilePairs,
 } from "@/lib/testcase-utils";
+import { getProblemTestsAction } from "@/lib/actions/problems";
 import {
   deleteSingleTestCase,
   updateTestPoints,
@@ -98,14 +100,15 @@ export function TestCasesTab({
     setSingleModalOpen(true);
   }
 
-  function handleSingleSuccess(savedTest: TestCaseMetadata, isEdit: boolean) {
-    if (isEdit) {
+  function handleSingleSuccess(savedTest: TestCaseMetadata & { allTests?: TestCaseMetadata[] }, isEdit: boolean) {
+    if (savedTest.allTests && savedTest.allTests.length > 0) {
+      onTestsUpdated(savedTest.allTests);
+    } else if (isEdit) {
       onTestsUpdated(tests.map((t) => (t.ordinal === savedTest.ordinal ? savedTest : t)));
-      toast.success(`Test case #${savedTest.ordinal} replaced`);
     } else {
       onTestsUpdated([...tests, savedTest]);
-      toast.success(`Test case #${savedTest.ordinal} added`);
     }
+    toast.success(isEdit ? `Test case #${savedTest.ordinal} replaced` : `Test case #${savedTest.ordinal} added`);
   }
 
   async function confirmDeleteTest() {
@@ -115,12 +118,17 @@ export function TestCasesTab({
 
     try {
       await deleteSingleTestCase(problemId, ordinal);
-      const remaining = tests
-        .filter((t) => t.ordinal !== ordinal)
-        .map((t) => (t.ordinal > ordinal ? { ...t, ordinal: t.ordinal - 1 } : t));
-      onTestsUpdated(remaining);
+      try {
+        const refreshed = await getProblemTestsAction(problemId);
+        onTestsUpdated(refreshed);
+      } catch {
+        const remaining = tests
+          .filter((t) => t.ordinal !== ordinal)
+          .map((t) => (t.ordinal > ordinal ? { ...t, ordinal: t.ordinal - 1 } : t));
+        onTestsUpdated(remaining);
+      }
       toast.success(`Test case #${ordinal} deleted`, {
-        description: "The remaining test cases were re-sequenced.",
+        description: "The remaining test cases were re-sequenced and points updated.",
       });
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to delete the test case."));
@@ -156,7 +164,7 @@ export function TestCasesTab({
   }
 
   function handleBatchFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    enqueueFiles(Array.from(e.target.files || []));
+    enqueueFiles(Array.from(e.target.files ?? []));
     if (batchFileInputRef.current) batchFileInputRef.current.value = "";
   }
 
@@ -167,7 +175,7 @@ export function TestCasesTab({
       onSaveDraftFirst?.();
       return;
     }
-    enqueueFiles(Array.from(e.dataTransfer.files || []));
+    enqueueFiles(Array.from(e.dataTransfer.files ?? []));
   }
 
   function enqueueFiles(files: File[]) {
@@ -236,7 +244,12 @@ export function TestCasesTab({
           }
         );
 
-        currentTests = [...currentTests, created];
+        const uploadResult = created as TestCaseMetadata & { allTests?: TestCaseMetadata[] };
+        if (uploadResult.allTests && uploadResult.allTests.length > 0) {
+          currentTests = uploadResult.allTests;
+        } else {
+          currentTests = [...currentTests, created];
+        }
         onTestsUpdated(currentTests);
 
         setBatchQueue((prev) =>
@@ -248,6 +261,15 @@ export function TestCasesTab({
           prev.map((q, idx) => (idx === i ? { ...q, status: "error", error: msg } : q))
         );
       }
+    }
+
+    try {
+      const latestTests = await getProblemTestsAction(problemId);
+      if (latestTests && latestTests.length > 0) {
+        onTestsUpdated(latestTests);
+      }
+    } catch {
+      // Keep current tests on fetch failure
     }
 
     setBatchIsRunning(false);
@@ -286,7 +308,12 @@ export function TestCasesTab({
         }
       );
 
-      onTestsUpdated([...tests, created]);
+      const retryResult = created as TestCaseMetadata & { allTests?: TestCaseMetadata[] };
+      if (retryResult.allTests && retryResult.allTests.length > 0) {
+        onTestsUpdated(retryResult.allTests);
+      } else {
+        onTestsUpdated([...tests, created]);
+      }
 
       setBatchQueue((prev) =>
         prev.map((q, idx) => (idx === index ? { ...q, status: "success", progress: 100 } : q))
@@ -337,6 +364,32 @@ export function TestCasesTab({
       toast.success("Test case points updated");
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to update the points."));
+    } finally {
+      setSavingPoints(false);
+    }
+  }
+
+  async function handleSplitEvenly() {
+    if (!problemId || tests.length === 0) return;
+    const evenPoints = generateEvenPoints(tests.length, maxScore);
+    const newPointsMap: Record<number, number> = {};
+    tests.forEach((t, i) => {
+      newPointsMap[t.ordinal] = evenPoints[i] ?? 0;
+    });
+
+    setSavingPoints(true);
+    try {
+      await updateTestPoints(problemId, newPointsMap);
+      onTestsUpdated(
+        tests.map((t, i) => ({
+          ...t,
+          points: evenPoints[i] ?? 0,
+        }))
+      );
+      setPendingPoints({});
+      toast.success("Points evenly distributed across test cases");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to distribute points evenly."));
     } finally {
       setSavingPoints(false);
     }
@@ -459,6 +512,7 @@ export function TestCasesTab({
           hasPendingPointChanges={hasPendingPointChanges}
           savingPoints={savingPoints}
           onSavePoints={handleSavePoints}
+          onSplitEvenly={handleSplitEvenly}
         />
 
         <div className="flex flex-col gap-3">

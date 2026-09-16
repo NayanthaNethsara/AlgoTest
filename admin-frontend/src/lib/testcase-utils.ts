@@ -87,12 +87,34 @@ export function formatByteSize(bytes: number): string {
 }
 
 /**
+ * Generates an even distribution of points matching backend logic.
+ */
+export function generateEvenPoints(count: number, maxScore: number): number[] {
+  if (count <= 0 || maxScore <= 0) return [];
+  const base = Math.floor(maxScore / count);
+  const remainder = maxScore % count;
+  return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
+}
+
+/**
  * Summary calculations for points and distribution.
  */
 export function calculateScoringSummary(tests: { points?: number }[], maxScore: number) {
   const customPointsSum = tests.reduce((sum, t) => sum + (Number(t.points) || 0), 0);
-  const hasCustomPoints = tests.some((t) => Number(t.points) > 0);
   const autoPointPerTest = tests.length > 0 ? Math.floor(maxScore / tests.length) : 0;
+
+  const isEvenDistribution =
+    tests.length === 0 ||
+    tests.every((t) => Number(t.points) === 0) ||
+    (customPointsSum === maxScore &&
+      tests.every((t, i) => {
+        const base = Math.floor(maxScore / tests.length);
+        const rem = maxScore % tests.length;
+        const expected = base + (i < rem ? 1 : 0);
+        return Number(t.points) === expected;
+      }));
+
+  const hasCustomPoints = !isEvenDistribution;
 
   return {
     customPointsSum,

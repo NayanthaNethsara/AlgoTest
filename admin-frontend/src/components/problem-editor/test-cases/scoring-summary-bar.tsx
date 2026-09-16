@@ -13,6 +13,7 @@ interface ScoringSummaryBarProps {
   hasPendingPointChanges: boolean;
   savingPoints: boolean;
   onSavePoints: () => void;
+  onSplitEvenly?: () => void;
 }
 
 export function ScoringSummaryBar({
@@ -22,6 +23,7 @@ export function ScoringSummaryBar({
   hasPendingPointChanges,
   savingPoints,
   onSavePoints,
+  onSplitEvenly,
 }: ScoringSummaryBarProps) {
   const ok = scoring.hasMinimumCases;
 
@@ -48,6 +50,18 @@ export function ScoringSummaryBar({
       </span>
 
       <span className="flex shrink-0 items-center gap-2">
+        {testCount > 0 && onSplitEvenly && (
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={onSplitEvenly}
+            disabled={savingPoints}
+            className="text-[11px]"
+          >
+            Split evenly
+          </Button>
+        )}
         {hasPendingPointChanges && (
           <Button
             type="button"

@@ -56,7 +56,6 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     lastResult &&
     (!lastResult.problemId ||
       lastResult.problemId === problem.id ||
-      lastResult.problemId === problem.slug ||
       lastResult.submissionId === submitResult?.submissionId)
       ? lastResult
       : submitResult;
@@ -191,7 +190,6 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     Boolean(
       activeSubmission &&
       (activeSubmission.problemId === problem.id ||
-        activeSubmission.problemId === problem.slug ||
         activeSubmission.id === submitResult?.submissionId),
     );
 

@@ -7,7 +7,7 @@ export type SubmissionSortOption =
 
 export type SubmissionItem = {
   id: string;
-  submissionId?: string;
+  submissionId: string;
   problemTitle: string;
   submittedBy: string;
   teamName: string;
@@ -18,7 +18,7 @@ export type SubmissionItem = {
   reviewStatus?: "accepted" | "rejected";
   reviewReason?: string;
   submittedAt: string;
-  timestamp?: number;
+  timestamp: number;
 };
 
 export type ActiveSubmission = {
@@ -42,33 +42,42 @@ export type ToastMessage = {
 };
 
 export type SubmissionTestResult = {
-  submissionId?: string;
-  submission_id?: string;
+  submissionId: string;
   ordinal: number;
-  verdict?: string;
-  timeMs?: number;
-  time_ms?: number;
-  memoryKb?: number;
-  memory_kb?: number;
-  points?: number;
+  verdict: string;
+  timeMs: number;
+  memoryKb: number;
+  points: number;
+  maxPoints: number;
 };
 
 export type SubmissionStatusResponse = {
-  id?: string;
-  submissionId?: string;
-  submission_id?: string;
-  problemId?: string;
-  problem_id?: string;
-  status?: SubmissionStatus;
+  submissionId: string;
+  userId: string;
+  teamId: string;
+  problemId: string;
+  status: SubmissionStatus;
   verdict?: Verdict;
-  score?: number;
-  maxScore?: number;
-  max_score?: number;
-  queuePosition?: number;
-  queue_position?: number;
+  score: number;
+  maxScore: number;
+  testsTotal: number;
+  testsDone: number;
   compileError?: string;
-  compile_error?: string;
+  queuePosition?: number;
+  tests?: SubmissionTestResult[];
+  createdAt: string;
+  finishedAt?: string;
   reviewStatus?: "accepted" | "rejected";
   reviewReason?: string;
-  tests?: SubmissionTestResult[];
+  reviewedAt?: string;
+};
+
+export type BackendSubmissionItem = SubmissionStatusResponse & {
+  userName: string;
+  userEmail: string;
+  teamName: string;
+  problemTitle: string;
+  language: string;
+  code: string;
+  reviewedBy?: string;
 };

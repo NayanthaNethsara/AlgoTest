@@ -223,7 +223,7 @@ export function SubmissionsClient({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedSubmissions.map((sub, index) => {
+                {paginatedSubmissions.map((sub) => {
                   const isAc =
                     sub.status.toLowerCase().includes("accepted") ||
                     sub.status.toLowerCase() === "ac";
@@ -234,7 +234,7 @@ export function SubmissionsClient({
 
                   return (
                     <TableRow
-                      key={sub.id || sub.submissionId || index}
+                      key={sub.submissionId}
                       className={isRejected ? "opacity-60" : undefined}
                     >
                       <TableCell className="font-semibold text-xs text-foreground">
@@ -291,7 +291,7 @@ export function SubmissionsClient({
                               variant="outline"
                               className="gap-1 text-[9px] uppercase font-bold"
                               title={
-                                sub.reviewReason || "Rejected by an organizer"
+                                sub.reviewReason ?? "Rejected by an organizer"
                               }
                             >
                               <Ban className="h-3 w-3" />

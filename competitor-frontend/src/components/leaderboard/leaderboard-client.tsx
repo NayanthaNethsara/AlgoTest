@@ -300,7 +300,7 @@ export function LeaderboardClient({
 
                   return (
                     <TableRow
-                      key={row.teamId || row.rank}
+                      key={row.teamId}
                       className={
                         isCurrentTeam
                           ? "bg-primary/20 font-bold border-l-4 border-l-primary"

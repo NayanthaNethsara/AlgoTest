@@ -16,7 +16,7 @@ export type Sample = {
 
 export type Problem = {
   id: string;
-  slug?: string;
+  slug: string;
   title: string;
   difficulty: Difficulty;
   points: number;

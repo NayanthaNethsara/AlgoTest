@@ -72,7 +72,7 @@ export async function listProblemsAction(): Promise<ProblemDetail[]> {
       return handleResponseError(res, "Failed to fetch problems");
     }
     const data = await res.json();
-    return data.problems || [];
+    return data.problems ?? [];
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to fetch problems"));
   }
@@ -95,7 +95,7 @@ export async function createProblemAction(input: ProblemInput): Promise<ProblemD
   const parsed = problemInputSchema.safeParse(input);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid problem input data");
+    throw new Error(firstIssue?.message ?? "Invalid problem input data");
   }
 
   const validatedData: ValidatedProblemInput = parsed.data;
@@ -119,7 +119,7 @@ export async function updateProblemAction(id: string, input: ProblemInput): Prom
   const parsed = problemInputSchema.safeParse(input);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid problem input data");
+    throw new Error(firstIssue?.message ?? "Invalid problem input data");
   }
 
   const validatedData: ValidatedProblemInput = parsed.data;
@@ -173,7 +173,7 @@ export async function getProblemTestsAction(id: string): Promise<TestCaseMetadat
       return handleResponseError(res, "Failed to fetch test cases");
     }
     const data = await res.json();
-    return data.tests || [];
+    return data.tests ?? [];
   } catch (err: unknown) {
     throw new Error(getErrorMessage(err, "Failed to fetch test cases"));
   }
@@ -183,7 +183,7 @@ export async function replaceTestCasesAction(id: string, tests: TestCaseInput[])
   const parsed = replaceTestsSchema.safeParse({ tests });
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message || "Invalid test case input data");
+    throw new Error(firstIssue?.message ?? "Invalid test case input data");
   }
 
   try {
