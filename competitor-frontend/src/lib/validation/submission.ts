@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const runCodeInputSchema = z.object({
+  problemId: z.string().trim().optional().default(""),
   language: z.string().trim().min(1, "Language is required"),
   code: z
     .string()

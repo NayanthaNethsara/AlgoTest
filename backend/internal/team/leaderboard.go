@@ -41,11 +41,11 @@ func (r *Repository) GetLeaderboardWithCutoff(ctx context.Context, cutoff *time.
 					s.team_id,
 					s.problem_id,
 					s.score AS best_score,
-					CASE WHEN s.score > 0 THEN s.created_at ELSE NULL END AS last_accepted_at
+					CASE WHEN s.score > 0 THEN s.finished_at ELSE NULL END AS last_accepted_at
 				FROM submissions s
 				JOIN problems p ON p.id = s.problem_id AND p.published = true
-				WHERE s.created_at <= $1 AND (s.review_status IS NULL OR s.review_status != 'rejected')
-				ORDER BY s.team_id, s.problem_id, s.score DESC, s.created_at ASC
+				WHERE s.finished_at <= $1 AND s.state = 'passed' AND (s.review_status IS NULL OR s.review_status != 'rejected')
+				ORDER BY s.team_id, s.problem_id, s.score DESC, s.finished_at ASC
 			)
 			SELECT 
 				t.id AS team_id,
@@ -66,16 +66,37 @@ func (r *Repository) GetLeaderboardWithCutoff(ctx context.Context, cutoff *time.
 	}
 	defer rows.Close()
 
-	var entries []LeaderboardEntry
-	rank := 1
+	var rawEntries []LeaderboardEntry
 	for rows.Next() {
 		var entry LeaderboardEntry
 		if err := rows.Scan(&entry.TeamID, &entry.TeamName, &entry.TotalScore, &entry.ProblemsSolved, &entry.LastSubmissionAt); err != nil {
 			return nil, fmt.Errorf("scan leaderboard entry: %w", err)
 		}
-		entry.Rank = rank
-		rank++
-		entries = append(entries, entry)
+		rawEntries = append(rawEntries, entry)
 	}
-	return entries, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return assignLeaderboardRanks(rawEntries), nil
+}
+
+func assignLeaderboardRanks(rawEntries []LeaderboardEntry) []LeaderboardEntry {
+	entries := make([]LeaderboardEntry, 0, len(rawEntries))
+	currentRank := 1
+	for i := range rawEntries {
+		if i > 0 {
+			prev := rawEntries[i-1]
+			curr := rawEntries[i]
+			isTie := curr.TotalScore == prev.TotalScore &&
+				((curr.LastSubmissionAt == nil && prev.LastSubmissionAt == nil) ||
+					(curr.LastSubmissionAt != nil && prev.LastSubmissionAt != nil && curr.LastSubmissionAt.Equal(*prev.LastSubmissionAt)))
+			if !isTie {
+				currentRank = i + 1
+			}
+		}
+		rawEntries[i].Rank = currentRank
+		entries = append(entries, rawEntries[i])
+	}
+	return entries
 }

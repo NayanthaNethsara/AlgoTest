@@ -252,6 +252,7 @@ func (r *Repository) AddSingleTest(ctx context.Context, problemID string, input 
 	if err != nil {
 		return TestCaseMetadata{}, err
 	}
+	var currentSum int32
 	var existingPoints []int32
 	for rows.Next() {
 		var p int32
@@ -260,6 +261,7 @@ func (r *Repository) AddSingleTest(ctx context.Context, problemID string, input 
 			return TestCaseMetadata{}, err
 		}
 		existingPoints = append(existingPoints, p)
+		currentSum += p
 	}
 	rows.Close()
 
@@ -267,6 +269,8 @@ func (r *Repository) AddSingleTest(ctx context.Context, problemID string, input 
 	pts := points
 	if shouldAutoDistribute {
 		pts = 0
+	} else if points > 0 && currentSum+points > maxScore {
+		return TestCaseMetadata{}, fmt.Errorf("adding %d points exceeds problem max score of %d (current sum: %d)", points, maxScore, currentSum)
 	}
 
 	inSha := crypto.SHA256Hex(input)

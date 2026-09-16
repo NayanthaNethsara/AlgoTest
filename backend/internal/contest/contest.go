@@ -52,6 +52,7 @@ type stateSnapshot struct {
 	durationSeconds        int
 	freezeMinutes          int
 	isFrozen               bool
+	freezeOverridden       bool
 	freezeStartTime        *time.Time
 	pausedAt               *time.Time
 	requireFullscreen      bool
@@ -114,6 +115,11 @@ func parseSnapshot(values map[string]string) *stateSnapshot {
 		isFrozen = strings.ToLower(strings.TrimSpace(val)) == "true"
 	}
 
+	freezeOverridden := false
+	if val, ok := values["contest.freeze_overridden"]; ok {
+		freezeOverridden = strings.ToLower(strings.TrimSpace(val)) == "true"
+	}
+
 	var freezeStartTime *time.Time
 	if val, ok := values["contest.freeze_start_time"]; ok && strings.TrimSpace(val) != "" {
 		if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(val)); err == nil {
@@ -151,6 +157,7 @@ func parseSnapshot(values map[string]string) *stateSnapshot {
 		durationSeconds:        durSec,
 		freezeMinutes:          freezeMin,
 		isFrozen:               isFrozen,
+		freezeOverridden:       freezeOverridden,
 		freezeStartTime:        freezeStartTime,
 		pausedAt:               pausedAt,
 		requireFullscreen:      requireFullscreen,

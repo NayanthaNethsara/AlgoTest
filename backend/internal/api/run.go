@@ -61,9 +61,10 @@ func releaseUserRun(userID string) {
 }
 
 type runCodeRequest struct {
-	Language string `json:"language" binding:"required"`
-	Code     string `json:"code" binding:"required"`
-	Stdin    string `json:"stdin"`
+	ProblemID string `json:"problem_id"`
+	Language  string `json:"language" binding:"required"`
+	Code      string `json:"code" binding:"required"`
+	Stdin     string `json:"stdin"`
 }
 
 // @Summary Execute Code
@@ -111,6 +112,12 @@ func (h *handler) runCode(c *gin.Context) {
 				"code":  "CONTEST_PAUSED",
 			})
 			return
+		case contest.StatusEnded:
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest has ended; code execution is closed",
+				"code":  "CONTEST_ENDED",
+			})
+			return
 		}
 	}
 
@@ -130,10 +137,34 @@ func (h *handler) runCode(c *gin.Context) {
 		return
 	}
 
+	var limits runner.Limits
+	if req.ProblemID != "" && h.problems != nil {
+		detail, err := h.problems.GetByID(c.Request.Context(), req.ProblemID, false)
+		if err != nil {
+			detail, err = h.problems.GetPublishedBySlug(c.Request.Context(), req.ProblemID)
+		}
+		if err == nil {
+			p := detail
+			if p.TimeLimitMs > 0 {
+				cpu := time.Duration(p.TimeLimitMs) * time.Millisecond
+				limits.CPUSeconds = cpu.Seconds()
+				wall := 3*cpu + 2*time.Second
+				if wall < 5*time.Second {
+					wall = 5 * time.Second
+				}
+				limits.Wall = wall
+			}
+			if p.MemoryLimitMb > 0 {
+				limits.MemoryKB = int64(p.MemoryLimitMb) * 1024
+			}
+		}
+	}
+
 	result, err := h.runner.Run(c.Request.Context(), runner.Request{
 		Language: req.Language,
 		Code:     req.Code,
 		Stdin:    req.Stdin,
+		Limits:   limits,
 	})
 	if err != nil {
 		if errors.Is(err, runner.ErrUnsupportedLanguage) {

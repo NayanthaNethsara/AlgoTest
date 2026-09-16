@@ -99,10 +99,29 @@ func (b *Broadcaster) Broadcast(res Result) {
 		return
 	}
 
+	// Postgres NOTIFY payload limit is 8000 bytes. If payload exceeds 7500 bytes,
+	// strip detailed test case items to prevent PostgreSQL query rejection.
+	if len(payload) > 7500 {
+		stripped := res
+		stripped.Tests = nil
+		env.Result = stripped
+		payload, err = json.Marshal(env)
+		if err != nil {
+			return
+		}
+	}
+
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		_, _ = pool.Exec(ctx, "SELECT pg_notify($1, $2)", JudgeVerdictsChannel, string(payload))
+		if _, err := pool.Exec(ctx, "SELECT pg_notify($1, $2)", JudgeVerdictsChannel, string(payload)); err != nil {
+			b.mu.RLock()
+			log := b.log
+			b.mu.RUnlock()
+			if log != nil {
+				log.Error("failed to broadcast judge verdict via pg_notify", "error", err, "submission_id", res.SubmissionID)
+			}
+		}
 	}()
 }
 
@@ -164,6 +183,16 @@ func (b *Broadcaster) StartListener(ctx context.Context) {
 						// Originated from this instance; already broadcast locally
 						continue
 					}
+
+					// Hydrate tests if stripped due to NOTIFY size limit
+					if len(env.Result.Tests) == 0 && (env.Result.Status == StatusPassed || env.Result.Status == StatusFailed) {
+						qCtx, qCancel := context.WithTimeout(ctx, 2*time.Second)
+						if fullRes, found, _ := (&Repository{pool: pool}).GetSubmission(qCtx, env.Result.SubmissionID); found && fullRes != nil {
+							env.Result.Tests = fullRes.Tests
+						}
+						qCancel()
+					}
+
 					b.BroadcastLocal(env.Result)
 					continue
 				}

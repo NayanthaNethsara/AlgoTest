@@ -202,6 +202,7 @@ func (h *handler) createSubmission(c *gin.Context) {
 		"id":             created.ID,
 		"status":         created.State,
 		"queue_position": created.QueuePosition,
+		"max_score":      created.MaxScore,
 	})
 }
 

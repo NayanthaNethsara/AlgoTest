@@ -39,6 +39,25 @@ export async function listAdminSubmissionsAction(
   return { submissions: [], total: 0 };
 }
 
+export async function getAdminSubmissionAction(
+  submissionId: string
+): Promise<AdminSubmission | null> {
+  try {
+    const res = await backendFetch(
+      `/api/v1/admin/submissions/${encodeURIComponent(submissionId)}`,
+      { method: "GET" }
+    );
+    if (res.ok) {
+      const data = (await res.json()) as { submission?: AdminSubmission };
+      return data.submission ?? null;
+    }
+  } catch {
+    // Ignore error and fall through
+  }
+
+  return null;
+}
+
 export async function rejudgeSubmissionAction(
   submissionId: string
 ): Promise<{ success: boolean; error?: string }> {

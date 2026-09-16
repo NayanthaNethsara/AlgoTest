@@ -113,7 +113,8 @@ func (r *Repository) completeSubmissionTx(ctx context.Context, res Result, worke
 	tag, err := tx.Exec(ctx, `
 		UPDATE submissions
 		SET state = $1, verdict = $2, score = $3, tests_done = $4, compile_error = $5, finished_at = $6,
-		    max_score = CASE WHEN $8 > 0 THEN $8 ELSE max_score END
+		    max_score = CASE WHEN $8 > 0 THEN $8 ELSE max_score END,
+		    is_rejudge = false
 		WHERE id = $7 AND ($9 = '' OR claimed_by = $9);
 	`, stateStr, res.Verdict, res.Score, res.TestsDone, res.CompileError, now, res.SubmissionID, res.MaxScore, workerID)
 	if err != nil {
@@ -123,15 +124,29 @@ func (r *Repository) completeSubmissionTx(ctx context.Context, res Result, worke
 		return ErrLeaseLost
 	}
 
-	for _, t := range res.Tests {
-		_, err = tx.Exec(ctx, `
-			INSERT INTO submission_tests (submission_id, ordinal, verdict, time_ms, memory_kb, points)
-			VALUES ($1, $2, $3, $4, $5, $6)
-			ON CONFLICT (submission_id, ordinal) DO UPDATE
-			SET verdict = EXCLUDED.verdict, time_ms = EXCLUDED.time_ms, memory_kb = EXCLUDED.memory_kb, points = EXCLUDED.points;
-		`, res.SubmissionID, t.Ordinal, t.Verdict, t.TimeMS, t.MemoryKB, t.Points)
+	if len(res.Tests) > 0 {
+		_, err = tx.Exec(ctx, `DELETE FROM submission_tests WHERE submission_id = $1;`, res.SubmissionID)
 		if err != nil {
-			return fmt.Errorf("insert submission test: %w", err)
+			return fmt.Errorf("clear old submission tests: %w", err)
+		}
+
+		batch := &pgx.Batch{}
+		insertQuery := `
+			INSERT INTO submission_tests (submission_id, ordinal, verdict, time_ms, memory_kb, points, max_points)
+			VALUES ($1, $2, $3, $4, $5, $6, $7);
+		`
+		for _, t := range res.Tests {
+			batch.Queue(insertQuery, res.SubmissionID, t.Ordinal, t.Verdict, t.TimeMS, t.MemoryKB, t.Points, t.MaxPoints)
+		}
+		br := tx.SendBatch(ctx, batch)
+		for range res.Tests {
+			if _, bErr := br.Exec(); bErr != nil {
+				_ = br.Close()
+				return fmt.Errorf("insert submission test batch: %w", bErr)
+			}
+		}
+		if err := br.Close(); err != nil {
+			return fmt.Errorf("close submission test batch: %w", err)
 		}
 	}
 

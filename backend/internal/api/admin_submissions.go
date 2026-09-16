@@ -30,6 +30,19 @@ func (h *handler) listAdminSubmissions(c *gin.Context) {
 	})
 }
 
+func (h *handler) getAdminSubmission(c *gin.Context) {
+	item, err := h.judge.Repo().GetAdminSubmission(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		if errors.Is(err, judge.ErrSubmissionNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "submission not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch submission: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"submission": item})
+}
+
 func (h *handler) rejudgeSubmission(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.judge.Repo().RejudgeSubmission(c.Request.Context(), id); err != nil {

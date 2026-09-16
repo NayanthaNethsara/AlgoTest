@@ -12,7 +12,7 @@ var ErrSandboxUnavailable = errors.New("sandbox unavailable")
 
 // outputLimit caps how much stdout/stderr we hand back per run, to keep a
 // runaway program (e.g. an infinite print loop) from ballooning a response.
-const outputLimit = 64 * 1024 * 1024 // 64 MB limit (supports 1M+ lines)
+const outputLimit = 4 * 1024 * 1024 // 4 MB limit
 
 // sandboxDir is where the per-run workspace is bind-mounted inside the sandbox.
 const sandboxDir = "/sandbox"
@@ -23,7 +23,7 @@ const sandboxDir = "/sandbox"
 const sandboxGrace = 5 * time.Second
 
 // fsizeKB bounds any single file the sandboxed program writes.
-const fsizeKB = 64 * 1024 // 64 MB file output bound
+const fsizeKB = 4 * 1024 // 4 MB file output bound
 
 // openFilesLimit raises isolate's default of 64.
 const openFilesLimit = 256

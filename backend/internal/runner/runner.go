@@ -434,11 +434,11 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		// Undo anything the previous case left behind: stashed state, symlinks
 		// aimed at this case's output names, or a tampered binary.
 		if err := guard.restore(); err != nil {
-			return BatchResult{}, err
+			return BatchResult{Cases: results}, err
 		}
 
 		if err := r.resetBox(execCtx, slot.BoxID); err != nil {
-			return BatchResult{}, err
+			return BatchResult{Cases: results}, err
 		}
 
 		cCtx, cCancel := context.WithTimeout(execCtx, effectiveWall+sandboxGrace)
@@ -457,7 +457,7 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		var verdict Verdict = VerdictAC
 		if err != nil {
 			if errors.Is(err, ErrSandboxUnavailable) {
-				return BatchResult{}, err
+				return BatchResult{Cases: results}, err
 			}
 			verdict = VerdictIE
 		} else {

@@ -127,7 +127,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     setRunResult(null);
     record("ran", language.id, code);
     try {
-      setRunResult(await runCode(language.id, code, stdin));
+      setRunResult(await runCode(language.id, code, stdin, problem.id));
       setRunCooldown(3);
     } finally {
       setRunning(false);

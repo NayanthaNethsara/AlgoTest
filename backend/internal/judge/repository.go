@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,8 +24,8 @@ func (r *Repository) HasActiveSubmission(ctx context.Context, teamID, problemID 
 	query := `
 		SELECT EXISTS (
 			SELECT 1 FROM submissions
-			WHERE team_id = $1 AND problem_id = $2 
-			  AND (state = 'queued' OR (state = 'running' AND (lease_until IS NULL OR lease_until >= NOW())))
+			WHERE team_id = $1 AND problem_id = $2
+			  AND state IN ('queued', 'running') AND NOT is_rejudge
 		);
 	`
 	var active bool
@@ -92,6 +93,10 @@ func (r *Repository) CreateSubmission(ctx context.Context, s Submission) (*Submi
 		s.ID, s.TeamID, s.UserID, s.ProblemID, s.Language, s.Code, s.State, s.MaxScore, s.TestsTotal, s.CreatedAt,
 	).Scan(&s.CreatedAt)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, ErrActiveSubmissionExists
+		}
 		return nil, fmt.Errorf("insert submission: %w", err)
 	}
 
@@ -159,7 +164,7 @@ func (r *Repository) GetSubmission(ctx context.Context, id string) (*Result, boo
 
 	rows, err := r.pool.Query(ctx, `
 		SELECT st.submission_id, st.ordinal, st.verdict, st.time_ms, st.memory_kb, st.points,
-		       COALESCE(pt.points, 0) AS max_points
+		       COALESCE(NULLIF(st.max_points, 0), pt.points, 0) AS max_points
 		FROM submission_tests st
 		JOIN submissions s ON s.id = st.submission_id
 		LEFT JOIN problem_tests pt ON pt.problem_id = s.problem_id AND pt.ordinal = st.ordinal

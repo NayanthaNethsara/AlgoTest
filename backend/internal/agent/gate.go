@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -272,6 +273,11 @@ func Decide(in GateInput, now time.Time) Decision {
 	return d
 }
 
+type gateCacheEntry struct {
+	state     GateState
+	expiresAt time.Time
+}
+
 // Gate resolves and records. Findings are written for allowed submissions too —
 // "submitted from the browser, unattested" is exactly the sort of thing an
 // organizer wants in the review timeline rather than silently permitted.
@@ -279,10 +285,17 @@ type Gate struct {
 	repo     *Repository
 	service  *Service
 	settings *Settings
+	cacheMu  sync.RWMutex
+	cache    map[string]gateCacheEntry
 }
 
 func NewGate(repo *Repository, service *Service, settings *Settings) *Gate {
-	return &Gate{repo: repo, service: service, settings: settings}
+	return &Gate{
+		repo:     repo,
+		service:  service,
+		settings: settings,
+		cache:    make(map[string]gateCacheEntry),
+	}
 }
 
 // maxStaleSeconds is the live threshold. Reading the compiled-in constant here
@@ -370,9 +383,27 @@ func (g *Gate) Check(ctx context.Context, req CheckRequest) (Decision, error) {
 // the contestant is actually looking at rather than the most permissive one they
 // could open.
 func (g *Gate) Status(ctx context.Context, userID string, claimsDesktop bool) (Decision, int, error) {
-	state, err := g.repo.GateState(ctx, userID)
-	if err != nil {
-		return Decision{}, 0, err
+	now := time.Now()
+	var state GateState
+
+	g.cacheMu.RLock()
+	cached, ok := g.cache[userID]
+	g.cacheMu.RUnlock()
+
+	if ok && now.Before(cached.expiresAt) {
+		state = cached.state
+	} else {
+		var err error
+		state, err = g.repo.GateState(ctx, userID)
+		if err != nil {
+			return Decision{}, 0, err
+		}
+		g.cacheMu.Lock()
+		if g.cache == nil {
+			g.cache = make(map[string]gateCacheEntry)
+		}
+		g.cache[userID] = gateCacheEntry{state: state, expiresAt: now.Add(2 * time.Second)}
+		g.cacheMu.Unlock()
 	}
 
 	d := Decide(GateInput{

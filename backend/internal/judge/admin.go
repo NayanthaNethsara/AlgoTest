@@ -60,7 +60,7 @@ func (r *Repository) ReviewSubmission(ctx context.Context, submissionID, reviewe
 }
 
 func (r *Repository) GetAdminSubmission(ctx context.Context, id string) (*AdminSubmissionItem, error) {
-	list, _, err := r.listSubmissions(ctx, "WHERE s.id = $1", []interface{}{id}, 2, "", "", 1, 0)
+	list, _, err := r.listSubmissions(ctx, "WHERE s.id = $1", []interface{}{id}, 2, "", "", 1, 0, true)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (r *Repository) RejudgeSubmission(ctx context.Context, id string) error {
 		UPDATE submissions
 		SET state = 'queued', verdict = NULL, score = 0, tests_done = 0, compile_error = NULL,
 		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL, finished_at = NULL,
-		    attempts = 0
+		    attempts = 0, is_rejudge = true
 		WHERE id = $1;
 	`, id)
 	if err == nil {
@@ -93,8 +93,8 @@ func (r *Repository) RejudgeProblemSubmissions(ctx context.Context, problemID st
 		UPDATE submissions
 		SET state = 'queued', verdict = NULL, score = 0, tests_done = 0, compile_error = NULL,
 		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL, finished_at = NULL,
-		    attempts = 0
-		WHERE problem_id = $1;
+		    attempts = 0, is_rejudge = true
+		WHERE problem_id = $1 AND state NOT IN ('queued', 'running');
 	`, problemID)
 	if err != nil {
 		return 0, fmt.Errorf("rejudge problem submissions: %w", err)
@@ -112,22 +112,46 @@ func (r *Repository) RejudgeProblemSubmissions(ctx context.Context, problemID st
 func (r *Repository) CancelSubmission(ctx context.Context, id string) error {
 	verdict := "IE"
 	now := time.Now().UTC()
-	_, err := r.pool.Exec(ctx, `
+	var teamID, problemID string
+	err := r.pool.QueryRow(ctx, `
 		UPDATE submissions
 		SET state = 'failed', verdict = $2, finished_at = $3,
 		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
-		WHERE id = $1;
-	`, id, verdict, now)
-	return err
+		WHERE id = $1
+		RETURNING team_id, problem_id;
+	`, id, verdict, now).Scan(&teamID, &problemID)
+	if err != nil {
+		return err
+	}
+	if teamID != "" && problemID != "" {
+		_ = recomputeProblemScore(ctx, r.pool, teamID, problemID)
+	}
+	return nil
 }
 
 func (r *Repository) UnstickTeamSubmissions(ctx context.Context, teamID string) error {
 	verdict := "IE"
 	now := time.Now().UTC()
-	_, err := r.pool.Exec(ctx, `
+	rows, err := r.pool.Query(ctx, `
 		UPDATE submissions
 		SET state = 'failed', verdict = $1, finished_at = $2
-		WHERE team_id = $3 AND state IN ('queued', 'running');
+		WHERE team_id = $3 AND state IN ('queued', 'running')
+		RETURNING problem_id;
 	`, verdict, now, teamID)
-	return err
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var problemIDs []string
+	for rows.Next() {
+		var pid string
+		if err := rows.Scan(&pid); err == nil {
+			problemIDs = append(problemIDs, pid)
+		}
+	}
+	for _, pid := range problemIDs {
+		_ = recomputeProblemScore(ctx, r.pool, teamID, pid)
+	}
+	return nil
 }

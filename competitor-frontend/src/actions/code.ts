@@ -1,6 +1,5 @@
 "use server";
 
-import { getProblemAction } from "@/actions/problems";
 import { backendFetch } from "@/lib/api/server";
 import { executeRun } from "@/lib/runner";
 import {
@@ -21,15 +20,21 @@ export async function runCode(
   language: string,
   code: string,
   stdin: string,
+  problemId?: string,
 ): Promise<RunResult> {
-  const parsed = runCodeInputSchema.safeParse({ language, code, stdin });
+  const parsed = runCodeInputSchema.safeParse({ language, code, stdin, problemId });
   if (!parsed.success) {
     const errorMsg = parsed.error.issues[0]?.message ?? "Invalid run parameters";
     return { stdout: "", stderr: `Error: ${errorMsg}`, exitCode: 1, timeMs: 0 };
   }
 
   try {
-    return await executeRun(parsed.data.language, parsed.data.code, parsed.data.stdin);
+    return await executeRun(
+      parsed.data.language,
+      parsed.data.code,
+      parsed.data.stdin,
+      parsed.data.problemId,
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Execution failed";
     return { stdout: "", stderr: `Error: ${message}`, exitCode: 1, timeMs: 0 };
@@ -76,9 +81,6 @@ export async function submitCode(
   }
 
   try {
-    const problem = await getProblemAction(parsed.data.problemId);
-    const maxScore = problem ? problem.points : 100;
-
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -108,7 +110,7 @@ export async function submitCode(
         secondsSincePing: errBody.seconds_since_ping,
         subtasks: [],
         score: previousBest,
-        maxScore,
+        maxScore: 100,
         improvedBest: false,
         previousBest,
       };
@@ -121,7 +123,7 @@ export async function submitCode(
       queuePosition: data.queue_position,
       subtasks: [],
       score: 0,
-      maxScore,
+      maxScore: data.max_score ?? 100,
       improvedBest: false,
       previousBest,
     };

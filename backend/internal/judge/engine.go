@@ -51,6 +51,13 @@ func (j *Judge) Repo() *Repository {
 
 func (j *Judge) InvalidateTests(problemID string) {
 	j.tests.invalidate(problemID)
+	if j.repo != nil && j.repo.pool != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_, _ = j.repo.pool.Exec(ctx, "SELECT pg_notify('judge_invalidate_tests', $1)", problemID)
+		}()
+	}
 }
 
 func (j *Judge) Submit(ctx context.Context, s Submission) (*Submission, error) {
@@ -261,55 +268,54 @@ func submissionLimits(s Submission) runner.Limits {
 	return l
 }
 
-func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
-	tests, err := j.tests.get(ctx, s.ProblemID)
-	if err != nil {
-		if j.log != nil {
-			j.log.Error("failed to fetch problem tests for evaluation", "problem_id", s.ProblemID, "error", err)
-		}
-		verdict := "IE"
-
-		msg := "Could not load this problem's test cases. This is a judge-side fault, not a problem with your code -- please notify an organizer."
-		if errors.Is(err, ErrNoTestCases) {
-			msg = "This problem has no test cases configured. Your submission was not graded -- please notify an organizer."
-		}
-
-		return Result{
-			SubmissionID: s.ID,
-			UserID:       s.UserID,
-			TeamID:       s.TeamID,
-			ProblemID:    s.ProblemID,
-			Status:       StatusFailed,
-			Verdict:      &verdict,
-			Score:        0,
-			MaxScore:     s.MaxScore,
-			TestsTotal:   s.TestsTotal,
-			TestsDone:    0,
-			CompileError: &msg,
-		}
+func newResult(s Submission, status Status, verdict string) Result {
+	return Result{
+		SubmissionID: s.ID,
+		UserID:       s.UserID,
+		TeamID:       s.TeamID,
+		ProblemID:    s.ProblemID,
+		Status:       status,
+		Verdict:      &verdict,
 	}
+}
 
-	if len(tests) == 0 {
-		if j.log != nil {
-			j.log.Error("no test cases found for problem", "problem_id", s.ProblemID)
-		}
-		verdict := "IE"
-		errMsg := "No test cases configured for this problem"
-		return Result{
-			SubmissionID: s.ID,
-			UserID:       s.UserID,
-			TeamID:       s.TeamID,
-			ProblemID:    s.ProblemID,
-			Status:       StatusFailed,
-			Verdict:      &verdict,
-			Score:        0,
-			MaxScore:     s.MaxScore,
-			TestsTotal:   0,
-			TestsDone:    0,
-			CompileError: &errMsg,
-		}
+func normalizeOutput(str string) string {
+	str = strings.ReplaceAll(str, "\r\n", "\n")
+	str = strings.ReplaceAll(str, "\r", "\n")
+	str = strings.TrimSpace(str)
+	if str == "" {
+		return ""
 	}
+	var b strings.Builder
+	b.Grow(len(str))
+	lines := strings.Split(str, "\n")
+	for i, line := range lines {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(strings.TrimRight(line, " \t"))
+	}
+	return strings.TrimSpace(b.String())
+}
 
+func verdictLabel(v runner.Verdict) string {
+	switch v {
+	case runner.VerdictAC:
+		return "AC"
+	case runner.VerdictTLE:
+		return "TLE"
+	case runner.VerdictCE:
+		return "CE"
+	case runner.VerdictMLE:
+		return "MLE"
+	case runner.VerdictIE:
+		return "IE"
+	default:
+		return "RTE"
+	}
+}
+
+func resolveTestPoints(tests []TestCase, declaredMax int) int {
 	maxScore := 0
 	hasCustomPoints := false
 	for _, t := range tests {
@@ -319,7 +325,7 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 		maxScore += t.Points
 	}
 	if maxScore == 0 {
-		maxScore = s.MaxScore
+		maxScore = declaredMax
 		if maxScore == 0 {
 			maxScore = 100
 		}
@@ -335,20 +341,50 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 			}
 		}
 	}
+	return maxScore
+}
+
+func submissionStatus(verdict string, totalScore int) Status {
+	if verdict != "AC" && totalScore == 0 {
+		return StatusFailed
+	}
+	return StatusPassed
+}
+
+func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
+	tests, err := j.tests.get(ctx, s.ProblemID)
+	if err != nil {
+		if j.log != nil {
+			j.log.Error("failed to fetch problem tests for evaluation", "problem_id", s.ProblemID, "error", err)
+		}
+		msg := "Could not load this problem's test cases. This is a judge-side fault, not a problem with your code -- please notify an organizer."
+		if errors.Is(err, ErrNoTestCases) {
+			msg = "This problem has no test cases configured. Your submission was not graded -- please notify an organizer."
+		}
+
+		res := newResult(s, StatusFailed, "IE")
+		res.MaxScore = s.MaxScore
+		res.TestsTotal = s.TestsTotal
+		res.CompileError = &msg
+		return res
+	}
+
+	if len(tests) == 0 {
+		if j.log != nil {
+			j.log.Error("no test cases found for problem", "problem_id", s.ProblemID)
+		}
+		errMsg := "No test cases configured for this problem"
+		res := newResult(s, StatusFailed, "IE")
+		res.MaxScore = s.MaxScore
+		res.CompileError = &errMsg
+		return res
+	}
+
+	maxScore := resolveTestPoints(tests, s.MaxScore)
 
 	submissionTests := make([]SubmissionTest, 0, len(tests))
 	overallVerdict := "AC"
 	var compileErrStr *string
-
-	normalizeOutput := func(str string) string {
-		str = strings.ReplaceAll(str, "\r\n", "\n")
-		str = strings.ReplaceAll(str, "\r", "\n")
-		lines := strings.Split(str, "\n")
-		for i := range lines {
-			lines[i] = strings.TrimRight(lines[i], " \t")
-		}
-		return strings.TrimSpace(strings.Join(lines, "\n"))
-	}
 
 	if j.runner != nil {
 		batchCases := make([]runner.BatchCase, len(tests))
@@ -372,18 +408,7 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 
 		grade := func(cr runner.BatchCaseResult) gradedCase {
 			if cr.Verdict != runner.VerdictAC {
-				switch cr.Verdict {
-				case runner.VerdictTLE:
-					return gradedCase{verdict: "TLE"}
-				case runner.VerdictCE:
-					return gradedCase{verdict: "CE"}
-				case runner.VerdictMLE:
-					return gradedCase{verdict: "MLE"}
-				case runner.VerdictIE:
-					return gradedCase{verdict: "IE"}
-				default:
-					return gradedCase{verdict: "RTE"}
-				}
+				return gradedCase{verdict: verdictLabel(cr.Verdict)}
 			}
 			t, exists := testMap[cr.Ordinal]
 			if exists && normalizeOutput(cr.Stdout) == normalizeOutput(string(t.Expected)) {
@@ -427,69 +452,70 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 		}
 
 		batchRes, runErr := j.runner.RunBatch(ctx, batchReq)
+		if batchRes.CompileError != "" {
+			sanitized := sanitizeCompileError(batchRes.CompileError)
+			res := newResult(s, StatusFailed, "CE")
+			res.MaxScore = maxScore
+			res.TestsTotal = len(tests)
+			res.CompileError = &sanitized
+			return res
+		}
+
+		runCasesMap := make(map[int]bool, len(batchRes.Cases))
+		for _, cr := range batchRes.Cases {
+			runCasesMap[cr.Ordinal] = true
+			mu.Lock()
+			g, ok := graded[cr.Ordinal]
+			mu.Unlock()
+			if !ok {
+				g = grade(cr)
+			}
+
+			testVerdict := g.verdict
+			earnedPoints := g.points
+
+			if testVerdict != "AC" && overallVerdict == "AC" {
+				overallVerdict = testVerdict
+			}
+
+			submissionTests = append(submissionTests, SubmissionTest{
+				SubmissionID: s.ID,
+				Ordinal:      cr.Ordinal,
+				Verdict:      testVerdict,
+				TimeMS:       int(cr.TimeMs),
+				MemoryKB:     int(cr.MemoryKB),
+				Points:       earnedPoints,
+				MaxPoints:    testMap[cr.Ordinal].Points,
+			})
+		}
+
 		if runErr != nil {
+			failVerdict := "RTE"
 			if errors.Is(runErr, runner.ErrSandboxUnavailable) {
-				overallVerdict = "IE"
+				failVerdict = "IE"
 				errMsg := "Sandbox environment is unavailable on the judge host. Please contact an organizer."
 				compileErrStr = &errMsg
-				return Result{
-					SubmissionID: s.ID,
-					UserID:       s.UserID,
-					TeamID:       s.TeamID,
-					ProblemID:    s.ProblemID,
-					Status:       StatusFailed,
-					Verdict:      &overallVerdict,
-					Score:        0,
-					MaxScore:     maxScore,
-					TestsTotal:   len(tests),
-					TestsDone:    0,
-					CompileError: compileErrStr,
-				}
+			} else {
+				errMsg := "Execution terminated unexpectedly during testing."
+				compileErrStr = &errMsg
 			}
-			overallVerdict = "RTE"
-		} else if batchRes.CompileError != "" {
-			overallVerdict = "CE"
-			sanitized := sanitizeCompileError(batchRes.CompileError)
-			compileErrStr = &sanitized
-			return Result{
-				SubmissionID: s.ID,
-				UserID:       s.UserID,
-				TeamID:       s.TeamID,
-				ProblemID:    s.ProblemID,
-				Status:       StatusFailed,
-				Verdict:      &overallVerdict,
-				Score:        0,
-				MaxScore:     maxScore,
-				TestsTotal:   len(tests),
-				TestsDone:    0,
-				CompileError: compileErrStr,
+
+			if overallVerdict == "AC" {
+				overallVerdict = failVerdict
 			}
-		} else {
-			for _, cr := range batchRes.Cases {
-				mu.Lock()
-				g, ok := graded[cr.Ordinal]
-				mu.Unlock()
-				if !ok {
-					g = grade(cr)
-					currentScore += g.points
+
+			for _, t := range tests {
+				if !runCasesMap[t.Ordinal] {
+					submissionTests = append(submissionTests, SubmissionTest{
+						SubmissionID: s.ID,
+						Ordinal:      t.Ordinal,
+						Verdict:      failVerdict,
+						TimeMS:       0,
+						MemoryKB:     0,
+						Points:       0,
+						MaxPoints:    t.Points,
+					})
 				}
-
-				testVerdict := g.verdict
-				earnedPoints := g.points
-
-				if testVerdict != "AC" && overallVerdict == "AC" {
-					overallVerdict = testVerdict
-				}
-
-				submissionTests = append(submissionTests, SubmissionTest{
-					SubmissionID: s.ID,
-					Ordinal:      cr.Ordinal,
-					Verdict:      testVerdict,
-					TimeMS:       int(cr.TimeMs),
-					MemoryKB:     int(cr.MemoryKB),
-					Points:       earnedPoints,
-					MaxPoints:    testMap[cr.Ordinal].Points,
-				})
 			}
 		}
 	} else {
@@ -503,25 +529,14 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 		totalScore += st.Points
 	}
 
-	finalStatus := StatusPassed
-	if overallVerdict != "AC" && totalScore == 0 {
-		finalStatus = StatusFailed
-	}
-
-	return Result{
-		SubmissionID: s.ID,
-		UserID:       s.UserID,
-		TeamID:       s.TeamID,
-		ProblemID:    s.ProblemID,
-		Status:       finalStatus,
-		Verdict:      &overallVerdict,
-		Score:        totalScore,
-		MaxScore:     maxScore,
-		TestsTotal:   len(tests),
-		TestsDone:    len(tests),
-		CompileError: compileErrStr,
-		Tests:        submissionTests,
-	}
+	res := newResult(s, submissionStatus(overallVerdict, totalScore), overallVerdict)
+	res.Score = totalScore
+	res.MaxScore = maxScore
+	res.TestsTotal = len(tests)
+	res.TestsDone = len(submissionTests)
+	res.CompileError = compileErrStr
+	res.Tests = submissionTests
+	return res
 }
 
 func sanitizeCompileError(msg string) string {
@@ -554,7 +569,7 @@ func (j *Judge) startSubmissionListener(ctx context.Context) {
 			continue
 		}
 
-		_, err = conn.Exec(ctx, "LISTEN judge_new_submission")
+		_, err = conn.Exec(ctx, "LISTEN judge_new_submission; LISTEN judge_invalidate_tests;")
 		if err != nil {
 			conn.Release()
 			if ctx.Err() != nil {
@@ -565,13 +580,19 @@ func (j *Judge) startSubmissionListener(ctx context.Context) {
 		}
 
 		for {
-			_, err := conn.Conn().WaitForNotification(ctx)
+			notification, err := conn.Conn().WaitForNotification(ctx)
 			if err != nil {
 				conn.Release()
 				break
 			}
 
-			j.wakeWorkers()
+			if notification.Channel == "judge_invalidate_tests" {
+				if pid := notification.Payload; pid != "" {
+					j.tests.invalidate(pid)
+				}
+			} else {
+				j.wakeWorkers()
+			}
 		}
 	}
 }

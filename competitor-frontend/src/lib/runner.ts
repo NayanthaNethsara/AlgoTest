@@ -5,11 +5,17 @@ export async function executeRun(
   language: string,
   code: string,
   stdin: string,
+  problemId?: string,
 ): Promise<RunResult> {
   const res = await backendFetch("/api/v1/run", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ language, code, stdin }),
+    body: JSON.stringify({
+      language,
+      code,
+      stdin,
+      ...(problemId ? { problem_id: problemId } : {}),
+    }),
   });
 
   if (!res.ok) {

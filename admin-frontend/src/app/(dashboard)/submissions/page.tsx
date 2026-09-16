@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import {
   listAdminSubmissionsAction,
+  getAdminSubmissionAction,
   rejudgeSubmissionAction,
   reviewSubmissionAction,
   unstickTeamAction,
@@ -102,6 +103,16 @@ export default function AdminSubmissionsPage() {
   );
 
   const pagination = usePagination(submissions);
+
+  async function inspectSubmission(sub: AdminSubmission) {
+    setSelectedSubmission(sub);
+    const full = await getAdminSubmissionAction(sub.submissionId);
+    if (full) {
+      setSelectedSubmission((prev) =>
+        prev?.submissionId === full.submissionId ? full : prev
+      );
+    }
+  }
 
   async function handleRejudge(sub: AdminSubmission) {
     setBusyId(sub.submissionId);
@@ -312,7 +323,7 @@ export default function AdminSubmissionsPage() {
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                onClick={() => setSelectedSubmission(sub)}
+                                onClick={() => void inspectSubmission(sub)}
                                 aria-label="Inspect submission"
                               />
                             }

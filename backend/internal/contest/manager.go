@@ -121,6 +121,19 @@ func (m *Manager) GetState() ContestState {
 	isFrozen := snap.isFrozen
 	freezeStartTime := snap.freezeStartTime
 
+	if !isFrozen && !snap.freezeOverridden && snap.status != StatusNotStarted &&
+		snap.endTime != nil && snap.freezeMinutes > 0 {
+		autoFreezeThreshold := snap.endTime.Add(-time.Duration(snap.freezeMinutes) * time.Minute)
+		ref := now
+		if snap.status == StatusPaused && snap.pausedAt != nil {
+			ref = *snap.pausedAt
+		}
+		if ref.After(autoFreezeThreshold) {
+			isFrozen = true
+			freezeStartTime = &autoFreezeThreshold
+		}
+	}
+
 	return ContestState{
 		Title:            snap.title,
 		Status:           effectiveStatus,
@@ -164,6 +177,8 @@ func (m *Manager) Start(ctx context.Context, durationMinutes int) error {
 		"contest.start_time":       now.Format(time.RFC3339),
 		"contest.end_time":         endTime.Format(time.RFC3339),
 		"contest.paused_at":        "",
+		"contest.is_frozen":        "false",
+		"contest.freeze_overridden": "false",
 	}
 
 	if m.repo != nil {
@@ -268,6 +283,7 @@ func (m *Manager) Freeze(ctx context.Context) error {
 	updates := map[string]string{
 		"contest.is_frozen":         "true",
 		"contest.freeze_start_time": now.Format(time.RFC3339),
+		"contest.freeze_overridden": "false",
 	}
 
 	if m.repo != nil {
@@ -282,6 +298,7 @@ func (m *Manager) Unfreeze(ctx context.Context) error {
 	updates := map[string]string{
 		"contest.is_frozen":         "false",
 		"contest.freeze_start_time": "",
+		"contest.freeze_overridden": "true",
 	}
 
 	if m.repo != nil {
@@ -300,6 +317,7 @@ func (m *Manager) Reset(ctx context.Context) error {
 		"contest.paused_at":         "",
 		"contest.is_frozen":         "false",
 		"contest.freeze_start_time": "",
+		"contest.freeze_overridden": "false",
 	}
 
 	if m.repo != nil {
@@ -346,9 +364,15 @@ func (m *Manager) UpdateSettings(
 		updates["contest.duration_seconds"] = strconv.Itoa(durSec)
 
 		snap := m.snapshot.Load()
-		if snap.status == StatusRunning && snap.startTime != nil {
-			newEndTime := snap.startTime.Add(time.Duration(durSec) * time.Second)
-			updates["contest.end_time"] = newEndTime.Format(time.RFC3339)
+		if snap.status == StatusRunning {
+			if snap.endTime != nil {
+				diffSec := durSec - snap.durationSeconds
+				newEndTime := snap.endTime.Add(time.Duration(diffSec) * time.Second)
+				updates["contest.end_time"] = newEndTime.Format(time.RFC3339)
+			} else if snap.startTime != nil {
+				newEndTime := snap.startTime.Add(time.Duration(durSec) * time.Second)
+				updates["contest.end_time"] = newEndTime.Format(time.RFC3339)
+			}
 		}
 	}
 	if freezeMinutes >= 0 {

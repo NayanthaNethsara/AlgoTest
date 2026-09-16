@@ -205,6 +205,7 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 	admin.POST("/problems/:id/rejudge", h.rejudgeProblem)
 
 	admin.GET("/submissions", h.listAdminSubmissions)
+	admin.GET("/submissions/:id", h.getAdminSubmission)
 	admin.POST("/submissions/:id/rejudge", h.rejudgeSubmission)
 	admin.POST("/submissions/:id/cancel", h.cancelSubmission)
 	admin.POST("/submissions/:id/review", h.reviewSubmission)

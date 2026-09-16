@@ -17,7 +17,7 @@ func (r *Repository) ListAdminSubmissions(ctx context.Context, statusFilter, pro
 		argID++
 	}
 
-	return r.listSubmissions(ctx, whereClause, args, argID, statusFilter, problemID, limit, offset)
+	return r.listSubmissions(ctx, whereClause, args, argID, statusFilter, problemID, limit, offset, false)
 }
 
 func (r *Repository) ListOwnSubmissions(ctx context.Context, statusFilter, problemID, userID, teamID string, limit, offset int) ([]AdminSubmissionItem, int, error) {
@@ -35,7 +35,7 @@ func (r *Repository) ListOwnSubmissions(ctx context.Context, statusFilter, probl
 		argID++
 	}
 
-	return r.listSubmissions(ctx, ownerClause, args, argID, statusFilter, problemID, limit, offset)
+	return r.listSubmissions(ctx, ownerClause, args, argID, statusFilter, problemID, limit, offset, false)
 }
 
 func (r *Repository) listSubmissions(
@@ -45,6 +45,7 @@ func (r *Repository) listSubmissions(
 	argID int,
 	statusFilter, problemID string,
 	limit, offset int,
+	includeCode bool,
 ) ([]AdminSubmissionItem, int, error) {
 	if limit <= 0 {
 		limit = 50
@@ -67,8 +68,13 @@ func (r *Repository) listSubmissions(
 		return nil, 0, fmt.Errorf("count admin submissions: %w", err)
 	}
 
+	codeColumn := "'' AS code"
+	if includeCode {
+		codeColumn = "s.code"
+	}
+
 	query := fmt.Sprintf(`
-		SELECT s.id, s.user_id, s.team_id, s.problem_id, s.language, s.code, s.state, s.verdict, s.score, s.max_score,
+		SELECT s.id, s.user_id, s.team_id, s.problem_id, s.language, %s, s.state, s.verdict, s.score, s.max_score,
 		       s.tests_total, s.tests_done, s.compile_error, s.created_at, s.finished_at,
 		       COALESCE(u.display_name, u.username, '') AS user_name,
 		       '' AS user_email,
@@ -84,7 +90,7 @@ func (r *Repository) listSubmissions(
 		%s
 		ORDER BY s.created_at DESC
 		LIMIT $%d OFFSET $%d;
-	`, whereClause, argID, argID+1)
+	`, codeColumn, whereClause, argID, argID+1)
 
 	args = append(args, limit, offset)
 	rows, err := r.pool.Query(ctx, query, args...)
@@ -107,15 +113,19 @@ func (r *Repository) listSubmissions(
 			&item.UserName, &item.UserEmail, &item.TeamName, &item.ProblemTitle,
 			&reviewStatus, &item.ReviewReason, &reviewedAt, &item.ReviewedBy,
 		)
-		if err == nil {
-			item.Status = Status(stateStr)
-			item.Verdict = verdict
-			item.CompileError = compileErr
-			item.FinishedAt = finishedAt
-			item.ReviewStatus = ReviewStatus(reviewStatus)
-			item.ReviewedAt = reviewedAt
-			list = append(list, item)
+		if err != nil {
+			return nil, 0, fmt.Errorf("scan admin submission: %w", err)
 		}
+		item.Status = Status(stateStr)
+		item.Verdict = verdict
+		item.CompileError = compileErr
+		item.FinishedAt = finishedAt
+		item.ReviewStatus = ReviewStatus(reviewStatus)
+		item.ReviewedAt = reviewedAt
+		list = append(list, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("read admin submissions: %w", err)
 	}
 
 	return list, total, nil

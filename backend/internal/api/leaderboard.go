@@ -2,12 +2,23 @@ package api
 
 import (
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+)
+
+type leaderboardCacheEntry struct {
+	entries   []team.LeaderboardEntry
+	expiresAt time.Time
+}
+
+var (
+	leaderboardCacheMu sync.RWMutex
+	leaderboardCache   = make(map[string]leaderboardCacheEntry)
 )
 
 // @Summary Get Leaderboard Standings
@@ -32,13 +43,37 @@ func (h *handler) getLeaderboard(c *gin.Context) {
 		}
 	}
 
-	entries, err := h.teams.GetLeaderboardWithCutoff(c.Request.Context(), cutoff)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch leaderboard"})
-		return
+	cacheKey := "live"
+	if u.Role == user.RoleAdmin {
+		cacheKey = "admin"
+	} else if cutoff != nil {
+		cacheKey = "frozen:" + cutoff.Format(time.RFC3339)
 	}
-	if entries == nil {
-		entries = []team.LeaderboardEntry{}
+
+	now := time.Now()
+	leaderboardCacheMu.RLock()
+	cached, found := leaderboardCache[cacheKey]
+	leaderboardCacheMu.RUnlock()
+
+	var entries []team.LeaderboardEntry
+	if found && now.Before(cached.expiresAt) {
+		entries = cached.entries
+	} else {
+		var err error
+		entries, err = h.teams.GetLeaderboardWithCutoff(c.Request.Context(), cutoff)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch leaderboard"})
+			return
+		}
+		if entries == nil {
+			entries = []team.LeaderboardEntry{}
+		}
+		leaderboardCacheMu.Lock()
+		leaderboardCache[cacheKey] = leaderboardCacheEntry{
+			entries:   entries,
+			expiresAt: time.Now().Add(2500 * time.Millisecond),
+		}
+		leaderboardCacheMu.Unlock()
 	}
 
 	c.JSON(http.StatusOK, gin.H{

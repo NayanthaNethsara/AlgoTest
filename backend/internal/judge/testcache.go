@@ -2,6 +2,7 @@ package judge
 
 import (
 	"context"
+	"slices"
 	"sync"
 )
 
@@ -23,7 +24,7 @@ func (c *testCache) get(ctx context.Context, problemID string) ([]TestCase, erro
 	tests, ok := c.byID[problemID]
 	c.mu.RUnlock()
 	if ok {
-		return tests, nil
+		return slices.Clone(tests), nil
 	}
 
 	tests, err := c.source(ctx, problemID)
@@ -34,7 +35,7 @@ func (c *testCache) get(ctx context.Context, problemID string) ([]TestCase, erro
 	c.mu.Lock()
 	c.byID[problemID] = tests
 	c.mu.Unlock()
-	return tests, nil
+	return slices.Clone(tests), nil
 }
 
 // Invalidate drops a problem's cached tests. Called when its tests are edited.
@@ -48,6 +49,7 @@ func (c *testCache) invalidate(problemID string) {
 func (c *testCache) warmAll(allTests map[string][]TestCase) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.byID = make(map[string][]TestCase, len(allTests))
 	for pid, tests := range allTests {
 		c.byID[pid] = tests
 	}
