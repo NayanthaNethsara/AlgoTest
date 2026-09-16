@@ -72,7 +72,34 @@ func (r *Repository) GetFullTests(ctx context.Context, problemID string) ([]Test
 		}
 		result = append(result, t)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(result) > 0 {
+		allZero := true
+		for _, t := range result {
+			if t.Points > 0 {
+				allZero = false
+				break
+			}
+		}
+		if allZero {
+			var maxScore int32
+			if err := r.pool.QueryRow(ctx, `SELECT max_score FROM problems WHERE id = $1;`, problemID).Scan(&maxScore); err == nil && maxScore > 0 {
+				base := maxScore / int32(len(result))
+				remainder := int(maxScore % int32(len(result)))
+				for i := range result {
+					result[i].Points = base
+					if i < remainder {
+						result[i].Points++
+					}
+				}
+			}
+		}
+	}
+
+	return result, nil
 }
 
 func (r *Repository) GetTestMetadata(ctx context.Context, problemID string) ([]TestCaseMetadata, error) {
@@ -115,7 +142,35 @@ func (r *Repository) GetTestMetadata(ctx context.Context, problemID string) ([]T
 		m.ExpectedSnippet = string(expSnip)
 		result = append(result, m)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(result) > 0 {
+		allZero := true
+		for _, m := range result {
+			if m.Points > 0 {
+				allZero = false
+				break
+			}
+		}
+		if allZero {
+			var maxScore int32
+			if err := r.pool.QueryRow(ctx, `SELECT max_score FROM problems WHERE id = $1;`, problemID).Scan(&maxScore); err == nil && maxScore > 0 {
+				base := maxScore / int32(len(result))
+				remainder := int(maxScore % int32(len(result)))
+				for i := range result {
+					result[i].Points = base
+					if i < remainder {
+						result[i].Points++
+					}
+					_, _ = r.pool.Exec(ctx, `UPDATE problem_tests SET points = $1 WHERE problem_id = $2 AND ordinal = $3;`, result[i].Points, problemID, result[i].Ordinal)
+				}
+			}
+		}
+	}
+
+	return result, nil
 }
 
 func (r *Repository) GetSingleTestContent(ctx context.Context, problemID string, ordinal int32, isInput bool) ([]byte, error) {
@@ -135,12 +190,53 @@ func (r *Repository) GetSingleTestContent(ctx context.Context, problemID string,
 	return content, nil
 }
 
+func DistributeProblemPointsTx(ctx context.Context, tx pgx.Tx, problemID string, maxScore int32) error {
+	rows, err := tx.Query(ctx, `SELECT id FROM problem_tests WHERE problem_id = $1 ORDER BY ordinal ASC;`, problemID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(ids) == 0 || maxScore <= 0 {
+		return nil
+	}
+
+	base := maxScore / int32(len(ids))
+	remainder := int(maxScore % int32(len(ids)))
+	for i, id := range ids {
+		pts := base
+		if i < remainder {
+			pts++
+		}
+		if _, err := tx.Exec(ctx, `UPDATE problem_tests SET points = $1 WHERE id = $2;`, pts, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *Repository) AddSingleTest(ctx context.Context, problemID string, input []byte, expected []byte, points int32) (TestCaseMetadata, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return TestCaseMetadata{}, err
 	}
 	defer tx.Rollback(ctx)
+
+	var maxScore int32
+	if err := tx.QueryRow(ctx, `SELECT max_score FROM problems WHERE id = $1 FOR UPDATE;`, problemID).Scan(&maxScore); err != nil {
+		return TestCaseMetadata{}, fmt.Errorf("read problem max_score: %w", err)
+	}
 
 	var nextOrd int32
 	err = tx.QueryRow(ctx, `SELECT COALESCE(MAX(ordinal), 0) + 1 FROM problem_tests WHERE problem_id = $1;`, problemID).Scan(&nextOrd)
@@ -151,7 +247,27 @@ func (r *Repository) AddSingleTest(ctx context.Context, problemID string, input 
 	if points < 0 {
 		return TestCaseMetadata{}, errors.New("test case points cannot be negative")
 	}
+
+	rows, err := tx.Query(ctx, `SELECT points FROM problem_tests WHERE problem_id = $1 ORDER BY ordinal ASC;`, problemID)
+	if err != nil {
+		return TestCaseMetadata{}, err
+	}
+	var existingPoints []int32
+	for rows.Next() {
+		var p int32
+		if err := rows.Scan(&p); err != nil {
+			rows.Close()
+			return TestCaseMetadata{}, err
+		}
+		existingPoints = append(existingPoints, p)
+	}
+	rows.Close()
+
+	shouldAutoDistribute := points <= 0 && IsEvenDistribution(existingPoints, maxScore)
 	pts := points
+	if shouldAutoDistribute {
+		pts = 0
+	}
 
 	inSha := crypto.SHA256Hex(input)
 	expSha := crypto.SHA256Hex(expected)
@@ -178,6 +294,15 @@ func (r *Repository) AddSingleTest(ctx context.Context, problemID string, input 
 	}
 	m.InputSnippet = string(inSnip)
 	m.ExpectedSnippet = string(expSnip)
+
+	if shouldAutoDistribute {
+		if err := DistributeProblemPointsTx(ctx, tx, problemID, maxScore); err != nil {
+			return TestCaseMetadata{}, fmt.Errorf("auto distribute points: %w", err)
+		}
+		if err := tx.QueryRow(ctx, `SELECT points FROM problem_tests WHERE problem_id = $1 AND ordinal = $2;`, problemID, nextOrd).Scan(&m.Points); err != nil {
+			return TestCaseMetadata{}, err
+		}
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return TestCaseMetadata{}, err
@@ -259,6 +384,28 @@ func (r *Repository) DeleteSingleTest(ctx context.Context, problemID string, ord
 	}
 	defer tx.Rollback(ctx)
 
+	var maxScore int32
+	if err := tx.QueryRow(ctx, `SELECT max_score FROM problems WHERE id = $1 FOR UPDATE;`, problemID).Scan(&maxScore); err != nil {
+		return fmt.Errorf("read problem max_score: %w", err)
+	}
+
+	rows, err := tx.Query(ctx, `SELECT points FROM problem_tests WHERE problem_id = $1 ORDER BY ordinal ASC;`, problemID)
+	if err != nil {
+		return err
+	}
+	var existingPoints []int32
+	for rows.Next() {
+		var p int32
+		if err := rows.Scan(&p); err != nil {
+			rows.Close()
+			return err
+		}
+		existingPoints = append(existingPoints, p)
+	}
+	rows.Close()
+
+	wasEven := IsEvenDistribution(existingPoints, maxScore)
+
 	cmd, err := tx.Exec(ctx, `DELETE FROM problem_tests WHERE problem_id = $1 AND ordinal = $2;`, problemID, ordinal)
 	if err != nil {
 		return err
@@ -270,6 +417,12 @@ func (r *Repository) DeleteSingleTest(ctx context.Context, problemID string, ord
 	_, err = tx.Exec(ctx, `UPDATE problem_tests SET ordinal = ordinal - 1 WHERE problem_id = $1 AND ordinal > $2;`, problemID, ordinal)
 	if err != nil {
 		return err
+	}
+
+	if wasEven {
+		if err := DistributeProblemPointsTx(ctx, tx, problemID, maxScore); err != nil {
+			return fmt.Errorf("auto distribute points after delete: %w", err)
+		}
 	}
 
 	return tx.Commit(ctx)

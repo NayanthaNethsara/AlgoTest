@@ -281,6 +281,9 @@ func (r *Repository) Update(ctx context.Context, id string, input CreateProblemI
 
 	input.TimeLimitMs, input.MemoryLimitMb, input.MaxScore = ClampLimits(input.TimeLimitMs, input.MemoryLimitMb, input.MaxScore)
 
+	var oldMaxScore int32
+	_ = tx.QueryRow(ctx, `SELECT max_score FROM problems WHERE id = $1;`, id).Scan(&oldMaxScore)
+
 	updateProblem := `
 		UPDATE problems
 		SET title = $2, difficulty = $3, statement = $4, constraints = $5, time_limit_ms = $6, memory_limit_mb = $7, max_score = $8, published = $9, updated_at = now()
@@ -296,6 +299,23 @@ func (r *Repository) Update(ctx context.Context, id string, input CreateProblemI
 			return ProblemDetail{}, ErrNotFound
 		}
 		return ProblemDetail{}, err
+	}
+
+	if oldMaxScore != input.MaxScore {
+		rows, err := tx.Query(ctx, `SELECT points FROM problem_tests WHERE problem_id = $1 ORDER BY ordinal ASC;`, id)
+		if err == nil {
+			var testPoints []int32
+			for rows.Next() {
+				var pt int32
+				if err := rows.Scan(&pt); err == nil {
+					testPoints = append(testPoints, pt)
+				}
+			}
+			rows.Close()
+			if len(testPoints) > 0 && IsEvenDistribution(testPoints, oldMaxScore) {
+				_ = DistributeProblemPointsTx(ctx, tx, id, input.MaxScore)
+			}
+		}
 	}
 
 	if _, err := tx.Exec(ctx, `DELETE FROM problem_samples WHERE problem_id = $1;`, id); err != nil {

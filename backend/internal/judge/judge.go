@@ -73,6 +73,7 @@ type SubmissionTest struct {
 	TimeMS       int    `json:"timeMs"`
 	MemoryKB     int    `json:"memoryKb"`
 	Points       int    `json:"points"`
+	MaxPoints    int    `json:"maxPoints"`
 }
 
 type Result struct {

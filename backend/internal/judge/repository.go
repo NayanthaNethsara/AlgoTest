@@ -158,18 +158,40 @@ func (r *Repository) GetSubmission(ctx context.Context, id string) (*Result, boo
 	}
 
 	rows, err := r.pool.Query(ctx, `
-		SELECT submission_id, ordinal, verdict, time_ms, memory_kb, points
-		FROM submission_tests
-		WHERE submission_id = $1
-		ORDER BY ordinal ASC;
+		SELECT st.submission_id, st.ordinal, st.verdict, st.time_ms, st.memory_kb, st.points,
+		       COALESCE(pt.points, 0) AS max_points
+		FROM submission_tests st
+		JOIN submissions s ON s.id = st.submission_id
+		LEFT JOIN problem_tests pt ON pt.problem_id = s.problem_id AND pt.ordinal = st.ordinal
+		WHERE st.submission_id = $1
+		ORDER BY st.ordinal ASC;
 	`, id)
 	if err == nil {
 		defer rows.Close()
 		var tests []SubmissionTest
 		for rows.Next() {
 			var t SubmissionTest
-			if err := rows.Scan(&t.SubmissionID, &t.Ordinal, &t.Verdict, &t.TimeMS, &t.MemoryKB, &t.Points); err == nil {
+			if err := rows.Scan(&t.SubmissionID, &t.Ordinal, &t.Verdict, &t.TimeMS, &t.MemoryKB, &t.Points, &t.MaxPoints); err == nil {
 				tests = append(tests, t)
+			}
+		}
+		if len(tests) > 0 {
+			allZeroMax := true
+			for _, t := range tests {
+				if t.MaxPoints > 0 {
+					allZeroMax = false
+					break
+				}
+			}
+			if allZeroMax && res.MaxScore > 0 {
+				base := res.MaxScore / len(tests)
+				remainder := res.MaxScore % len(tests)
+				for i := range tests {
+					tests[i].MaxPoints = base
+					if i < remainder {
+						tests[i].MaxPoints++
+					}
+				}
 			}
 		}
 		res.Tests = tests

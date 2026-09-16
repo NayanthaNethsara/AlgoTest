@@ -311,13 +311,28 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 	}
 
 	maxScore := 0
+	hasCustomPoints := false
 	for _, t := range tests {
+		if t.Points > 0 {
+			hasCustomPoints = true
+		}
 		maxScore += t.Points
 	}
 	if maxScore == 0 {
 		maxScore = s.MaxScore
 		if maxScore == 0 {
 			maxScore = 100
+		}
+	}
+
+	if !hasCustomPoints && len(tests) > 0 {
+		base := maxScore / len(tests)
+		remainder := maxScore % len(tests)
+		for i := range tests {
+			tests[i].Points = base
+			if i < remainder {
+				tests[i].Points++
+			}
 		}
 	}
 
@@ -473,6 +488,7 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 					TimeMS:       int(cr.TimeMs),
 					MemoryKB:     int(cr.MemoryKB),
 					Points:       earnedPoints,
+					MaxPoints:    testMap[cr.Ordinal].Points,
 				})
 			}
 		}

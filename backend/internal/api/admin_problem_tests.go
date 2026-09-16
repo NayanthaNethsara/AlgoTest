@@ -254,7 +254,11 @@ func (h *handler) addSingleTestCase(c *gin.Context) {
 	}
 
 	h.judge.InvalidateTests(id)
-	c.JSON(http.StatusCreated, gin.H{"test": meta})
+	allTests, _ := h.problems.GetTestMetadata(c.Request.Context(), id)
+	if allTests == nil {
+		allTests = []problem.TestCaseMetadata{meta}
+	}
+	c.JSON(http.StatusCreated, gin.H{"test": meta, "tests": allTests})
 }
 
 // @Summary Admin Update Single Test Case

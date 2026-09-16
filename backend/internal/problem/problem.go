@@ -173,3 +173,31 @@ func DistributePoints(tests []TestInput, maxScore int32) {
 		}
 	}
 }
+
+func IsEvenDistribution(points []int32, maxScore int32) bool {
+	if len(points) == 0 {
+		return true
+	}
+	allZero := true
+	for _, p := range points {
+		if p > 0 {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return true
+	}
+	base := maxScore / int32(len(points))
+	remainder := int(maxScore % int32(len(points)))
+	for i, p := range points {
+		expected := base
+		if i < remainder {
+			expected++
+		}
+		if p != expected {
+			return false
+		}
+	}
+	return true
+}

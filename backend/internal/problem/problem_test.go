@@ -164,3 +164,28 @@ func TestValidateTestPointsIgnoresEmptySet(t *testing.T) {
 		t.Fatalf("an empty set is caught elsewhere as ErrNoTestCases, got %v", err)
 	}
 }
+
+func TestIsEvenDistribution(t *testing.T) {
+	cases := []struct {
+		name     string
+		points   []int32
+		maxScore int32
+		want     bool
+	}{
+		{"empty points", nil, 100, true},
+		{"all zero points", []int32{0, 0, 0, 0}, 100, true},
+		{"even 4 split 100", []int32{25, 25, 25, 25}, 100, true},
+		{"even 3 split 100 with remainder", []int32{34, 33, 33}, 100, true},
+		{"custom unequal points", []int32{20, 20, 60}, 100, false},
+		{"wrong remainder distribution", []int32{33, 33, 34}, 100, false},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := IsEvenDistribution(c.points, c.maxScore)
+			if got != c.want {
+				t.Errorf("IsEvenDistribution(%v, %d) = %v, want %v", c.points, c.maxScore, got, c.want)
+			}
+		})
+	}
+}
