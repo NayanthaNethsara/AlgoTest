@@ -11,6 +11,7 @@ const (
 	ActionAuthPasswordChange    = "auth.password_change"
 	ActionUserCreate            = "user.create"
 	ActionUserBulkCreate        = "user.bulk_create"
+	ActionUserBulkAction        = "user.bulk_action"
 	ActionUserDelete            = "user.delete"
 	ActionUserSuspend           = "user.suspend"
 	ActionUserRestore           = "user.restore"

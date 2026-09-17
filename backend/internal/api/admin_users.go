@@ -154,6 +154,122 @@ func (h *handler) bulkCreateUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"results": results})
 }
 
+type bulkUserActionRequest struct {
+	UserIDs    []string `json:"userIds" binding:"required"`
+	Action     string   `json:"action" binding:"required"`
+	Reason     string   `json:"reason"`
+	HoursValid int      `json:"hoursValid"`
+}
+
+// @Summary Admin Bulk User Action
+// @Description Execute a batch operation across multiple competitor accounts.
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param payload body bulkUserActionRequest true "Bulk user action payload"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/admin/users/bulk-action [post]
+func (h *handler) bulkUserAction(c *gin.Context) {
+	var req bulkUserActionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len(req.UserIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no user ids provided"})
+		return
+	}
+	if len(req.UserIDs) > 500 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot process more than 500 users at once"})
+		return
+	}
+
+	curr := currentUser(c)
+	validIDs := make([]string, 0, len(req.UserIDs))
+	seen := make(map[string]struct{}, len(req.UserIDs))
+	for _, id := range req.UserIDs {
+		trimmed := strings.TrimSpace(id)
+		if trimmed == "" || trimmed == curr.ID {
+			continue
+		}
+		if _, exists := seen[trimmed]; !exists {
+			seen[trimmed] = struct{}{}
+			validIDs = append(validIDs, trimmed)
+		}
+	}
+
+	if len(validIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no valid target user ids provided"})
+		return
+	}
+
+	if req.HoursValid < 0 || req.HoursValid > MaxAccessGrantHours {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("hoursValid must be between 0 and %d", MaxAccessGrantHours),
+		})
+		return
+	}
+
+	ctx := c.Request.Context()
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		reason = "Bulk operation by administrator"
+	}
+
+	var affected int64
+	var err error
+
+	switch req.Action {
+	case "allow_web_only":
+		affected, err = h.users.BulkUpdateProctorAccess(ctx, validIDs, true, reason, req.HoursValid, curr.ID)
+	case "require_desktop":
+		affected, err = h.users.BulkUpdateProctorAccess(ctx, validIDs, false, "", 0, curr.ID)
+	case "exempt_proctor":
+		affected, err = h.users.BulkUpdateProctorExemption(ctx, validIDs, true, req.HoursValid, reason, curr.ID)
+	case "enforce_proctor":
+		affected, err = h.users.BulkUpdateProctorExemption(ctx, validIDs, false, 0, "", curr.ID)
+	case "suspend":
+		affected, err = h.users.BulkUpdateSuspension(ctx, validIDs, true, reason)
+		if err == nil {
+			if sessErr := h.sessions.DeleteByUsers(ctx, validIDs); sessErr != nil {
+				log.Printf("failed to revoke sessions on bulk suspension: %v", sessErr)
+			}
+		}
+	case "restore":
+		affected, err = h.users.BulkUpdateSuspension(ctx, validIDs, false, "")
+	case "delete":
+		affected, err = h.users.BulkDelete(ctx, validIDs)
+		if err == nil {
+			if sessErr := h.sessions.DeleteByUsers(ctx, validIDs); sessErr != nil {
+				log.Printf("failed to revoke sessions on bulk delete: %v", sessErr)
+			}
+		}
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid action"})
+		return
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.recordAudit(c, audit.ActionUserBulkAction, audit.TargetUser, "", audit.StatusSuccess, map[string]interface{}{
+		"action":   req.Action,
+		"affected": affected,
+		"reason":   req.Reason,
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":   "ok",
+		"action":   req.Action,
+		"affected": affected,
+	})
+}
+
 type passwordRequest struct {
 	Password string `json:"password"`
 }

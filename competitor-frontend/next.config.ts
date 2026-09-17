@@ -39,6 +39,18 @@ const nextConfig: NextConfig = {
     root: "..",
   },
   poweredByHeader: false,
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "20mb",
+      allowedOrigins: [
+        "competitor-portal--algothon-2026.asia-southeast1.hosted.app",
+        "*.hosted.app",
+        "*.run.app",
+        "localhost:3000",
+        "127.0.0.1:3000",
+      ],
+    },
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

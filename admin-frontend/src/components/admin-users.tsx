@@ -9,6 +9,7 @@ import {
   resetPasswordAction,
   deleteUserAction,
   suspendUserAction,
+  bulkUserAction,
 } from "@/lib/actions/users";
 import { setProctorAccessAction, toggleProctorExemptionAction } from "@/lib/actions/monitoring";
 import { addTeamMemberAction, removeTeamMemberAction } from "@/lib/actions/teams";
@@ -294,18 +295,16 @@ export function AdminUsers({
     key: keyof AccessGrant,
     enabled: boolean
   ) {
+    if (targetUsers.length === 0) return;
     setPending(true);
     try {
-      let successCount = 0;
-      await Promise.all(
-        targetUsers.map(async (u) => {
-          const next = { ...grantOf(u), [key]: enabled };
-          const res = await setProctorAccessAction(u.id, next, "Bulk operation by organizer", 0);
-          if (!res.error) successCount++;
-        })
-      );
+      const res = await bulkUserAction({
+        userIds: targetUsers.map((u) => u.id),
+        action: enabled ? "allow_web_only" : "require_desktop",
+        reason: "Bulk operation by organizer",
+      });
       toast.success(
-        `${enabled ? "Granted" : "Revoked"} browser-only access for ${successCount} user(s).`
+        `${enabled ? "Granted" : "Revoked"} browser-only access for ${res.affected} user(s).`
       );
       onRefresh();
     } catch (err) {
@@ -316,17 +315,16 @@ export function AdminUsers({
   }
 
   async function handleBulkToggleExemption(targetUsers: User[], exempt: boolean) {
+    if (targetUsers.length === 0) return;
     setPending(true);
     try {
-      let successCount = 0;
-      await Promise.all(
-        targetUsers.map(async (u) => {
-          const res = await toggleProctorExemptionAction(u.id, exempt, "Bulk operation by organizer");
-          if (!res.error) successCount++;
-        })
-      );
+      const res = await bulkUserAction({
+        userIds: targetUsers.map((u) => u.id),
+        action: exempt ? "exempt_proctor" : "enforce_proctor",
+        reason: "Bulk operation by organizer",
+      });
       toast.success(
-        `${exempt ? "Exempted" : "Enforced"} proctoring for ${successCount} user(s).`
+        `${exempt ? "Exempted" : "Enforced"} proctoring for ${res.affected} user(s).`
       );
       onRefresh();
     } catch (err) {
@@ -337,17 +335,16 @@ export function AdminUsers({
   }
 
   async function handleBulkToggleSuspension(targetUsers: User[], suspended: boolean) {
+    if (targetUsers.length === 0) return;
     setPending(true);
     try {
-      let successCount = 0;
-      await Promise.all(
-        targetUsers.map(async (u) => {
-          await suspendUserAction(u.id, suspended, "Bulk operation by organizer");
-          successCount++;
-        })
-      );
+      const res = await bulkUserAction({
+        userIds: targetUsers.map((u) => u.id),
+        action: suspended ? "suspend" : "restore",
+        reason: "Bulk operation by organizer",
+      });
       toast.success(
-        `${suspended ? "Suspended" : "Restored"} ${successCount} user(s).`
+        `${suspended ? "Suspended" : "Restored"} ${res.affected} user(s).`
       );
       onRefresh();
     } catch (err) {
@@ -358,16 +355,14 @@ export function AdminUsers({
   }
 
   async function handleBulkDelete(targetUsers: User[]) {
+    if (targetUsers.length === 0) return;
     setPending(true);
     try {
-      let successCount = 0;
-      await Promise.all(
-        targetUsers.map(async (u) => {
-          await deleteUserAction(u.id);
-          successCount++;
-        })
-      );
-      toast.success(`Deleted ${successCount} user(s).`);
+      const res = await bulkUserAction({
+        userIds: targetUsers.map((u) => u.id),
+        action: "delete",
+      });
+      toast.success(`Deleted ${res.affected} user(s).`);
       onRefresh();
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to delete users in bulk."));

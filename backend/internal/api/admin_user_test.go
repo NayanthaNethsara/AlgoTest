@@ -200,3 +200,55 @@ func TestRespondErrorFormat(t *testing.T) {
 		t.Fatalf("expected c.Errors to wrap origErr, got %v", c.Errors.Last().Err)
 	}
 }
+
+func TestBulkUserActionValidation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := &handler{}
+
+	// Test 1: Empty user IDs
+	{
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		body := `{"userIds":[],"action":"allow_web_only"}`
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/users/bulk-action", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		c.Set(contextUserKey, user.User{ID: "admin-1", Role: user.RoleAdmin})
+
+		h.bulkUserAction(c)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for empty userIds, got %d", w.Code)
+		}
+	}
+
+	// Test 2: Only self ID provided (should be filtered out leaving 0 valid IDs)
+	{
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		body := `{"userIds":["admin-1"],"action":"allow_web_only"}`
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/users/bulk-action", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		c.Set(contextUserKey, user.User{ID: "admin-1", Role: user.RoleAdmin})
+
+		h.bulkUserAction(c)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 when only self ID provided, got %d", w.Code)
+		}
+	}
+
+	// Test 3: Invalid action
+	{
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		body := `{"userIds":["user-1","user-2"],"action":"unsupported_action"}`
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/users/bulk-action", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		c.Set(contextUserKey, user.User{ID: "admin-1", Role: user.RoleAdmin})
+
+		h.bulkUserAction(c)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 for invalid action, got %d", w.Code)
+		}
+	}
+}
+

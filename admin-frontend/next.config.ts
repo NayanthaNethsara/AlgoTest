@@ -37,6 +37,14 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       bodySizeLimit: "32mb",
+      allowedOrigins: [
+        "*.hosted.app",
+        "*.run.app",
+        "localhost:3001",
+        "localhost:3000",
+        "127.0.0.1:3001",
+        "127.0.0.1:3000",
+      ],
     },
   },
   async headers() {

@@ -272,3 +272,73 @@ func (r *Repository) UpdateProctorAccess(ctx context.Context, id string, allowWe
 	}
 	return nil
 }
+
+func (r *Repository) BulkUpdateProctorAccess(ctx context.Context, ids []string, allowWebOnly bool, reason string, hoursValid int, granterID string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	query := `
+		UPDATE users SET
+			proctor_allow_web_only    = $1,
+			proctor_access_reason     = CASE WHEN $1 THEN $2 ELSE '' END,
+			proctor_access_until      = CASE WHEN $1 AND $3 > 0
+			                                 THEN now() + make_interval(hours => $3) ELSE NULL END,
+			proctor_access_granted_by = CASE WHEN $1 AND nullif($4, '') IS NOT NULL THEN $4::uuid ELSE NULL END
+		WHERE id = ANY($5::uuid[]) AND role = 'competitor';
+	`
+	tag, err := r.pool.Exec(ctx, query, allowWebOnly, reason, hoursValid, granterID, ids)
+	if err != nil {
+		return 0, fmt.Errorf("bulk update proctor access: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+func (r *Repository) BulkUpdateProctorExemption(ctx context.Context, ids []string, exempt bool, hoursValid int, reason string, granterID string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	query := `
+		UPDATE users SET
+			proctor_exempt            = $1,
+			proctor_exempt_reason     = CASE WHEN $1 THEN $2 ELSE '' END,
+			proctor_exempt_until      = CASE WHEN $1 AND $3 > 0 THEN now() + make_interval(hours => $3) ELSE NULL END,
+			proctor_exempt_granted_by = CASE WHEN $1 AND nullif($4, '') IS NOT NULL THEN $4::uuid ELSE NULL END
+		WHERE id = ANY($5::uuid[]) AND role = 'competitor';
+	`
+	tag, err := r.pool.Exec(ctx, query, exempt, reason, hoursValid, granterID, ids)
+	if err != nil {
+		return 0, fmt.Errorf("bulk update proctor exemption: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+func (r *Repository) BulkUpdateSuspension(ctx context.Context, ids []string, suspended bool, reason string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	query := `
+		UPDATE users SET
+			is_suspended     = $1,
+			suspended_reason = CASE WHEN $1 THEN $2 ELSE '' END,
+			suspended_at     = CASE WHEN $1 THEN now() ELSE NULL END
+		WHERE id = ANY($3::uuid[]) AND role = 'competitor';
+	`
+	tag, err := r.pool.Exec(ctx, query, suspended, reason, ids)
+	if err != nil {
+		return 0, fmt.Errorf("bulk update suspension: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+func (r *Repository) BulkDelete(ctx context.Context, ids []string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	query := `DELETE FROM users WHERE id = ANY($1::uuid[]) AND role = 'competitor';`
+	tag, err := r.pool.Exec(ctx, query, ids)
+	if err != nil {
+		return 0, fmt.Errorf("bulk delete users: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+

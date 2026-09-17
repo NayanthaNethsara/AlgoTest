@@ -173,6 +173,7 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 	admin.GET("/users", h.listUsers)
 	admin.POST("/users", h.createUser)
 	admin.POST("/users/bulk", h.bulkCreateUsers)
+	admin.POST("/users/bulk-action", h.bulkUserAction)
 	admin.POST("/users/:id/reset-password", h.resetPassword)
 	admin.PATCH("/users/:id/role", h.updateRole)
 	admin.PATCH("/users/:id/suspend", h.suspendUser)

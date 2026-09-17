@@ -151,3 +151,37 @@ export async function suspendUserAction(
     throw new Error(getErrorMessage(err, "Failed to update user suspension"));
   }
 }
+
+export type BulkUserActionType =
+  | "allow_web_only"
+  | "require_desktop"
+  | "exempt_proctor"
+  | "enforce_proctor"
+  | "suspend"
+  | "restore"
+  | "delete";
+
+export interface BulkUserActionInput {
+  userIds: string[];
+  action: BulkUserActionType;
+  reason?: string;
+  hoursValid?: number;
+}
+
+export async function bulkUserAction(
+  input: BulkUserActionInput
+): Promise<{ status: string; action: string; affected: number }> {
+  try {
+    const res = await backendFetch("/api/v1/admin/users/bulk-action", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) {
+      throw await parseApiError(res, "Bulk action failed");
+    }
+    return await res.json();
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Bulk user action failed"));
+  }
+}
+

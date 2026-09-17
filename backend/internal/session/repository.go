@@ -67,6 +67,15 @@ func (r *Repository) DeleteByUser(ctx context.Context, userID string) error {
 	return err
 }
 
+func (r *Repository) DeleteByUsers(ctx context.Context, userIDs []string) error {
+	if len(userIDs) == 0 {
+		return nil
+	}
+	query := `DELETE FROM sessions WHERE user_id = ANY($1::uuid[]);`
+	_, err := r.pool.Exec(ctx, query, userIDs)
+	return err
+}
+
 func (r *Repository) DeleteByUserExcept(ctx context.Context, userID, exceptToken string) error {
 	query := `DELETE FROM sessions WHERE user_id = $1 AND token != $2;`
 	_, err := r.pool.Exec(ctx, query, userID, hashToken(exceptToken))
