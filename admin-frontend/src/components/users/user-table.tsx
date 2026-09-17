@@ -1,18 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BanIcon,
+  GlobeIcon,
   KeyRoundIcon,
+  LaptopIcon,
   ShieldCheckIcon,
   ShieldOffIcon,
   Trash2Icon,
   UserCheckIcon,
   UsersIcon,
   UsersRoundIcon,
+  XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   Table,
@@ -43,6 +48,10 @@ interface UserTableProps {
   onToggleExemption: (user: User) => void;
   onToggleFallback: (user: User, key: keyof AccessGrant, enabled: boolean) => void;
   onToggleSuspension: (user: User) => void;
+  onBulkToggleFallback?: (users: User[], key: keyof AccessGrant, enabled: boolean) => void;
+  onBulkToggleExemption?: (users: User[], exempt: boolean) => void;
+  onBulkToggleSuspension?: (users: User[], suspended: boolean) => void;
+  onBulkDelete?: (users: User[]) => void;
 }
 
 export function UserTable({
@@ -55,9 +64,15 @@ export function UserTable({
   onToggleExemption,
   onToggleFallback,
   onToggleSuspension,
+  onBulkToggleFallback,
+  onBulkToggleExemption,
+  onBulkToggleSuspension,
+  onBulkDelete,
 }: UserTableProps) {
   const [subTab, setSubTab] = useState<SubTab>("competitors");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteTarget, setBulkDeleteTarget] = useState<User[] | null>(null);
 
   const { competitorUsers, adminUsers } = useMemo(
     () => ({
@@ -82,6 +97,47 @@ export function UserTable({
   }, [currentList, searchQuery]);
 
   const pagination = usePagination(filteredUsers);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [subTab, searchQuery]);
+
+  const selectedUsers = useMemo(() => {
+    return filteredUsers.filter((u) => selectedIds.has(u.id));
+  }, [filteredUsers, selectedIds]);
+
+  const isAllSelected =
+    pagination.items.length > 0 && pagination.items.every((u) => selectedIds.has(u.id));
+  const isSomeSelected =
+    !isAllSelected && pagination.items.some((u) => selectedIds.has(u.id));
+
+  function handleToggleSelectAll(checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        pagination.items.forEach((u) => next.add(u.id));
+      } else {
+        pagination.items.forEach((u) => next.delete(u.id));
+      }
+      return next;
+    });
+  }
+
+  function handleToggleRow(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -111,6 +167,103 @@ export function UserTable({
         />
       </div>
 
+      {selectedUsers.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/40 p-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="font-mono text-xs">
+              {selectedUsers.length} selected
+            </Badge>
+            {selectedUsers.length < filteredUsers.length && (
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set(filteredUsers.map((u) => u.id)))}
+                className="text-xs text-primary underline-offset-4 hover:underline"
+              >
+                Select all {filteredUsers.length}
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {isCompetitorTab && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onBulkToggleFallback?.(selectedUsers, "webOnly", true)}
+                  disabled={pending}
+                  className="h-7 gap-1 px-2 text-xs"
+                >
+                  <GlobeIcon className="size-3 text-primary" /> Allow Browser
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onBulkToggleFallback?.(selectedUsers, "webOnly", false)}
+                  disabled={pending}
+                  className="h-7 gap-1 px-2 text-xs"
+                >
+                  <LaptopIcon className="size-3" /> Require Desktop
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onBulkToggleExemption?.(selectedUsers, true)}
+                  disabled={pending}
+                  className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
+                >
+                  <ShieldOffIcon className="size-3" /> Exempt Proctoring
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onBulkToggleExemption?.(selectedUsers, false)}
+                  disabled={pending}
+                  className="h-7 gap-1 px-2 text-xs"
+                >
+                  <ShieldCheckIcon className="size-3 text-success" /> Enforce Proctoring
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onBulkToggleSuspension?.(selectedUsers, true)}
+              disabled={pending}
+              className="h-7 gap-1 px-2 text-xs"
+            >
+              <BanIcon className="size-3" /> Suspend
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onBulkToggleSuspension?.(selectedUsers, false)}
+              disabled={pending}
+              className="h-7 gap-1 px-2 text-xs"
+            >
+              <UserCheckIcon className="size-3 text-success" /> Restore
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkDeleteTarget(selectedUsers)}
+              disabled={pending}
+              className="h-7 gap-1 px-2 text-xs text-destructive hover:text-destructive"
+            >
+              <Trash2Icon className="size-3" /> Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearSelection}
+              disabled={pending}
+              className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+            >
+              <XIcon className="size-3" /> Clear
+            </Button>
+          </div>
+        </div>
+      )}
+
       {filteredUsers.length === 0 ? (
         <EmptyState
           icon={<UsersIcon />}
@@ -137,6 +290,14 @@ export function UserTable({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-10 px-3">
+                  <Checkbox
+                    checked={isAllSelected}
+                    indeterminate={isSomeSelected}
+                    onCheckedChange={(checked) => handleToggleSelectAll(Boolean(checked))}
+                    aria-label="Select all on this page"
+                  />
+                </TableHead>
                 <TableHead>User</TableHead>
                 {isCompetitorTab && <TableHead>Team</TableHead>}
                 <TableHead>Role</TableHead>
@@ -151,7 +312,20 @@ export function UserTable({
                 const isSelf = u.id === currentUserId;
 
                 return (
-                  <TableRow key={u.id} className={cn(u.isSuspended && "bg-destructive/5")}>
+                  <TableRow
+                    key={u.id}
+                    className={cn(
+                      u.isSuspended && "bg-destructive/5",
+                      selectedIds.has(u.id) && "bg-primary/5"
+                    )}
+                  >
+                    <TableCell className="w-10 px-3">
+                      <Checkbox
+                        checked={selectedIds.has(u.id)}
+                        onCheckedChange={(checked) => handleToggleRow(u.id, Boolean(checked))}
+                        aria-label={`Select ${u.displayName || u.username}`}
+                      />
+                    </TableCell>
                     <TableCell className="max-w-64">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate text-xs font-medium">
@@ -380,6 +554,28 @@ export function UserTable({
           <DataPagination state={pagination} itemLabel="user" />
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(bulkDeleteTarget)}
+        onOpenChange={(open) => !open && setBulkDeleteTarget(null)}
+        title={`Delete ${bulkDeleteTarget?.length ?? 0} Users`}
+        description={
+          <>
+            Permanently delete{" "}
+            <strong className="text-foreground">{bulkDeleteTarget?.length}</strong> selected users?
+            Their submissions and telemetry will stay on record.
+          </>
+        }
+        actionLabel={`Delete ${bulkDeleteTarget?.length ?? 0} Users`}
+        variant="destructive"
+        onConfirm={() => {
+          if (bulkDeleteTarget) {
+            onBulkDelete?.(bulkDeleteTarget);
+            setBulkDeleteTarget(null);
+            clearSelection();
+          }
+        }}
+      />
     </div>
   );
 }

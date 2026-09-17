@@ -289,6 +289,93 @@ export function AdminUsers({
     }
   }
 
+  async function handleBulkToggleFallback(
+    targetUsers: User[],
+    key: keyof AccessGrant,
+    enabled: boolean
+  ) {
+    setPending(true);
+    try {
+      let successCount = 0;
+      await Promise.all(
+        targetUsers.map(async (u) => {
+          const next = { ...grantOf(u), [key]: enabled };
+          const res = await setProctorAccessAction(u.id, next, "Bulk operation by organizer", 0);
+          if (!res.error) successCount++;
+        })
+      );
+      toast.success(
+        `${enabled ? "Granted" : "Revoked"} browser-only access for ${successCount} user(s).`
+      );
+      onRefresh();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update submission access in bulk."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleBulkToggleExemption(targetUsers: User[], exempt: boolean) {
+    setPending(true);
+    try {
+      let successCount = 0;
+      await Promise.all(
+        targetUsers.map(async (u) => {
+          const res = await toggleProctorExemptionAction(u.id, exempt, "Bulk operation by organizer");
+          if (!res.error) successCount++;
+        })
+      );
+      toast.success(
+        `${exempt ? "Exempted" : "Enforced"} proctoring for ${successCount} user(s).`
+      );
+      onRefresh();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update proctor exemptions in bulk."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleBulkToggleSuspension(targetUsers: User[], suspended: boolean) {
+    setPending(true);
+    try {
+      let successCount = 0;
+      await Promise.all(
+        targetUsers.map(async (u) => {
+          await suspendUserAction(u.id, suspended, "Bulk operation by organizer");
+          successCount++;
+        })
+      );
+      toast.success(
+        `${suspended ? "Suspended" : "Restored"} ${successCount} user(s).`
+      );
+      onRefresh();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update user suspensions in bulk."));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleBulkDelete(targetUsers: User[]) {
+    setPending(true);
+    try {
+      let successCount = 0;
+      await Promise.all(
+        targetUsers.map(async (u) => {
+          await deleteUserAction(u.id);
+          successCount++;
+        })
+      );
+      toast.success(`Deleted ${successCount} user(s).`);
+      onRefresh();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to delete users in bulk."));
+    } finally {
+      setPending(false);
+    }
+  }
+
   const overrideRequest = buildOverrideRequest(pendingOverride);
 
   return (
@@ -387,6 +474,10 @@ export function AdminUsers({
         onToggleExemption={requestExemptionToggle}
         onToggleFallback={requestFallbackToggle}
         onToggleSuspension={setSuspendTarget}
+        onBulkToggleFallback={handleBulkToggleFallback}
+        onBulkToggleExemption={handleBulkToggleExemption}
+        onBulkToggleSuspension={handleBulkToggleSuspension}
+        onBulkDelete={handleBulkDelete}
       />
 
       {assignTeamTarget && (
