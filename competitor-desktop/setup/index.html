@@ -101,27 +101,10 @@
       </div>
     </section>
 
-    <!-- The contest server is compiled into the client. Shown so a contestant can
-         read it out to the help desk, and editable only behind a deliberate click
-         so an organizer can still move the server mid-contest. -->
     <p class="lede">
       <span class="pill" id="machine-pill">This machine</span>
       <span id="target"></span>
-      <button id="change-server" type="button" class="secondary">Change…</button>
     </p>
-
-    <section id="step-server" hidden>
-      <div class="card">
-        <label for="server">Portal address</label>
-        <input id="server" type="url" autocomplete="off" />
-        <label for="api">API address</label>
-        <input id="api" type="url" autocomplete="off" />
-        <div class="row">
-          <button id="save-server" type="button">Save addresses</button>
-        </div>
-      </div>
-      <div class="notice error" id="server-error" hidden></div>
-    </section>
 
     <script>
       const invoke = window.appInvoke;
@@ -220,28 +203,6 @@
         }
       }
 
-      el("change-server").addEventListener("click", () => {
-        el("step-server").hidden = !el("step-server").hidden;
-      });
-
-      el("save-server").addEventListener("click", async () => {
-        clearError("server-error");
-        try {
-          await invoke("save_server", {
-            serverUrl: el("server").value,
-            apiUrl: el("api").value,
-          });
-          el("step-server").hidden = true;
-          await refreshTarget();
-          // The disclosure comes from the API, so a changed address means the
-          // consent on screen may no longer be the one that applies.
-          show("step-consent");
-          await loadConsent();
-        } catch (err) {
-          fail("server-error", String(err));
-        }
-      });
-
       /// Polls the agent's own diagnostics until it has had a heartbeat
       /// acknowledged. Returns null when reporting, or a sentence naming the fault.
       async function firstReportProblem() {
@@ -261,10 +222,9 @@
             `Waiting for the proctor client's first report… ${waited}s`;
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
-        const target = last?.api_url || "the contest server";
         return last?.last_error
-          ? `The proctor client could not report to ${target}: ${last.last_error}`
-          : `The proctor client has not reported to ${target} yet. Check that the contest server is reachable from this machine.`;
+          ? `The proctor client could not report to the contest server: ${last.last_error}`
+          : "The proctor client has not reported to the contest server yet. Check that the contest server is reachable from this machine.";
       }
 
       async function verifyFirstReport() {
@@ -303,11 +263,9 @@
       async function refreshTarget() {
         const state = await invoke("get_setup_state");
         currentState = state;
-        el("server").value = state.server_url;
-        el("api").value = state.api_url;
-        el("target").textContent = `Contest server ${state.server_url}`;
+        el("target").textContent = "Contest network configured";
         el("machine-pill").textContent =
-          `Machine ${state.machine_id.slice(0, 8)} · agent ${state.agent_version}`;
+          `Machine ${state.machine_id.slice(0, 8)} · agent v${state.agent_version}`;
       }
 
       async function closeThisWindow() {

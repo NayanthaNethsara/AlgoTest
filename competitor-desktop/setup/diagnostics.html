@@ -33,16 +33,18 @@
     <dl class="grid" id="signal-facts"></dl>
 
     <h2>RECENT REPORTS</h2>
-    <table>
-      <thead>
-        <tr><th>Time</th><th>Seq</th><th>Outcome</th><th>Detail</th></tr>
-      </thead>
-      <tbody id="history"></tbody>
-    </table>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr><th>Time</th><th>Seq</th><th>Outcome</th><th>Detail</th></tr>
+        </thead>
+        <tbody id="history"></tbody>
+      </table>
+    </div>
 
     <div class="row">
       <button id="copy" type="button">Copy diagnostics</button>
-      <button id="open" type="button" class="secondary">Open contest window</button>
+      <button id="open" type="button" class="secondary">Open contest portal</button>
       <button id="reset" type="button" class="secondary">Re-enrol this machine</button>
     </div>
 
@@ -93,26 +95,21 @@
           }
 
           const machineId = d.machine_id || "";
-          const bootId = d.boot_id || "";
 
           facts("agent-facts", [
             ["Version", d.agent_version || "unknown"],
+            ["Signed in as", d.username || "not enrolled"],
             ["Uptime", d.uptime_seconds !== undefined ? `${Math.floor(d.uptime_seconds / 60)}m ${d.uptime_seconds % 60}s` : "0s"],
             ["Last report", d.seconds_since_ack === null || d.seconds_since_ack === undefined ? "never" : `${d.seconds_since_ack}s ago`],
             ["Reports sent", String(d.seq ?? 0)],
             ["Buffered", `${d.buffered_heartbeats ?? 0} waiting to send`],
-            ["Contest window", d.shell_alive ? "open" : "not required (browser mode)"],
-            ["Signed in as", d.username || "not enrolled"],
-            ["Machine", machineId.length >= 12 ? machineId.slice(0, 12) : machineId || "unknown"],
-            ["Boot", bootId.length >= 8 ? bootId.slice(0, 8) : bootId || "unknown"],
+            ["Machine ID", machineId.length >= 8 ? machineId.slice(0, 8) : machineId || "unknown"],
             ["Platform", d.platform || "unknown"],
-            ["Portal", d.server_url || "not configured"],
-            ["API", d.api_url || "not configured"],
-            ["Local port", d.loopback_port ? String(d.loopback_port) : "not bound"],
+            ["Server Connection", d.healthy ? "Connected" : "Reconnecting"],
           ]);
 
           facts("signal-facts", [
-            ["Internet reachable", d.internet_reachable ? "yes" : "no"],
+            ["Network status", d.internet_reachable ? "online" : "offline"],
             ["Local AI services", d.inference_ports && d.inference_ports.length ? d.inference_ports.join(", ") : "none detected"],
             ["Matched processes", d.process_matches && d.process_matches.length ? d.process_matches.join(", ") : "none"],
           ]);
@@ -136,7 +133,20 @@
 
       el("copy").addEventListener("click", async () => {
         if (!latest) return;
-        await navigator.clipboard.writeText(JSON.stringify(latest, null, 2));
+        const sanitized = {
+          status: latest.status,
+          support_code: latest.support_code,
+          agent_version: latest.agent_version,
+          username: latest.username,
+          machine_id: (latest.machine_id || "").slice(0, 8),
+          uptime_seconds: latest.uptime_seconds,
+          healthy: latest.healthy,
+          seq: latest.seq,
+          buffered_heartbeats: latest.buffered_heartbeats,
+          network_online: latest.internet_reachable,
+          platform: latest.platform,
+        };
+        await navigator.clipboard.writeText(JSON.stringify(sanitized, null, 2));
         el("copy").textContent = "Copied";
         setTimeout(() => (el("copy").textContent = "Copy diagnostics"), 1500);
       });

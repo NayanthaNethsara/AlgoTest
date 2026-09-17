@@ -32,9 +32,13 @@
   image-rendering: pixelated;
 }
 
-html,
-body {
+html {
   height: 100%;
+}
+
+body {
+  min-height: 100%;
+  overflow-y: auto;
   overscroll-behavior: none;
   overscroll-behavior-y: none;
   overscroll-behavior-x: none;
@@ -322,6 +326,30 @@ pre {
   font-family: monospace;
   font-size: 12px;
   color: var(--fg);
+}
+
+.table-container {
+  width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 2px solid #000000;
+  background: var(--surface-inset);
+  margin-bottom: 16px;
+  box-shadow: inset 1px 1px 0px #000000;
+}
+
+.table-container table {
+  border: none;
+  margin: 0;
+}
+
+.table-container th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-inset);
+  box-shadow: 0 1px 0 #000000;
 }
 
 table {
