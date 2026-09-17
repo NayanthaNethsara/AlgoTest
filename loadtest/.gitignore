@@ -1,0 +1,7 @@
+# Session tokens should not be committed to git
+sessions/
+
+# Binaries
+loadtest
+bin/
+reports/

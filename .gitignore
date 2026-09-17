@@ -16,3 +16,4 @@ certs/
 letsencrypt/
 secrets/
 backend/test_contestants.csv
+loadtest/cloud_contestants_50.csv
