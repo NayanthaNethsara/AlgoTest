@@ -106,7 +106,18 @@ jobs:
           if [ "${{ matrix.target }}" = "windows" ]; then
             cp competitor-desktop/src-tauri/target/release/algothon-agent.exe "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-windows-x64.exe"
           elif [ "${{ matrix.target }}" = "macos" ]; then
-            find competitor-desktop/src-tauri/target/release/bundle/dmg -name "*.dmg" -exec cp {} "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos.dmg" \;
+            if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app" ]; then
+              cd "competitor-desktop/src-tauri/target/release/bundle/macos"
+              zip -r -y "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos.zip" "Algothon Agent.app"
+              cd "$GITHUB_WORKSPACE"
+            fi
+            if [ -f "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" ]; then
+              cp "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos-binary"
+              chmod +x "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos-binary"
+            elif [ -f "competitor-desktop/src-tauri/target/release/algothon-agent" ]; then
+              cp "competitor-desktop/src-tauri/target/release/algothon-agent" "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos-binary"
+              chmod +x "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos-binary"
+            fi
           elif [ "${{ matrix.target }}" = "linux" ]; then
             cp competitor-desktop/src-tauri/target/release/algothon-agent "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-linux-x64"
             chmod +x "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-linux-x64"

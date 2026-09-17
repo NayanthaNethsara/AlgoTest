@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Algothon Agent",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "identifier": "com.algothon.agent",
   "mainBinaryName": "algothon-agent",
   "build": {
@@ -19,8 +19,7 @@
   "bundle": {
     "active": true,
     "targets": [
-      "app",
-      "dmg"
+      "app"
     ],
     "icon": [
       "icons/32x32.png",
