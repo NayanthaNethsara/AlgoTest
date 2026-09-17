@@ -8,12 +8,15 @@ on:
     inputs:
       portal_url:
         description: 'Portal the client opens, and the only Origin its loopback server answers'
+        default: 'https://competitor-portal--algothon-2026.asia-southeast1.hosted.app'
         required: false
       api_url:
-        description: 'API base URL the agent reports to. On a LAN with no contestant internet, the relay'
+        description: 'API base URL the agent reports to'
+        default: 'https://mini-algothon-api.nayantha.me'
         required: false
       portal_origins:
         description: 'Standby portals the loopback server also answers, comma-separated'
+        default: 'https://competitor-portal--algothon-2026.asia-southeast1.hosted.app,http://localhost:3000'
         required: false
 
 jobs:
@@ -62,25 +65,32 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Resolve client addresses
+      - name: Resolve server and portal URLs
         id: addr
         shell: bash
         env:
           PORTAL: ${{ inputs.portal_url || vars.ALGOTHON_SERVER_URL }}
           API: ${{ inputs.api_url || vars.ALGOTHON_API_URL }}
         run: |
-          if [ -z "$PORTAL" ] || [ -z "$API" ]; then
-            echo "::error::Set repository variables ALGOTHON_SERVER_URL and ALGOTHON_API_URL, or pass them as workflow inputs."
-            exit 1
+          if [ -z "$PORTAL" ]; then
+            PORTAL="https://competitor-portal--algothon-2026.asia-southeast1.hosted.app"
+          fi
+          if [ -z "$API" ]; then
+            API="https://mini-algothon-api.nayantha.me"
+          fi
+          ORIGINS="${{ inputs.portal_origins || vars.ALGOTHON_PORTAL_ORIGINS }}"
+          if [ -z "$ORIGINS" ]; then
+            ORIGINS="https://competitor-portal--algothon-2026.asia-southeast1.hosted.app,http://localhost:3000"
           fi
           echo "portal=$PORTAL" >> "$GITHUB_OUTPUT"
           echo "api=$API" >> "$GITHUB_OUTPUT"
+          echo "origins=$ORIGINS" >> "$GITHUB_OUTPUT"
 
       - name: Build Standalone Agent
         env:
           ALGOTHON_SERVER_URL: ${{ steps.addr.outputs.portal }}
           ALGOTHON_API_URL: ${{ steps.addr.outputs.api }}
-          ALGOTHON_PORTAL_ORIGINS: ${{ inputs.portal_origins || vars.ALGOTHON_PORTAL_ORIGINS }}
+          ALGOTHON_PORTAL_ORIGINS: ${{ steps.addr.outputs.origins }}
         shell: bash
         run: |
           if [ "${{ matrix.target }}" = "macos" ]; then

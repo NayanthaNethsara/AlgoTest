@@ -1,6 +1,6 @@
 [package]
 name = "algothon-competitor"
-version = "0.2.0"
+version = "0.2.1"
 description = "Algothon competitor client: proctor agent and contest shell"
 authors = ["Algothon"]
 license = ""
