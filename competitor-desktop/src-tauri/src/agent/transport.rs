@@ -230,7 +230,7 @@ fn build_client(timeout: Duration) -> reqwest::blocking::Client {
     reqwest::blocking::Client::builder()
         .timeout(timeout)
         .no_proxy()
-        .user_agent(format!("mini-algothon-agent/{}", crate::AGENT_VERSION))
+        .user_agent(format!("algothon-agent/{}", crate::AGENT_VERSION))
         .build()
         .unwrap_or_default()
 }

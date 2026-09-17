@@ -11,7 +11,7 @@
  * The cookie is scoped to the client's own webview data store, so a contestant's
  * browser never sees it even on the same machine.
  */
-export const DESKTOP_CLIENT_COOKIE = "mini-algothon-client";
+export const DESKTOP_CLIENT_COOKIE = "algothon-client";
 
 export const DESKTOP_CLIENT_VALUE = "desktop";
 
@@ -36,9 +36,7 @@ export function isDesktopClient(): boolean {
   if (
     typeof window !== "undefined" &&
     Boolean(
-      (window as Window & { __ALGOTHON_DESKTOP__?: boolean; __MINIALGOTHON_DESKTOP__?: boolean })
-        .__ALGOTHON_DESKTOP__ ||
-        (window as Window & { __MINIALGOTHON_DESKTOP__?: boolean }).__MINIALGOTHON_DESKTOP__,
+      (window as Window & { __ALGOTHON_DESKTOP__?: boolean }).__ALGOTHON_DESKTOP__,
     )
   ) {
     return true;

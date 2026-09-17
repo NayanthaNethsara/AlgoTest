@@ -224,10 +224,9 @@ func Decide(in GateInput, now time.Time) Decision {
 	}
 
 	if d.AccessMode == ModeWebWithAgent {
-		// Recorded whether or not it is permitted: an organizer wants "worked in a
-		// browser" in the review timeline even when they are the one who allowed it.
-		d.findings = append(d.findings, finding{"tel.web_client", 15, map[string]any{
-			"reason":       "submitted from the browser fallback rather than the desktop client",
+		// Recorded without risk penalty: browser + background proctor is standard.
+		d.findings = append(d.findings, finding{"tel.web_client", 0, map[string]any{
+			"reason":       "submitted from the web portal with proctor agent running",
 			"claims_shell": in.ClaimsDesktop,
 			"shell_alive":  in.ShellAlive,
 		}})

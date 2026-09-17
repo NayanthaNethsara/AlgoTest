@@ -53,7 +53,7 @@ export default function RootLayout({
       <body className="h-full flex flex-col font-sans relative overflow-hidden overscroll-none">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{if(new URLSearchParams(window.location.search).get("client")==="desktop"){document.cookie="mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";}}catch(e){}})();`,
+            __html: `(function(){try{if(new URLSearchParams(window.location.search).get("client")==="desktop"){document.cookie="algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";}}catch(e){}})();`,
           }}
         />
         {children}

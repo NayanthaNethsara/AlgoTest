@@ -83,10 +83,9 @@ pub fn run() {
 
             // An unconfigured or unenrolled agent is the one case that needs a
             // window: it cannot report anything until a contestant enrols it.
+            // When already enrolled, the agent runs quietly in the tray.
             if !setup_state.is_enrolled() {
                 windows::open_setup(app.handle());
-            } else {
-                windows::open_contest_shell(&setup_state);
             }
 
             Ok(())

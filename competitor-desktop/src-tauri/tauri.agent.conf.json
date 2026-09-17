@@ -1,9 +1,9 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "MiniAlgothon Agent",
+  "productName": "Algothon Agent",
   "version": "0.2.0",
-  "identifier": "com.minialgothon.agent",
-  "mainBinaryName": "mini-algothon-agent",
+  "identifier": "com.algothon.agent",
+  "mainBinaryName": "algothon-agent",
   "build": {
     "frontendDist": "../setup",
     "beforeDevCommand": "",

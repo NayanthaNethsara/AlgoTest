@@ -2,13 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>MiniAlgothon — proctoring setup</title>
+    <title>Algothon — proctoring setup</title>
     <link rel="stylesheet" href="shared.css" />
     <script src="bridge.js"></script>
   </head>
   <body>
     <div class="desktop-titlebar">
-      <div class="desktop-titlebar-title">MiniAlgothon — Setup</div>
+      <div class="desktop-titlebar-title">Algothon — Setup</div>
       <div class="desktop-controls">
         <button id="win-close" class="win-btn close" type="button" title="Close">✕</button>
       </div>
@@ -54,7 +54,7 @@
       <div class="card">
         <p class="lede">
           This enrols the proctor client on this machine. You will sign in to the
-          contest portal separately once the contest window opens.
+          contest portal in your web browser.
         </p>
         <label for="username">Username</label>
         <input id="username" type="text" autocomplete="username" />
@@ -79,7 +79,7 @@
         <div class="row">
           <button id="verify-retry" type="button" hidden>Check again</button>
           <button id="verify-continue" type="button" class="secondary" hidden>
-            Open the contest window anyway
+            Open the contest portal anyway
           </button>
         </div>
       </div>
@@ -279,7 +279,7 @@
         if (!problem) {
           el("verify-pill").className = "pill ok";
           el("verify-pill").textContent = "Reporting";
-          el("verify-status").textContent = "Opening the contest window…";
+          el("verify-status").textContent = "Opening the contest portal in your browser…";
           await invoke("enter_contest");
           return;
         }

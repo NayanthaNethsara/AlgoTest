@@ -24,7 +24,7 @@ pub fn open_setup(app: &AppHandle) {
     }
 
     let built = WebviewWindowBuilder::new(app, SETUP_WINDOW, WebviewUrl::App("index.html".into()))
-        .title("MiniAlgothon — proctoring setup")
+        .title("Algothon — proctoring setup")
         .inner_size(760.0, 820.0)
         .min_inner_size(620.0, 380.0)
         .resizable(true)
@@ -60,7 +60,7 @@ pub fn open_diagnostics(app: &AppHandle) {
         DIAGNOSTICS_WINDOW,
         WebviewUrl::App("diagnostics.html".into()),
     )
-    .title("MiniAlgothon — proctoring diagnostics")
+    .title("Algothon — proctoring diagnostics")
     .inner_size(720.0, 780.0)
     .min_inner_size(620.0, 380.0)
     .resizable(true)
@@ -90,7 +90,7 @@ pub fn open_contest_shell(state: &Arc<AgentState>) {
 
     if let Ok(exe) = std::env::current_exe() {
         let file_name = exe.file_name().and_then(|s| s.to_str()).unwrap_or_default();
-        if file_name.starts_with("mini-algothon-competitor") {
+        if file_name.starts_with("algothon-competitor") {
             if let Err(err) = std::process::Command::new(&exe).spawn() {
                 log::error!("could not launch the contest shell: {err}");
             }
@@ -98,9 +98,9 @@ pub fn open_contest_shell(state: &Arc<AgentState>) {
         }
 
         let sibling = exe.with_file_name(if cfg!(windows) {
-            "mini-algothon-competitor.exe"
+            "algothon-competitor.exe"
         } else {
-            "mini-algothon-competitor"
+            "algothon-competitor"
         });
         if sibling.is_file() {
             if let Err(err) = std::process::Command::new(&sibling).spawn() {

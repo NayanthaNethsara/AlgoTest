@@ -80,20 +80,20 @@ desktop: competitor-desktop
 desktop-dev: competitor-desktop
 
 agent:
-	cd competitor-desktop/src-tauri && cargo run --bin mini-algothon-agent
+	cd competitor-desktop/src-tauri && cargo run --bin algothon-agent
 
 agent-dev: agent
 
 agent-build:
 	cd competitor-desktop && pnpm run build:agent
-	@echo "MiniAlgothon Agent bundle complete!"
+	@echo "Algothon Agent bundle complete!"
 
 agent-binary:
-	cd competitor-desktop/src-tauri && cargo build --release --bin mini-algothon-agent
-	@echo "Agent raw binary built at competitor-desktop/src-tauri/target/release/mini-algothon-agent"
+	cd competitor-desktop/src-tauri && cargo build --release --bin algothon-agent
+	@echo "Agent raw binary built at competitor-desktop/src-tauri/target/release/algothon-agent"
 
 agent-reset:
-	cd competitor-desktop/src-tauri && cargo run --quiet --bin mini-algothon-agent -- --reset
+	cd competitor-desktop/src-tauri && cargo run --quiet --bin algothon-agent -- --reset
 
 desktop-build:
 	cd competitor-desktop && pnpm build
@@ -104,7 +104,7 @@ desktop-build:
 # The agent is built to survive being closed, which is right in a contest hall and
 # unhelpful on a development laptop.
 desktop-reset:
-	cd competitor-desktop/src-tauri && cargo run --quiet --bin mini-algothon-competitor -- --reset
+	cd competitor-desktop/src-tauri && cargo run --quiet --bin algothon-competitor -- --reset
 
 frontend: competitor-frontend
 

@@ -2,13 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>MiniAlgothon — proctoring diagnostics</title>
+    <title>Algothon — proctoring diagnostics</title>
     <link rel="stylesheet" href="shared.css" />
     <script src="bridge.js"></script>
   </head>
   <body>
     <div class="desktop-titlebar">
-      <div class="desktop-titlebar-title">MiniAlgothon — Diagnostics</div>
+      <div class="desktop-titlebar-title">Algothon — Diagnostics</div>
       <div class="desktop-controls">
         <button id="win-close" class="win-btn close" type="button" title="Close">✕</button>
       </div>
@@ -101,7 +101,7 @@
             ["Last report", d.seconds_since_ack === null || d.seconds_since_ack === undefined ? "never" : `${d.seconds_since_ack}s ago`],
             ["Reports sent", String(d.seq ?? 0)],
             ["Buffered", `${d.buffered_heartbeats ?? 0} waiting to send`],
-            ["Contest window", d.shell_alive ? "open" : "not running"],
+            ["Contest window", d.shell_alive ? "open" : "not required (browser mode)"],
             ["Signed in as", d.username || "not enrolled"],
             ["Machine", machineId.length >= 12 ? machineId.slice(0, 12) : machineId || "unknown"],
             ["Boot", bootId.length >= 8 ? bootId.slice(0, 8) : bootId || "unknown"],

@@ -107,7 +107,7 @@ pub fn sync_secondary_screen_curtains(app: &tauri::AppHandle, is_multimonitor: b
             &label,
             tauri::WebviewUrl::App("multimonitor.html".into()),
         )
-        .title("MiniAlgothon — Display Restricted")
+        .title("Algothon — Display Restricted")
         .decorations(false)
         .always_on_top(true)
         .resizable(false)

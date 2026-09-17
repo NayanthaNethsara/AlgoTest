@@ -1,8 +1,8 @@
 [package]
-name = "mini-algothon-competitor"
+name = "algothon-competitor"
 version = "0.2.0"
-description = "MiniAlgothon competitor client: proctor agent and contest shell"
-authors = ["MiniAlgothon"]
+description = "Algothon competitor client: proctor agent and contest shell"
+authors = ["Algothon"]
 license = ""
 repository = ""
 edition = "2021"
@@ -13,11 +13,11 @@ name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "mini-algothon-competitor"
+name = "algothon-competitor"
 path = "src/main.rs"
 
 [[bin]]
-name = "mini-algothon-agent"
+name = "algothon-agent"
 path = "src/agent_main.rs"
 
 [build-dependencies]

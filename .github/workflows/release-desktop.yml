@@ -81,26 +81,26 @@ jobs:
         id: addr
         shell: bash
         env:
-          PORTAL: ${{ inputs.portal_url || vars.MINIALGOTHON_SERVER_URL }}
-          API: ${{ inputs.api_url || vars.MINIALGOTHON_API_URL }}
+          PORTAL: ${{ inputs.portal_url || vars.ALGOTHON_SERVER_URL }}
+          API: ${{ inputs.api_url || vars.ALGOTHON_API_URL }}
         run: |
           if [ -z "$PORTAL" ] || [ -z "$API" ]; then
-            echo "::warning::MINIALGOTHON_SERVER_URL or MINIALGOTHON_API_URL not specified. Using defaults."
+            echo "::warning::ALGOTHON_SERVER_URL or ALGOTHON_API_URL not specified. Using defaults."
           fi
           echo "portal=$PORTAL" >> "$GITHUB_OUTPUT"
           echo "api=$API" >> "$GITHUB_OUTPUT"
 
       - name: Build Standalone Agent
         env:
-          MINIALGOTHON_SERVER_URL: ${{ steps.addr.outputs.portal }}
-          MINIALGOTHON_API_URL: ${{ steps.addr.outputs.api }}
-          MINIALGOTHON_PORTAL_ORIGINS: ${{ inputs.portal_origins || vars.MINIALGOTHON_PORTAL_ORIGINS }}
+          ALGOTHON_SERVER_URL: ${{ steps.addr.outputs.portal }}
+          ALGOTHON_API_URL: ${{ steps.addr.outputs.api }}
+          ALGOTHON_PORTAL_ORIGINS: ${{ inputs.portal_origins || vars.ALGOTHON_PORTAL_ORIGINS }}
         shell: bash
         run: |
           if [ "${{ matrix.target }}" = "macos" ]; then
             cd competitor-desktop && pnpm run build:agent
           else
-            cd competitor-desktop/src-tauri && cargo build --release --bin mini-algothon-agent
+            cd competitor-desktop/src-tauri && cargo build --release --bin algothon-agent
           fi
 
       - name: Collect Release Assets
@@ -108,19 +108,19 @@ jobs:
         run: |
           mkdir -p "$GITHUB_WORKSPACE/release_assets"
           if [ "${{ matrix.target }}" = "windows" ]; then
-            cp competitor-desktop/src-tauri/target/release/mini-algothon-agent.exe "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-windows-x64.exe"
+            cp competitor-desktop/src-tauri/target/release/algothon-agent.exe "$GITHUB_WORKSPACE/release_assets/algothon-agent-windows-x64.exe"
           elif [ "${{ matrix.target }}" = "macos" ]; then
-            if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/MiniAlgothon Agent.app" ]; then
-              cp "competitor-desktop/src-tauri/target/release/bundle/macos/MiniAlgothon Agent.app/Contents/MacOS/mini-algothon-agent" "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-macos-binary"
+            if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app" ]; then
+              cp "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos-binary"
               cd "competitor-desktop/src-tauri/target/release/bundle/macos"
-              zip -r "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-macos.zip" "MiniAlgothon Agent.app"
+              zip -r "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos.zip" "Algothon Agent.app"
               cd "$GITHUB_WORKSPACE"
             else
-              cp competitor-desktop/src-tauri/target/release/mini-algothon-agent "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-macos-binary"
+              cp competitor-desktop/src-tauri/target/release/algothon-agent "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos-binary"
             fi
           elif [ "${{ matrix.target }}" = "linux" ]; then
-            cp competitor-desktop/src-tauri/target/release/mini-algothon-agent "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-linux-x64"
-            chmod +x "$GITHUB_WORKSPACE/release_assets/mini-algothon-agent-linux-x64"
+            cp competitor-desktop/src-tauri/target/release/algothon-agent "$GITHUB_WORKSPACE/release_assets/algothon-agent-linux-x64"
+            chmod +x "$GITHUB_WORKSPACE/release_assets/algothon-agent-linux-x64"
           fi
 
       - name: Upload Platform Assets
@@ -170,7 +170,7 @@ jobs:
           if [ -n "${{ inputs.release_name }}" ]; then
             TITLE="${{ inputs.release_name }}"
           else
-            TITLE="MiniAlgothon Proctor Agent $TAG"
+            TITLE="Algothon Proctor Agent $TAG"
           fi
           
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"

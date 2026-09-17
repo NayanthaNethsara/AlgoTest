@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// Where a client points when nobody has told it otherwise.
 ///
-/// Baked in at build time — `MINIALGOTHON_SERVER_URL=… cargo tauri build` — so a
+/// Baked in at build time — `ALGOTHON_SERVER_URL=… cargo tauri build` — so a
 /// contestant never types a URL. Asking them to was the single worst failure mode
 /// in this client: the portal address they enter becomes the only Origin the
 /// loopback server will answer, so one character wrong, or `localhost` where they
@@ -13,22 +13,19 @@ use serde::{Deserialize, Serialize};
 ///
 /// A saved `client.json` still wins, so the contest server can move without
 /// rebuilding — it is just no longer something anyone has to supply by hand.
-pub const DEFAULT_SERVER_URL: &str = match option_env!("MINIALGOTHON_SERVER_URL") {
+pub const DEFAULT_SERVER_URL: &str = match option_env!("ALGOTHON_SERVER_URL") {
     Some(url) => url,
     None => "http://localhost:3000",
 };
 
-pub const DEFAULT_API_URL: &str = match option_env!("MINIALGOTHON_API_URL") {
+pub const DEFAULT_API_URL: &str = match option_env!("ALGOTHON_API_URL") {
     Some(url) => url,
     None => "http://localhost:8080",
 };
 
 /// Additional portal origins the loopback server will answer, comma-separated and
-/// baked in the same way — `MINIALGOTHON_PORTAL_ORIGINS=… cargo tauri build`.
-///
-/// This is what makes a standby portal usable: contestants sent to the backup address
-/// keep their attestation, without their client being reinstalled mid-round.
-pub const DEFAULT_PORTAL_ORIGINS: &str = match option_env!("MINIALGOTHON_PORTAL_ORIGINS") {
+/// baked in the same way — `ALGOTHON_PORTAL_ORIGINS=… cargo tauri build`.
+pub const DEFAULT_PORTAL_ORIGINS: &str = match option_env!("ALGOTHON_PORTAL_ORIGINS") {
     Some(origins) => origins,
     None => "",
 };
@@ -67,10 +64,8 @@ pub struct Enrollment {
     pub consent_version: String,
 }
 
-/// The name `tauri-plugin-autostart` registers under — `package_info().name`,
-/// which is the `productName` in tauri.conf.json. Repeated here because `--reset`
-/// has to remove the login item without a running Tauri app to ask.
-pub const AUTOSTART_NAME: &str = "mini-algothon-competitor";
+/// The name `tauri-plugin-autostart` registers under — `package_info().name`.
+pub const AUTOSTART_NAME: &str = "Algothon Agent";
 
 pub fn config_dir() -> Option<PathBuf> {
     let base = if cfg!(target_os = "windows") {
@@ -81,8 +76,9 @@ pub fn config_dir() -> Option<PathBuf> {
         std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-    };
-    base.map(|b| b.join("com.minialgothon.competitor"))
+    }?;
+
+    Some(base.join("com.algothon.agent"))
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(name: &str) -> Option<T> {
@@ -178,44 +174,65 @@ pub fn clear_buffer() {
 pub fn reset() -> Vec<String> {
     let mut removed = Vec::new();
 
-    if let Some(dir) = config_dir() {
-        for name in ["agent.json", "client.json", "buffer.json"] {
-            let path = dir.join(name);
-            if path.exists() && std::fs::remove_file(&path).is_ok() {
-                removed.push(path.display().to_string());
+    let base_dirs = if cfg!(target_os = "windows") {
+        std::env::var_os("APPDATA").map(PathBuf::from)
+    } else if cfg!(target_os = "macos") {
+        std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support"))
+    } else {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
+    };
+
+    if let Some(base) = base_dirs {
+        for folder in ["com.algothon.agent", "com.minialgothon.competitor"] {
+            let dir = base.join(folder);
+            if dir.exists() {
+                for name in ["agent.json", "client.json", "buffer.json"] {
+                    let path = dir.join(name);
+                    if path.exists() && std::fs::remove_file(&path).is_ok() {
+                        removed.push(path.display().to_string());
+                    }
+                }
+                let _ = std::fs::remove_dir(&dir);
             }
         }
-        // Only if it is now empty: a directory this one shares with anything else
-        // is not ours to delete.
-        let _ = std::fs::remove_dir(&dir);
     }
 
     clear_autostart_entry(&mut removed);
     removed
 }
 
+const KNOWN_AUTOSTART_NAMES: &[&str] = &[
+    "Algothon Agent",
+    "algothon-agent",
+    "algothon-competitor",
+    "MiniAlgothon Agent",
+    "mini-algothon-competitor",
+];
+
 #[cfg(target_os = "macos")]
 fn clear_autostart_entry(removed: &mut Vec<String>) {
-    remove_autostart_file(
-        std::env::var_os("HOME").map(|home| {
-            PathBuf::from(home)
+    if let Some(home) = std::env::var_os("HOME") {
+        for name in KNOWN_AUTOSTART_NAMES {
+            let path = PathBuf::from(&home)
                 .join("Library/LaunchAgents")
-                .join(format!("{AUTOSTART_NAME}.plist"))
-        }),
-        removed,
-    );
+                .join(format!("{name}.plist"));
+            remove_autostart_file(Some(path), removed);
+        }
+    }
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
 fn clear_autostart_entry(removed: &mut Vec<String>) {
-    remove_autostart_file(
-        std::env::var_os("HOME").map(|home| {
-            PathBuf::from(home)
+    if let Some(home) = std::env::var_os("HOME") {
+        for name in KNOWN_AUTOSTART_NAMES {
+            let path = PathBuf::from(&home)
                 .join(".config/autostart")
-                .join(format!("{AUTOSTART_NAME}.desktop"))
-        }),
-        removed,
-    );
+                .join(format!("{name}.desktop"));
+            remove_autostart_file(Some(path), removed);
+        }
+    }
 }
 
 #[cfg(unix)]
@@ -230,13 +247,15 @@ fn remove_autostart_file(path: Option<PathBuf>, removed: &mut Vec<String>) {
 #[cfg(target_os = "windows")]
 fn clear_autostart_entry(removed: &mut Vec<String>) {
     const RUN_KEY: &str = r"HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-    let deleted = std::process::Command::new("reg")
-        .args(["delete", RUN_KEY, "/v", AUTOSTART_NAME, "/f"])
-        .status()
-        .map(|status| status.success())
-        .unwrap_or(false);
-    if deleted {
-        removed.push(format!("{RUN_KEY}\\{AUTOSTART_NAME}"));
+    for name in KNOWN_AUTOSTART_NAMES {
+        let deleted = std::process::Command::new("reg")
+            .args(["delete", RUN_KEY, "/v", name, "/f"])
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false);
+        if deleted {
+            removed.push(format!("{RUN_KEY}\\{name}"));
+        }
     }
 }
 

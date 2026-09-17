@@ -260,7 +260,7 @@ func requireContestSubmissionsAllowedMiddleware(cm *contest.Manager) gin.Handler
 const (
 	attestHeader  = "X-Proctor-Attest"
 	clientHeader  = "X-Proctor-Client"
-	desktopCookie = "mini-algothon-client"
+	desktopCookie = "algothon-client"
 )
 
 func portalAttestNonce(c *gin.Context) string {

@@ -1,9 +1,9 @@
 pub fn injected_lockdown_script(os_name: &str) -> String {
     format!(
         r#"
-        document.cookie = "mini-algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
-        window.__MINIALGOTHON_DESKTOP__ = true;
-        window.__MINIALGOTHON_OS__ = "{os_name}";
+        document.cookie = "algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";
+        window.__ALGOTHON_DESKTOP__ = true;
+        window.__ALGOTHON_OS__ = "{os_name}";
 
         (function() {{
             var style = document.createElement('style');

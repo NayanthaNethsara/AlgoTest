@@ -2,7 +2,7 @@ use sha2::{Digest, Sha256};
 
 /// Salt so the value we transmit is not the raw hardware identifier. It is a
 /// stability key for "same machine", not an inventory record.
-const MACHINE_ID_SALT: &str = "mini-algothon-proctor-v1";
+const MACHINE_ID_SALT: &str = "algothon-proctor-v1";
 
 /// A stable per-machine identifier. Falls back to the hostname, then to a random
 /// value, so enrollment still works on a host where the native id is unreadable —
