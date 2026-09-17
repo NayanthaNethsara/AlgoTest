@@ -75,7 +75,7 @@ export function ContestSettingsDialog({
   }
 
   const duration = Number.parseInt(form.durationMinutes, 10);
-  const durationInvalid = Number.isNaN(duration) || duration < 1;
+  const durationInvalid = Number.isNaN(duration) || duration < 1 || duration > 525600;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -121,6 +121,7 @@ export function ContestSettingsDialog({
                 type="number"
                 inputMode="numeric"
                 min={1}
+                max={525600}
                 value={form.durationMinutes}
                 onChange={(e) => update("durationMinutes", e.target.value)}
                 aria-invalid={durationInvalid}
@@ -128,7 +129,7 @@ export function ContestSettingsDialog({
               />
               {durationInvalid && (
                 <FieldDescription className="text-destructive">
-                  Enter a duration of at least one minute.
+                  Enter a duration between 1 and 525,600 minutes (up to 1 year).
                 </FieldDescription>
               )}
             </Field>
