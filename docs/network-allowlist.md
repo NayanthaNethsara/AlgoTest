@@ -22,8 +22,8 @@ The network gateway/firewall must permit outbound TCP traffic on **Port 443 (HTT
 
 | Domain / FQDN | Port | Protocol | Function |
 |---|---|---|---|
-| `mini-algothon.vercel.app` | `443` | HTTPS | Contest Web Portal UI |
-| `*.vercel.app` | `443` | HTTPS | Vercel Edge CDN, Webpack chunks, static assets |
+| `competitor-portal--algothon-2026.asia-southeast1.hosted.app` | `443` | HTTPS | Contest Web Portal UI |
+| `*.hosted.app`, `*.run.app` | `443` | HTTPS | Google Cloud Run / Firebase App Hosting Edge CDN, static assets |
 | `mini-algothon-api.nayantha.me` | `443` | HTTPS / WSS | Backend API, submission grading, SSE/WebSocket live events |
 
 ### Network Protocol Requirements
@@ -91,7 +91,7 @@ Run the following diagnostics from a contestant workstation on the contest netwo
 
 ### 1. Verify Platform Connectivity
 ```bash
-curl -I https://mini-algothon.vercel.app
+curl -I https://competitor-portal--algothon-2026.asia-southeast1.hosted.app
 curl -I https://mini-algothon-api.nayantha.me/health
 ```
 *Expected Result: `HTTP/2 200` or `HTTP/1.1 200 OK`.*

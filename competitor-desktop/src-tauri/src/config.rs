@@ -15,19 +15,19 @@ use serde::{Deserialize, Serialize};
 /// rebuilding — it is just no longer something anyone has to supply by hand.
 pub const DEFAULT_SERVER_URL: &str = match option_env!("ALGOTHON_SERVER_URL") {
     Some(url) => url,
-    None => "http://localhost:3000",
+    None => "https://competitor-portal--algothon-2026.asia-southeast1.hosted.app",
 };
 
 pub const DEFAULT_API_URL: &str = match option_env!("ALGOTHON_API_URL") {
     Some(url) => url,
-    None => "http://localhost:8080",
+    None => "https://mini-algothon-api.nayantha.me",
 };
 
 /// Additional portal origins the loopback server will answer, comma-separated and
 /// baked in the same way — `ALGOTHON_PORTAL_ORIGINS=… cargo tauri build`.
 pub const DEFAULT_PORTAL_ORIGINS: &str = match option_env!("ALGOTHON_PORTAL_ORIGINS") {
     Some(origins) => origins,
-    None => "",
+    None => "https://competitor-portal--algothon-2026.asia-southeast1.hosted.app,http://localhost:3000",
 };
 
 /// Where the client points.
