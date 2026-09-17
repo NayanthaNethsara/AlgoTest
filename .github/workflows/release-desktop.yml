@@ -118,6 +118,7 @@ jobs:
             else
               cp competitor-desktop/src-tauri/target/release/algothon-agent "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos-binary"
             fi
+            find competitor-desktop/src-tauri/target/release/bundle/dmg -name "*.dmg" -exec cp {} "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos.dmg" \; 2>/dev/null || true
           elif [ "${{ matrix.target }}" = "linux" ]; then
             cp competitor-desktop/src-tauri/target/release/algothon-agent "$GITHUB_WORKSPACE/release_assets/algothon-agent-linux-x64"
             chmod +x "$GITHUB_WORKSPACE/release_assets/algothon-agent-linux-x64"
