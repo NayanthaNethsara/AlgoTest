@@ -20,6 +20,10 @@ import {
   CppIcon,
   PythonIcon,
   JavaScriptIcon,
+  RustIcon,
+  JavaIcon,
+  CIcon,
+  AlgorithmsIcon,
 } from "@/components/icons/language-icons";
 
 interface DocsHubViewProps {
@@ -94,6 +98,14 @@ export function DocsHubView({ languages }: DocsHubViewProps) {
         return <PythonIcon className="h-6 w-6" />;
       case "javascript":
         return <JavaScriptIcon className="h-6 w-6" />;
+      case "rust":
+        return <RustIcon className="h-6 w-6" />;
+      case "java":
+        return <JavaIcon className="h-6 w-6" />;
+      case "c":
+        return <CIcon className="h-6 w-6" />;
+      case "algorithms":
+        return <AlgorithmsIcon className="h-6 w-6" />;
     }
   };
 
@@ -110,17 +122,17 @@ export function DocsHubView({ languages }: DocsHubViewProps) {
               &gt; MAN_PAGE // INDEX
             </div>
             <h1 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
-              Language Documentation & Syntax Reference
+              Language Documentation & Algorithm Reference
             </h1>
             <p className="text-xs sm:text-[13px] text-muted-foreground mt-0.5 leading-relaxed">
-              Concise language guides covering basic syntax, variables, data types, control flow, loops, functions, and standard I/O for competitive programming.
+              Concise language syntax guides, fast I/O templates, standard library collections, and universal algorithm patterns for competitive programming.
             </p>
           </div>
         </div>
       </div>
 
       {/* Language Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {languages.map((lang) => (
           <div
             key={lang.slug}

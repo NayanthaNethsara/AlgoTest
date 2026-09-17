@@ -110,15 +110,10 @@ jobs:
           if [ "${{ matrix.target }}" = "windows" ]; then
             cp competitor-desktop/src-tauri/target/release/algothon-agent.exe "$GITHUB_WORKSPACE/release_assets/algothon-agent-windows-x64.exe"
           elif [ "${{ matrix.target }}" = "macos" ]; then
-            if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app" ]; then
-              cp "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos-binary"
-              cd "competitor-desktop/src-tauri/target/release/bundle/macos"
-              zip -r "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos.zip" "Algothon Agent.app"
-              cd "$GITHUB_WORKSPACE"
-            else
-              cp competitor-desktop/src-tauri/target/release/algothon-agent "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos-binary"
+            find competitor-desktop/src-tauri/target/release/bundle/dmg -name "*.dmg" -exec cp {} "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos.dmg" \;
+            if [ -f "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" ]; then
+              shasum -a 256 "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" | awk '{print $1 "  algothon-agent-macos (runtime binary inside DMG)"}' > "$GITHUB_WORKSPACE/release_assets/macos-runtime-hash.info"
             fi
-            find competitor-desktop/src-tauri/target/release/bundle/dmg -name "*.dmg" -exec cp {} "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos.dmg" \; 2>/dev/null || true
           elif [ "${{ matrix.target }}" = "linux" ]; then
             cp competitor-desktop/src-tauri/target/release/algothon-agent "$GITHUB_WORKSPACE/release_assets/algothon-agent-linux-x64"
             chmod +x "$GITHUB_WORKSPACE/release_assets/algothon-agent-linux-x64"
@@ -149,7 +144,12 @@ jobs:
         shell: bash
         run: |
           cd all_release_assets
-          sha256sum * > checksums.txt 2>/dev/null || shasum -a 256 * > checksums.txt
+          sha256sum algothon-agent-* > checksums.txt 2>/dev/null || shasum -a 256 algothon-agent-* > checksums.txt
+          if [ -f macos-runtime-hash.info ]; then
+            echo "" >> checksums.txt
+            cat macos-runtime-hash.info >> checksums.txt
+            rm -f macos-runtime-hash.info
+          fi
           echo "### Release Binary Checksums (SHA-256)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat checksums.txt >> $GITHUB_STEP_SUMMARY

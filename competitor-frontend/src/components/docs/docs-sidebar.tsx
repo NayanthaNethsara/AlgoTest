@@ -6,6 +6,10 @@ import {
   CppIcon,
   PythonIcon,
   JavaScriptIcon,
+  RustIcon,
+  JavaIcon,
+  CIcon,
+  AlgorithmsIcon,
 } from "@/components/icons/language-icons";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +30,14 @@ export function DocsSidebar({
         return <PythonIcon className="h-4 w-4" />;
       case "javascript":
         return <JavaScriptIcon className="h-4 w-4" />;
+      case "rust":
+        return <RustIcon className="h-4 w-4" />;
+      case "java":
+        return <JavaIcon className="h-4 w-4" />;
+      case "c":
+        return <CIcon className="h-4 w-4" />;
+      case "algorithms":
+        return <AlgorithmsIcon className="h-4 w-4" />;
     }
   };
 

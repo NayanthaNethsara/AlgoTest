@@ -1,4 +1,11 @@
-export type LanguageSlug = "cpp" | "python" | "javascript";
+export type LanguageSlug =
+  | "cpp"
+  | "python"
+  | "java"
+  | "rust"
+  | "c"
+  | "javascript"
+  | "algorithms";
 
 export interface SyntaxItem {
   id: string;
@@ -19,7 +26,7 @@ export interface LanguageDoc {
   slug: LanguageSlug;
   name: string;
   version: string;
-  iconName: "cpp" | "python" | "javascript";
+  iconName: "cpp" | "python" | "java" | "rust" | "c" | "javascript" | "algorithms";
   summary: string;
   topics: DocTopic[];
 }
