@@ -25,6 +25,9 @@ const sandboxGrace = 5 * time.Second
 // fsizeKB bounds any single file the sandboxed program writes.
 const fsizeKB = 4 * 1024 // 4 MB file output bound
 
+// compileFsizeKB bounds single-file compiler output (binaries, object files).
+const compileFsizeKB = 64 * 1024 // 64 MB compile output bound
+
 // openFilesLimit raises isolate's default of 64.
 const openFilesLimit = 256
 
@@ -106,7 +109,7 @@ var specs = map[string]spec{
 	},
 	"rust": {
 		filename:   "main.rs",
-		compileCmd: []string{"rustc", "-O", "main.rs", "-o", "main"},
+		compileCmd: []string{"rustc", "-O", "-C", "strip=symbols", "main.rs", "-o", "main"},
 		runCmd:     []string{"./main"},
 		timeFactor: 1.0,
 	},

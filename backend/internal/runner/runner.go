@@ -189,6 +189,7 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 		m, err := r.execBox(cCtx, slot.BoxID, base, work, "compile", sp.compileCmd, execOpts{
 			wall:       compileTimeout,
 			memoryKB:   compileMemKB,
+			fsizeKB:    compileFsizeKB,
 			cpuSeconds: compileTimeout.Seconds(),
 			core:       slot.Core,
 		})
@@ -384,6 +385,7 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		m, err := r.execBox(cCtx, slot.BoxID, base, work, "compile", sp.compileCmd, execOpts{
 			wall:       compileTimeout,
 			memoryKB:   compileMemKB,
+			fsizeKB:    compileFsizeKB,
 			cpuSeconds: compileTimeout.Seconds(),
 			core:       slot.Core,
 		})
@@ -501,6 +503,7 @@ type execOpts struct {
 	cpuSeconds float64
 	wall       time.Duration
 	memoryKB   int64
+	fsizeKB    int
 	stdin      string
 	core       int
 }
@@ -523,6 +526,11 @@ func (r *Runner) execBox(
 		memKB = r.memKB
 	}
 
+	limitFsizeKB := fsizeKB
+	if opts.fsizeKB > 0 {
+		limitFsizeKB = opts.fsizeKB
+	}
+
 	args := []string{
 		"--cg",
 		"--box-id=" + strconv.Itoa(boxID),
@@ -539,7 +547,7 @@ func (r *Runner) execBox(
 		"--chdir=" + sandboxDir,
 		"--processes=" + strconv.Itoa(processLimit),
 		"--open-files=" + strconv.Itoa(openFilesLimit),
-		"--fsize=" + strconv.Itoa(fsizeKB),
+		"--fsize=" + strconv.Itoa(limitFsizeKB),
 		"--cg-mem=" + strconv.FormatInt(memKB, 10),
 		"--wall-time=" + formatSeconds(opts.wall),
 		"--stdout=" + sandboxDir + "/" + step + ".out",
