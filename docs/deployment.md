@@ -1,6 +1,6 @@
 # Deployment Guide
 
-How to run MiniAlgothon on a single Google Compute Engine VM: image built by
+How to run Algothon on a single Google Compute Engine VM: image built by
 GitHub Actions, published to GitHub Container Registry, pulled and run manually
 on the host.
 
@@ -25,7 +25,7 @@ flowchart TD
     BackendContainer -->|"127.0.0.1:5432"| PostgresContainer
 ```
 
-MiniAlgothon supports both single-VM all-in-one deployments and multi-VM horizontally
+Algothon supports both single-VM all-in-one deployments and multi-VM horizontally
 scaled worker clusters. Submissions are queued atomically in PostgreSQL using
 `FOR UPDATE SKIP LOCKED`, and real-time verdicts are broadcast across instances using
 PostgreSQL `LISTEN/NOTIFY`. A single larger VM is ideal for smaller contests, while
@@ -346,8 +346,8 @@ make grafana-remote      # in another; Grafana on http://localhost:3002
 ```
 
 - Pre-provisioned dashboards:
-  - **MiniAlgothon - Platform & System Overview**: Live HTTP throughput, P95 latencies, judge workers, runner boxes, database connection pool, and host CPU/RAM.
-  - **MiniAlgothon - Logs & Live Diagnostics**: Real-time log streaming with level filtering and error search.
+  - **Algothon - Platform & System Overview**: Live HTTP throughput, P95 latencies, judge workers, runner boxes, database connection pool, and host CPU/RAM.
+  - **Algothon - Logs & Live Diagnostics**: Real-time log streaming with level filtering and error search.
 - See [monitoring.md](monitoring.md) for the full local/remote workflow, LogQL/PromQL queries, and the metrics reference.
 
 ## Step 11: Verify

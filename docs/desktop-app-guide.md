@@ -1,7 +1,7 @@
 # Competitor Desktop Application Guide
 
 This guide covers installation, Gatekeeper troubleshooting, building, and deployment for the
-**MiniAlgothon Competitor Client** (Tauri v2 + Rust). See
+**Algothon Competitor Client** (Tauri v2 + Rust). See
 [client-design.md](client-design.md) for why it is built the way it is.
 
 ---

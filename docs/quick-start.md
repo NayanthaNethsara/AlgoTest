@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-This guide describes how to set up, configure, and run MiniAlgothon in a local development environment.
+This guide describes how to set up, configure, and run Algothon in a local development environment.
 
 ---
 
@@ -18,7 +18,7 @@ Ensure the following tools are installed on your host system:
 
 ## Architecture & Service Map
 
-MiniAlgothon consists of four core local services:
+Algothon consists of four core local services:
 
 | Service | Technology | Port / Access | Description |
 | --- | --- | --- | --- |

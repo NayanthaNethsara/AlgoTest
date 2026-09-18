@@ -1,4 +1,4 @@
-# MiniAlgothon Isolated Load Testing Suite
+# Algothon Isolated Load Testing Suite
 
 A standalone, production-grade load testing harness designed to stress test the cloud-hosted platform (`https://mini-algothon-api.nayantha.me`) from an external testing machine without modifying any files in the core codebase.
 
@@ -141,7 +141,7 @@ During a load test, you can monitor cloud system telemetry in real time:
    make grafana-remote
    ```
 3. Open `http://localhost:3002` (credentials: `admin` / `admin`).
-4. Select the **MiniAlgothon - Platform & System Overview** dashboard to monitor:
+4. Select the **Algothon - Platform & System Overview** dashboard to monitor:
    - **HTTP Request Rate & 5xx Error Rate**
    - **HTTP Response Latency Percentiles (P95, P99)**
    - **Active Judge Workers & Submission Queue Depth**

@@ -1,6 +1,6 @@
 # Observability & Monitoring Guide
 
-MiniAlgothon runs a single-VM observability stack of **Prometheus**, **Loki**,
+Algothon runs a single-VM observability stack of **Prometheus**, **Loki**,
 **Promtail**, and **Node Exporter**, read through a **Grafana** that runs on your
 own machine rather than on the server. Inspecting logs and diagnosing performance
 needs no interactive SSH session on the VM.
@@ -77,7 +77,7 @@ anywhere but your own machine).
 
 Both datasources are provisioned automatically -- Prometheus at
 `http://prometheus:9090` and Loki at `http://loki:3100` -- so there is nothing to
-wire up by hand. The two dashboards appear under **Dashboards -> MiniAlgothon**.
+wire up by hand. The two dashboards appear under **Dashboards -> Algothon**.
 
 ### Two DOWN scrape targets is normal locally
 
@@ -202,9 +202,9 @@ Tunnelling requires `roles/iap.tunnelResourceAccessor` and `roles/compute.osLogi
 
 ## Pre-Configured Dashboards
 
-Grafana is provisioned with two dashboards located in the `MiniAlgothon` folder:
+Grafana is provisioned with two dashboards located in the `Algothon` folder:
 
-### 1. MiniAlgothon - Platform & System Overview (`algothon-overview`)
+### 1. Algothon - Platform & System Overview (`algothon-overview`)
 
 Provides real-time visibility into all layers of the system:
 - **System Health Cards**: API status, HTTP Request Rate (RPS), 5xx error rate %, 4xx error rate %, P95 latency, active DB connections, active judge workers, sandbox boxes in use.
@@ -213,7 +213,7 @@ Provides real-time visibility into all layers of the system:
 - **Database & Go Runtime**: PostgreSQL connection pool (Acquired vs Idle vs Max), connection acquisition wait duration, active goroutines, heap memory usage.
 - **Host VM & Hardware**: CPU usage %, memory usage %, root disk space available, network throughput.
 
-### 2. MiniAlgothon - Logs & Live Diagnostics (`algothon-logs`)
+### 2. Algothon - Logs & Live Diagnostics (`algothon-logs`)
 
 Provides live log streaming and diagnostic queries without requiring SSH:
 - **Log Volume Histogram**: Ingestion rate by log level (`error`, `warn`, `info`, `debug`) over time.

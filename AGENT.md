@@ -1,6 +1,6 @@
 # Agent Rules
 
-General rules and technical conventions for working in the MiniAlgothon codebase.
+General rules and technical conventions for working in the Algothon codebase.
 
 ## Code Style
 

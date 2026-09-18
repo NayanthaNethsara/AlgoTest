@@ -1,6 +1,6 @@
-# MiniAlgothon Backend Service
+# Algothon Backend Service
 
-The MiniAlgothon backend is a high-performance Go service powered by the Gin web framework and PostgreSQL 16. It handles the core REST API, real-time Server-Sent Events (SSE) verdict streaming, participant telemetry ingestion, proctoring anomaly evaluation, immutable audit logging, and untrusted code execution using the Linux `isolate` sandbox.
+The Algothon backend is a high-performance Go service powered by the Gin web framework and PostgreSQL 16. It handles the core REST API, real-time Server-Sent Events (SSE) verdict streaming, participant telemetry ingestion, proctoring anomaly evaluation, immutable audit logging, and untrusted code execution using the Linux `isolate` sandbox.
 
 ---
 
@@ -46,7 +46,7 @@ backend/
 
 ## Distributed Judge Engine & Queue Mechanics
 
-MiniAlgothon uses an atomic, PostgreSQL-backed submission queue that eliminates the need for external broker dependencies like Redis or RabbitMQ:
+Algothon uses an atomic, PostgreSQL-backed submission queue that eliminates the need for external broker dependencies like Redis or RabbitMQ:
 
 ```mermaid
 sequenceDiagram

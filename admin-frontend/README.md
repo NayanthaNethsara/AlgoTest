@@ -1,6 +1,6 @@
-# MiniAlgothon Admin Management Portal
+# Algothon Admin Management Portal
 
-The MiniAlgothon Admin Portal is a specialized Next.js 15 web application designed for contest organizers, system administrators, and problem authors. It provides real-time contest orchestration, problem authored management, user and team administration, submission reviews, live proctoring telemetry monitoring, and immutable audit log exploration.
+The Algothon Admin Portal is a specialized Next.js 15 web application designed for contest organizers, system administrators, and problem authors. It provides real-time contest orchestration, problem authored management, user and team administration, submission reviews, live proctoring telemetry monitoring, and immutable audit log exploration.
 
 ---
 

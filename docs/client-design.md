@@ -53,7 +53,7 @@ flowchart LR
             LocalIDE["Contestant IDE & Compilers (Unwatched & Unrestricted)"]
         end
 
-        subgraph ClientProcesses["MiniAlgothon Client Processes"]
+        subgraph ClientProcesses["Algothon Client Processes"]
             Shell["Contest Shell (Tauri Webview Window: Crashable)"]
             Agent["Proctor Daemon (Background Process: Loopback 127.0.0.1:47615)"]
         end
