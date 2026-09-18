@@ -32,3 +32,11 @@ export type AdminSubmission = {
   reviewedAt?: string;
   reviewedBy?: string;
 };
+
+export type SubmissionCounts = {
+  queued: number;
+  running: number;
+  passed: number;
+  failed: number;
+  rejected: number;
+};

@@ -23,10 +23,10 @@ import {
   reviewSubmissionAction,
   unstickTeamAction,
 } from "@/lib/actions/submissions";
-import type { AdminSubmission } from "@/types/submission";
+import type { AdminSubmission, SubmissionCounts } from "@/types/submission";
 import { getErrorMessage } from "@/lib/errors";
 import { useAsyncData } from "@/hooks/use-async-data";
-import { usePagination } from "@/hooks/use-pagination";
+import { useServerPagination } from "@/hooks/use-pagination";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataPagination } from "@/components/shell/data-pagination";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/shell/data-states";
@@ -68,21 +68,54 @@ const STATUS_OPTIONS = [
 
 const NO_SUBMISSIONS: AdminSubmission[] = [];
 
+type SubmissionsPageData = {
+  submissions: AdminSubmission[];
+  total: number;
+  counts: SubmissionCounts;
+};
+
+const EMPTY_COUNTS: SubmissionCounts = {
+  queued: 0,
+  running: 0,
+  passed: 0,
+  failed: 0,
+  rejected: 0,
+};
+
+const EMPTY_PAGE_DATA: SubmissionsPageData = {
+  submissions: NO_SUBMISSIONS,
+  total: 0,
+  counts: EMPTY_COUNTS,
+};
+
 export default function AdminSubmissionsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  const loader = useCallback(async () => {
-    const res = await listAdminSubmissionsAction(statusFilter === "all" ? "" : statusFilter);
-    return res.submissions || NO_SUBMISSIONS;
-  }, [statusFilter]);
+  const loader = useCallback(async (): Promise<SubmissionsPageData> => {
+    const offset = (page - 1) * pageSize;
+    const res = await listAdminSubmissionsAction(
+      statusFilter === "all" ? "" : statusFilter,
+      "",
+      "",
+      pageSize,
+      offset
+    );
+    return {
+      submissions: res.submissions || NO_SUBMISSIONS,
+      total: res.total || 0,
+      counts: res.counts || EMPTY_COUNTS,
+    };
+  }, [statusFilter, page, pageSize]);
 
   const {
-    data: submissions,
+    data,
     error,
     loading,
     refreshing,
     refresh,
-  } = useAsyncData(loader, NO_SUBMISSIONS, "Failed to load submissions.");
+  } = useAsyncData(loader, EMPTY_PAGE_DATA, "Failed to load submissions.");
 
   const [selectedSubmission, setSelectedSubmission] = useState<AdminSubmission | null>(null);
   const [reviewTarget, setReviewTarget] = useState<AdminSubmission | null>(null);
@@ -91,18 +124,20 @@ export default function AdminSubmissionsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState(false);
 
-  const counts = useMemo(
-    () => ({
-      queued: submissions.filter((s) => s.status === "queued").length,
-      running: submissions.filter((s) => s.status === "running").length,
-      passed: submissions.filter((s) => s.status === "passed").length,
-      failed: submissions.filter((s) => s.status === "failed").length,
-      rejected: submissions.filter((s) => s.reviewStatus === "rejected").length,
-    }),
-    [submissions]
-  );
+  const submissions = data.submissions;
+  const counts = data.counts;
 
-  const pagination = usePagination(submissions);
+  const pagination = useServerPagination({
+    items: data.submissions,
+    total: data.total,
+    page,
+    pageSize,
+    onPageChange: setPage,
+    onPageSizeChange: (size) => {
+      setPageSize(size);
+      setPage(1);
+    },
+  });
 
   async function inspectSubmission(sub: AdminSubmission) {
     setSelectedSubmission(sub);
@@ -194,7 +229,10 @@ export default function AdminSubmissionsPage() {
           <>
             <SimpleSelect
               value={statusFilter}
-              onValueChange={setStatusFilter}
+              onValueChange={(val) => {
+                setStatusFilter(val);
+                setPage(1);
+              }}
               options={STATUS_OPTIONS}
               aria-label="Filter by status"
               className="w-36 text-xs"

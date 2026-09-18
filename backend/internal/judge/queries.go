@@ -163,3 +163,27 @@ func (r *Repository) GetTeamProgress(ctx context.Context, teamID string, userID 
 	}
 	return result, nil
 }
+
+func (r *Repository) GetSubmissionCounts(ctx context.Context) (SubmissionCounts, error) {
+	query := `
+		SELECT 
+			COALESCE(COUNT(*) FILTER (WHERE state = 'queued'), 0)::INT,
+			COALESCE(COUNT(*) FILTER (WHERE state = 'running'), 0)::INT,
+			COALESCE(COUNT(*) FILTER (WHERE state = 'passed'), 0)::INT,
+			COALESCE(COUNT(*) FILTER (WHERE state = 'failed'), 0)::INT,
+			COALESCE(COUNT(*) FILTER (WHERE review_status = 'rejected'), 0)::INT
+		FROM submissions;
+	`
+	var counts SubmissionCounts
+	err := r.pool.QueryRow(ctx, query).Scan(
+		&counts.Queued,
+		&counts.Running,
+		&counts.Passed,
+		&counts.Failed,
+		&counts.Rejected,
+	)
+	if err != nil {
+		return SubmissionCounts{}, fmt.Errorf("get submission counts: %w", err)
+	}
+	return counts, nil
+}

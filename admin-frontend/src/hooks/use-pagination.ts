@@ -77,3 +77,36 @@ export function pageWindow(page: number, pageCount: number, maxSlots = 7): (numb
   }
   return result;
 }
+
+export type ServerPaginationOptions<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+};
+
+export function useServerPagination<T>({
+  items,
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+}: ServerPaginationOptions<T>): PaginationState<T> {
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(1, page), pageCount);
+
+  return {
+    page: safePage,
+    pageSize,
+    pageCount,
+    totalItems: total,
+    firstItem: total === 0 ? 0 : (safePage - 1) * pageSize + 1,
+    lastItem: Math.min(safePage * pageSize, total),
+    items,
+    setPage: onPageChange,
+    setPageSize: onPageSizeChange,
+  };
+}

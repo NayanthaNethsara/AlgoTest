@@ -18,18 +18,18 @@ func (h *handler) listAdminSubmissions(c *gin.Context) {
 	teamID := c.Query("team_id")
 
 	limit := 50
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-			if parsed > 5000 {
-				parsed = 5000
+	if limitQuery := c.Query("limit"); limitQuery != "" {
+		if parsedLimit, err := strconv.Atoi(limitQuery); err == nil && parsedLimit > 0 {
+			if parsedLimit > 5000 {
+				parsedLimit = 5000
 			}
-			limit = parsed
+			limit = parsedLimit
 		}
 	}
 	offset := 0
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
-			offset = parsed
+	if offsetQuery := c.Query("offset"); offsetQuery != "" {
+		if parsedOffset, err := strconv.Atoi(offsetQuery); err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
 		}
 	}
 
@@ -39,11 +39,17 @@ func (h *handler) listAdminSubmissions(c *gin.Context) {
 		return
 	}
 
+	counts, err := h.judge.Repo().GetSubmissionCounts(c.Request.Context())
+	if err != nil && h.log != nil {
+		h.log.Warn("failed to fetch submission counts", "error", err)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"submissions": submissions,
 		"total":       total,
 		"limit":       limit,
 		"offset":      offset,
+		"counts":      counts,
 	})
 }
 

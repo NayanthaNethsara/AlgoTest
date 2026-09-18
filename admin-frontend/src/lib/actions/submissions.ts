@@ -7,7 +7,7 @@ import {
   rejudgeProblemSchema,
   cancelSubmissionSchema,
 } from "@/lib/validation/submission";
-import type { AdminSubmission, ReviewStatus } from "@/types/submission";
+import type { AdminSubmission, ReviewStatus, SubmissionCounts } from "@/types/submission";
 
 function getErrorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -19,7 +19,7 @@ export async function listAdminSubmissionsAction(
   teamId = "",
   limit?: number,
   offset?: number
-): Promise<{ submissions: AdminSubmission[]; total: number }> {
+): Promise<{ submissions: AdminSubmission[]; total: number; counts?: SubmissionCounts }> {
   try {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);

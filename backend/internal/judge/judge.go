@@ -113,3 +113,11 @@ type ProblemProgress struct {
 	BestScore int    `json:"bestScore"`
 	Status    string `json:"status"`
 }
+
+type SubmissionCounts struct {
+	Queued   int `json:"queued"`
+	Running  int `json:"running"`
+	Passed   int `json:"passed"`
+	Failed   int `json:"failed"`
+	Rejected int `json:"rejected"`
+}
