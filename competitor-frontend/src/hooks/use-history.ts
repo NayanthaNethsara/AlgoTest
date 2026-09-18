@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { listSubmissionsAction } from "@/actions/code";
 import { HISTORY_STORAGE_PREFIX, MAX_HISTORY_SNAPSHOTS } from "@/lib/constants";
 import type { Snapshot, SnapshotTrigger } from "@/types/history";
+import type { SubmissionItem } from "@/types/submission";
 
 function storageKey(problemId: string) {
   return `${HISTORY_STORAGE_PREFIX}${problemId}`;
@@ -21,10 +23,88 @@ function generateSnapshotId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
+function mergeServerSubmissions(
+  localSnapshots: Snapshot[],
+  serverSubmissions: SubmissionItem[],
+): Snapshot[] {
+  if (!serverSubmissions || serverSubmissions.length === 0) {
+    return localSnapshots;
+  }
+
+  const merged = [...localSnapshots];
+  let hasChanges = false;
+
+  for (const sub of serverSubmissions) {
+    if (!sub.submissionId) continue;
+
+    const existingIndex = merged.findIndex(
+      (snapshot) => snapshot.submissionId === sub.submissionId,
+    );
+
+    if (existingIndex !== -1) {
+      const existing = merged[existingIndex];
+      if (!existing.code && sub.code) {
+        merged[existingIndex] = {
+          ...existing,
+          code: sub.code,
+          verdict: sub.status ?? existing.verdict,
+          score: sub.score ?? existing.score,
+        };
+        hasChanges = true;
+      }
+    } else {
+      merged.push({
+        id: `server-${sub.submissionId}`,
+        at: sub.timestamp || Date.now(),
+        trigger: "submitted",
+        language: sub.language ?? "cpp",
+        code: sub.code ?? "",
+        verdict: sub.status,
+        score: sub.score,
+        maxScore: sub.maxScore,
+        submissionId: sub.submissionId,
+      });
+      hasChanges = true;
+    }
+  }
+
+  if (!hasChanges) return localSnapshots;
+
+  merged.sort((first, second) => second.at - first.at);
+  return merged.slice(0, MAX_HISTORY_SNAPSHOTS);
+}
+
 export function useHistory(problemId: string) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>(() =>
     loadSnapshots(problemId),
   );
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function syncServerSubmissions() {
+      try {
+        const serverSubmissions = await listSubmissionsAction(problemId);
+        if (isCancelled || serverSubmissions.length === 0) return;
+
+        setSnapshots((current) => {
+          const merged = mergeServerSubmissions(current, serverSubmissions);
+          if (merged !== current && typeof window !== "undefined") {
+            localStorage.setItem(storageKey(problemId), JSON.stringify(merged));
+          }
+          return merged;
+        });
+      } catch {
+        // Fall back to local snapshots on network failure
+      }
+    }
+
+    void syncServerSubmissions();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [problemId]);
 
   const record = useCallback(
     (

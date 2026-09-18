@@ -52,11 +52,11 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
       ? 0
       : Number(localStorage.getItem(bestKey) ?? 0);
 
+  const isCurrentProblemSubmitting =
+    submitting || activeSubmission?.problemId === problem.id;
+
   const activeResult =
-    lastResult &&
-    (!lastResult.problemId ||
-      lastResult.problemId === problem.id ||
-      lastResult.submissionId === submitResult?.submissionId)
+    lastResult && lastResult.problemId === problem.id
       ? lastResult
       : submitResult;
 
@@ -138,6 +138,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     if (isCurrentProblemSubmitting || submitCooldown > 0 || isPaused || isEnded || isNotStarted) return;
     setTab("submission");
     setSubmitting(true);
+    setSubmitResult(null);
     try {
       const res = await submitFast(problem.id, code, best, language.id, editorTelemetry);
       setSubmitResult(res);
@@ -184,14 +185,6 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     setLanguage(lang);
     setCode(snapshot.code);
   }
-
-  const isCurrentProblemSubmitting =
-    submitting ||
-    Boolean(
-      activeSubmission &&
-      (activeSubmission.problemId === problem.id ||
-        activeSubmission.id === submitResult?.submissionId),
-    );
 
   const isRunDisabled = !isRunFeatureEnabled || running || runCooldown > 0 || isPaused || isNotStarted;
   const isSubmitDisabled =

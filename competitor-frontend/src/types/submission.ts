@@ -12,6 +12,7 @@ export type SubmissionItem = {
   submittedBy: string;
   teamName: string;
   language: string;
+  code?: string;
   score: number;
   maxScore: number;
   status: string;
