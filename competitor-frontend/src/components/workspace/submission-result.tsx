@@ -21,8 +21,9 @@ export function SubmissionResult({
     result?.status === "failed";
 
   const isEvaluating =
-    !hasFinalVerdict &&
-    (submitting || result?.status === "queued" || result?.status === "running");
+    submitting ||
+    (!hasFinalVerdict &&
+      (result?.status === "queued" || result?.status === "running"));
 
   if (isEvaluating) {
     const queueMsg =

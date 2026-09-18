@@ -194,6 +194,7 @@ export async function listSubmissionsAction(
         submittedBy: item.userName,
         teamName: item.teamName,
         language: item.language,
+        code: item.code,
         score: item.score,
         maxScore: item.maxScore,
         status: item.verdict ?? item.status,

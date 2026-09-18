@@ -275,6 +275,13 @@ func (h *handler) listUserSubmissions(c *gin.Context) {
 
 	statusFilter := c.Query("status")
 	problemID := c.Query("problem_id")
+	if problemID != "" {
+		if _, err := uuid.Parse(problemID); err != nil {
+			if p, err := h.problems.GetPublishedBySlug(c.Request.Context(), problemID); err == nil {
+				problemID = p.ID
+			}
+		}
+	}
 	limit := 50
 	offset := 0
 
@@ -283,7 +290,9 @@ func (h *handler) listUserSubmissions(c *gin.Context) {
 		teamID = *u.TeamID
 	}
 
-	submissions, total, err := h.judge.Repo().ListOwnSubmissions(c.Request.Context(), statusFilter, problemID, u.ID, teamID, limit, offset)
+	includeCode := c.Query("include_code") == "true" || problemID != ""
+
+	submissions, total, err := h.judge.Repo().ListOwnSubmissions(c.Request.Context(), statusFilter, problemID, u.ID, teamID, limit, offset, includeCode)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list submissions: " + err.Error()})
 		return

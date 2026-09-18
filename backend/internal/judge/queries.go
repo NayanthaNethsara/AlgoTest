@@ -20,7 +20,7 @@ func (r *Repository) ListAdminSubmissions(ctx context.Context, statusFilter, pro
 	return r.listSubmissions(ctx, whereClause, args, argID, statusFilter, problemID, limit, offset, false)
 }
 
-func (r *Repository) ListOwnSubmissions(ctx context.Context, statusFilter, problemID, userID, teamID string, limit, offset int) ([]AdminSubmissionItem, int, error) {
+func (r *Repository) ListOwnSubmissions(ctx context.Context, statusFilter, problemID, userID, teamID string, limit, offset int, includeCode bool) ([]AdminSubmissionItem, int, error) {
 	if userID == "" {
 		return nil, 0, fmt.Errorf("list own submissions: no user")
 	}
@@ -35,7 +35,7 @@ func (r *Repository) ListOwnSubmissions(ctx context.Context, statusFilter, probl
 		argID++
 	}
 
-	return r.listSubmissions(ctx, ownerClause, args, argID, statusFilter, problemID, limit, offset, false)
+	return r.listSubmissions(ctx, ownerClause, args, argID, statusFilter, problemID, limit, offset, includeCode)
 }
 
 func (r *Repository) listSubmissions(

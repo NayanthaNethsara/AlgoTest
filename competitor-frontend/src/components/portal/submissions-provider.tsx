@@ -264,6 +264,9 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     language = "cpp",
     telemetry?: SubmissionTelemetry,
   ): Promise<SubmitResult> {
+    if (lastResult?.problemId === problemId) {
+      setLastResult(null);
+    }
     try {
       const result = await submitCode(
         problemId,
