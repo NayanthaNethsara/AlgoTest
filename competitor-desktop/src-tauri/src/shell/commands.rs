@@ -72,7 +72,7 @@ pub fn retry_connection(window: tauri::WebviewWindow, state: State<'_, ShellStat
 
 #[tauri::command]
 pub fn open_proctor_setup() -> Result<(), String> {
-    if !crate::agent::loopback::agent_already_running() {
+    if !crate::agent::loopback::is_agent_running() {
         launch_agent();
         std::thread::sleep(Duration::from_millis(800));
     }

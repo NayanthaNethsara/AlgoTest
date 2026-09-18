@@ -41,7 +41,7 @@ pub fn run() {
         }
     };
 
-    if !crate::agent::loopback::agent_already_running() {
+    if !crate::agent::loopback::is_agent_running() {
         watchdogs::launch_agent();
     }
 

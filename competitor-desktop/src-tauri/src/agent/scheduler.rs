@@ -12,8 +12,6 @@ use crate::signals::{
 };
 use crate::AGENT_VERSION;
 
-/// The base tick. Everything else is a multiple of it, so foreground focus is
-/// sampled far more often than the heartbeat that reports it.
 const TICK: Duration = Duration::from_secs(5);
 
 pub fn spawn(state: Arc<AgentState>) {
@@ -45,10 +43,6 @@ fn run(state: Arc<AgentState>) {
         let ticks_per = |seconds: u64| seconds.div_ceil(TICK.as_secs()).max(1);
         let due = |seconds: u64| tick % ticks_per(seconds) == 0;
 
-        // Report on the very first tick. Waiting a full interval leaves the portal
-        // with no acknowledged heartbeat to point at, which it can only read as
-        // "this agent is not reporting" — a false network alarm every startup, and
-        // 300 of them at once when a contest begins.
         let forced = state.take_forced_heartbeat();
         let enrolled = state.is_enrolled() && !state.revoked.load(Ordering::Relaxed);
 
@@ -64,7 +58,7 @@ fn run(state: Arc<AgentState>) {
                 foreground_dwell: dwell.drain(now),
                 foreground_app: dwell.current(),
                 ports: cached_ports.clone(),
-                internet_reachable: reachability.reachable(),
+                internet_reachable: reachability.is_reachable(),
                 process_matches: processes.matches,
                 total_processes: processes.total_count,
                 lan_ip: lan.clone(),
@@ -74,8 +68,6 @@ fn run(state: Arc<AgentState>) {
             send(&state, &transport, report);
         }
 
-        // Probed after the heartbeat so a first-run port sweep cannot delay the
-        // first report; the results ride along on the next one.
         if due(policy.port_probe_seconds) {
             cached_ports = probe_localhost_ports();
         }
@@ -89,13 +81,6 @@ fn run(state: Arc<AgentState>) {
     }
 }
 
-/// Sleeps out the tick, but wakes early once a heartbeat has been forced.
-///
-/// Enrolment forces one, and everything the contestant can actually see then waits
-/// on the result: the setup window's first-report check, and the portal's lock
-/// banner after it. Sleeping the full tick in the middle of that adds up to five
-/// seconds of invisible waiting to the one moment someone is watching the screen
-/// for a sign that proctoring works.
 fn wait_for_next_tick(state: &Arc<AgentState>) {
     const SLICE: Duration = Duration::from_millis(100);
 
@@ -134,8 +119,6 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
 
     match transport.heartbeat(&api_url, &token, &heartbeat) {
         Ok(()) => {
-            // Publish the nonce only once the server has stored it, so the portal
-            // never presents a value the server has never seen.
             state.publish_nonce(nonce);
             state.on_ack();
             state.clear_rejections();
@@ -151,9 +134,6 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
             state.on_error(format!("heartbeat rejected: {detail}"));
             state.log("rejected", detail);
 
-            // A rejection the agent cannot fix by retrying would otherwise repeat
-            // forever, and every one of those keeps submissions locked. Declaring a
-            // fresh boot resets the sequence the server is objecting to.
             if state.note_rejection() >= 2 {
                 state.log("recovering", "starting a new boot after repeated rejections".to_string());
                 state.rotate_boot();
@@ -167,8 +147,6 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
     }
 }
 
-/// Replays buffered heartbeats after a reconnect so a server-side outage leaves a
-/// continuous timeline instead of a contestant-shaped hole in it.
 fn flush_buffer(state: &Arc<AgentState>, transport: &Transport, api_url: &str, token: &str) {
     let pending = state.buffer_take();
     if pending.is_empty() {
@@ -205,13 +183,9 @@ fn refresh_policy(state: &Arc<AgentState>, transport: &Transport) {
 }
 
 fn new_nonce() -> String {
-    let mut value = uuid::Uuid::new_v4().to_string();
-    value.retain(|c| c != '-');
-    value
+    uuid::Uuid::new_v4().simple().to_string()
 }
 
-/// Records a deliberate stop before exiting. A clean stop is neutral evidence; a
-/// hard kill is not, and the contestant deserves the difference to be visible.
 pub fn report_shutdown(state: &Arc<AgentState>, reason: &str) {
     let transport = Transport::new();
     if let (api_url, Some(token)) = (state.api_url(), state.token()) {

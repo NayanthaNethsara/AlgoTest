@@ -8,20 +8,26 @@ pub struct ProcessMatchReport {
 }
 
 pub fn collect_matched_processes(sys: &mut System, denylist: &[String]) -> ProcessMatchReport {
-    sys.refresh_processes_specifics(ProcessRefreshKind::everything());
+    sys.refresh_processes_specifics(
+        ProcessRefreshKind::new()
+            .with_cmd(sysinfo::UpdateKind::Always)
+            .with_exe(sysinfo::UpdateKind::Always),
+    );
 
     let mut matches: Vec<String> = Vec::new();
     let terms: Vec<Vec<String>> = denylist.iter().map(|term| tokenize(term)).collect();
 
     for process in sys.processes().values() {
-        let name = process.name().to_string();
-        let name_tokens = tokenize(&name);
-        let cmd_tokens = tokenize(&process.cmd().join(" "));
-        let exe_str = process
+        let name_tokens = tokenize(process.name());
+        let mut cmd_tokens = Vec::new();
+        for arg in process.cmd() {
+            cmd_tokens.extend(tokenize(arg));
+        }
+        let exe_tokens = process
             .exe()
-            .map(|p| p.to_string_lossy().to_string())
+            .and_then(|p| p.to_str())
+            .map(tokenize)
             .unwrap_or_default();
-        let exe_tokens = tokenize(&exe_str);
 
         for (i, term) in terms.iter().enumerate() {
             if matches_term(&name_tokens, term)

@@ -1,11 +1,6 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-/// Accumulates how long each application held focus between heartbeats.
-///
-/// A single instantaneous sample every 15 seconds misses a ten-second glance at a
-/// tethered browser entirely. Sampling every few seconds and reporting dwell keeps
-/// the payload just as small while making short visits visible.
 pub struct DwellTracker {
     totals: HashMap<String, u64>,
     current: Option<String>,
@@ -19,8 +14,8 @@ impl DwellTracker {
 
     pub fn sample(&mut self, app_id: &str, now: Instant) {
         let elapsed = now.duration_since(self.since).as_millis() as u64;
-        if let Some(previous) = self.current.clone() {
-            *self.totals.entry(previous).or_insert(0) += elapsed;
+        if let Some(ref previous) = self.current {
+            *self.totals.entry(previous.clone()).or_insert(0) += elapsed;
         }
         self.since = now;
         self.current = if app_id.is_empty() { None } else { Some(app_id.to_string()) };
@@ -30,8 +25,8 @@ impl DwellTracker {
     /// currently focused app as the open interval.
     pub fn drain(&mut self, now: Instant) -> HashMap<String, u64> {
         let elapsed = now.duration_since(self.since).as_millis() as u64;
-        if let Some(current) = self.current.clone() {
-            *self.totals.entry(current).or_insert(0) += elapsed;
+        if let Some(ref current) = self.current {
+            *self.totals.entry(current.clone()).or_insert(0) += elapsed;
         }
         self.since = now;
         std::mem::take(&mut self.totals)

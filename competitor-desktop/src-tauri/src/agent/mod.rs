@@ -15,18 +15,14 @@ use tauri_plugin_autostart::MacosLauncher;
 
 use state::AgentState;
 
-/// Runs the proctor agent: no visible window by default, a tray icon for its whole
-/// lifetime, and a loopback server the portal can use to prove co-location.
 pub fn run() {
-    if loopback::agent_already_running() {
+    if loopback::is_agent_running() {
         log::warn!("another proctor agent is already running; exiting");
         return;
     }
 
     let state = Arc::new(AgentState::new());
 
-    // The loopback bind is also the single-instance lock. Two agents would produce
-    // two heartbeat sequences for one contestant and read as a replay attack.
     let port = match loopback::start(Arc::clone(&state)) {
         Some(port) => port,
         None => {
@@ -42,8 +38,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             MacosLauncher::LaunchAgent,
-            // Autostart brings back only the agent, never the contest window: a
-            // mid-contest reboot must restore proctoring without stealing focus.
             Some(vec!["--agent"]),
         ))
         .manage(Arc::clone(&state))
@@ -81,9 +75,6 @@ pub fn run() {
                 app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
 
-            // An unconfigured or unenrolled agent is the one case that needs a
-            // window: it cannot report anything until a contestant enrols it.
-            // When already enrolled, the agent runs quietly in the tray.
             if !setup_state.is_enrolled() {
                 windows::open_setup(app.handle());
             }
@@ -91,8 +82,6 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Setup and diagnostics are disposable panels. Closing one must never
-            // take the agent down with it.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == windows::DIAGNOSTICS_WINDOW {
                     api.prevent_close();

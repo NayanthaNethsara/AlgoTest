@@ -44,7 +44,7 @@ const TARGET_PORTS: &[TargetPort] = &[
         port: 4891,
         path: "/v1/models",
         expected_substring: "object",
-        rule_id: "ai.port.jan",
+        rule_id: "ai.port.gpt4all",
         product: "GPT4All",
     },
     TargetPort {

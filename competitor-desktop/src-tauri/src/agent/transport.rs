@@ -10,11 +10,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(20);
 
 pub enum SendError {
-    /// The server said this enrollment is finished. The agent must stop retrying
-    /// and ask the contestant to enroll again rather than hammer a dead token.
     Revoked,
-    /// The server rejected the heartbeat itself (a replayed sequence). Buffering it
-    /// for a retry would just replay it again.
     Rejected(String),
     Unreachable(String),
 }

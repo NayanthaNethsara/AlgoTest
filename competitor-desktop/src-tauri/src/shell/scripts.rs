@@ -39,7 +39,7 @@ pub fn injected_lockdown_script(os_name: &str) -> String {
         }}, {{ passive: false }});
 
         function handleKeyLock(e) {{
-            // Emergency native failsafe exit shortcut: Ctrl+Shift+Q, Cmd+Shift+Q, Alt+Shift+Q, Ctrl+Shift+Escape
+            // Emergency exit: Ctrl/Cmd/Alt+Shift+Q or Ctrl/Cmd/Alt+Shift+Escape
             var isEmergencyExit = ((e.ctrlKey || e.metaKey || e.altKey) && e.shiftKey && (e.key === 'Q' || e.key === 'q' || e.key === 'Escape'));
             if (isEmergencyExit) {{
                 e.preventDefault();

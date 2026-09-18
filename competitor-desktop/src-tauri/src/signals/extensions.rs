@@ -13,7 +13,6 @@ const EXTENSION_SIGNATURES: &[&str] = &[
     "augment.augment-vscode",
 ];
 
-/// Scans standard editor directories for installed AI extensions and plugins.
 pub fn scan_installed_ai_extensions() -> Vec<String> {
     let mut detected_extensions = Vec::new();
     let search_roots = get_editor_extension_roots();

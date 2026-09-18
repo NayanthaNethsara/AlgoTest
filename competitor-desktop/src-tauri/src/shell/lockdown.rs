@@ -57,12 +57,13 @@ pub fn prompt_native_exit(app: &AppHandle) {
         .show(move |confirmed| {
             if confirmed {
                 // Signal local proctor agent of voluntary exit
-                for port in crate::LOOPBACK_PORTS {
-                    let _ = reqwest::blocking::Client::builder()
-                        .timeout(std::time::Duration::from_millis(300))
-                        .build()
-                        .ok()
-                        .and_then(|client| client.post(crate::loopback_url(port, "/stop")).send().ok());
+                if let Ok(client) = reqwest::blocking::Client::builder()
+                    .timeout(std::time::Duration::from_millis(300))
+                    .build()
+                {
+                    for port in crate::LOOPBACK_PORTS {
+                        let _ = client.post(crate::loopback_url(port, "/stop")).send();
+                    }
                 }
 
                 restore_platform_lockdown();
@@ -133,13 +134,13 @@ mod windows {
     const VK_TAB: u16 = 0x09;
     const VK_SHIFT: i32 = 0x10;
     const VK_CONTROL: i32 = 0x11;
-    const VK_MENU: i32 = 0x12; // Alt key
+    const VK_MENU: i32 = 0x12;
     const VK_ESCAPE: u16 = 0x1B;
     const VK_SPACE: u16 = 0x20;
-    const VK_SNAPSHOT: u16 = 0x2C; // PrintScreen
+    const VK_SNAPSHOT: u16 = 0x2C;
     const VK_LEFT: u16 = 0x25;
     const VK_RIGHT: u16 = 0x27;
-    const VK_APPS: u16 = 0x5D; // Context menu key
+    const VK_APPS: u16 = 0x5D;
     const VK_LWIN: u16 = 0x5B;
     const VK_RWIN: u16 = 0x5C;
     const VK_F1: u16 = 0x70;
@@ -165,8 +166,8 @@ mod windows {
                 let is_win = (GetAsyncKeyState(VK_LWIN as i32) as u16 & 0x8000) != 0
                     || (GetAsyncKeyState(VK_RWIN as i32) as u16 & 0x8000) != 0;
 
-                // Native Hardware Emergency Exit Shortcut: Ctrl+Shift+Q or Alt+Shift+Q or Ctrl+Shift+Escape
-                if (vk == 0x51 /* 'Q' */ || vk == VK_ESCAPE) && (is_ctrl || is_alt) && is_shift {
+                // Emergency exit: Ctrl/Alt+Shift+Q (0x51) or Escape
+                if (vk == 0x51 || vk == VK_ESCAPE) && (is_ctrl || is_alt) && is_shift {
                     std::thread::spawn(|| {
                         let _ = reqwest::blocking::Client::new()
                             .post(format!("http://127.0.0.1:{}/request-exit", crate::SHELL_PORT))
@@ -175,37 +176,37 @@ mod windows {
                     return 1;
                 }
 
-                // Block ALL keys while Windows key is pressed (Win+Tab, Win+Ctrl+Left/Right, Win+D, Win+M, Win+A, Win+N, etc.)
+                // Prevent Start Menu and Windows system keys
                 if is_win || vk == VK_LWIN || vk == VK_RWIN {
                     return 1;
                 }
 
-                // Block Ctrl+Tab, Ctrl+Shift+Tab (switching tabs/panes)
+                // Prevent browser tab cycling (Ctrl+Tab)
                 if is_ctrl && vk == VK_TAB {
                     return 1;
                 }
 
-                // Block Ctrl+Esc, Alt+Esc, Ctrl+Shift+Esc
+                // Prevent task switching and dialog escape combinations
                 if vk == VK_ESCAPE && (is_ctrl || is_alt || is_shift) {
                     return 1;
                 }
 
-                // Block Alt+Tab, Alt+Space, Alt+F4, Alt+Left/Right
+                // Prevent window switching, system menu, and exit shortcuts (Alt+Tab, Alt+Space, Alt+F4)
                 if is_alt && (vk == VK_TAB || vk == VK_SPACE || vk == VK_F4 || vk == VK_LEFT || vk == VK_RIGHT || vk == VK_ESCAPE) {
                     return 1;
                 }
 
-                // Block Browser window shortcuts: Ctrl+W, Ctrl+N, Ctrl+T, Ctrl+H, Ctrl+J, Ctrl+O, Ctrl+P, Ctrl+U
-                if is_ctrl && (vk == 0x57 /* W */ || vk == 0x4E /* N */ || vk == 0x54 /* T */ || vk == 0x48 /* H */ || vk == 0x4A /* J */ || vk == 0x4F /* O */ || vk == 0x50 /* P */ || vk == 0x55 /* U */) {
+                // Prevent browser shortcuts: W (close), N (new), T (tab), H (history), J (downloads), O (open), P (print), U (source)
+                if is_ctrl && (vk == 0x57 || vk == 0x4E || vk == 0x54 || vk == 0x48 || vk == 0x4A || vk == 0x4F || vk == 0x50 || vk == 0x55) {
                     return 1;
                 }
 
-                // Block PrintScreen & Context Menu Key
+                // Prevent screenshots (PrintScreen) and application context menu key
                 if vk == VK_SNAPSHOT || vk == VK_APPS {
                     return 1;
                 }
 
-                // Block Function Keys: F1 (Help), F3 (Search), F10 (Menubar), F11 (Fullscreen), F12 (DevTools)
+                // Prevent devtools, help, and fullscreen function key overrides (F1, F3, F10-F12)
                 if vk == VK_F1 || vk == VK_F3 || vk == VK_F10 || vk == VK_F11 || vk == VK_F12 {
                     return 1;
                 }

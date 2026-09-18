@@ -1,36 +1,35 @@
-use std::net::{SocketAddr, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-const PROBE_TARGETS: [&str; 2] = ["1.1.1.1:53", "8.8.8.8:53"];
+const PROBE_TARGETS: [SocketAddr; 2] = [
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 53),
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
+];
 const PROBE_TIMEOUT: Duration = Duration::from_millis(300);
 
-/// Requires two consecutive positive probes before reporting reachability.
-///
-/// On a true air gap a single success is dispositive, which is exactly why one
-/// spurious result must not mint a weight-50 finding against a contestant.
 pub struct ReachabilityProbe {
     consecutive_hits: u8,
-    reachable: bool,
+    is_reachable: bool,
 }
 
 impl ReachabilityProbe {
     pub fn new() -> Self {
-        Self { consecutive_hits: 0, reachable: false }
+        Self { consecutive_hits: 0, is_reachable: false }
     }
 
     pub fn probe(&mut self) -> bool {
-        let hit = PROBE_TARGETS.iter().any(|target| reachable(target));
+        let hit = PROBE_TARGETS.iter().any(is_target_reachable);
         if hit {
             self.consecutive_hits = self.consecutive_hits.saturating_add(1);
         } else {
             self.consecutive_hits = 0;
         }
-        self.reachable = self.consecutive_hits >= 2;
-        self.reachable
+        self.is_reachable = self.consecutive_hits >= 2;
+        self.is_reachable
     }
 
-    pub fn reachable(&self) -> bool {
-        self.reachable
+    pub fn is_reachable(&self) -> bool {
+        self.is_reachable
     }
 }
 
@@ -40,15 +39,10 @@ impl Default for ReachabilityProbe {
     }
 }
 
-fn reachable(target: &str) -> bool {
-    match target.parse::<SocketAddr>() {
-        Ok(addr) => TcpStream::connect_timeout(&addr, PROBE_TIMEOUT).is_ok(),
-        Err(_) => false,
-    }
+fn is_target_reachable(target: &SocketAddr) -> bool {
+    TcpStream::connect_timeout(target, PROBE_TIMEOUT).is_ok()
 }
 
-/// The machine's LAN address, used to spot a submission arriving from a different
-/// machine than the one the agent is watching.
 pub fn lan_ip() -> String {
     local_ip_address::local_ip()
         .map(|ip| ip.to_string())
@@ -62,12 +56,13 @@ mod tests {
     #[test]
     fn reachability_probe_initial_state() {
         let probe = ReachabilityProbe::new();
-        assert!(!probe.reachable());
+        assert!(!probe.is_reachable());
     }
 
     #[test]
-    fn reachable_returns_false_on_invalid_socket_address() {
-        assert!(!reachable("invalid_address"));
-        assert!(!reachable("256.256.256.256:53"));
+    fn probe_targets_are_valid_dns_endpoints() {
+        assert_eq!(PROBE_TARGETS.len(), 2);
+        assert_eq!(PROBE_TARGETS[0].port(), 53);
+        assert_eq!(PROBE_TARGETS[1].port(), 53);
     }
 }

@@ -30,11 +30,6 @@ pub struct SignalReport {
 }
 
 impl SignalReport {
-    /// Hashes only the *stateful* signals.
-    ///
-    /// Dwell and process counts change on every single heartbeat, so including
-    /// them would make every heartbeat look like a state change and defeat the
-    /// server's short-circuit — which is the thing that keeps 500 agents cheap.
     pub fn signal_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(if self.internet_reachable { b"net:1" } else { b"net:0" });

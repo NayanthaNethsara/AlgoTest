@@ -78,9 +78,6 @@ fn handle_menu_event(app: &AppHandle, state: &Arc<AgentState>, id: &str) {
     }
 }
 
-/// Hands the machine back: proctoring stops, the enrollment is forgotten, and the
-/// client closes completely. Signing in again means launching the app again, which
-/// is what a contestant expects of a sign-out and is one fewer window to explain.
 fn sign_out(app: &AppHandle, state: &Arc<AgentState>) {
     if !state.is_enrolled() {
         windows::open_setup(app);
@@ -97,8 +94,6 @@ fn sign_out(app: &AppHandle, state: &Arc<AgentState>) {
          Your submitted work is kept. Start the app again to sign in.",
         "Sign out",
         move |app| {
-            // The unenrol talks to the server; doing it on the dialog's thread
-            // would freeze the tray for as long as that takes.
             std::thread::spawn(move || {
                 if let Err(err) =
                     lifecycle::sign_out_and_quit(&app, &state, "contestant signed out from the tray")
@@ -110,8 +105,6 @@ fn sign_out(app: &AppHandle, state: &Arc<AgentState>) {
     );
 }
 
-/// Quitting is always allowed — it is a contestant's own machine — but never
-/// silent: it locks scored submissions, so the client says so first.
 fn stop_proctoring(app: &AppHandle, state: &Arc<AgentState>) {
     let state = Arc::clone(state);
     let app = app.clone();
@@ -148,7 +141,6 @@ fn reset_all_data(app: &AppHandle, state: &Arc<AgentState>) {
     );
 }
 
-/// Every destructive tray action asks first, in the same shape.
 fn confirm(
     app: &AppHandle,
     title: &str,

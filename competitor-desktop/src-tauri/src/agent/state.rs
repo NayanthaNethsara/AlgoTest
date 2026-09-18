@@ -8,26 +8,14 @@ use serde::{Deserialize, Serialize};
 use crate::config::{ClientConfig, Enrollment};
 use crate::signals::SignalReport;
 
-/// One hour of heartbeats at the default cadence. A server restart or a switch
-/// reboot must not be recorded as the contestant's blackout, so the agent keeps
-/// its own history and replays it on reconnect.
 pub const BUFFER_CAPACITY: usize = 240;
 
-/// How long a heartbeat may go unacknowledged before the tray and the portal
-/// report the agent as degraded. Matches the server's ONLINE boundary.
+/// Matches the server's ONLINE boundary.
 pub const HEALTHY_WINDOW: Duration = Duration::from_secs(45);
 
-/// How long an agent with no acknowledged heartbeat still counts as starting up
-/// rather than unreachable.
-///
-/// Measured from when the agent last began *trying* to report, not from process
-/// start. An unenrolled agent sits on the setup window for as long as it takes to
-/// read the disclosure and type a password, and charging that time against the
-/// grace period means the portal greets a contestant who did nothing wrong with a
-/// red banner blaming their network.
+/// Measured from when the agent last began trying to report.
 pub const STARTUP_GRACE: Duration = Duration::from_secs(60);
 
-/// The shell reports in every 10s; three misses means it is gone.
 const SHELL_ALIVE_WINDOW: Duration = Duration::from_secs(30);
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -90,17 +78,12 @@ pub struct TickLog {
 pub struct AgentState {
     pub boot_id: Mutex<String>,
     pub started_at: Instant,
-    /// When this agent last began trying to report: process start if the machine
-    /// was already enrolled, or the moment of enrolment if it was not.
     reporting_since: Mutex<Instant>,
     pub client: Mutex<ClientConfig>,
     pub enrollment: Mutex<Option<Enrollment>>,
     pub policy: Mutex<Policy>,
     pub seq: AtomicU64,
     pub loopback_port: AtomicU16,
-    /// The nonce currently published over loopback. Rotated only after the server
-    /// acknowledges the heartbeat that carried its replacement, so the portal never
-    /// reads a value the server has not seen.
     pub published_nonce: Mutex<String>,
     pub shell_last_seen: Mutex<Option<Instant>>,
     pub last_ack: Mutex<Option<Instant>>,
@@ -134,8 +117,6 @@ impl AgentState {
             last_ack: Mutex::new(None),
             last_ack_wall: Mutex::new(None),
             last_error: Mutex::new(None),
-            // A buffer left on disk by a previous run is replayed, so an agent
-            // killed while offline still surrenders what it saw.
             buffer: Mutex::new(
                 crate::config::load_buffer::<VecDeque<Heartbeat>>()
                     .unwrap_or_else(|| VecDeque::with_capacity(BUFFER_CAPACITY)),
@@ -150,7 +131,6 @@ impl AgentState {
         }
     }
 
-    /// An instance that keeps its buffer only in memory.
     #[cfg(test)]
     fn ephemeral() -> Self {
         let state = Self::new();
@@ -159,13 +139,11 @@ impl AgentState {
         state
     }
 
-    /// Stops writing the offline buffer to disk. Used by the reset path, which has
-    /// to be able to delete a file nothing will recreate a moment later.
     pub fn stop_persisting(&self) {
         self.persist_buffer.store(false, Ordering::Relaxed);
     }
 
-    fn persists(&self) -> bool {
+    fn is_persisting(&self) -> bool {
         self.persist_buffer.load(Ordering::Relaxed)
     }
 
@@ -181,12 +159,6 @@ impl AgentState {
         self.consecutive_rejections.store(0, Ordering::Relaxed);
     }
 
-    /// Starts a fresh boot: a new id and a sequence back at zero.
-    ///
-    /// Used to break out of a persistent server-side rejection. A contestant must
-    /// never be locked out of submitting because the two sides disagree about
-    /// bookkeeping — a restart is a legitimate reason for the sequence to reset, so
-    /// declaring one costs a low-weight restart finding and nothing else.
     pub fn rotate_boot(&self) {
         if let Ok(mut boot) = self.boot_id.lock() {
             *boot = uuid::Uuid::new_v4().to_string();
@@ -237,8 +209,6 @@ impl AgentState {
         }
     }
 
-    /// Asks the scheduler to report on its next tick instead of waiting out the
-    /// cadence — used right after enrolling.
     pub fn force_heartbeat(&self) {
         self.force_heartbeat.store(true, Ordering::Relaxed);
     }
@@ -247,24 +217,16 @@ impl AgentState {
         self.force_heartbeat.swap(false, Ordering::Relaxed)
     }
 
-    /// Whether a forced heartbeat is waiting, without consuming it. Lets the
-    /// scheduler cut its sleep short instead of making enrolment wait out a tick.
     pub fn force_heartbeat_pending(&self) -> bool {
         self.force_heartbeat.load(Ordering::Relaxed)
     }
 
-    /// Restarts the startup grace period. Called on enrolment, which is the point
-    /// the agent actually begins reporting — time spent unenrolled on the setup
-    /// window is not evidence of anything.
     pub fn mark_reporting_start(&self) {
         if let Ok(mut slot) = self.reporting_since.lock() {
             *slot = Instant::now();
         }
     }
 
-    /// Enrolled, but has not had a heartbeat acknowledged yet and has only just
-    /// begun reporting. Submissions are genuinely locked in this state, but nothing
-    /// is wrong and the contestant must not be told their network is broken.
     pub fn starting(&self) -> bool {
         let since = self
             .reporting_since
@@ -324,14 +286,12 @@ impl AgentState {
                 buffer.pop_front();
             }
             buffer.push_back(hb);
-            if self.persists() {
+            if self.is_persisting() {
                 persist(&buffer);
             }
         }
     }
 
-    /// Takes the buffer for a flush attempt. The disk copy is kept until the flush
-    /// succeeds, so a crash mid-flush does not lose the batch.
     pub fn buffer_take(&self) -> Vec<Heartbeat> {
         self.buffer
             .lock()
@@ -340,20 +300,22 @@ impl AgentState {
     }
 
     pub fn buffer_clear(&self) {
-        if self.persists() {
+        if self.is_persisting() {
             crate::config::clear_buffer();
         }
     }
 
     pub fn buffer_restore(&self, mut items: Vec<Heartbeat>) {
         if let Ok(mut buffer) = self.buffer.lock() {
-            while items.len() + buffer.len() > BUFFER_CAPACITY && !items.is_empty() {
-                items.remove(0);
+            let total = items.len() + buffer.len();
+            if total > BUFFER_CAPACITY {
+                let excess = (total - BUFFER_CAPACITY).min(items.len());
+                items.drain(..excess);
             }
             for item in items.into_iter().rev() {
                 buffer.push_front(item);
             }
-            if self.persists() {
+            if self.is_persisting() {
                 persist(&buffer);
             }
         }
@@ -402,18 +364,14 @@ impl AgentState {
     }
 
     pub fn support_code(&self) -> String {
-        let username = self
+        let (username, machine) = self
             .enrollment
             .lock()
             .ok()
-            .and_then(|e| e.as_ref().map(|e| e.username.clone()))
-            .unwrap_or_else(|| "unenrolled".to_string());
-        let machine = self
-            .enrollment
-            .lock()
-            .ok()
-            .and_then(|e| e.as_ref().map(|e| e.machine_id.clone()))
-            .unwrap_or_default();
+            .and_then(|slot| {
+                slot.as_ref().map(|e| (e.username.clone(), e.machine_id.clone()))
+            })
+            .unwrap_or_else(|| ("unenrolled".to_string(), String::new()));
         super::identity::support_code(&username, &machine, &self.boot_id())
     }
 
@@ -448,8 +406,6 @@ fn persist(buffer: &VecDeque<Heartbeat>) {
     }
 }
 
-/// Timestamps are formatted by hand to avoid pulling a date crate in for one
-/// format string.
 pub fn now_iso() -> String {
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)

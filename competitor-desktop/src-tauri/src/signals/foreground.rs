@@ -10,10 +10,6 @@ pub struct ForegroundInfo {
 pub fn get_foreground_app() -> ForegroundInfo {
     use objc2_app_kit::NSWorkspace;
 
-    // NSWorkspace reads the frontmost application without any permission prompt.
-    // Screen Recording would be required to read window *titles*, so those are not
-    // collected on macOS at all rather than shipping a signal that silently never
-    // works.
     let app_id = NSWorkspace::sharedWorkspace()
         .frontmostApplication()
         .and_then(|app| app.bundleIdentifier())
@@ -73,8 +69,5 @@ pub fn get_foreground_app() -> ForegroundInfo {
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub fn get_foreground_app() -> ForegroundInfo {
-    // Wayland has no portable protocol for this. Report it as unsupported so the
-    // rule engine treats missing foreground data as an environment fact rather
-    // than as evidence — otherwise every default-session Ubuntu user gets flagged.
     ForegroundInfo { supported: false, app_id: String::new() }
 }

@@ -3,8 +3,13 @@
 
 fn main() {
     if std::env::args().any(|arg| arg == "--reset") {
-        for port in app_lib::LOOPBACK_PORTS {
-            request_quit(&app_lib::loopback_url(port, "/quit"));
+        if let Ok(client) = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_millis(500))
+            .build()
+        {
+            for port in app_lib::LOOPBACK_PORTS {
+                let _ = client.post(app_lib::loopback_url(port, "/quit")).send();
+            }
         }
         let removed = app_lib::config::reset();
         println!("Agent reset. Removed {} item(s).", removed.len());
@@ -12,12 +17,4 @@ fn main() {
     }
 
     app_lib::agent::run();
-}
-
-fn request_quit(url: &str) {
-    let _ = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(500))
-        .build()
-        .ok()
-        .and_then(|client| client.post(url).send().ok());
 }

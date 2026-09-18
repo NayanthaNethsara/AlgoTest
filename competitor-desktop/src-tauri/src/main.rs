@@ -7,32 +7,25 @@ fn main() {
         return;
     }
 
-    // Single-instance check for the contest shell: if already running, focus existing window and exit.
-    if !std::env::args().any(|arg| arg == "--agent") && shell_already_running() {
-        request_focus(&app_lib::loopback_url(app_lib::SHELL_PORT, "/focus-main"));
+    if !std::env::args().any(|arg| arg == "--agent") && is_shell_running() {
+        if let Ok(client) = build_loopback_client(std::time::Duration::from_millis(500)) {
+            send_loopback_post(&client, &app_lib::loopback_url(app_lib::SHELL_PORT, "/focus-main"));
+        }
         return;
     }
 
-    // One binary, two roles. The proctor agent must outlive any UI, so it runs as
-    // its own process: a crash or a bad deploy in the contest shell can then cost
-    // a contestant nothing more than a window.
     if std::env::args().any(|arg| arg == "--agent") {
         app_lib::agent::run();
         return;
     }
 
-    // First run owns the agent process rather than delegating to a detached child
-    // and exiting. Launching a background process and quitting looks exactly like
-    // a crash — an empty window and no explanation — and an unenrolled contestant
-    // cannot submit anything, so setup is the only useful thing to show.
+    // First run owns the agent process to show setup UI immediately.
     if app_lib::config::load_enrollment().is_none() {
-        if app_lib::agent::loopback::agent_already_running() {
-            for port in app_lib::LOOPBACK_PORTS {
-                let _ = reqwest::blocking::Client::builder()
-                    .timeout(std::time::Duration::from_millis(400))
-                    .build()
-                    .ok()
-                    .and_then(|c| c.post(app_lib::loopback_url(port, "/setup")).send().ok());
+        if app_lib::agent::loopback::is_agent_running() {
+            if let Ok(client) = build_loopback_client(std::time::Duration::from_millis(400)) {
+                for port in app_lib::LOOPBACK_PORTS {
+                    send_loopback_post(&client, &app_lib::loopback_url(port, "/setup"));
+                }
             }
             return;
         }
@@ -43,20 +36,14 @@ fn main() {
     app_lib::shell::run();
 }
 
-/// Puts the machine back the way it was before this client ever ran.
-///
-/// The agent is built to survive being closed — it autostarts, and the shell
-/// relaunches it — which is correct in a contest hall and miserable on a laptop
-/// running the app twenty times a day. Anything still running is asked to stop
-/// first, because a live agent rewrites the files this is about to delete.
 fn reset() {
-    for port in app_lib::LOOPBACK_PORTS {
-        request_quit(&app_lib::loopback_url(port, "/quit"));
+    if let Ok(client) = build_loopback_client(std::time::Duration::from_millis(500)) {
+        for port in app_lib::LOOPBACK_PORTS {
+            send_loopback_post(&client, &app_lib::loopback_url(port, "/quit"));
+        }
+        send_loopback_post(&client, &app_lib::loopback_url(app_lib::SHELL_PORT, "/quit"));
     }
-    request_quit(&app_lib::loopback_url(app_lib::SHELL_PORT, "/quit"));
 
-    // Long enough for a stopping agent to release its files, short enough that a
-    // machine with nothing running does not feel like it hung.
     std::thread::sleep(std::time::Duration::from_millis(700));
 
     let removed = app_lib::config::reset();
@@ -70,26 +57,18 @@ fn reset() {
     }
 }
 
-fn request_quit(url: &str) {
-    let _ = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(500))
-        .build()
-        .ok()
-        .and_then(|client| client.post(url).send().ok());
-}
-
-fn request_focus(url: &str) {
-    let _ = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(500))
-        .build()
-        .ok()
-        .and_then(|client| client.post(url).send().ok());
-}
-
-fn shell_already_running() -> bool {
+fn build_loopback_client(timeout: std::time::Duration) -> Result<reqwest::blocking::Client, reqwest::Error> {
     reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(300))
+        .timeout(timeout)
         .build()
+}
+
+fn send_loopback_post(client: &reqwest::blocking::Client, url: &str) {
+    let _ = client.post(url).send();
+}
+
+fn is_shell_running() -> bool {
+    build_loopback_client(std::time::Duration::from_millis(300))
         .ok()
         .and_then(|c| c.get(app_lib::loopback_url(app_lib::SHELL_PORT, "/is-maximized")).send().ok())
         .map(|r| r.status().is_success())

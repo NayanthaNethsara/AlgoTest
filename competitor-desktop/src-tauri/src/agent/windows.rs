@@ -10,10 +10,6 @@ pub const SETUP_WINDOW: &str = "setup";
 pub const DIAGNOSTICS_WINDOW: &str = "diagnostics";
 
 pub fn open_setup(app: &AppHandle) {
-    // An enrolled agent runs as a tray-only accessory, and an accessory's windows
-    // open behind everything with nothing in the dock to click. Setup is the one
-    // screen that exists to be interacted with, so showing it means being a normal
-    // app again — otherwise signing out looks like the client simply vanished.
     #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
 
@@ -41,9 +37,6 @@ pub fn close_setup(app: &AppHandle) {
         let _ = window.close();
     }
 
-    // Setup is done, so the agent goes back to being a tray icon. Leaving it a
-    // normal app would put a second dock entry beside the contest window for
-    // something the contestant never needs to click.
     #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 }
@@ -73,12 +66,10 @@ pub fn open_diagnostics(app: &AppHandle) {
 }
 
 pub fn open_contest_shell(state: &Arc<AgentState>) {
-    if raise_existing_shell() {
+    if try_raise_existing_shell() {
         return;
     }
 
-    // A shell launched before enrolment would route straight back to setup, so go
-    // there directly rather than flashing a process that exits.
     if state.server_url().is_empty() || !state.is_enrolled() {
         if let Some(app) = state.app_handle() {
             open_setup(&app);
@@ -124,7 +115,7 @@ fn open_in_browser(url: &str) {
     let _ = std::process::Command::new("xdg-open").arg(url).spawn();
 }
 
-fn raise_existing_shell() -> bool {
+fn try_raise_existing_shell() -> bool {
     reqwest::blocking::Client::builder()
         .timeout(Duration::from_millis(400))
         .build()

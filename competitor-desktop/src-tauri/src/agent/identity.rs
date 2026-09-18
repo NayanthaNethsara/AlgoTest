@@ -1,12 +1,7 @@
 use sha2::{Digest, Sha256};
 
-/// Salt so the value we transmit is not the raw hardware identifier. It is a
-/// stability key for "same machine", not an inventory record.
 const MACHINE_ID_SALT: &str = "algothon-proctor-v1";
 
-/// A stable per-machine identifier. Falls back to the hostname, then to a random
-/// value, so enrollment still works on a host where the native id is unreadable —
-/// re-enrolling such a machine simply looks like a new machine.
 pub fn machine_id() -> String {
     let raw = machine_uid::get()
         .ok()
@@ -31,7 +26,6 @@ pub fn platform() -> String {
     format!("{} {}", std::env::consts::OS, std::env::consts::ARCH)
 }
 
-/// Returns the SHA-256 hex digest of the currently running executable.
 pub fn current_exe_hash() -> String {
     std::env::current_exe()
         .ok()
@@ -44,8 +38,6 @@ pub fn current_exe_hash() -> String {
         .unwrap_or_default()
 }
 
-/// The one string a contestant reads out to the help desk. It resolves them to a
-/// row in the admin view without anyone spelling a UUID over a noisy hall.
 pub fn support_code(username: &str, machine_id: &str, boot_id: &str) -> String {
     let machine = machine_id.chars().take(6).collect::<String>();
     let boot = boot_id.chars().take(4).collect::<String>();

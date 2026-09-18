@@ -2,17 +2,6 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-/// Where a client points when nobody has told it otherwise.
-///
-/// Baked in at build time — `ALGOTHON_SERVER_URL=… cargo tauri build` — so a
-/// contestant never types a URL. Asking them to was the single worst failure mode
-/// in this client: the portal address they enter becomes the only Origin the
-/// loopback server will answer, so one character wrong, or `localhost` where they
-/// then browse `127.0.0.1`, silently cost them attestation and showed a banner
-/// blaming an agent that was running perfectly.
-///
-/// A saved `client.json` still wins, so the contest server can move without
-/// rebuilding — it is just no longer something anyone has to supply by hand.
 pub const DEFAULT_SERVER_URL: &str = match option_env!("ALGOTHON_SERVER_URL") {
     Some(url) => url,
     None => "https://competitor-portal--algothon-2026.asia-southeast1.hosted.app",
@@ -23,19 +12,15 @@ pub const DEFAULT_API_URL: &str = match option_env!("ALGOTHON_API_URL") {
     None => "https://mini-algothon-api.nayantha.me",
 };
 
-/// Additional portal origins the loopback server will answer, comma-separated and
-/// baked in the same way — `ALGOTHON_PORTAL_ORIGINS=… cargo tauri build`.
 pub const DEFAULT_PORTAL_ORIGINS: &str = match option_env!("ALGOTHON_PORTAL_ORIGINS") {
     Some(origins) => origins,
     None => "https://competitor-portal--algothon-2026.asia-southeast1.hosted.app,http://localhost:3000",
 };
 
-/// Where the client points.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ClientConfig {
     pub server_url: String,
     pub api_url: String,
-    /// Defaulted so a `client.json` written by an earlier build still loads.
     #[serde(default)]
     pub portal_origins: String,
 }
@@ -50,9 +35,7 @@ impl Default for ClientConfig {
     }
 }
 
-/// The agent's own credential. Stored at 0600 rather than in an OS keychain: on
-/// hundreds of laptops a keychain prompt is a support queue, and this token's only
-/// power is reporting telemetry as its own enrollment.
+/// Stored at 0600 rather than in an OS keychain to avoid prompts on contest machines.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Enrollment {
     pub agent_id: String,
@@ -64,7 +47,6 @@ pub struct Enrollment {
     pub consent_version: String,
 }
 
-/// The name `tauri-plugin-autostart` registers under — `package_info().name`.
 pub const AUTOSTART_NAME: &str = "Algothon Agent";
 
 pub fn config_dir() -> Option<PathBuf> {
@@ -100,19 +82,14 @@ fn write_json<T: Serialize>(name: &str, value: &T, private: bool) -> Result<(), 
 }
 
 #[cfg(unix)]
-fn restrict_permissions(path: &PathBuf) {
+fn restrict_permissions(path: &std::path::Path) {
     use std::os::unix::fs::PermissionsExt;
     let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
 }
 
 #[cfg(not(unix))]
-fn restrict_permissions(_path: &PathBuf) {
-    // Windows inherits the per-user ACL of %APPDATA%, which is already scoped to
-    // the enrolled contestant's account.
-}
+fn restrict_permissions(_path: &std::path::Path) {}
 
-/// The client's target: whatever an organizer saved, otherwise the compiled-in
-/// default. Never `None`, so no code path has to cope with an unconfigured client.
 pub fn load_client() -> ClientConfig {
     read_json("client.json").unwrap_or_default()
 }
@@ -138,14 +115,7 @@ pub fn clear_enrollment() -> Result<(), String> {
     Ok(())
 }
 
-/// Persists heartbeats the agent could not send.
-///
-/// Without this the buffer lives only in memory, and the obvious evasion is:
-/// unplug, tether, use a local model, kill the agent, plug back in. The gap would
-/// remain but everything observed *during* it would be gone. On disk, restarting
-/// the agent replays it — so killing the agent delays the evidence instead of
-/// destroying it. A contestant with filesystem access can still delete the file;
-/// the permanent gap record is what remains in that case.
+/// Persists unsent heartbeats to disk so restarting the agent replays them.
 pub fn save_buffer<T: Serialize>(items: &T) -> Result<(), String> {
     write_json("buffer.json", items, true)
 }
@@ -160,17 +130,7 @@ pub fn clear_buffer() {
     }
 }
 
-/// Removes every trace this client leaves on a machine: the server address, the
-/// enrollment, the buffered heartbeats, and the login item.
-///
-/// This exists because a proctor agent is deliberately hard to get rid of — it
-/// autostarts, it relaunches itself, and it keeps its state outside the checkout.
-/// That is right for a contest hall and wrong for a laptop running `make desktop`
-/// twenty times a day, so the escape hatch is explicit rather than folklore about
-/// which files to `rm`.
-///
-/// Returns what it actually removed, so the caller can say so rather than claim a
-/// clean slate it did not verify.
+/// Removes all client data and autostart entries from this machine.
 pub fn reset() -> Vec<String> {
     let mut removed = Vec::new();
 
@@ -218,7 +178,7 @@ fn clear_autostart_entry(removed: &mut Vec<String>) {
             let path = PathBuf::from(&home)
                 .join("Library/LaunchAgents")
                 .join(format!("{name}.plist"));
-            remove_autostart_file(Some(path), removed);
+            remove_autostart_file(&path, removed);
         }
     }
 }
@@ -230,17 +190,15 @@ fn clear_autostart_entry(removed: &mut Vec<String>) {
             let path = PathBuf::from(&home)
                 .join(".config/autostart")
                 .join(format!("{name}.desktop"));
-            remove_autostart_file(Some(path), removed);
+            remove_autostart_file(&path, removed);
         }
     }
 }
 
 #[cfg(unix)]
-fn remove_autostart_file(path: Option<PathBuf>, removed: &mut Vec<String>) {
-    if let Some(path) = path {
-        if path.exists() && std::fs::remove_file(&path).is_ok() {
-            removed.push(path.display().to_string());
-        }
+fn remove_autostart_file(path: &std::path::Path, removed: &mut Vec<String>) {
+    if path.exists() && std::fs::remove_file(path).is_ok() {
+        removed.push(path.display().to_string());
     }
 }
 
@@ -259,7 +217,7 @@ fn clear_autostart_entry(removed: &mut Vec<String>) {
     }
 }
 
-/// The portal origin, used to scope the loopback server's CORS allowance.
+
 pub fn portal_origin(server_url: &str) -> String {
     match reqwest::Url::parse(server_url) {
         Ok(url) => match (url.scheme(), url.host_str(), url.port()) {
@@ -271,8 +229,6 @@ pub fn portal_origin(server_url: &str) -> String {
     }
 }
 
-/// Every origin the loopback server will answer — the portal this client opens plus
-/// any standbys — in the comma-separated form `origin_matches` takes.
 pub fn allowed_portal_origins(server_url: &str, extra_origins: &str) -> String {
     let mut origins = Vec::new();
 
@@ -290,15 +246,7 @@ pub fn allowed_portal_origins(server_url: &str, extra_origins: &str) -> String {
     origins.join(",")
 }
 
-/// Whether a request's `Origin` is one of the configured portals, given a
-/// comma-separated list of them.
-///
-/// Compared on the resolved host and port rather than by string equality, because
-/// `localhost` and `127.0.0.1` name the same machine and `http://host` and
-/// `http://host:80` are the same origin. A contestant who reaches the portal by one
-/// spelling while the client holds the other is doing nothing suspicious, and the
-/// cost of refusing them is invisible: no nonce, so no attestation, so a banner
-/// telling them their proctor client is not running when it is.
+/// Compares on resolved host/port so `localhost` and `127.0.0.1` are equivalent.
 pub fn origin_matches(allowed_origins: &str, candidate: &str) -> bool {
     let candidate = normalize_origin(candidate);
     if candidate.is_empty() {
@@ -311,6 +259,23 @@ pub fn origin_matches(allowed_origins: &str, candidate: &str) -> bool {
         .any(|allowed| normalize_origin(allowed) == candidate)
 }
 
+fn normalize_origin(origin: &str) -> String {
+    let Ok(url) = reqwest::Url::parse(origin) else {
+        return origin.trim().trim_end_matches('/').to_lowercase();
+    };
+
+    let host = match url.host_str() {
+        Some("localhost") | Some("127.0.0.1") | Some("::1") | Some("[::1]") => "localhost",
+        Some(host) => host,
+        None => "",
+    };
+
+    match url.port_or_known_default() {
+        Some(port) => format!("{}://{host}:{port}", url.scheme()),
+        None => format!("{}://{host}", url.scheme()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -321,8 +286,6 @@ mod tests {
         assert!(origin_matches("http://contest.local:3000", "http://contest.local:3000"));
     }
 
-    /// The bug this function exists for: the two spellings of "this machine" are
-    /// one origin, and treating them as different silently cost attestation.
     #[test]
     fn accepts_either_spelling_of_the_local_host() {
         assert!(origin_matches("http://localhost:3000", "http://127.0.0.1:3000"));
@@ -342,7 +305,6 @@ mod tests {
         assert!(!origin_matches("http://contest.local", "https://contest.local"));
     }
 
-    /// An unconfigured client grants nothing rather than everything.
     #[test]
     fn refuses_everything_when_no_portal_is_configured() {
         assert!(!origin_matches("", "http://localhost:3000"));
@@ -385,23 +347,5 @@ mod tests {
         assert!(reqwest::Url::parse(&config.server_url).is_ok());
         assert!(reqwest::Url::parse(&config.api_url).is_ok());
         assert!(!portal_origin(&config.server_url).is_empty());
-    }
-}
-
-fn normalize_origin(origin: &str) -> String {
-    let Ok(url) = reqwest::Url::parse(origin) else {
-        return origin.trim().trim_end_matches('/').to_lowercase();
-    };
-
-    let host = match url.host_str() {
-        // Every spelling of "this machine" is one host.
-        Some("localhost") | Some("127.0.0.1") | Some("::1") | Some("[::1]") => "localhost",
-        Some(host) => host,
-        None => "",
-    };
-
-    match url.port_or_known_default() {
-        Some(port) => format!("{}://{host}:{port}", url.scheme()),
-        None => format!("{}://{host}", url.scheme()),
     }
 }
