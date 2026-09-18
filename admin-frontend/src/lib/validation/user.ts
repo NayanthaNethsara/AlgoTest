@@ -10,17 +10,21 @@ export const createUserInputSchema = z.object({
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
+    .max(128, "Password must be 128 characters or less")
     .optional()
     .or(z.literal("")),
   role: z.enum(["competitor", "admin"]).default("competitor"),
-  teamId: z.string().optional().or(z.literal("")),
-  teamName: z.string().trim().max(100).optional().or(z.literal("")),
+  teamId: z.string().max(100, "Team ID too long").optional().or(z.literal("")),
+  teamName: z.string().trim().max(100, "Team name must be 100 characters or less").optional().or(z.literal("")),
 });
 
 export const bulkCreateUsersSchema = z.object({
-  users: z.array(createUserInputSchema).min(1, "At least one user is required"),
-  defaultTeamId: z.string().optional(),
-  defaultTeamName: z.string().optional(),
+  users: z
+    .array(createUserInputSchema)
+    .min(1, "At least one user is required")
+    .max(1000, "Cannot create more than 1,000 users in a single batch"),
+  defaultTeamId: z.string().max(100).optional(),
+  defaultTeamName: z.string().max(100).optional(),
 });
 
 export const suspendUserSchema = z.object({

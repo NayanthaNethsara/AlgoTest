@@ -2,6 +2,10 @@ import { downloadTextFile } from "./file-utils";
 import type { Sample, TestCaseInput } from "@/types/problem";
 
 export const MIN_EVALUATION_TEST_CASES = 5;
+export const MAX_SINGLE_TEST_FILE_BYTES = 20 * 1024 * 1024;
+export const MAX_SANDBOX_OUTPUT_BYTES = 4 * 1024 * 1024;
+export const RECOMMENDED_LARGE_TIME_LIMIT_MS = 2500;
+export const RECOMMENDED_LARGE_MEMORY_LIMIT_MB = 256;
 
 /**
  * Finds a public sample that exactly matches the input and expected output of an evaluation test case.

@@ -10,6 +10,7 @@ export const teamMemberInputSchema = z.object({
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")
+    .max(128, "Password must be 128 characters or less")
     .optional()
     .or(z.literal("")),
 });
@@ -33,13 +34,16 @@ export const updateTeamInputSchema = z.object({
 
 export const addTeamMemberPayloadSchema = z.union([
   z.object({
-    userId: z.string().min(1, "User ID is required"),
+    userId: z.string().min(1, "User ID is required").max(100, "User ID too long"),
   }),
   teamMemberInputSchema,
 ]);
 
 export const bulkCreateTeamsSchema = z.object({
-  teams: z.array(createTeamInputSchema).min(1, "At least one team is required"),
+  teams: z
+    .array(createTeamInputSchema)
+    .min(1, "At least one team is required")
+    .max(500, "Cannot create more than 500 teams in a single batch"),
 });
 
 export type ValidatedCreateTeamInput = z.infer<typeof createTeamInputSchema>;

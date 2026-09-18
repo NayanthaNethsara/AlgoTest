@@ -151,6 +151,10 @@ export function ProblemMetadataCard({
             </Field>
           </div>
 
+          <div className="rounded border bg-muted/20 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+            <span className="font-medium text-foreground">Large input advisory:</span> For problems with 10–15 MB test cases, set &ge; 2500 ms and &ge; 256 MB to prevent I/O or memory overhead timeouts.
+          </div>
+
           <Field orientation="horizontal" className="border-t pt-4">
             <FieldLabel htmlFor="problem-published" className="flex-col items-start gap-0.5">
               <FieldTitle>Published to contestants</FieldTitle>

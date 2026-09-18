@@ -39,6 +39,7 @@ import { SingleTestDialog } from "./test-cases/single-test-dialog";
 import { BatchUploadDialog } from "./test-cases/batch-upload-dialog";
 import { TestContentInspectorDialog } from "./test-cases/test-content-inspector-dialog";
 import { ScoringSummaryBar } from "./test-cases/scoring-summary-bar";
+import { TestCaseLimitsGuide } from "./test-cases/test-case-limits-guide";
 import type { BatchQueueItem, InspectModalState } from "./test-cases/types";
 
 interface TestCasesTabProps {
@@ -422,7 +423,7 @@ export function TestCasesTab({
           </Badge>
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Hidden from competitors and managed test-by-test. Max 20 MB per file — drop matching
+          Hidden from competitors and managed test-by-test. Up to 20 MB per file, uploaded sequentially part-by-part to support large 200+ MB datasets. Drop matching
           <code className="mx-1 font-mono">.in</code>/<code className="mx-1 font-mono">.out</code>
           pairs anywhere on this card to queue them.
         </p>
@@ -504,6 +505,8 @@ export function TestCasesTab({
             </AlertDescription>
           </Alert>
         )}
+
+        <TestCaseLimitsGuide />
 
         <ScoringSummaryBar
           testCount={tests.length}

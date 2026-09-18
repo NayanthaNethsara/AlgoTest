@@ -1,5 +1,6 @@
 import { getAdminUploadConfigAction } from "@/lib/actions/auth";
 import { downloadBlob } from "@/lib/file-utils";
+import { updatePointsMapSchema } from "@/lib/validation/problem";
 import type { TestCaseMetadata } from "@/types/problem";
 
 export interface SingleTestUploadItem {
@@ -195,9 +196,14 @@ export async function updateTestPoints(
   problemId: string,
   pointsMap: Record<number, number>
 ): Promise<void> {
+  const parsed = updatePointsMapSchema.safeParse(pointsMap);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Invalid points mapping");
+  }
+
   const config = await getUploadConfig();
   const numericMap: Record<string, number> = {};
-  for (const [k, v] of Object.entries(pointsMap)) {
+  for (const [k, v] of Object.entries(parsed.data)) {
     numericMap[k] = Number(v);
   }
 

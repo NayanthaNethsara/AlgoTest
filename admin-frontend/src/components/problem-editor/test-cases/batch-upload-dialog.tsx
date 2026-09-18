@@ -17,11 +17,14 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  MAX_SANDBOX_OUTPUT_BYTES,
+  MAX_SINGLE_TEST_FILE_BYTES,
   downloadSampleTestCaseFiles,
   formatByteSize,
   readFileHeadTail,
@@ -123,16 +126,35 @@ export function BatchUploadDialog({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedPreviewId, setExpandedPreviewId] = useState<string | null>(null);
 
-  // Initialize selected items whenever queue changes
+  // Initialize selected items whenever queue changes, excluding oversized files
   useEffect(() => {
-    setSelectedIds(new Set(queue.map((q) => q.id)));
+    const validIds = queue
+      .filter(
+        (q) =>
+          q.inputFile.size <= MAX_SINGLE_TEST_FILE_BYTES &&
+          q.expectedFile.size <= MAX_SINGLE_TEST_FILE_BYTES
+      )
+      .map((q) => q.id);
+    setSelectedIds(new Set(validIds));
   }, [queue]);
 
   const successCount = queue.filter((q) => q.status === "success").length;
   const pendingQueue = queue.filter((q) => q.status !== "success");
   const selectedPendingCount = pendingQueue.filter((q) => selectedIds.has(q.id)).length;
+  const totalQueueBytes = queue.reduce((acc, q) => acc + q.totalSize, 0);
+  const selectedPendingBytes = pendingQueue
+    .filter((q) => selectedIds.has(q.id))
+    .reduce((acc, q) => acc + q.totalSize, 0);
+
   const isAllPendingSelected =
-    pendingQueue.length > 0 && pendingQueue.every((q) => selectedIds.has(q.id));
+    pendingQueue.length > 0 &&
+    pendingQueue
+      .filter(
+        (q) =>
+          q.inputFile.size <= MAX_SINGLE_TEST_FILE_BYTES &&
+          q.expectedFile.size <= MAX_SINGLE_TEST_FILE_BYTES
+      )
+      .every((q) => selectedIds.has(q.id));
 
   function toggleSelectAll() {
     if (isAllPendingSelected) {
@@ -178,9 +200,21 @@ export function BatchUploadDialog({
               <DownloadIcon className="size-3" /> Download sample pair
             </Button>
           </div>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Files are queued and uploaded sequentially part-by-part to support test suites totaling 200+ MB. Max 20 MB per file.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto py-2 space-y-3">
+          <div className="rounded border bg-muted/20 px-3 py-2 text-xs flex flex-wrap items-center justify-between gap-2">
+            <div className="text-muted-foreground">
+              <strong className="text-foreground font-medium">Sequential Batching:</strong> Files upload one-by-one, safely accommodating large datasets without exceeding HTTP body limits.
+            </div>
+            <div className="font-mono text-[11px] text-muted-foreground shrink-0">
+              Total volume: {formatByteSize(totalQueueBytes)}
+            </div>
+          </div>
+
           {notice && (
             <div className="rounded border border-primary/30 bg-primary/10 p-2.5 text-xs text-primary font-medium">
               {notice}
@@ -211,6 +245,10 @@ export function BatchUploadDialog({
               </div>
 
               {queue.map((item, idx) => {
+                const isInputOversized = item.inputFile.size > MAX_SINGLE_TEST_FILE_BYTES;
+                const isExpectedOversized = item.expectedFile.size > MAX_SINGLE_TEST_FILE_BYTES;
+                const isOversized = isInputOversized || isExpectedOversized;
+                const isExpectedLarge = item.expectedFile.size > MAX_SANDBOX_OUTPUT_BYTES;
                 const isSelected = selectedIds.has(item.id);
                 const isExpanded = expandedPreviewId === item.id;
 
@@ -220,7 +258,7 @@ export function BatchUploadDialog({
                     className={`rounded border p-2.5 flex flex-col gap-2 text-xs transition-colors ${
                       item.status === "success"
                         ? "border-success/40 bg-success/5"
-                        : item.status === "error"
+                        : item.status === "error" || isOversized
                           ? "border-destructive/40 bg-destructive/5"
                           : item.status === "uploading"
                             ? "border-primary/50 bg-primary/5"
@@ -235,7 +273,7 @@ export function BatchUploadDialog({
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            disabled={isRunning || item.status === "uploading"}
+                            disabled={isRunning || item.status === "uploading" || isOversized}
                             onChange={() => toggleItemSelection(item.id)}
                             aria-label={`Select case ${idx + 1}`}
                             className="accent-primary"
@@ -245,17 +283,26 @@ export function BatchUploadDialog({
                           #{idx + 1}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-foreground truncate">
-                            {item.inputFile.name} + {item.expectedFile.name}
+                          <div className="font-medium text-foreground truncate flex items-center gap-1.5">
+                            <span className="truncate">{item.inputFile.name} + {item.expectedFile.name}</span>
+                            {isExpectedLarge && !isOversized && (
+                              <Badge variant="outline" className="text-[9px] text-warning border-warning/40 shrink-0">
+                                Output &gt; 4 MB
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-[10px] text-muted-foreground font-mono">
                             Size: {formatByteSize(item.totalSize)}
                           </div>
-                          {item.error && (
+                          {isOversized ? (
+                            <div className="text-[11px] text-destructive font-medium mt-0.5">
+                              Exceeds 20 MB file limit ({isInputOversized ? `stdin: ${formatByteSize(item.inputFile.size)}` : `stdout: ${formatByteSize(item.expectedFile.size)}`})
+                            </div>
+                          ) : item.error ? (
                             <div className="text-[11px] text-destructive font-medium mt-0.5">
                               {item.error}
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
@@ -358,7 +405,7 @@ export function BatchUploadDialog({
                   <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading Part-by-Part...
                 </>
               ) : (
-                `Start Batch Upload (${selectedPendingCount} pairs)`
+                `Start Batch Upload (${selectedPendingCount} pairs · ${formatByteSize(selectedPendingBytes)})`
               )}
             </Button>
           )}

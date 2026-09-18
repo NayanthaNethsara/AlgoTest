@@ -8,12 +8,17 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { TestCaseMetadata } from "@/types/problem";
-import { formatByteSize } from "@/lib/testcase-utils";
+import {
+  MAX_SANDBOX_OUTPUT_BYTES,
+  MAX_SINGLE_TEST_FILE_BYTES,
+  formatByteSize,
+} from "@/lib/testcase-utils";
 import { uploadSingleTestCase, updateSingleTestCase } from "@/lib/api/test-uploader";
 
 
@@ -74,6 +79,15 @@ export function SingleTestDialog({
       return;
     }
 
+    if (inputFile && inputFile.size > MAX_SINGLE_TEST_FILE_BYTES) {
+      setError(`Input file exceeds the 20 MB limit (${formatByteSize(inputFile.size)}).`);
+      return;
+    }
+    if (expFile && expFile.size > MAX_SINGLE_TEST_FILE_BYTES) {
+      setError(`Expected output file exceeds the 20 MB limit (${formatByteSize(expFile.size)}).`);
+      return;
+    }
+
     setUploading(true);
     setUploadProgress(0);
 
@@ -126,6 +140,9 @@ export function SingleTestDialog({
           <DialogTitle className="text-sm font-semibold">
             {editTest ? `Replace / Edit Test Case #${editTest.ordinal}` : "Add Single Test Case"}
           </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Max 20 MB per file. Contestant program standard output is capped at 4 MB.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-2">
@@ -150,8 +167,14 @@ export function SingleTestDialog({
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) {
+                      if (f.size > MAX_SINGLE_TEST_FILE_BYTES) {
+                        setError(`Input file "${f.name}" (${formatByteSize(f.size)}) exceeds the 20 MB maximum limit.`);
+                        e.target.value = "";
+                        return;
+                      }
                       setInputFile(f);
                       setInputText("");
+                      setError(null);
                     }
                   }}
                   className="hidden"
@@ -208,8 +231,14 @@ export function SingleTestDialog({
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) {
+                      if (f.size > MAX_SINGLE_TEST_FILE_BYTES) {
+                        setError(`Expected output file "${f.name}" (${formatByteSize(f.size)}) exceeds the 20 MB maximum limit.`);
+                        e.target.value = "";
+                        return;
+                      }
                       setExpFile(f);
                       setExpText("");
+                      setError(null);
                     }
                   }}
                   className="hidden"
@@ -250,6 +279,14 @@ export function SingleTestDialog({
               </div>
             )}
           </div>
+
+          {/* Output limit advisory if expected output > 4 MB */}
+          {((expFile && expFile.size > MAX_SANDBOX_OUTPUT_BYTES) ||
+            (expText && new Blob([expText]).size > MAX_SANDBOX_OUTPUT_BYTES)) && (
+            <div className="rounded border border-warning/40 bg-warning/10 p-2 text-[11px] text-warning">
+              Advisory: Expected output exceeds 4 MB. Contestant programs outputting &gt; 4 MB will receive an Output Limit Exceeded runtime error.
+            </div>
+          )}
 
           {/* Points */}
           <div className="flex items-center gap-2">
