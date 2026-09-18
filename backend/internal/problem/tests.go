@@ -10,6 +10,8 @@ import (
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/crypto"
 )
 
+var ErrDuplicateTest = errors.New("duplicate test case")
+
 func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests []TestInput) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
@@ -34,10 +36,17 @@ func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests [
 		INSERT INTO problem_tests (problem_id, ordinal, input, expected, input_sha, expected_sha, points)
 		VALUES ($1, $2, $3, $4, $5, $6, $7);
 	`
+	seenHashes := make(map[string]int)
 	for i, t := range tests {
 		ord := int32(i + 1)
 		inSha := crypto.SHA256Hex(t.Input)
 		expSha := crypto.SHA256Hex(t.Expected)
+		pairHash := inSha + ":" + expSha
+		if firstIdx, seen := seenHashes[pairHash]; seen {
+			return fmt.Errorf("%w: test case %d is identical to test case %d", ErrDuplicateTest, ord, firstIdx+1)
+		}
+		seenHashes[pairHash] = int(ord) - 1
+
 		pts := t.Points
 		if pts <= 0 {
 			pts = 1
@@ -276,6 +285,14 @@ func (r *Repository) AddSingleTest(ctx context.Context, problemID string, input 
 	inSha := crypto.SHA256Hex(input)
 	expSha := crypto.SHA256Hex(expected)
 
+	var existingOrd int32
+	err = tx.QueryRow(ctx, `SELECT ordinal FROM problem_tests WHERE problem_id = $1 AND input_sha = $2 AND expected_sha = $3 LIMIT 1;`, problemID, inSha, expSha).Scan(&existingOrd)
+	if err == nil {
+		return TestCaseMetadata{}, fmt.Errorf("%w: identical input and expected output to existing test case #%d", ErrDuplicateTest, existingOrd)
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return TestCaseMetadata{}, fmt.Errorf("check duplicate test: %w", err)
+	}
+
 	insertQuery := `
 		INSERT INTO problem_tests (problem_id, ordinal, input, expected, input_sha, expected_sha, points)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -350,6 +367,14 @@ func (r *Repository) UpdateSingleTest(ctx context.Context, problemID string, ord
 
 	inSha := crypto.SHA256Hex(finalInput)
 	expSha := crypto.SHA256Hex(finalExpected)
+
+	var existingOrd int32
+	err = tx.QueryRow(ctx, `SELECT ordinal FROM problem_tests WHERE problem_id = $1 AND input_sha = $2 AND expected_sha = $3 AND ordinal != $4 LIMIT 1;`, problemID, inSha, expSha, ordinal).Scan(&existingOrd)
+	if err == nil {
+		return TestCaseMetadata{}, fmt.Errorf("%w: identical input and expected output to existing test case #%d", ErrDuplicateTest, existingOrd)
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return TestCaseMetadata{}, fmt.Errorf("check duplicate test: %w", err)
+	}
 
 	updateQuery := `
 		UPDATE problem_tests

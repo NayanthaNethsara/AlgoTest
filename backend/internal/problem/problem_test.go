@@ -189,3 +189,11 @@ func TestIsEvenDistribution(t *testing.T) {
 		})
 	}
 }
+
+func TestErrDuplicateTestWrapping(t *testing.T) {
+	wrapped := errors.Join(ErrDuplicateTest, errors.New("test case 2 matches test case 1"))
+	if !errors.Is(wrapped, ErrDuplicateTest) {
+		t.Fatalf("expected errors.Is to match ErrDuplicateTest")
+	}
+}
+

@@ -112,7 +112,7 @@ func (h *handler) replaceTestCases(c *gin.Context) {
 	}
 
 	if err := h.problems.ReplaceTests(c.Request.Context(), id, inputs); err != nil {
-		if errors.Is(err, problem.ErrPointsMismatch) {
+		if errors.Is(err, problem.ErrPointsMismatch) || errors.Is(err, problem.ErrDuplicateTest) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -249,6 +249,10 @@ func (h *handler) addSingleTestCase(c *gin.Context) {
 
 	meta, err := h.problems.AddSingleTest(c.Request.Context(), id, inputBytes, expectedBytes, points)
 	if err != nil {
+		if errors.Is(err, problem.ErrDuplicateTest) || errors.Is(err, problem.ErrNotFound) || strings.Contains(err.Error(), "exceeds problem max score") || strings.Contains(err.Error(), "points cannot be negative") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save test case: %v", err)})
 		return
 	}
@@ -354,6 +358,10 @@ func (h *handler) updateSingleTestCase(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, problem.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "test case not found"})
+			return
+		}
+		if errors.Is(err, problem.ErrDuplicateTest) || strings.Contains(err.Error(), "exceeds problem max score") || strings.Contains(err.Error(), "points cannot be negative") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to update test case: %v", err)})
