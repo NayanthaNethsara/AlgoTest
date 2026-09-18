@@ -39,11 +39,20 @@ import { TestCasesTab } from "./problem-editor/test-cases-tab";
 type ProblemEditorProps = {
   initialData?: ProblemDetail | null;
   initialTests?: TestCaseMetadata[];
-  onSave: (input: ProblemInput) => Promise<void>;
+  initialTab?: "statement" | "samples" | "tests";
+  autoOpenAction?: "add" | "batch";
+  onSave: (input: ProblemInput, action?: "add" | "batch") => Promise<void>;
   pending: boolean;
 };
 
-export function ProblemEditor({ initialData, initialTests, onSave, pending }: ProblemEditorProps) {
+export function ProblemEditor({
+  initialData,
+  initialTests,
+  initialTab,
+  autoOpenAction,
+  onSave,
+  pending,
+}: ProblemEditorProps) {
   const isEditing = Boolean(initialData);
 
   const [slug, setSlug] = useState(initialData?.slug ?? STARTER_PROBLEM_TEMPLATE.slug);
@@ -87,8 +96,14 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
   }
 
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<"statement" | "samples" | "tests">(
-    "statement"
+    initialTab ?? "statement"
   );
+
+  const [lastInitialTab, setLastInitialTab] = useState(initialTab);
+  if (initialTab && initialTab !== lastInitialTab) {
+    setLastInitialTab(initialTab);
+    setActiveWorkspaceTab(initialTab);
+  }
   const [error, setError] = useState<string | null>(null);
 
   // Draft Recovery Hook (saves metadata without heavy test data)
@@ -153,7 +168,7 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
     setSamples((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   }
 
-  async function handleSaveInternal(shouldPublish?: boolean) {
+  async function handleSaveInternal(shouldPublish?: boolean, action?: "add" | "batch") {
     setError(null);
 
     if (!slug.trim() || !title.trim()) {
@@ -180,23 +195,26 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
     setPublished(finalPublished);
 
     try {
-      await onSave({
-        slug: slug.trim(),
-        title: title.trim(),
-        difficulty,
-        maxScore: Number(maxScore),
-        timeLimitMs: Number(timeLimitMs),
-        memoryLimitMb: Number(memoryLimitMb),
-        published: finalPublished,
-        statement,
-        constraints,
-        samples: samples.map((s, idx) => ({
-          ordinal: idx + 1,
-          input: s.input,
-          output: s.output,
-          explanation: s.explanation || undefined,
-        })),
-      });
+      await onSave(
+        {
+          slug: slug.trim(),
+          title: title.trim(),
+          difficulty,
+          maxScore: Number(maxScore),
+          timeLimitMs: Number(timeLimitMs),
+          memoryLimitMb: Number(memoryLimitMb),
+          published: finalPublished,
+          statement,
+          constraints,
+          samples: samples.map((s, idx) => ({
+            ordinal: idx + 1,
+            input: s.input,
+            output: s.output,
+            explanation: s.explanation || undefined,
+          })),
+        },
+        action
+      );
       clearDraftOnSuccess();
       toast.success(finalPublished ? "Problem saved and published" : "Draft saved");
     } catch (err) {
@@ -405,7 +423,8 @@ export function ProblemEditor({ initialData, initialTests, onSave, pending }: Pr
                   tests={tests}
                   maxScore={Number(maxScore) || 100}
                   onTestsUpdated={setTests}
-                  onSaveDraftFirst={() => handleSaveInternal(false)}
+                  onSaveDraftFirst={(action) => handleSaveInternal(false, action)}
+                  autoOpenAction={autoOpenAction}
                 />
               </TabsContent>
             </Tabs>

@@ -18,8 +18,24 @@ type EditorData = { problem: ProblemDetail | null; tests: TestCaseMetadata[] };
 
 const EMPTY: EditorData = { problem: null, tests: [] };
 
-export default function EditProblemPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditProblemPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ tab?: string; action?: string }>;
+}) {
   const { id } = use(params);
+  const resolvedSearchParams = searchParams ? use(searchParams) : undefined;
+  const initialTab =
+    resolvedSearchParams?.tab === "tests" || resolvedSearchParams?.tab === "samples"
+      ? resolvedSearchParams.tab
+      : "statement";
+  const autoOpenAction =
+    resolvedSearchParams?.action === "add" || resolvedSearchParams?.action === "batch"
+      ? resolvedSearchParams.action
+      : undefined;
+
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -40,7 +56,10 @@ export default function EditProblemPage({ params }: { params: Promise<{ id: stri
   async function handleSave(input: ProblemInput) {
     setPending(true);
     try {
-      await updateProblemAction(id, input);
+      const res = await updateProblemAction(id, input);
+      if (!res.success) {
+        throw new Error(res.error || "Failed to save problem");
+      }
       router.push("/problems");
     } finally {
       setPending(false);
@@ -74,6 +93,8 @@ export default function EditProblemPage({ params }: { params: Promise<{ id: stri
     <ProblemEditor
       initialData={data.problem}
       initialTests={data.tests}
+      initialTab={initialTab}
+      autoOpenAction={autoOpenAction}
       onSave={handleSave}
       pending={pending}
     />

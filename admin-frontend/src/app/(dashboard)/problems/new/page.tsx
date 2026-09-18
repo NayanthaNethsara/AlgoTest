@@ -10,11 +10,19 @@ export default function NewProblemPage() {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
-  async function handleSave(input: ProblemInput) {
+  async function handleSave(input: ProblemInput, action?: "add" | "batch") {
     setPending(true);
     try {
-      await createProblemAction(input);
-      router.push("/problems");
+      const res = await createProblemAction(input);
+      if (!res.success) {
+        throw new Error(res.error || "Failed to create problem");
+      }
+      if (input.published) {
+        router.push("/problems");
+      } else {
+        const actionParam = action ? `&action=${action}` : "";
+        router.replace(`/problems/${res.problem.id}/edit?tab=tests${actionParam}`);
+      }
     } finally {
       setPending(false);
     }

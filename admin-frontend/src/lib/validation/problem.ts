@@ -102,14 +102,6 @@ export const problemInputSchema = z
       .optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.published && (!data.tests || data.tests.length < 5)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Published problems require at least 5 evaluation test cases",
-        path: ["tests"],
-      });
-    }
-
     if (data.tests && data.tests.length > 0 && data.samples && data.samples.length > 0) {
       for (const t of data.tests) {
         const tInput = t.input.trim();

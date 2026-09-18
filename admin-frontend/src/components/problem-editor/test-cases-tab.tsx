@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircleIcon,
   ArchiveIcon,
@@ -48,7 +48,8 @@ interface TestCasesTabProps {
   tests: TestCaseMetadata[];
   maxScore: number;
   onTestsUpdated: (updatedTests: TestCaseMetadata[]) => void;
-  onSaveDraftFirst?: () => void;
+  onSaveDraftFirst?: (action?: "add" | "batch") => void;
+  autoOpenAction?: "add" | "batch";
 }
 
 export function TestCasesTab({
@@ -58,6 +59,7 @@ export function TestCasesTab({
   maxScore,
   onTestsUpdated,
   onSaveDraftFirst,
+  autoOpenAction,
 }: TestCasesTabProps) {
   const isNewProblem = !problemId;
 
@@ -95,6 +97,16 @@ export function TestCasesTab({
     setEditTest(null);
     setSingleModalOpen(true);
   }
+
+  useEffect(() => {
+    if (!isNewProblem) {
+      if (autoOpenAction === "add") {
+        openAddSingleModal();
+      } else if (autoOpenAction === "batch") {
+        batchFileInputRef.current?.click();
+      }
+    }
+  }, [autoOpenAction, isNewProblem]);
 
   function openReplaceModal(test: TestCaseMetadata) {
     setEditTest(test);
@@ -173,7 +185,7 @@ export function TestCasesTab({
     e.preventDefault();
     setDragging(false);
     if (isNewProblem) {
-      onSaveDraftFirst?.();
+      onSaveDraftFirst?.("batch");
       return;
     }
     enqueueFiles(Array.from(e.dataTransfer.files ?? []));
@@ -456,7 +468,7 @@ export function TestCasesTab({
             size="sm"
             onClick={() => {
               if (isNewProblem) {
-                onSaveDraftFirst?.();
+                onSaveDraftFirst?.("batch");
                 return;
               }
               batchFileInputRef.current?.click();
@@ -471,7 +483,7 @@ export function TestCasesTab({
             size="sm"
             onClick={() => {
               if (isNewProblem) {
-                onSaveDraftFirst?.();
+                onSaveDraftFirst?.("add");
                 return;
               }
               openAddSingleModal();
@@ -496,7 +508,7 @@ export function TestCasesTab({
                   type="button"
                   size="xs"
                   variant="outline"
-                  onClick={onSaveDraftFirst}
+                  onClick={() => onSaveDraftFirst("add")}
                   className="border-warning/40 text-warning hover:bg-warning/15 hover:text-warning"
                 >
                   Save draft now

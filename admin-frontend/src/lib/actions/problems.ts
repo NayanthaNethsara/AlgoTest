@@ -28,7 +28,7 @@ function extractHtmlError(html: string): string {
   return clean.slice(0, 200);
 }
 
-async function handleResponseError(res: Response, fallback: string): Promise<never> {
+async function extractResponseErrorMessage(res: Response, fallback: string): Promise<string> {
   const errText = await res.text().catch(() => "");
   let errDetail = "";
 
@@ -62,6 +62,11 @@ async function handleResponseError(res: Response, fallback: string): Promise<nev
   }
 
   console.error(`[Admin Problems Action] Error ${res.status}:`, finalMessage);
+  return finalMessage;
+}
+
+async function handleResponseError(res: Response, fallback: string): Promise<never> {
+  const finalMessage = await extractResponseErrorMessage(res, fallback);
   throw new Error(finalMessage);
 }
 
@@ -91,11 +96,13 @@ export async function getProblemDetailAction(id: string): Promise<ProblemDetail>
   }
 }
 
-export async function createProblemAction(input: ProblemInput): Promise<ProblemDetail> {
+export async function createProblemAction(
+  input: ProblemInput
+): Promise<{ success: true; problem: ProblemDetail } | { success: false; error: string }> {
   const parsed = problemInputSchema.safeParse(input);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message ?? "Invalid problem input data");
+    return { success: false, error: firstIssue?.message ?? "Invalid problem input data" };
   }
 
   const validatedData: ValidatedProblemInput = parsed.data;
@@ -106,20 +113,24 @@ export async function createProblemAction(input: ProblemInput): Promise<ProblemD
       body: JSON.stringify(validatedData),
     });
     if (!res.ok) {
-      return handleResponseError(res, "Failed to create problem");
+      const error = await extractResponseErrorMessage(res, "Failed to create problem");
+      return { success: false, error };
     }
     const data = await res.json();
-    return data.problem;
+    return { success: true, problem: data.problem };
   } catch (err: unknown) {
-    throw new Error(getErrorMessage(err, "Failed to create problem"));
+    return { success: false, error: getErrorMessage(err, "Failed to create problem") };
   }
 }
 
-export async function updateProblemAction(id: string, input: ProblemInput): Promise<ProblemDetail> {
+export async function updateProblemAction(
+  id: string,
+  input: ProblemInput
+): Promise<{ success: true; problem: ProblemDetail } | { success: false; error: string }> {
   const parsed = problemInputSchema.safeParse(input);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    throw new Error(firstIssue?.message ?? "Invalid problem input data");
+    return { success: false, error: firstIssue?.message ?? "Invalid problem input data" };
   }
 
   const validatedData: ValidatedProblemInput = parsed.data;
@@ -130,39 +141,49 @@ export async function updateProblemAction(id: string, input: ProblemInput): Prom
       body: JSON.stringify(validatedData),
     });
     if (!res.ok) {
-      return handleResponseError(res, "Failed to update problem");
+      const error = await extractResponseErrorMessage(res, "Failed to update problem");
+      return { success: false, error };
     }
     const data = await res.json();
-    return data.problem;
+    return { success: true, problem: data.problem };
   } catch (err: unknown) {
-    throw new Error(getErrorMessage(err, "Failed to update problem"));
+    return { success: false, error: getErrorMessage(err, "Failed to update problem") };
   }
 }
 
-export async function togglePublishAction(id: string, published: boolean): Promise<void> {
+export async function togglePublishAction(
+  id: string,
+  published: boolean
+): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await backendFetch(`/api/v1/admin/problems/${id}/publish`, {
       method: "PATCH",
       body: JSON.stringify({ published }),
     });
     if (!res.ok) {
-      return handleResponseError(res, "Failed to update published status");
+      const error = await extractResponseErrorMessage(res, "Failed to update published status");
+      return { success: false, error };
     }
+    return { success: true };
   } catch (err: unknown) {
-    throw new Error(getErrorMessage(err, "Failed to update published status"));
+    return { success: false, error: getErrorMessage(err, "Failed to update published status") };
   }
 }
 
-export async function deleteProblemAction(id: string): Promise<void> {
+export async function deleteProblemAction(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await backendFetch(`/api/v1/admin/problems/${id}`, {
       method: "DELETE",
     });
     if (!res.ok) {
-      return handleResponseError(res, "Failed to delete problem");
+      const error = await extractResponseErrorMessage(res, "Failed to delete problem");
+      return { success: false, error };
     }
+    return { success: true };
   } catch (err: unknown) {
-    throw new Error(getErrorMessage(err, "Failed to delete problem"));
+    return { success: false, error: getErrorMessage(err, "Failed to delete problem") };
   }
 }
 

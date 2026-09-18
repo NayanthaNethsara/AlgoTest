@@ -7,7 +7,6 @@ import {
   CpuIcon,
   HardDriveIcon,
   HelpCircleIcon,
-  LayersIcon,
   TerminalIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

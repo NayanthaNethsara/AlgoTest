@@ -131,7 +131,11 @@ export function AdminProblems({
 
     setPendingId(problem.id);
     try {
-      await togglePublishAction(problem.id, !problem.published);
+      const res = await togglePublishAction(problem.id, !problem.published);
+      if (!res.success) {
+        toast.error(res.error || "Failed to change the publish state.");
+        return;
+      }
       toast.success(problem.published ? "Problem unpublished" : "Problem published", {
         description: problem.title,
       });
@@ -149,7 +153,11 @@ export function AdminProblems({
     setDeletingProblem(null);
     setPendingId(target.id);
     try {
-      await deleteProblemAction(target.id);
+      const res = await deleteProblemAction(target.id);
+      if (!res.success) {
+        toast.error(res.error || "Failed to delete the problem.");
+        return;
+      }
       toast.success("Problem deleted", { description: target.title });
       onRefresh();
     } catch (err) {
