@@ -19,6 +19,7 @@ export const contestStateSchema = z.object({
   remainingSeconds: z.coerce.number().int().nonnegative().default(0),
   elapsedSeconds: z.coerce.number().int().nonnegative().default(0),
   isFrozen: z.boolean().default(false),
+  requireFullscreen: z.boolean().optional().default(false),
   serverTime: z.string().default(() => new Date().toISOString()),
 });
 

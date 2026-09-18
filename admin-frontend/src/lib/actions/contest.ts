@@ -23,6 +23,10 @@ const defaultContestState: ContestState = {
   remainingSeconds: 7200,
   elapsedSeconds: 0,
   isFrozen: false,
+  requireFullscreen: false,
+  minClientVersion: "0.2.0",
+  enforceBinaryHash: false,
+  authorizedBinaryHashes: "",
   serverTime: new Date().toISOString(),
 };
 
@@ -38,6 +42,10 @@ function normalizeState(data: Record<string, unknown>): ContestState {
     remainingSeconds: Number(data.remainingSeconds) || 0,
     elapsedSeconds: Number(data.elapsedSeconds) || 0,
     isFrozen: Boolean(data.isFrozen),
+    requireFullscreen: Boolean(data.requireFullscreen),
+    minClientVersion: (data.minClientVersion as string) || "0.2.0",
+    enforceBinaryHash: Boolean(data.enforceBinaryHash),
+    authorizedBinaryHashes: (data.authorizedBinaryHashes as string) || "",
     serverTime: (data.serverTime as string) || new Date().toISOString(),
   };
 }

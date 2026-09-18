@@ -128,3 +128,45 @@ func TestStateTransitionGuards(t *testing.T) {
 		t.Errorf("expected ErrContestNotRunning, got %v", err)
 	}
 }
+
+func TestParseSnapshotProctorSettings(t *testing.T) {
+	values := map[string]string{
+		"contest.title":                    "Championship 2026",
+		"proctor.require_fullscreen":       "true",
+		"proctor.min_client_version":       "0.2.2",
+		"proctor.enforce_binary_hash":      "true",
+		"proctor.authorized_binary_hashes": "a1b2c3d4e5f6,1234567890abcdef",
+	}
+
+	snap := parseSnapshot(values)
+	if !snap.requireFullscreen {
+		t.Errorf("expected requireFullscreen true")
+	}
+	if snap.minClientVersion != "0.2.2" {
+		t.Errorf("expected minClientVersion 0.2.2, got %s", snap.minClientVersion)
+	}
+	if !snap.enforceBinaryHash {
+		t.Errorf("expected enforceBinaryHash true")
+	}
+	if snap.authorizedBinaryHashes != "a1b2c3d4e5f6,1234567890abcdef" {
+		t.Errorf("expected authorizedBinaryHashes match, got %s", snap.authorizedBinaryHashes)
+	}
+
+	m := &Manager{}
+	m.snapshot.Store(snap)
+	state := m.GetState()
+
+	if !state.RequireFullscreen {
+		t.Errorf("expected state.RequireFullscreen true")
+	}
+	if state.MinClientVersion != "0.2.2" {
+		t.Errorf("expected state.MinClientVersion 0.2.2, got %s", state.MinClientVersion)
+	}
+	if !state.EnforceBinaryHash {
+		t.Errorf("expected state.EnforceBinaryHash true")
+	}
+	if state.AuthorizedBinaryHashes != "a1b2c3d4e5f6,1234567890abcdef" {
+		t.Errorf("expected state.AuthorizedBinaryHashes match, got %s", state.AuthorizedBinaryHashes)
+	}
+}
+

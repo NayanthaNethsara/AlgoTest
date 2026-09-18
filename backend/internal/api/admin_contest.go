@@ -210,6 +210,9 @@ func (h *handler) adminUpdateContestSettings(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if h.agentSettings != nil {
+		_ = h.agentSettings.Reload(c.Request.Context())
+	}
 	h.recordAudit(c, audit.ActionContestSettingsUpdate, audit.TargetContest, "", audit.StatusSuccess, map[string]interface{}{
 		"title":           req.Title,
 		"durationMinutes": req.DurationMinutes,
