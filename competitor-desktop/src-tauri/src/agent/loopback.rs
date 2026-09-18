@@ -9,20 +9,21 @@ use crate::LOOPBACK_PORTS;
 
 /// Binds the loopback attestation server on the dedicated port.
 pub fn start(state: Arc<AgentState>) -> Option<u16> {
-    let port = LOOPBACK_PORTS[0];
-    match Server::http((crate::LOOPBACK_IP, port)) {
-        Ok(server) => {
-            state.loopback_port.store(port, Ordering::Relaxed);
-            let state = Arc::clone(&state);
-            std::thread::spawn(move || serve(server, state));
-            log::info!("loopback attestation server listening on {}:{port}", crate::LOOPBACK_IP);
-            Some(port)
-        }
-        Err(err) => {
-            log::warn!("could not bind {}:{port}: {err}", crate::LOOPBACK_IP);
-            None
+    for &port in &LOOPBACK_PORTS {
+        match Server::http((crate::LOOPBACK_IP, port)) {
+            Ok(server) => {
+                state.loopback_port.store(port, Ordering::Relaxed);
+                let state = Arc::clone(&state);
+                std::thread::spawn(move || serve(server, state));
+                log::info!("loopback attestation server listening on {}:{port}", crate::LOOPBACK_IP);
+                return Some(port);
+            }
+            Err(err) => {
+                log::warn!("could not bind {}:{port}: {err}", crate::LOOPBACK_IP);
+            }
         }
     }
+    None
 }
 
 pub fn is_agent_running() -> bool {
@@ -63,15 +64,12 @@ fn serve(server: Server, state: Arc<AgentState>) {
 
         let response = match (&method, path.as_str()) {
             (Method::Options, _) => with_cors(Response::from_string("").with_status_code(204), cors_origin),
-            (Method::Get, "/status") if cors_origin.is_some() => {
+            (Method::Get, "/status") => {
                 let body = status_json(&state);
                 with_cors(
                     Response::from_string(body).with_header(json_header()),
                     cors_origin,
                 )
-            }
-            (Method::Get, "/status") => {
-                with_cors(Response::from_string("").with_status_code(403), None)
             }
             (Method::Post, "/shell") => {
                 state.mark_shell_alive();
@@ -157,10 +155,11 @@ fn with_cors<R: std::io::Read>(response: Response<R>, origin: Option<String>) ->
         }
         for (name, value) in [
             ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
-            ("Access-Control-Allow-Headers", "Content-Type, Access-Control-Request-Private-Network"),
+            ("Access-Control-Allow-Headers", "Content-Type, Access-Control-Request-Private-Network, Cache-Control, Pragma, X-Requested-With, X-Proctor-Client"),
             ("Access-Control-Allow-Private-Network", "true"),
+            ("Access-Control-Allow-Credentials", "true"),
             ("Access-Control-Max-Age", "600"),
-            ("Cache-Control", "no-store"),
+            ("Cache-Control", "no-store, no-cache, must-revalidate"),
         ] {
             if let Ok(header) = Header::from_bytes(name.as_bytes(), value.as_bytes()) {
                 response = response.with_header(header);

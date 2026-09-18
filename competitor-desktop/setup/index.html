@@ -10,63 +10,63 @@
     <h1>Algothon Proctor</h1>
     <p class="lede">Workstation monitoring setup for contest integrity.</p>
 
-    <section id="step-consent">
-      <div class="card">
-        <p class="lede" style="margin-bottom: 12px;">
-          The proctor client runs locally to verify contest integrity. Personal files, browser history, and keystrokes are never recorded.
-        </p>
-
-        <details class="disclosure-drawer">
-          <summary>View Monitored Signals & Terms</summary>
-          <div class="disclosure-body">
-            <p id="disclosure-summary" style="color: var(--fg-muted); margin-bottom: 8px;"></p>
-            <h2>Collected Signals</h2>
-            <ul class="tight" id="collected"></ul>
-            <h2>Never Collected</h2>
-            <ul class="tight" id="not-collected"></ul>
-            <h2>Checked Local Ports</h2>
-            <ul class="tight" id="probed-ports"></ul>
-            <h2>Matched Process Terms</h2>
-            <ul class="tight" id="process-terms"></ul>
-            <h2>Lifecycle & Retention</h2>
-            <ul class="tight" id="lifecycle"></ul>
-            <p id="retention" style="color: var(--fg-dim); font-size: 11px; margin-top: 8px;"></p>
-          </div>
-        </details>
-
-        <div class="row">
-          <button id="accept" type="button">Accept & Continue</button>
-          <button id="quit" type="button" class="secondary">Quit</button>
-        </div>
-      </div>
-      <div class="notice error" id="consent-error" hidden></div>
-    </section>
-
-    <section id="step-enroll" hidden>
+    <!-- Enrolment Form View -->
+    <section id="step-enroll">
       <div class="card">
         <form id="enroll-form">
           <label for="username">Username</label>
-          <input id="username" type="text" autocomplete="username" placeholder="Contestant username" required />
+          <input
+            id="username"
+            type="text"
+            autocomplete="username"
+            placeholder="Contestant username"
+            required
+            autofocus
+          />
 
           <label for="password">Password</label>
-          <input id="password" type="password" autocomplete="current-password" placeholder="Account password" required />
+          <input
+            id="password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Account password"
+            required
+          />
 
           <div class="row">
             <button id="enroll" type="submit">Sign In & Enrol</button>
-            <button id="back" type="button" class="secondary">Back</button>
+            <button id="quit" type="button" class="secondary">Quit</button>
           </div>
         </form>
+
+        <details class="disclosure-drawer">
+          <summary>Contest Integrity Rules & Monitored Signals</summary>
+          <div class="disclosure-body">
+            <p id="disclosure-summary" style="color: var(--fg-muted); margin-bottom: 8px;"></p>
+            <h2>Monitored Signals</h2>
+            <ul class="tight" id="collected"></ul>
+            <h2>Never Collected</h2>
+            <ul class="tight" id="not-collected"></ul>
+            <h2>Local AI Probes</h2>
+            <ul class="tight" id="probed-ports"></ul>
+            <h2>Rules & Data Retention</h2>
+            <p id="retention" style="color: var(--fg-dim); font-size: 11px; margin: 4px 0 0;"></p>
+          </div>
+        </details>
       </div>
       <div class="notice error" id="enroll-error" hidden></div>
     </section>
 
+    <!-- Connection Verification View -->
     <section id="step-verify" hidden>
       <div class="card">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
           <span style="font-weight: 500;">Connection Status</span>
           <span class="pill working" id="verify-pill">Starting</span>
         </div>
-        <p class="lede" id="verify-status" style="margin-bottom: 8px;">Waiting for first report...</p>
+        <p class="lede" id="verify-status" style="margin-bottom: 8px;">
+          Waiting for first report...
+        </p>
         <div class="row">
           <button id="verify-retry" type="button" hidden>Check again</button>
           <button id="verify-continue" type="button" class="secondary" hidden>
@@ -77,6 +77,7 @@
       <div class="notice error" id="verify-error" hidden></div>
     </section>
 
+    <!-- Outdated Binary View -->
     <section id="step-update-required" hidden>
       <div class="card">
         <div class="pill bad" style="margin-bottom: 10px;">Update Required</div>
@@ -120,7 +121,7 @@
       }
 
       function show(step) {
-        for (const id of ["step-consent", "step-enroll", "step-verify", "step-update-required"]) {
+        for (const id of ["step-enroll", "step-verify", "step-update-required"]) {
           const node = el(id);
           if (node) node.hidden = id !== step;
         }
@@ -156,7 +157,6 @@
       }
 
       async function loadConsent() {
-        clearError("consent-error");
         clearError("enroll-error");
         try {
           const payload = await invoke("fetch_disclosure");
@@ -170,24 +170,17 @@
           }
           const d = payload.disclosure ?? {};
           consentVersion = d.version ?? "unknown";
-          el("disclosure-summary").textContent = d.summary ?? "Workstation signals are monitored during the contest.";
+          el("disclosure-summary").textContent =
+            d.summary ?? "Workstation signals are monitored during active contest windows.";
           list("collected", d.collected);
           list("not-collected", d.notCollected);
           list(
             "probed-ports",
             (payload.probedPorts ?? []).map((p) => `${p.port} — ${p.product}`),
           );
-          list(
-            "process-terms",
-            (payload.processTerms ?? []).length
-              ? payload.processTerms
-              : ["No specific process names currently matched."],
-          );
-          list("lifecycle", d.lifecycle);
           el("retention").textContent = [d.retention, d.policy].filter(Boolean).join(" ");
           return true;
         } catch (err) {
-          fail("consent-error", `Server disclosure warning: ${err}`);
           return false;
         }
       }
@@ -198,8 +191,8 @@
         let last = null;
         while (Date.now() < deadline) {
           last = await invoke("get_diagnostics");
-          if (last.healthy) return null;
-          if (last.revoked) {
+          if (last?.healthy) return null;
+          if (last?.revoked) {
             return "This machine enrolment was revoked. Contact an organizer.";
           }
           const waited = Math.round((Date.now() - startedAt) / 1000);
@@ -230,7 +223,8 @@
 
         el("verify-pill").className = "pill bad";
         el("verify-pill").textContent = "Not reporting";
-        el("verify-status").textContent = "Enrolled, but report acknowledging timed out. Submissions remain locked until active.";
+        el("verify-status").textContent =
+          "Enrolled, but report acknowledging timed out. Submissions remain locked until active.";
         fail("verify-error", problem);
         el("verify-retry").hidden = false;
         el("verify-continue").hidden = false;
@@ -260,27 +254,6 @@
 
       el("quit").addEventListener("click", closeThisWindow);
       el("update-quit")?.addEventListener("click", closeThisWindow);
-
-      el("accept").addEventListener("click", async () => {
-        clearError("consent-error");
-        const acceptBtn = el("accept");
-        if (consentVersion === "unknown" && consentLoadPromise) {
-          acceptBtn.disabled = true;
-          acceptBtn.textContent = "Loading...";
-          try {
-            await consentLoadPromise;
-          } catch (e) {}
-          acceptBtn.disabled = false;
-          acceptBtn.textContent = "Accept & Continue";
-        }
-        show("step-enroll");
-        setTimeout(() => el("username")?.focus(), 50);
-      });
-
-      el("back")?.addEventListener("click", () => {
-        clearError("enroll-error");
-        show("step-consent");
-      });
 
       async function handleEnroll() {
         clearError("enroll-error");
@@ -312,10 +285,19 @@
           await verifyFirstReport();
         } catch (err) {
           const message = String(err);
-          if (message.includes("426") || message.includes("CLIENT_UPDATE_REQUIRED") || message.includes("Update Required")) {
+          if (
+            message.includes("426") ||
+            message.includes("CLIENT_UPDATE_REQUIRED") ||
+            message.includes("Update Required")
+          ) {
             showUpdateRequired(message);
-          } else if (message.includes("CLIENT_HASH_MISMATCH") || message.includes("Unauthorized Binary")) {
-            showUpdateRequired("Executable checksum mismatch. Please download the official release binary.");
+          } else if (
+            message.includes("CLIENT_HASH_MISMATCH") ||
+            message.includes("Unauthorized Binary")
+          ) {
+            showUpdateRequired(
+              "Executable checksum mismatch. Please download the official release binary."
+            );
           } else if (message.includes("409")) {
             consentLoadPromise = loadConsent();
             await consentLoadPromise;
@@ -335,7 +317,7 @@
       });
 
       (async () => {
-        show("step-consent");
+        show("step-enroll");
         await refreshTarget();
         consentLoadPromise = loadConsent();
       })();

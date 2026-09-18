@@ -75,6 +75,12 @@ export function ProctorPill() {
     ? `Proctor agent ${local.agent_version} · support code ${local.support_code}`
     : "Proctoring is active and verified by the contest server.";
 
+  const isServerVerified = Boolean(
+    submissionsAllowed &&
+      (accessMode === "WEB_WITH_AGENT" || accessMode === "DESKTOP") &&
+      secondsSincePing <= 90,
+  );
+
   if (starting) {
     icon = <Loader2 className="h-3.5 w-3.5 pixel-spin" />;
     badgeClass = "border-warning bg-warning/20 text-warning";
@@ -108,10 +114,17 @@ export function ProctorPill() {
     statusText = "Browser Access";
     title = "Browser access mode approved.";
   } else if (!local) {
-    icon = <Radio className="h-3.5 w-3.5 animate-pulse text-amber-500" />;
-    badgeClass = "border-amber-500/40 bg-amber-500/10 text-amber-500";
-    statusText = "Agent Reconnecting";
-    title = "Waiting for local proctor agent on 127.0.0.1. Ensure Algothon Agent is running.";
+    if (isServerVerified) {
+      icon = <ShieldCheck className="h-3.5 w-3.5" />;
+      badgeClass = "border-success bg-success/20 text-success";
+      statusText = "Active & Verified";
+      title = "Proctoring is active and verified by the contest server.";
+    } else {
+      icon = <Radio className="h-3.5 w-3.5 animate-pulse text-amber-500" />;
+      badgeClass = "border-amber-500/40 bg-amber-500/10 text-amber-500";
+      statusText = "Agent Reconnecting";
+      title = "Waiting for local proctor agent on 127.0.0.1. Ensure Algothon Agent is running.";
+    }
   }
 
   return (
@@ -170,9 +183,15 @@ export function ProctorPill() {
           </div>
 
           {!local && !exempt && accessMode !== "WEB_ONLY" && (
-            <div className="p-2 border border-amber-500/40 bg-amber-500/10 pixel-flat mb-2.5 text-[11px] text-amber-600 dark:text-amber-400">
-              Local agent not detected on loopback. Ensure Algothon Agent is running on this computer.
-            </div>
+            isServerVerified ? (
+              <div className="p-2 border border-success/40 bg-success/10 pixel-flat mb-2.5 text-[11px] text-success">
+                Proctoring telemetry is active and verified by the contest server ({secondsSincePing > 0 ? `${secondsSincePing}s ago` : "just now"}).
+              </div>
+            ) : (
+              <div className="p-2 border border-amber-500/40 bg-amber-500/10 pixel-flat mb-2.5 text-[11px] text-amber-600 dark:text-amber-400">
+                Local agent not detected on loopback. Ensure Algothon Agent is running on this computer.
+              </div>
+            )
           )}
 
           {/* Support Code Box */}

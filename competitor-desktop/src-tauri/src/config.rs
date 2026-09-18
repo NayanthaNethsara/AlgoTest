@@ -230,10 +230,13 @@ fn remove_autostart_file(path: &std::path::Path, removed: &mut Vec<String>) {
 
 #[cfg(target_os = "windows")]
 fn clear_autostart_entry(removed: &mut Vec<String>) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
     const RUN_KEY: &str = r"HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
     for name in KNOWN_AUTOSTART_NAMES {
         let deleted = std::process::Command::new("reg")
             .args(["delete", RUN_KEY, "/v", name, "/f"])
+            .creation_flags(CREATE_NO_WINDOW)
             .status()
             .map(|status| status.success())
             .unwrap_or(false);

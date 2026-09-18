@@ -13,7 +13,7 @@ export const CONTEST_STATUS = {
 export const POLL_HEALTHY_MS = 15_000;
 export const POLL_DEGRADED_MS = 5_000;
 export const LEADERBOARD_POLL_INTERVAL_MS = 10_000;
-export const PROBE_TIMEOUT_MS = 700;
+export const PROBE_TIMEOUT_MS = 1500;
 
 export const LOOPBACK_PORTS = [47615, 47616, 47617, 47618, 47619] as const;
 export const AGENT_HOST = "127.0.0.1";

@@ -84,8 +84,7 @@ pub fn collect_matched_processes(sys: &mut System, denylist: &[String]) -> Proce
             OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
         };
         use windows_sys::Win32::UI::WindowsAndMessaging::{
-            EnumWindows, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
-            IsWindowVisible,
+            EnumWindows, GetWindowThreadProcessId, InternalGetWindowText, IsWindowVisible,
         };
 
         struct EnumContext<'a> {
@@ -101,21 +100,18 @@ pub fn collect_matched_processes(sys: &mut System, denylist: &[String]) -> Proce
                 return 1;
             }
 
-            let len = GetWindowTextLengthW(hwnd);
-            if len > 0 {
-                let mut title_buf = vec![0u16; (len + 1) as usize];
-                let read_len = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), len + 1);
-                if read_len > 0 {
-                    let title_os = std::ffi::OsString::from_wide(&title_buf[..read_len as usize]);
-                    let title_str = title_os.to_string_lossy().to_string();
-                    let title_tokens = tokenize(&title_str);
+            let mut title_buf = [0u16; 512];
+            let read_len = InternalGetWindowText(hwnd, title_buf.as_mut_ptr(), 512);
+            if read_len > 0 {
+                let title_os = std::ffi::OsString::from_wide(&title_buf[..read_len as usize]);
+                let title_str = title_os.to_string_lossy().to_string();
+                let title_tokens = tokenize(&title_str);
 
-                    for (i, term) in ctx.terms.iter().enumerate() {
-                        if matches_term(&title_tokens, term) {
-                            let label = &ctx.denylist[i];
-                            if !ctx.matches.contains(label) {
-                                ctx.matches.push(label.clone());
-                            }
+                for (i, term) in ctx.terms.iter().enumerate() {
+                    if matches_term(&title_tokens, term) {
+                        let label = &ctx.denylist[i];
+                        if !ctx.matches.contains(label) {
+                            ctx.matches.push(label.clone());
                         }
                     }
                 }

@@ -53,6 +53,7 @@ pub fn run() {
             commands::get_diagnostics,
             commands::open_contest_window,
             commands::enter_contest,
+            commands::trigger_heartbeat,
             commands::reset_enrollment,
             commands::close_current_window,
         ]);

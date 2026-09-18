@@ -87,7 +87,14 @@ pub fn open_contest_portal(state: &Arc<AgentState>) {
 
 pub fn open_in_browser(url: &str) {
     #[cfg(target_os = "windows")]
-    let _ = std::process::Command::new("cmd").args(["/c", "start", "", url]).spawn();
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = std::process::Command::new("cmd")
+            .args(["/c", "start", "", url])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
+    }
 
     #[cfg(target_os = "macos")]
     let _ = std::process::Command::new("open").arg(url).spawn();

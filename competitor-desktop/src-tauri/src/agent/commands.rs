@@ -220,6 +220,11 @@ pub async fn reset_enrollment(app: tauri::AppHandle, state: State<'_, Arc<AgentS
 }
 
 #[tauri::command]
+pub fn trigger_heartbeat(state: State<'_, Arc<AgentState>>) {
+    state.force_heartbeat();
+}
+
+#[tauri::command]
 pub fn close_current_window(window: tauri::WebviewWindow) -> Result<(), String> {
     if window.label() == windows::SETUP_WINDOW || window.label() == windows::DIAGNOSTICS_WINDOW {
         window.hide().map_err(|e| e.to_string())

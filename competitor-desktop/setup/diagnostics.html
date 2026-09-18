@@ -15,7 +15,7 @@
         <div style="font-size: 11px; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.04em;">Support Code</div>
         <div class="support-code" id="support">—</div>
       </div>
-      <span class="pill" id="status">Checking…</span>
+      <span class="pill" id="status">Checking...</span>
     </div>
 
     <div class="notice error" id="error" hidden></div>
@@ -40,8 +40,14 @@
 
     <div class="row">
       <button id="open" type="button">Open Contest Portal</button>
+      <button id="ping" type="button" class="secondary">Send Ping Now</button>
       <button id="copy" type="button" class="secondary">Copy Diagnostics</button>
       <button id="reset" type="button" class="secondary">Re-enrol Machine</button>
+    </div>
+
+    <div class="footer-bar">
+      <span id="last-refreshed">Updated just now</span>
+      <span id="network-pill" class="pill ok" style="padding: 2px 8px; font-size: 10px;">Network Online</span>
     </div>
 
     <script>
@@ -98,28 +104,45 @@
 
           facts("agent-facts", [
             ["Contestant", d.username || "Not enrolled"],
-            ["Connection", d.healthy ? "Active" : "Reconnecting"],
+            ["Connection", d.healthy ? "Active" : (d.enrolled ? "Reconnecting" : "Awaiting Login")],
             ["Version", `v${d.agent_version || "unknown"}`],
             ["Machine ID", shortMachineId],
             ["Last Heartbeat", d.seconds_since_ack === null || d.seconds_since_ack === undefined ? "Never" : `${d.seconds_since_ack}s ago`],
-            ["Reports Sent", String(d.seq ?? 0)],
-            ["Network Status", d.internet_reachable ? "Online" : "Offline"],
+            ["Reports Sent", `#${d.seq ?? 0}`],
             ["Local AI Ports", localAi],
             ["Matched Processes", matchedProc],
           ]);
 
+          const netPill = el("network-pill");
+          if (d.internet_reachable) {
+            netPill.className = "pill ok";
+            netPill.textContent = "Network Online";
+          } else {
+            netPill.className = "pill bad";
+            netPill.textContent = "Offline";
+          }
+
+          el("last-refreshed").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+
           const historyNode = el("history");
           if (historyNode) {
             historyNode.innerHTML = "";
-            for (const entry of [...(d.history || [])].reverse().slice(0, 25)) {
-              const row = document.createElement("tr");
-              const timeStr = entry.at && entry.at.length >= 19 ? entry.at.slice(11, 19) : (entry.at || "");
-              for (const value of [timeStr, entry.seq, entry.outcome, entry.detail]) {
-                const cell = document.createElement("td");
-                cell.textContent = String(value ?? "");
-                row.appendChild(cell);
+            const entries = [...(d.history || [])].reverse().slice(0, 25);
+            if (entries.length === 0) {
+              const tr = document.createElement("tr");
+              tr.innerHTML = '<td colspan="4" style="text-align: center; color: var(--fg-dim); padding: 8px;">No heartbeats recorded yet</td>';
+              historyNode.appendChild(tr);
+            } else {
+              for (const entry of entries) {
+                const row = document.createElement("tr");
+                const timeStr = entry.at && entry.at.length >= 19 ? entry.at.slice(11, 19) : (entry.at || "");
+                for (const value of [timeStr, entry.seq, entry.outcome, entry.detail]) {
+                  const cell = document.createElement("td");
+                  cell.textContent = String(value ?? "");
+                  row.appendChild(cell);
+                }
+                historyNode.appendChild(row);
               }
-              historyNode.appendChild(row);
             }
           }
         } catch (err) {
@@ -148,11 +171,28 @@
         setTimeout(() => (el("copy").textContent = "Copy Diagnostics"), 1500);
       });
 
+      el("ping").addEventListener("click", async () => {
+        const btn = el("ping");
+        btn.disabled = true;
+        btn.textContent = "Pinging...";
+        try {
+          await invoke("trigger_heartbeat");
+          setTimeout(async () => {
+            await refresh();
+            btn.disabled = false;
+            btn.textContent = "Send Ping Now";
+          }, 600);
+        } catch (e) {
+          btn.disabled = false;
+          btn.textContent = "Send Ping Now";
+        }
+      });
+
       el("open").addEventListener("click", () => invoke("open_contest_window"));
       el("reset").addEventListener("click", () => invoke("reset_enrollment"));
 
       refresh();
-      setInterval(refresh, 3000);
+      setInterval(refresh, 2500);
     </script>
   </body>
 </html>

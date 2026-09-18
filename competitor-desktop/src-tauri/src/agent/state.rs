@@ -179,7 +179,12 @@ impl AgentState {
     }
 
     pub fn portal_origins(&self) -> String {
-        self.client.lock().map(|c| c.portal_origins.clone()).unwrap_or_default()
+        let configured = self.client.lock().map(|c| c.portal_origins.clone()).unwrap_or_default();
+        if configured.trim().is_empty() {
+            crate::config::DEFAULT_PORTAL_ORIGINS.to_string()
+        } else {
+            format!("{},{}", crate::config::DEFAULT_PORTAL_ORIGINS, configured)
+        }
     }
 
     pub fn token(&self) -> Option<String> {

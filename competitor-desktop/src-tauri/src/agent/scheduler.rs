@@ -114,11 +114,16 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
 
     let (api_url, token) = match (state.api_url(), state.token()) {
         (url, Some(token)) if !url.is_empty() => (url, token),
-        _ => return,
+        _ => {
+            log::warn!("heartbeat skipped: client is not enrolled or missing api_url");
+            return;
+        }
     };
 
+    log::info!("sending heartbeat seq {seq} to {api_url}");
     match transport.heartbeat(&api_url, &token, &heartbeat) {
         Ok(()) => {
+            log::info!("heartbeat seq {seq} acknowledged by server");
             state.publish_nonce(nonce);
             state.on_ack();
             state.clear_rejections();
@@ -126,11 +131,13 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
             flush_buffer(state, transport, &api_url, &token);
         }
         Err(SendError::Revoked) => {
+            log::warn!("heartbeat rejected: enrollment revoked");
             state.revoked.store(true, Ordering::Relaxed);
             state.on_error("enrollment revoked — re-enrol from the tray".to_string());
             state.log("revoked", "server rejected this agent credential".to_string());
         }
         Err(SendError::Rejected(detail)) => {
+            log::warn!("heartbeat rejected: {detail}");
             state.on_error(format!("heartbeat rejected: {detail}"));
             state.log("rejected", detail);
 
@@ -140,6 +147,7 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
             }
         }
         Err(SendError::Unreachable(detail)) => {
+            log::warn!("heartbeat unreachable: {detail}");
             state.buffer_push(heartbeat);
             state.on_error(format!("server unreachable: {detail}"));
             state.log("buffered", detail);
