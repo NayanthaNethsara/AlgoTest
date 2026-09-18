@@ -142,27 +142,8 @@ func (h *handler) createSubmission(c *gin.Context) {
 	}
 	teamID := *u.TeamID
 
-	if h.proctorEvaluator != nil && req.PastedChars != nil && req.TypedCount != nil {
-		pasted := *req.PastedChars
-		typed := *req.TypedCount
-		codeLen := len(req.Code)
-		if pasted > 300 && codeLen > 0 && float64(pasted)/float64(codeLen) > 0.80 && typed < 15 {
-			maxPaste := 0
-			if req.MaxPasteSize != nil {
-				maxPaste = *req.MaxPasteSize
-			}
-			pasteCount := 0
-			if req.PasteCount != nil {
-				pasteCount = *req.PasteCount
-			}
-			evidence := map[string]any{
-				"code_length":    codeLen,
-				"pasted_chars":   pasted,
-				"typed_count":    typed,
-				"paste_count":    pasteCount,
-				"max_paste_size": maxPaste,
-				"pasted_ratio":   float64(pasted) / float64(codeLen),
-			}
+	if h.proctorEvaluator != nil {
+		if shouldFlag, evidence := evaluateSubmissionTelemetry(req.Code, req); shouldFlag {
 			_ = h.proctorEvaluator.RecordEvent(c.Request.Context(), u.ID, "ai.code.paste_burst", 20, evidence)
 		}
 	}
@@ -313,3 +294,56 @@ func (h *handler) listUserSubmissions(c *gin.Context) {
 		"total":       total,
 	})
 }
+
+func evaluateSubmissionTelemetry(code string, req createSubmissionRequest) (bool, map[string]any) {
+	codeLen := len(code)
+	if codeLen <= 150 {
+		return false, nil
+	}
+
+	pasted := 0
+	if req.PastedChars != nil {
+		pasted = *req.PastedChars
+	}
+	typed := 0
+	if req.TypedCount != nil {
+		typed = *req.TypedCount
+	}
+	pasteCount := 0
+	if req.PasteCount != nil {
+		pasteCount = *req.PasteCount
+	}
+	maxPaste := 0
+	if req.MaxPasteSize != nil {
+		maxPaste = *req.MaxPasteSize
+	}
+
+	isUnmonitored := req.PastedChars == nil && req.TypedCount == nil
+	effectivePasted := pasted
+	if isUnmonitored || (pasted == 0 && typed == 0) {
+		effectivePasted = codeLen
+	} else {
+		unaccounted := codeLen - (typed + pasted)
+		if unaccounted > 100 {
+			effectivePasted += unaccounted
+		}
+	}
+
+	pastedRatio := float64(effectivePasted) / float64(codeLen)
+	if effectivePasted > 250 && pastedRatio > 0.75 && typed < 25 {
+		evidence := map[string]any{
+			"code_length":      codeLen,
+			"pasted_chars":     pasted,
+			"typed_count":      typed,
+			"paste_count":      pasteCount,
+			"max_paste_size":   maxPaste,
+			"pasted_ratio":     pastedRatio,
+			"effective_pasted": effectivePasted,
+			"unmonitored_api":  isUnmonitored,
+		}
+		return true, evidence
+	}
+
+	return false, nil
+}
+

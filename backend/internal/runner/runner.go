@@ -369,17 +369,6 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		return BatchResult{}, fmt.Errorf("writing source: %w", err)
 	}
 
-	// Written before any submitted code runs, so a case cannot plant a symlink
-	// at a later case's input path and steer the host's write.
-	inputPaths := make(map[int]string, len(req.Cases))
-	for _, c := range req.Cases {
-		name := fmt.Sprintf("in_%d.txt", c.Ordinal)
-		if err := writeSandboxFile(filepath.Join(work, name), []byte(c.Stdin), 0644); err != nil {
-			return BatchResult{}, fmt.Errorf("writing stdin for case %d: %w", c.Ordinal, err)
-		}
-		inputPaths[c.Ordinal] = name
-	}
-
 	if len(sp.compileCmd) > 0 {
 		cCtx, cCancel := context.WithTimeout(execCtx, compileTimeout+sandboxGrace)
 		m, err := r.execBox(cCtx, slot.BoxID, base, work, "compile", sp.compileCmd, execOpts{
@@ -410,11 +399,7 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		}
 	}
 
-	inputNames := make(map[string]bool, len(inputPaths))
-	for _, name := range inputPaths {
-		inputNames[name] = true
-	}
-	guard, err := newWorkspaceGuard(base, work, inputNames)
+	guard, err := newWorkspaceGuard(base, work, nil)
 	if err != nil {
 		return BatchResult{}, err
 	}
@@ -431,7 +416,6 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 
 	for _, c := range req.Cases {
 		stepName := fmt.Sprintf("run_%d", c.Ordinal)
-		inFilename := inputPaths[c.Ordinal]
 
 		// Undo anything the previous case left behind: stashed state, symlinks
 		// aimed at this case's output names, or a tampered binary.
@@ -443,6 +427,14 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 			return BatchResult{Cases: results}, err
 		}
 
+		var inFilename string
+		if c.Stdin != "" {
+			inFilename = "stdin.txt"
+			if err := writeSandboxFile(filepath.Join(work, inFilename), []byte(c.Stdin), 0644); err != nil {
+				return BatchResult{Cases: results}, fmt.Errorf("writing stdin for case %d: %w", c.Ordinal, err)
+			}
+		}
+
 		cCtx, cCancel := context.WithTimeout(execCtx, effectiveWall+sandboxGrace)
 		m, err := r.execBox(cCtx, slot.BoxID, base, work, stepName, runCmd, execOpts{
 			stdin:      inFilename,
@@ -452,6 +444,10 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 			core:       slot.Core,
 		})
 		cCancel()
+
+		if inFilename != "" {
+			_ = clearSandboxFile(filepath.Join(work, inFilename))
+		}
 
 		stdout := readCapped(filepath.Join(work, stepName+".out"))
 		stderr := readCapped(filepath.Join(work, stepName+".err"))
