@@ -120,7 +120,7 @@ export default function AuditLogsPage() {
 
   const loader = useCallback(async () => {
     const res = await getAuditLogsAction({
-      limit: 200,
+      limit: 50,
       offset: 0,
       action: actionFilter === "all" ? undefined : actionFilter,
       status: statusFilter === "all" ? undefined : statusFilter,

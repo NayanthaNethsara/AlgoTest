@@ -105,6 +105,9 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
             } else if (res.status === 429) {
               // Rate limited -- back off 15s
               await new Promise((resolve) => setTimeout(resolve, 15000));
+            } else if (res.status === 401) {
+              // Session expired or unauthenticated -- wait 10s before retry
+              await new Promise((resolve) => setTimeout(resolve, 10000));
             } else {
               await new Promise((resolve) => setTimeout(resolve, 5000));
             }
@@ -225,10 +228,10 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
         setActiveSubmission((prev) =>
           prev
             ? {
-                ...prev,
-                status: parsed.status as "queued" | "running",
-                queuePosition: parsed.queuePosition ?? prev.queuePosition,
-              }
+              ...prev,
+              status: parsed.status as "queued" | "running",
+              queuePosition: parsed.queuePosition ?? prev.queuePosition,
+            }
             : null,
         );
       } else if (parsed.status === "passed" || parsed.status === "failed") {

@@ -16,13 +16,17 @@ function getErrorMessage(err: unknown, fallback: string): string {
 export async function listAdminSubmissionsAction(
   statusFilter = "",
   problemId = "",
-  teamId = ""
+  teamId = "",
+  limit?: number,
+  offset?: number
 ): Promise<{ submissions: AdminSubmission[]; total: number }> {
   try {
     const params = new URLSearchParams();
     if (statusFilter) params.set("status", statusFilter);
     if (problemId) params.set("problem_id", problemId);
     if (teamId) params.set("team_id", teamId);
+    if (typeof limit === "number") params.set("limit", limit.toString());
+    if (typeof offset === "number") params.set("offset", offset.toString());
 
     const query = params.toString() ? `?${params.toString()}` : "";
     const res = await backendFetch(`/api/v1/admin/submissions${query}`, {

@@ -88,17 +88,22 @@ export function ProctorProvider({
     wasLocked.current = locked;
   }, [locked, router]);
 
+  const lastTickTime = useRef<number>(0);
+
   useEffect(() => {
     let cancelled = false;
 
     const tick = async (exhaustive = false) => {
       if (cancelled) return;
+      lastTickTime.current = Date.now();
       await refresh(exhaustive);
     };
 
     const handleVisibilityChange = () => {
       if (typeof document !== "undefined" && !document.hidden && !cancelled) {
-        void tick(true);
+        if (Date.now() - lastTickTime.current >= 3000) {
+          void tick(true);
+        }
       }
     };
 

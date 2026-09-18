@@ -164,11 +164,17 @@ export async function getSubmissionStatusAction(
 
 export async function listSubmissionsAction(
   problemId?: string,
+  limit?: number,
+  offset?: number,
 ): Promise<SubmissionItem[]> {
   try {
-    const url = problemId
-      ? `/api/v1/submissions?problem_id=${encodeURIComponent(problemId)}`
-      : "/api/v1/submissions";
+    const params = new URLSearchParams();
+    if (problemId) params.set("problem_id", problemId);
+    if (typeof limit === "number") params.set("limit", limit.toString());
+    if (typeof offset === "number") params.set("offset", offset.toString());
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const url = `/api/v1/submissions${query}`;
 
     const res = await backendFetch(url, { cache: "no-store" });
     if (!res.ok) {
