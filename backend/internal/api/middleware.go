@@ -60,6 +60,12 @@ func (s *LimiterStore) Get(key string) *rate.Limiter {
 	return e.limiter
 }
 
+func (s *LimiterStore) Delete(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.limiters, key)
+}
+
 func (s *LimiterStore) evictIdle(now time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -73,18 +79,18 @@ func (s *LimiterStore) evictIdle(now time.Time) {
 
 var (
 	loginIPLimiter          = NewLimiterStore(rate.Every(100*time.Millisecond), 300) // 600 req/min/IP
-	loginUserLimiter        = NewLimiterStore(rate.Every(12*time.Second), 5)         // 5 req/min/user
+	loginUserLimiter        = NewLimiterStore(rate.Every(2*time.Second), 25)         // 30 req/min/user, burst 25
 	runLimiter              = NewLimiterStore(rate.Every(5*time.Second), 12)         // 12 req/min/user
 	submissionLimiter       = NewLimiterStore(rate.Every(6*time.Second), 10)         // 10 req/min/user
 	submissionStatusLimiter = NewLimiterStore(rate.Every(1*time.Second), 60)         // 60 req/min/user
 	adminLimiter            = NewLimiterStore(rate.Every(500*time.Millisecond), 120) // 120 req/min/admin
 	readLimiter             = NewLimiterStore(rate.Every(500*time.Millisecond), 90)  // 120 req/min/user
-	streamLimiter           = NewLimiterStore(rate.Every(5*time.Second), 12)         // 12 opens/min/user
+	streamLimiter           = NewLimiterStore(rate.Every(2*time.Second), 25)         // 30 opens/min/user, burst 25
 	healthLimiter           = NewLimiterStore(rate.Every(200*time.Millisecond), 60)  // 300 req/min/peer
 	enrollIPLimiter         = NewLimiterStore(rate.Every(200*time.Millisecond), 300) // 300 req/min/peer
 	agentHeartbeatLimiter   = NewLimiterStore(rate.Every(5*time.Second), 12)         // 12 req/min/agent
 	agentEventsLimiter      = NewLimiterStore(rate.Every(30*time.Second), 4)         // 2 req/min/agent
-	proctorSelfLimiter      = NewLimiterStore(rate.Every(3*time.Second), 20)         // 20 req/min/user
+	proctorSelfLimiter      = NewLimiterStore(rate.Every(1500*time.Millisecond), 40) // 40 req/min/user
 
 	loginSemaphore = make(chan struct{}, 8)
 )

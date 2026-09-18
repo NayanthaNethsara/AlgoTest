@@ -75,8 +75,8 @@ func (r *Repository) List(ctx context.Context, filter FilterOptions) ([]LogEntry
 	if filter.Limit <= 0 {
 		filter.Limit = 50
 	}
-	if filter.Limit > 200 {
-		filter.Limit = 200
+	if filter.Limit > 500 {
+		filter.Limit = 500
 	}
 	if filter.Offset < 0 {
 		filter.Offset = 0

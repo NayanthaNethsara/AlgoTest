@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -15,8 +16,22 @@ func (h *handler) listAdminSubmissions(c *gin.Context) {
 	statusFilter := c.Query("status")
 	problemID := c.Query("problem_id")
 	teamID := c.Query("team_id")
+
 	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			if parsed > 5000 {
+				parsed = 5000
+			}
+			limit = parsed
+		}
+	}
 	offset := 0
+	if o := c.Query("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
 
 	submissions, total, err := h.judge.Repo().ListAdminSubmissions(c.Request.Context(), statusFilter, problemID, teamID, limit, offset)
 	if err != nil {
@@ -27,6 +42,8 @@ func (h *handler) listAdminSubmissions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"submissions": submissions,
 		"total":       total,
+		"limit":       limit,
+		"offset":      offset,
 	})
 }
 

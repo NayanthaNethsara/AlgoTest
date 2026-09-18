@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -240,6 +241,11 @@ func (h *handler) bulkUserAction(c *gin.Context) {
 		}
 	case "restore":
 		affected, err = h.users.BulkUpdateSuspension(ctx, validIDs, false, "")
+		for _, id := range validIDs {
+			if u, getErr := h.users.GetByID(ctx, id); getErr == nil {
+				_ = h.restoreUserAccess(ctx, u, curr.ID)
+			}
+		}
 	case "delete":
 		affected, err = h.users.BulkDelete(ctx, validIDs)
 		if err == nil {
@@ -255,6 +261,12 @@ func (h *handler) bulkUserAction(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	if h.proctorGate != nil {
+		for _, id := range validIDs {
+			h.proctorGate.Invalidate(id)
+		}
 	}
 
 	h.recordAudit(c, audit.ActionUserBulkAction, audit.TargetUser, "", audit.StatusSuccess, map[string]interface{}{
@@ -338,6 +350,9 @@ func (h *handler) resetPassword(c *gin.Context) {
 	if err := h.sessions.DeleteByUser(ctx, id); err != nil {
 		log.Printf("failed to delete sessions for user %s: %v", id, err)
 	}
+
+	loginAttemptTracker.RecordSuccess(targetUser.Username)
+	loginUserLimiter.Delete(strings.ToLower(targetUser.Username))
 
 	h.recordAudit(c, audit.ActionUserResetPassword, audit.TargetUser, id, audit.StatusSuccess, map[string]interface{}{
 		"username": targetUser.Username,
@@ -492,8 +507,62 @@ func (h *handler) suspendUser(c *gin.Context) {
 		"username": targetUser.Username,
 		"reason":   req.Reason,
 	})
+	if !req.Suspended {
+		_ = h.restoreUserAccess(ctx, targetUser, currentUser(c).ID)
+	}
 
-		c.JSON(http.StatusOK, gin.H{"status": "updated"})
+	c.JSON(http.StatusOK, gin.H{"status": "updated"})
+}
+
+// restoreUserAccess clears all login locks, rate limits, proctor findings, and un-revokes
+// the contestant's proctor agent so that re-access succeeds immediately across all modes.
+func (h *handler) restoreUserAccess(ctx context.Context, targetUser user.User, granterID string) error {
+	loginAttemptTracker.RecordSuccess(targetUser.Username)
+	loginUserLimiter.Delete(strings.ToLower(targetUser.Username))
+
+	if h.agents != nil {
+		_ = h.agents.ClearLockoutFindings(ctx, targetUser.ID)
+		_ = h.agents.UnrevokeAgent(ctx, targetUser.ID)
+	}
+
+	if targetUser.IsSuspended {
+		_ = h.users.UpdateSuspension(ctx, targetUser.ID, false, "Restored by administrator")
+	}
+
+	_ = h.users.UpdateProctorAccess(ctx, targetUser.ID, true, "Restored by administrator", 0, granterID)
+
+	if h.proctorGate != nil {
+		h.proctorGate.Invalidate(targetUser.ID)
+	}
+
+	return nil
+}
+
+// @Summary Unlock User Account
+// @Description Clears login lockouts, rate limits, and proctor lockouts for a user.
+// @Tags Admin Users
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID"
+// @Router /api/v1/admin/users/{id}/unlock [post]
+func (h *handler) unlockUser(c *gin.Context) {
+	id := c.Param("id")
+	ctx := c.Request.Context()
+	targetUser, err := h.users.GetByID(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	granter := currentUser(c)
+	_ = h.restoreUserAccess(ctx, targetUser, granter.ID)
+
+	h.recordAudit(c, audit.ActionUserRestore, audit.TargetUser, id, audit.StatusSuccess, map[string]interface{}{
+		"username": targetUser.Username,
+		"action":   "manual_unlock",
+	})
+
+	c.JSON(http.StatusOK, gin.H{"status": "unlocked"})
 }
 
 func (h *handler) createOne(c *gin.Context, req createUserRequest) (user.User, string, error) {

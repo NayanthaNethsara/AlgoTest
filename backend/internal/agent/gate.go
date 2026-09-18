@@ -262,7 +262,7 @@ func Decide(in GateInput, now time.Time) Decision {
 	}
 
 	if d.SecondsSincePing > 30 {
-		d.findings = append(d.findings, finding{"tel.disconnect_gap", 10, map[string]any{
+		d.findings = append(d.findings, finding{"tel.gap", 10, map[string]any{
 			"seconds_since_ping": d.SecondsSincePing,
 			"access_mode":        d.AccessMode,
 		}})
@@ -423,4 +423,14 @@ func (g *Gate) Status(ctx context.Context, userID string, claimsDesktop bool) (D
 	d.findings = nil
 
 	return d, state.LoopbackPort, nil
+}
+
+// Invalidate purges any cached decision for the user, forcing the next check to query live state.
+func (g *Gate) Invalidate(userID string) {
+	if g == nil {
+		return
+	}
+	g.cacheMu.Lock()
+	defer g.cacheMu.Unlock()
+	delete(g.cache, userID)
 }

@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -283,7 +284,20 @@ func (h *handler) listUserSubmissions(c *gin.Context) {
 		}
 	}
 	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			if parsed > 1000 {
+				parsed = 1000
+			}
+			limit = parsed
+		}
+	}
 	offset := 0
+	if o := c.Query("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
 
 	teamID := ""
 	if u.TeamID != nil {
@@ -301,6 +315,8 @@ func (h *handler) listUserSubmissions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"submissions": submissions,
 		"total":       total,
+		"limit":       limit,
+		"offset":      offset,
 	})
 }
 

@@ -49,11 +49,16 @@ func (h *handler) login(c *gin.Context) {
 	normalizedUsername := strings.ToLower(strings.TrimSpace(req.Username))
 
 	if isLocked, remaining := loginAttemptTracker.IsLocked(normalizedUsername); isLocked {
+		remainingSec := int(remaining.Seconds())
 		h.recordAuditAuth(c, normalizedUsername, audit.ActionAuthLoginLocked, audit.StatusLocked, map[string]interface{}{
-			"remainingMinutes": int(remaining.Minutes()) + 1,
+			"remainingSeconds": remainingSec,
 		})
+		msg := fmt.Sprintf("Account temporarily locked due to too many failed attempts. Try again in %d seconds.", remainingSec)
+		if remainingSec > 60 {
+			msg = fmt.Sprintf("Account temporarily locked due to too many failed attempts. Try again in %d minute(s).", int(remaining.Minutes())+1)
+		}
 		c.JSON(http.StatusTooManyRequests, gin.H{
-			"error": fmt.Sprintf("Account temporarily locked due to too many failed attempts. Try again in %d minutes.", int(remaining.Minutes())+1),
+			"error": msg,
 		})
 		return
 	}

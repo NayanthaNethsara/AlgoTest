@@ -21,10 +21,10 @@ type LoginAttemptTracker struct {
 }
 
 const (
-	defaultMaxFailedLogins = 5
-	defaultLockoutDuration = 15 * time.Minute
-	trackerEvictionPeriod  = 15 * time.Minute
-	trackerIdleThreshold   = 30 * time.Minute
+	defaultMaxFailedLogins = 20
+	defaultLockoutDuration = 1 * time.Minute
+	trackerEvictionPeriod  = 1 * time.Minute
+	trackerIdleThreshold   = 5 * time.Minute
 )
 
 var loginAttemptTracker = NewLoginAttemptTracker(defaultMaxFailedLogins, defaultLockoutDuration)

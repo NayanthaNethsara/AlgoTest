@@ -179,6 +179,7 @@ func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
 	admin.PATCH("/users/:id/suspend", h.suspendUser)
 	admin.PATCH("/users/:id/exemption", h.updateUserProctorExemption)
 	admin.PATCH("/users/:id/access", h.updateUserProctorAccess)
+	admin.POST("/users/:id/unlock", h.unlockUser)
 	admin.DELETE("/users/:id", h.deleteUser)
 
 	admin.GET("/teams", h.listAdminTeams)

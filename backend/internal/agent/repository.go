@@ -426,8 +426,11 @@ func (r *Repository) latestIncident(ctx context.Context) (*Incident, error) {
 }
 
 func (r *Repository) Timeline(ctx context.Context, userID string, limit int) (Timeline, error) {
-	if limit <= 0 || limit > 500 {
+	if limit <= 0 {
 		limit = 250
+	}
+	if limit > 1000 {
+		limit = 1000
 	}
 
 	var t Timeline
@@ -627,4 +630,26 @@ func (r *Repository) ListAgents(ctx context.Context) ([]AgentItem, error) {
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func (r *Repository) ClearLockoutFindings(ctx context.Context, userID string) error {
+	_, err := r.pool.Exec(ctx, `
+		DELETE FROM proctor_findings WHERE user_id = $1 AND rule_id IN ('web.lockout_exceeded', 'web.fullscreen_exit');
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("clear lockout findings: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) UnrevokeAgent(ctx context.Context, userID string) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE proctor_agents 
+		SET revoked_at = NULL, revoked_reason = '', stopped_at = NULL, stopped_reason = ''
+		WHERE user_id = $1;
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("unrevoke agent: %w", err)
+	}
+	return nil
 }

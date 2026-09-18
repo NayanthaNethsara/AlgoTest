@@ -46,7 +46,7 @@ func (b *Broadcaster) Subscribe(userID string) (chan Result, func()) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	ch := make(chan Result, 50)
+	ch := make(chan Result, 500)
 	b.subscribers[ch] = userID
 
 	unsubscribe := func() {
@@ -64,6 +64,8 @@ func (b *Broadcaster) BroadcastLocal(res Result) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
+	isTerminal := res.Status == StatusPassed || res.Status == StatusFailed
+
 	for ch, subUserID := range b.subscribers {
 		if subUserID != "" && res.UserID != "" && res.UserID != subUserID {
 			continue
@@ -72,6 +74,16 @@ func (b *Broadcaster) BroadcastLocal(res Result) {
 		select {
 		case ch <- res:
 		default:
+			if isTerminal {
+				select {
+				case <-ch:
+				default:
+				}
+				select {
+				case ch <- res:
+				default:
+				}
+			}
 		}
 	}
 }

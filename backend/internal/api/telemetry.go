@@ -236,20 +236,26 @@ func (h *handler) leaveContest(c *gin.Context) {
 // @Router /api/v1/admin/proctor/users/{id}/readmit [post]
 func (h *handler) readmitContestant(c *gin.Context) {
 	targetUserID := c.Param("id")
+	ctx := c.Request.Context()
 
-	if h.db != nil {
-		_, _ = h.db.Exec(c.Request.Context(), `
-			DELETE FROM proctor_findings WHERE user_id = $1 AND rule_id IN ('web.lockout_exceeded', 'web.fullscreen_exit');
-		`, targetUserID)
+	targetUser, err := h.users.GetByID(ctx, targetUserID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
 	}
 
+	granter := currentUser(c)
+	_ = h.restoreUserAccess(ctx, targetUser, granter.ID)
+
 	if h.proctorEvaluator != nil {
-		_ = h.proctorEvaluator.RecordEvent(c.Request.Context(), targetUserID, "tel.web_only_grant", 0, map[string]any{
+		_ = h.proctorEvaluator.RecordEvent(ctx, targetUserID, "tel.web_only_grant", 0, map[string]any{
 			"action": "admin_readmitted",
 		})
 	}
 
-	h.recordAudit(c, audit.ActionProctorReadmit, audit.TargetUser, targetUserID, audit.StatusSuccess, nil)
+	h.recordAudit(c, audit.ActionProctorReadmit, audit.TargetUser, targetUserID, audit.StatusSuccess, map[string]interface{}{
+		"username": targetUser.Username,
+	})
 
 	c.JSON(http.StatusOK, gin.H{"status": "readmitted"})
 }

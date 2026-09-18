@@ -28,8 +28,11 @@ type ListFilter struct {
 // because the previous version shipped every competitor row with full process
 // arrays on a 10s poll and filtered client-side.
 func (r *Repository) ListHeartbeats(ctx context.Context, f ListFilter) ([]Heartbeat, int, error) {
-	if f.Limit <= 0 || f.Limit > 500 {
+	if f.Limit <= 0 {
 		f.Limit = 100
+	}
+	if f.Limit > 500 {
+		f.Limit = 500
 	}
 
 	const statusExpr = `
