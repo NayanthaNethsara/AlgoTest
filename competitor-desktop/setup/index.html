@@ -2,47 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Algothon — proctoring setup</title>
+    <title>Algothon Proctor</title>
     <link rel="stylesheet" href="shared.css" />
     <script src="bridge.js"></script>
   </head>
   <body>
-    <div class="desktop-titlebar">
-      <div class="desktop-titlebar-title">Algothon — Setup</div>
-      <div class="desktop-controls">
-        <button id="win-close" class="win-btn close" type="button" title="Close">✕</button>
-      </div>
-    </div>
-    <h1>SET UP PROCTORING</h1>
-    <p class="lede">
-      One-time setup on this machine. You keep using your own editor and your own compilers.
-    </p>
+    <h1>Algothon Proctor</h1>
+    <p class="lede">Workstation monitoring setup for contest integrity.</p>
 
     <section id="step-consent">
-      <h2>STEP 1 — DISCLOSURE & CONSENT</h2>
       <div class="card">
-        <p id="disclosure-summary"></p>
-        <h2>COLLECTED</h2>
-        <ul class="tight" id="collected"></ul>
-        <h2>NEVER COLLECTED</h2>
-        <ul class="tight" id="not-collected"></ul>
-        <h2>PORTS CHECKED ON THIS MACHINE</h2>
-        <p class="lede">
-          Only 127.0.0.1, only these ports, and only to see whether a local LLM API
-          answers. No other machine on the network is contacted or scanned.
+        <p class="lede" style="margin-bottom: 12px;">
+          The proctor client runs locally to verify contest integrity. Personal files, browser history, and keystrokes are never recorded.
         </p>
-        <ul class="tight" id="probed-ports"></ul>
-        <h2>PROCESS NAMES MATCHED</h2>
-        <p class="lede">
-          Only names matching these terms are reported, plus how many processes are
-          running in total. The rest of the list never leaves this machine.
-        </p>
-        <ul class="tight" id="process-terms"></ul>
-        <h2>WHILE IT RUNS</h2>
-        <ul class="tight" id="lifecycle"></ul>
-        <p id="retention" class="lede"></p>
+
+        <details class="disclosure-drawer">
+          <summary>View Monitored Signals & Terms</summary>
+          <div class="disclosure-body">
+            <p id="disclosure-summary" style="color: var(--fg-muted); margin-bottom: 8px;"></p>
+            <h2>Collected Signals</h2>
+            <ul class="tight" id="collected"></ul>
+            <h2>Never Collected</h2>
+            <ul class="tight" id="not-collected"></ul>
+            <h2>Checked Local Ports</h2>
+            <ul class="tight" id="probed-ports"></ul>
+            <h2>Matched Process Terms</h2>
+            <ul class="tight" id="process-terms"></ul>
+            <h2>Lifecycle & Retention</h2>
+            <ul class="tight" id="lifecycle"></ul>
+            <p id="retention" style="color: var(--fg-dim); font-size: 11px; margin-top: 8px;"></p>
+          </div>
+        </details>
+
         <div class="row">
-          <button id="accept" type="button">Accept and continue</button>
+          <button id="accept" type="button">Accept & Continue</button>
           <button id="quit" type="button" class="secondary">Quit</button>
         </div>
       </div>
@@ -50,36 +43,34 @@
     </section>
 
     <section id="step-enroll" hidden>
-      <h2>STEP 2 — SIGN IN</h2>
       <div class="card">
-        <p class="lede">
-          This enrols the proctor client on this machine. You will sign in to the
-          contest portal in your web browser.
-        </p>
-        <label for="username">Username</label>
-        <input id="username" type="text" autocomplete="username" />
-        <label for="password">Password</label>
-        <input id="password" type="password" autocomplete="current-password" />
-        <div class="row">
-          <button id="enroll" type="button">Enrol this machine</button>
-        </div>
+        <form id="enroll-form">
+          <label for="username">Username</label>
+          <input id="username" type="text" autocomplete="username" placeholder="Contestant username" required />
+
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" placeholder="Account password" required />
+
+          <div class="row">
+            <button id="enroll" type="submit">Sign In & Enrol</button>
+            <button id="back" type="button" class="secondary">Back</button>
+          </div>
+        </form>
       </div>
       <div class="notice error" id="enroll-error" hidden></div>
     </section>
 
-    <!-- Enrolling proves the server issued a credential. It does not prove this
-         machine can report, and only one of those is what unlocks submissions. -->
     <section id="step-verify" hidden>
-      <h2>STEP 3 — FIRST REPORT</h2>
       <div class="card">
-        <p class="lede">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+          <span style="font-weight: 500;">Connection Status</span>
           <span class="pill working" id="verify-pill">Starting</span>
-        </p>
-        <p class="lede" id="verify-status">Waiting for the proctor client's first report…</p>
+        </div>
+        <p class="lede" id="verify-status" style="margin-bottom: 8px;">Waiting for first report...</p>
         <div class="row">
           <button id="verify-retry" type="button" hidden>Check again</button>
           <button id="verify-continue" type="button" class="secondary" hidden>
-            Open the contest portal anyway
+            Open portal anyway
           </button>
         </div>
       </div>
@@ -87,8 +78,8 @@
     </section>
 
     <section id="step-update-required" hidden>
-      <h2>CLIENT UPDATE REQUIRED</h2>
       <div class="card">
+        <div class="pill bad" style="margin-bottom: 10px;">Update Required</div>
         <p class="lede" id="update-message">
           Your proctor client is outdated and cannot connect to this contest server.
         </p>
@@ -101,22 +92,20 @@
       </div>
     </section>
 
-    <p class="lede">
-      <span class="pill" id="machine-pill">This machine</span>
+    <div class="footer-bar">
+      <span id="machine-pill">Connecting...</span>
       <span id="target"></span>
-    </p>
+    </div>
 
     <script>
-      const invoke = window.appInvoke;
+      const invoke = (cmd, args) => window.appInvoke(cmd, args);
       const el = (id) => document.getElementById(id);
+
       let consentVersion = "unknown";
-
-      // A heartbeat is forced onto the scheduler's next 5s tick at enrolment, so a
-      // healthy client answers well inside this. Anything longer is a real fault
-      // worth naming rather than waiting out.
-      const FIRST_REPORT_TIMEOUT_MS = 20000;
-
+      let consentLoadPromise = null;
       let currentState = null;
+
+      const FIRST_REPORT_TIMEOUT_MS = 20000;
 
       function compareVersions(a, b) {
         const pa = (a || "").replace(/^v/i, "").split("-")[0].split(".").map(Number);
@@ -144,67 +133,65 @@
 
       function fail(id, message) {
         const node = el(id);
-        node.textContent = message;
-        node.hidden = false;
+        if (node) {
+          node.textContent = message;
+          node.hidden = false;
+        }
       }
 
       function clearError(id) {
-        el(id).hidden = true;
+        const node = el(id);
+        if (node) node.hidden = true;
       }
 
       function list(id, items) {
-        el(id).innerHTML = "";
+        const container = el(id);
+        if (!container) return;
+        container.innerHTML = "";
         for (const item of items ?? []) {
           const li = document.createElement("li");
           li.textContent = item;
-          el(id).appendChild(li);
+          container.appendChild(li);
         }
       }
 
       async function loadConsent() {
         clearError("consent-error");
+        clearError("enroll-error");
         try {
           const payload = await invoke("fetch_disclosure");
           if (payload.minClientVersion && currentState?.agent_version) {
             if (compareVersions(currentState.agent_version, payload.minClientVersion) < 0) {
               showUpdateRequired(
-                `Your proctor client (v${currentState.agent_version}) is outdated. The contest server requires version v${payload.minClientVersion} or newer.`
+                `Your proctor client (v${currentState.agent_version}) is outdated. Server requires v${payload.minClientVersion} or newer.`
               );
               return;
             }
           }
           const d = payload.disclosure ?? {};
           consentVersion = d.version ?? "unknown";
-          el("disclosure-summary").textContent = d.summary ?? "";
+          el("disclosure-summary").textContent = d.summary ?? "Workstation signals are monitored during the contest.";
           list("collected", d.collected);
           list("not-collected", d.notCollected);
           list(
             "probed-ports",
             (payload.probedPorts ?? []).map((p) => `${p.port} — ${p.product}`),
           );
-          // An empty denylist is a real answer and must not render as a silent
-          // blank: "no process names are matched" is what the contestant needs.
           list(
             "process-terms",
             (payload.processTerms ?? []).length
               ? payload.processTerms
-              : ["No process names are currently matched."],
+              : ["No specific process names currently matched."],
           );
           list("lifecycle", d.lifecycle);
           el("retention").textContent = [d.retention, d.policy].filter(Boolean).join(" ");
-          // A retry after a failed load must be able to re-enable the button it
-          // disabled, or the contestant is stuck on a screen that now works.
-          el("accept").disabled = false;
+          return true;
         } catch (err) {
-          // The disclosure has to be readable before anyone consents, so a fetch
-          // failure blocks the flow rather than silently showing nothing.
-          fail("consent-error", `Could not load the proctoring disclosure: ${err}`);
-          el("accept").disabled = true;
+          fail("consent-error", `Server disclosure warning: ${err}`);
+          return false;
         }
       }
 
-      /// Polls the agent's own diagnostics until it has had a heartbeat
-      /// acknowledged. Returns null when reporting, or a sentence naming the fault.
       async function firstReportProblem() {
         const startedAt = Date.now();
         const deadline = startedAt + FIRST_REPORT_TIMEOUT_MS;
@@ -213,18 +200,15 @@
           last = await invoke("get_diagnostics");
           if (last.healthy) return null;
           if (last.revoked) {
-            return "This machine's enrolment was revoked. Ask an organizer before trying again.";
+            return "This machine enrolment was revoked. Contact an organizer.";
           }
-          // Counting up beats a bare spinner: a contestant can tell a slow start
-          // from a stuck one, and knows the window has not frozen.
           const waited = Math.round((Date.now() - startedAt) / 1000);
-          el("verify-status").textContent =
-            `Waiting for the proctor client's first report… ${waited}s`;
+          el("verify-status").textContent = `Waiting for first report... ${waited}s`;
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
         return last?.last_error
-          ? `The proctor client could not report to the contest server: ${last.last_error}`
-          : "The proctor client has not reported to the contest server yet. Check that the contest server is reachable from this machine.";
+          ? `Reporting error: ${last.last_error}`
+          : "Proctor client has not reported yet. Check network connection to the contest server.";
       }
 
       async function verifyFirstReport() {
@@ -233,25 +217,20 @@
         el("verify-continue").hidden = true;
         el("verify-pill").className = "pill working";
         el("verify-pill").textContent = "Starting";
-        el("verify-status").textContent = "Waiting for the proctor client's first report…";
+        el("verify-status").textContent = "Waiting for first report...";
 
         const problem = await firstReportProblem();
         if (!problem) {
           el("verify-pill").className = "pill ok";
           el("verify-pill").textContent = "Reporting";
-          el("verify-status").textContent = "Opening the contest portal in your browser…";
+          el("verify-status").textContent = "Enrolled successfully. Opening contest portal...";
           await invoke("enter_contest");
           return;
         }
 
         el("verify-pill").className = "pill bad";
         el("verify-pill").textContent = "Not reporting";
-
-        // The enrolment itself stands, so this is recoverable without redoing it.
-        // Going through to the portal is still allowed — submissions will be locked
-        // there, but a contestant is never trapped on a setup screen.
-        el("verify-status").textContent =
-          "This machine is enrolled, but the proctor client is not reporting yet. Submissions stay locked until it does.";
+        el("verify-status").textContent = "Enrolled, but report acknowledging timed out. Submissions remain locked until active.";
         fail("verify-error", problem);
         el("verify-retry").hidden = false;
         el("verify-continue").hidden = false;
@@ -261,36 +240,72 @@
       el("verify-continue").addEventListener("click", () => invoke("enter_contest"));
 
       async function refreshTarget() {
-        const state = await invoke("get_setup_state");
-        currentState = state;
-        el("target").textContent = "Contest network configured";
-        el("machine-pill").textContent =
-          `Machine ${state.machine_id.slice(0, 8)} · agent v${state.agent_version}`;
+        try {
+          const state = await invoke("get_setup_state");
+          currentState = state;
+          el("target").textContent = "Network ready";
+          el("machine-pill").textContent = `Machine: ${state.machine_id.slice(0, 8)} · v${state.agent_version}`;
+        } catch (e) {
+          el("machine-pill").textContent = "Client ready";
+        }
       }
 
       async function closeThisWindow() {
         try {
-          if (typeof invoke === "function") {
-            await invoke("close_current_window");
-            return;
-          }
+          await invoke("close_current_window");
+          return;
         } catch (e) {}
         window.close();
       }
 
-      el("accept").addEventListener("click", () => show("step-enroll"));
       el("quit").addEventListener("click", closeThisWindow);
       el("update-quit")?.addEventListener("click", closeThisWindow);
-      el("win-close")?.addEventListener("click", closeThisWindow);
 
-      el("enroll").addEventListener("click", async () => {
+      el("accept").addEventListener("click", async () => {
+        clearError("consent-error");
+        const acceptBtn = el("accept");
+        if (consentVersion === "unknown" && consentLoadPromise) {
+          acceptBtn.disabled = true;
+          acceptBtn.textContent = "Loading...";
+          try {
+            await consentLoadPromise;
+          } catch (e) {}
+          acceptBtn.disabled = false;
+          acceptBtn.textContent = "Accept & Continue";
+        }
+        show("step-enroll");
+        setTimeout(() => el("username")?.focus(), 50);
+      });
+
+      el("back")?.addEventListener("click", () => {
+        clearError("enroll-error");
+        show("step-consent");
+      });
+
+      async function handleEnroll() {
         clearError("enroll-error");
         const button = el("enroll");
+        const username = el("username").value.trim();
+        const password = el("password").value;
+
+        if (!username || !password) {
+          fail("enroll-error", "Please enter both username and password.");
+          return;
+        }
+
         button.disabled = true;
+        button.textContent = "Signing In...";
+
         try {
+          if (consentVersion === "unknown" && consentLoadPromise) {
+            try {
+              await consentLoadPromise;
+            } catch (e) {}
+          }
+
           await invoke("enroll_agent", {
-            username: el("username").value,
-            password: el("password").value,
+            username,
+            password,
             consentVersion,
           });
           show("step-verify");
@@ -300,23 +315,29 @@
           if (message.includes("426") || message.includes("CLIENT_UPDATE_REQUIRED") || message.includes("Update Required")) {
             showUpdateRequired(message);
           } else if (message.includes("CLIENT_HASH_MISMATCH") || message.includes("Unauthorized Binary")) {
-            showUpdateRequired("This executable checksum does not match official release builds. Please download the official release binary.");
+            showUpdateRequired("Executable checksum mismatch. Please download the official release binary.");
           } else if (message.includes("409")) {
-            show("step-consent");
-            await loadConsent();
-            fail("consent-error", "The disclosure was updated. Please read it again before enrolling.");
+            consentLoadPromise = loadConsent();
+            await consentLoadPromise;
+            fail("enroll-error", "Disclosure terms were refreshed. Please click Sign In again.");
           } else {
             fail("enroll-error", message);
           }
         } finally {
           button.disabled = false;
+          button.textContent = "Sign In & Enrol";
         }
+      }
+
+      el("enroll-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await handleEnroll();
       });
 
       (async () => {
-        await refreshTarget();
         show("step-consent");
-        await loadConsent();
+        await refreshTarget();
+        consentLoadPromise = loadConsent();
       })();
     </script>
   </body>

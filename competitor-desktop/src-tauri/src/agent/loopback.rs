@@ -7,21 +7,22 @@ use super::state::AgentState;
 use crate::config::allowed_portal_origins;
 use crate::LOOPBACK_PORTS;
 
-/// Binds the loopback attestation server and returns the port it claimed.
+/// Binds the loopback attestation server on the dedicated port.
 pub fn start(state: Arc<AgentState>) -> Option<u16> {
-    for port in LOOPBACK_PORTS {
-        match Server::http((crate::LOOPBACK_IP, port)) {
-            Ok(server) => {
-                state.loopback_port.store(port, Ordering::Relaxed);
-                let state = Arc::clone(&state);
-                std::thread::spawn(move || serve(server, state));
-                log::info!("loopback attestation server listening on {}:{port}", crate::LOOPBACK_IP);
-                return Some(port);
-            }
-            Err(err) => log::warn!("could not bind {}:{port}: {err}", crate::LOOPBACK_IP),
+    let port = LOOPBACK_PORTS[0];
+    match Server::http((crate::LOOPBACK_IP, port)) {
+        Ok(server) => {
+            state.loopback_port.store(port, Ordering::Relaxed);
+            let state = Arc::clone(&state);
+            std::thread::spawn(move || serve(server, state));
+            log::info!("loopback attestation server listening on {}:{port}", crate::LOOPBACK_IP);
+            Some(port)
+        }
+        Err(err) => {
+            log::warn!("could not bind {}:{port}: {err}", crate::LOOPBACK_IP);
+            None
         }
     }
-    None
 }
 
 pub fn is_agent_running() -> bool {
@@ -33,7 +34,7 @@ fn probe(port: u16) -> bool {
     use std::time::Duration;
 
     let addr = SocketAddr::from((crate::LOOPBACK_IP, port));
-    TcpStream::connect_timeout(&addr, Duration::from_millis(150)).is_ok()
+    TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
 }
 
 fn serve(server: Server, state: Arc<AgentState>) {
@@ -78,8 +79,7 @@ fn serve(server: Server, state: Arc<AgentState>) {
             }
             (Method::Post, "/setup") => {
                 if let Some(app) = state.app_handle() {
-                    let handle = app.clone();
-                    let _ = app.run_on_main_thread(move || super::windows::open_setup(&handle));
+                    super::windows::open_setup(&app);
                 }
                 with_cors(Response::from_string("").with_status_code(204), cors_origin)
             }

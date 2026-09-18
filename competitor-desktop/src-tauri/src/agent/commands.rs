@@ -69,7 +69,7 @@ pub fn enroll_agent(
     username: String,
     password: String,
     consent_version: String,
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     state: State<'_, Arc<AgentState>>,
 ) -> Result<(), String> {
     let api_url = state.api_url();
@@ -77,13 +77,33 @@ pub fn enroll_agent(
         return Err("set the contest server address first".into());
     }
 
+    let trimmed_user = username.trim();
+    if trimmed_user.is_empty() {
+        return Err("username cannot be empty".into());
+    }
+
+    let effective_consent = if consent_version.trim().is_empty() || consent_version == "unknown" {
+        Transport::new()
+            .disclosure(&api_url)
+            .ok()
+            .and_then(|disc| {
+                disc.get("disclosure")
+                    .and_then(|d| d.get("version"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
+            .unwrap_or(consent_version)
+    } else {
+        consent_version
+    };
+
     let (enrollment, policy) = Transport::new().enroll(
         &api_url,
-        username.trim(),
+        trimmed_user,
         &password,
         &identity::machine_id(),
         &identity::platform(),
-        &consent_version,
+        &effective_consent,
         &identity::current_exe_hash(),
     )?;
 
@@ -99,15 +119,18 @@ pub fn enroll_agent(
     state.force_heartbeat();
     state.log("enrolled", format!("agent enrolled as {}", username.trim()));
 
-    lifecycle::sync_autostart(&app, true);
-
     Ok(())
 }
 
 #[tauri::command]
-pub fn enter_contest(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) {
+pub async fn enter_contest(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
     windows::close_setup(&app);
-    windows::open_contest_shell(state.inner());
+    let state_inner = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        windows::open_contest_portal(&state_inner);
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[derive(Serialize)]
@@ -179,17 +202,28 @@ pub fn get_diagnostics(state: State<'_, Arc<AgentState>>) -> Diagnostics {
 
 #[tauri::command]
 pub fn open_contest_window(state: State<'_, Arc<AgentState>>) {
-    windows::open_contest_shell(&state);
+    windows::open_contest_portal(&state);
 }
 
 #[tauri::command]
-pub fn reset_enrollment(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
-    lifecycle::unenroll(&app, state.inner(), "enrollment reset from the diagnostics window")?;
+pub async fn reset_enrollment(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
+    let app_handle = app.clone();
+    let state_inner = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        lifecycle::unenroll(&app_handle, &state_inner, "enrollment reset from the diagnostics window")
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
     windows::open_setup(&app);
     Ok(())
 }
 
 #[tauri::command]
 pub fn close_current_window(window: tauri::WebviewWindow) -> Result<(), String> {
-    window.close().map_err(|e| e.to_string())
+    if window.label() == windows::SETUP_WINDOW || window.label() == windows::DIAGNOSTICS_WINDOW {
+        window.hide().map_err(|e| e.to_string())
+    } else {
+        window.close().map_err(|e| e.to_string())
+    }
 }

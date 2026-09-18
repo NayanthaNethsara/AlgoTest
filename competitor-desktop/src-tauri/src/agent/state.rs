@@ -300,6 +300,9 @@ impl AgentState {
     }
 
     pub fn buffer_clear(&self) {
+        if let Ok(mut buffer) = self.buffer.lock() {
+            buffer.clear();
+        }
         if self.is_persisting() {
             crate::config::clear_buffer();
         }

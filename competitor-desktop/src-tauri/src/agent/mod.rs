@@ -11,11 +11,19 @@ pub mod windows;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use tauri_plugin_autostart::MacosLauncher;
-
 use state::AgentState;
 
 pub fn run() {
+    crate::config::ensure_current_version(crate::AGENT_VERSION);
+
+    let _instance_lock = match crate::acquire_process_lock("Local\\AlgothonAgentInstance") {
+        Some(lock) => lock,
+        None => {
+            log::warn!("another proctor agent instance is already running; exiting");
+            return;
+        }
+    };
+
     if loopback::is_agent_running() {
         log::warn!("another proctor agent is already running; exiting");
         return;
@@ -36,10 +44,6 @@ pub fn run() {
 
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_autostart::init(
-            MacosLauncher::LaunchAgent,
-            Some(vec!["--agent"]),
-        ))
         .manage(Arc::clone(&state))
         .invoke_handler(tauri::generate_handler![
             commands::get_setup_state,
@@ -83,7 +87,7 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == windows::DIAGNOSTICS_WINDOW {
+                if window.label() == windows::DIAGNOSTICS_WINDOW || window.label() == windows::SETUP_WINDOW {
                     api.prevent_close();
                     let _ = window.hide();
                 }

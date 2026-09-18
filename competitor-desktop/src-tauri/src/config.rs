@@ -145,10 +145,10 @@ pub fn reset() -> Vec<String> {
     };
 
     if let Some(base) = base_dirs {
-        for folder in ["com.algothon.agent", "com.minialgothon.competitor"] {
+        for folder in ["com.algothon.agent", "com.algothon.competitor", "com.minialgothon.competitor"] {
             let dir = base.join(folder);
             if dir.exists() {
-                for name in ["agent.json", "client.json", "buffer.json"] {
+                for name in ["agent.json", "client.json", "buffer.json", "version.txt"] {
                     let path = dir.join(name);
                     if path.exists() && std::fs::remove_file(&path).is_ok() {
                         removed.push(path.display().to_string());
@@ -161,6 +161,32 @@ pub fn reset() -> Vec<String> {
 
     clear_autostart_entry(&mut removed);
     removed
+}
+
+pub fn ensure_current_version(current_version: &str) {
+    let Some(dir) = config_dir() else { return };
+    let version_path = dir.join("version.txt");
+
+    let stored_version = std::fs::read_to_string(&version_path)
+        .ok()
+        .map(|s| s.trim().to_string());
+
+    if stored_version.as_deref() != Some(current_version) {
+        log::info!(
+            "version change detected (stored: {:?}, current: {}), resetting stale client data",
+            stored_version,
+            current_version
+        );
+        let _ = reset();
+        if let Ok(()) = std::fs::create_dir_all(&dir) {
+            let _ = std::fs::write(&version_path, current_version.trim());
+        }
+    }
+}
+
+pub fn clear_autostart() {
+    let mut removed = Vec::new();
+    clear_autostart_entry(&mut removed);
 }
 
 const KNOWN_AUTOSTART_NAMES: &[&str] = &[
@@ -347,5 +373,17 @@ mod tests {
         assert!(reqwest::Url::parse(&config.server_url).is_ok());
         assert!(reqwest::Url::parse(&config.api_url).is_ok());
         assert!(!portal_origin(&config.server_url).is_empty());
+    }
+
+    #[test]
+    fn test_ensure_current_version_writes_file() {
+        ensure_current_version("0.99.99");
+        let dir = config_dir().expect("config dir exists");
+        let version_file = dir.join("version.txt");
+        assert!(version_file.exists());
+        let read_back = std::fs::read_to_string(&version_file).unwrap();
+        assert_eq!(read_back.trim(), "0.99.99");
+        // Reset back to current version
+        ensure_current_version(crate::AGENT_VERSION);
     }
 }

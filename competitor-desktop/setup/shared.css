@@ -1,35 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap');
-
 :root {
   color-scheme: dark;
-  --bg: #111a17;
-  --surface: #182622;
-  --surface-inset: #0e1614;
-  --border: #000000;
-  --border-bevel: #28443d;
-  --fg: #e6f4f0;
-  --muted: #8caaa2;
-  --accent: #10b981;
-  --accent-glow: #34d399;
-  --accent-fg: #041d15;
+  --bg: #0b0f17;
+  --surface: #111827;
+  --surface-subtle: #0f172a;
+  --surface-card: #141d2e;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-focus: #3b82f6;
+  --fg: #f3f4f6;
+  --fg-muted: #9ca3af;
+  --fg-dim: #6b7280;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-fg: #ffffff;
   --success: #10b981;
+  --success-bg: rgba(16, 185, 129, 0.14);
   --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.14);
   --destructive: #ef4444;
-  --font-header: 'Press Start 2P', monospace;
-  --font-body: 'Pixelify Sans', monospace;
-
-  /* Same lighting model as the portal's globals.css: every face outlined in black
-     and lit from the top-left. Kept as tokens here too so the two apps cannot
-     drift apart the next time one of them is edited. */
-  --edge: #000000;
-  --bevel-light: #45726a;
-  --bevel-dark: #0a100e;
+  --destructive-bg: rgba(239, 68, 68, 0.14);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
 
 * {
   box-sizing: border-box;
-  border-radius: 0px !important;
-  image-rendering: pixelated;
 }
 
 html {
@@ -37,253 +34,241 @@ html {
 }
 
 body {
-  min-height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: none;
-  overscroll-behavior-y: none;
-  overscroll-behavior-x: none;
-  -ms-scroll-chaining: none;
-}
-
-body {
   margin: 0;
-  padding: 24px 28px 36px;
+  padding: 24px;
+  min-height: 100%;
   background: var(--bg);
   color: var(--fg);
-  font: 14px/1.5 var(--font-body), sans-serif;
-  letter-spacing: 0.02em;
-
-  /* The portal's 4px texture grid, at the same scale and opacity. */
-  background-image:
-    repeating-linear-gradient(to right, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 4px),
-    repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 4px);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-y: auto;
+  overscroll-behavior: none;
 }
 
-/* Hard focus ring, outline-only so it never erases a bevel. */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: var(--accent);
-  color: var(--accent-fg);
+  background: rgba(37, 99, 235, 0.4);
+  color: #ffffff;
 }
 
 h1 {
-  margin: 0 0 8px;
-  font-family: var(--font-header);
-  font-size: 13px;
-  text-transform: uppercase;
-  color: var(--accent);
-  letter-spacing: 0.05em;
-  text-shadow: 2px 2px 0px #000000;
-}
-
-h1::before {
-  content: "> ";
-  color: var(--accent-glow);
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.01em;
 }
 
 h2 {
-  margin: 24px 0 10px;
-  font-family: var(--font-header);
-  font-size: 10px;
+  margin: 18px 0 8px;
+  font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
 }
 
 p {
-  margin: 0 0 12px;
-  font-family: var(--font-body);
+  margin: 0 0 10px;
 }
 
 .lede {
-  color: var(--muted);
-  margin-bottom: 20px;
+  color: var(--fg-muted);
+  margin-bottom: 16px;
   font-size: 13px;
+  line-height: 1.45;
 }
 
 label {
   display: block;
-  margin: 14px 0 6px;
-  font-family: var(--font-body);
-  font-weight: 700;
+  margin: 12px 0 5px;
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 500;
+  color: var(--fg-muted);
 }
 
 input {
   width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #000000;
-  background: var(--surface-inset);
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
   color: var(--fg);
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
   font-size: 13px;
-  box-shadow: inset 2px 2px 0 var(--edge), inset -2px -2px 0 var(--bevel-light);
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 input:focus-visible {
   border-color: var(--accent);
-  box-shadow: inset 2px 2px 0px #000000, inset -2px -2px 0px var(--accent-glow);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
 button {
-  padding: 10px 18px;
-  border: 2px solid #000000;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--accent-fg);
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
   font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 500;
   cursor: pointer;
-  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.4), inset -2px -2px 0px rgba(0, 0, 0, 0.4), 0px 3px 0px #000000;
-  transition: transform 0.05s ease, box-shadow 0.05s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }
 
 button:hover:not(:disabled) {
-  background: var(--accent-glow);
+  background: var(--accent-hover);
 }
 
 button:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: inset -2px -2px 0px rgba(255, 255, 255, 0.4), inset 2px 2px 0px rgba(0, 0, 0, 0.4), 0px 1px 0px #000000;
+  opacity: 0.85;
 }
 
 button.secondary {
   background: var(--surface);
   color: var(--fg);
-  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.1), inset -2px -2px 0px rgba(0, 0, 0, 0.4), 0px 3px 0px #000000;
+  border-color: var(--border);
+}
+
+button.secondary:hover:not(:disabled) {
+  background: var(--surface-card);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 button.danger {
-  background: var(--destructive);
-  color: #ffffff;
-  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.3), inset -2px -2px 0px rgba(0, 0, 0, 0.4), 0px 3px 0px #000000;
+  background: var(--destructive-bg);
+  color: var(--destructive);
+  border-color: rgba(239, 68, 68, 0.25);
 }
 
 button.danger:hover:not(:disabled) {
-  background: #f87171;
+  background: rgba(239, 68, 68, 0.25);
+  border-color: var(--destructive);
 }
 
 button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
-  transform: none;
 }
 
 .row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .card {
-  border: 2px solid #000000;
   background: var(--surface);
-  padding: 18px 20px;
-  box-shadow: inset 2px 2px 0 var(--bevel-light), inset -2px -2px 0 var(--bevel-dark), 0 4px 0 var(--edge);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  margin-bottom: 16px;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: minmax(140px, max-content) 1fr;
-  gap: 8px 18px;
-  font-family: var(--font-body);
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  gap: 6px 14px;
+  font-size: 12px;
+  margin: 0;
 }
 
 .grid dt {
-  color: var(--muted);
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 11px;
+  color: var(--fg-muted);
+  font-weight: 500;
 }
 
 .grid dd {
   margin: 0;
-  font-size: 12px;
+  color: var(--fg);
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 
 ul.tight {
-  margin: 0;
-  padding-left: 20px;
-  font-family: var(--font-body);
+  margin: 4px 0 8px;
+  padding-left: 18px;
+  color: var(--fg-muted);
+  font-size: 12px;
 }
 
 ul.tight li {
-  margin-bottom: 6px;
-  font-size: 13px;
+  margin-bottom: 4px;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 12px;
-  border: 1px solid #000000;
-  background: var(--surface-inset);
-  font-family: var(--font-body);
-  font-weight: 700;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
   font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  box-shadow: inset 1px 1px 0px #000000;
+  font-weight: 500;
 }
 
 .pill::before {
   content: "";
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: currentColor;
 }
 
 .pill.ok {
   color: var(--success);
-  border-color: var(--success);
+  background: var(--success-bg);
+  border-color: rgba(16, 185, 129, 0.25);
 }
 
 .pill.warn {
   color: var(--warning);
-  border-color: var(--warning);
+  background: var(--warning-bg);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
 .pill.bad {
   color: var(--destructive);
-  border-color: var(--destructive);
+  background: var(--destructive-bg);
+  border-color: rgba(239, 68, 68, 0.25);
 }
 
-/* Shown while the client is working on something the contestant is waiting for.
-   A pixel UI has no spinners, so the indicator dot blinks instead. */
 .pill.working {
   color: var(--warning);
-  border-color: var(--warning);
+  background: var(--warning-bg);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
 .pill.working::before {
-  animation: pill-blink 0.8s steps(2, end) infinite;
+  animation: pill-pulse 1.2s ease-in-out infinite;
 }
 
-@keyframes pill-blink {
-  0%,
-  49% {
+@keyframes pill-pulse {
+  0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
-  50%,
-  100% {
-    opacity: 0;
+  50% {
+    opacity: 0.35;
+    transform: scale(0.85);
   }
 }
 
-/* A blinking indicator next to unreadable text helps nobody. */
 @media (prefers-reduced-motion: reduce) {
   .pill.working::before {
     animation: none;
@@ -291,210 +276,155 @@ ul.tight li {
 }
 
 .notice {
-  margin-top: 16px;
-  padding: 12px 16px;
-  border: 2px solid #000000;
-  background: var(--surface-inset);
-  font-family: var(--font-body);
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
   font-size: 12px;
-  text-transform: uppercase;
-  font-weight: 700;
+  line-height: 1.4;
+  border: 1px solid transparent;
 }
 
 .notice.error {
-  border-color: var(--destructive);
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--destructive);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--destructive-bg);
+  color: #fca5a5;
 }
 
 .notice.ok {
-  border-color: var(--success);
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--success);
+  border-color: rgba(16, 185, 129, 0.3);
+  background: var(--success-bg);
+  color: #86efac;
 }
 
 [hidden] {
   display: none !important;
 }
 
-pre {
-  margin: 0;
-  padding: 12px;
-  background: var(--surface-inset);
-  border: 2px solid #000000;
-  overflow-x: auto;
-  font-family: monospace;
+details.disclosure-drawer {
+  margin: 14px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  overflow: hidden;
+}
+
+details.disclosure-drawer summary {
+  padding: 9px 12px;
   font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+details.disclosure-drawer summary:hover {
   color: var(--fg);
+}
+
+details.disclosure-drawer[open] summary {
+  border-bottom: 1px solid var(--border);
+  color: var(--fg);
+}
+
+.disclosure-body {
+  padding: 12px;
+  font-size: 12px;
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .table-container {
   width: 100%;
-  max-height: 220px;
+  max-height: 180px;
   overflow-y: auto;
-  overflow-x: auto;
-  border: 2px solid #000000;
-  background: var(--surface-inset);
-  margin-bottom: 16px;
-  box-shadow: inset 1px 1px 0px #000000;
-}
-
-.table-container table {
-  border: none;
-  margin: 0;
-}
-
-.table-container th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--surface-inset);
-  box-shadow: 0 1px 0 #000000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  margin-bottom: 12px;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-family: var(--font-body);
   font-size: 12px;
-  border: 2px solid #000000;
 }
 
 th,
 td {
   text-align: left;
-  padding: 8px 10px;
-  border-bottom: 1px solid #000000;
-  vertical-align: top;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
 }
 
 th {
-  background: var(--surface-inset);
-  color: var(--muted);
-  font-weight: 700;
-  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-card);
+  color: var(--fg-muted);
+  font-weight: 600;
   font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+td {
+  font-family: var(--font-mono);
+  color: var(--fg);
 }
 
 code {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
-  padding: 2px 6px;
-  border: 1px solid #000000;
-  background: var(--surface-inset);
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
 }
 
-/* Chunky scrollbars, matching the portal. A default scrollbar is the largest piece
-   of un-themed chrome in a window this size. */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--surface-inset);
-  border-left: 2px solid var(--edge);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--surface);
-  border: 1px solid var(--edge);
-  box-shadow: inset 1px 1px 0 var(--bevel-light), inset -1px -1px 0 var(--bevel-dark);
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-bevel);
+  background: rgba(255, 255, 255, 0.25);
 }
 
-/* Custom Desktop Titlebar */
-.desktop-titlebar {
+.support-box {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 36px;
-  background: var(--surface);
-  border-bottom: 2px solid #000000;
-  padding: 0 8px 0 16px;
-  margin: -24px -28px 24px -28px;
-  user-select: none;
-  -webkit-user-select: none;
+  padding: 10px 14px;
+  background: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 14px;
 }
 
-.desktop-titlebar-title {
-  font-family: var(--font-header);
-  font-size: 11px;
-  color: var(--accent);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.desktop-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.win-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  background: var(--surface-inset);
-  color: var(--muted);
-  border: 2px solid #000000;
-  font-family: monospace;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: none;
-}
-
-.win-btn:hover {
-  background: var(--surface);
-  color: var(--fg);
-  border-color: #000000;
-  box-shadow: none;
-}
-
-.win-btn.close:hover {
-  background: var(--destructive);
-  color: #ffffff;
-}
-
-.pulse-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px;
-  background: rgba(245, 158, 11, 0.15);
-  border: 2px solid var(--warning);
-  color: var(--warning);
-  font-family: var(--font-header);
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  margin-bottom: 16px;
-}
-
-.pulse-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--warning);
-  animation: pulse-glow 1.2s infinite;
-}
-
-@keyframes pulse-glow {
-  0% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.3; transform: scale(0.85); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-.countdown-text {
-  font-family: var(--font-body);
+.support-code {
+  font-family: var(--font-mono);
+  font-size: 15px;
   font-weight: 600;
-  color: var(--muted);
-  font-size: 13px;
-  margin-top: 14px;
+  color: var(--fg);
+  letter-spacing: 0.05em;
 }
 
+.footer-bar {
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--fg-dim);
+}

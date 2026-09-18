@@ -100,11 +100,12 @@ impl Transport {
     }
 
     pub fn heartbeat(&self, api_url: &str, token: &str, hb: &Heartbeat) -> Result<(), SendError> {
+        let base = api_url.trim_end_matches('/');
         let body = serde_json::to_vec(hb).map_err(|e| SendError::Unreachable(e.to_string()))?;
         let signature = sign_payload(token, &body);
         let response = self
             .client
-            .post(format!("{api_url}/api/v1/agent/heartbeat"))
+            .post(format!("{base}/api/v1/agent/heartbeat"))
             .bearer_auth(token)
             .header("X-Agent-Signature", signature)
             .header("Content-Type", "application/json")
@@ -115,12 +116,13 @@ impl Transport {
     }
 
     pub fn flush(&self, api_url: &str, token: &str, batch: &[Heartbeat]) -> Result<(), SendError> {
+        let base = api_url.trim_end_matches('/');
         let body = serde_json::to_vec(&serde_json::json!({ "heartbeats": batch }))
             .map_err(|e| SendError::Unreachable(e.to_string()))?;
         let signature = sign_payload(token, &body);
         let response = self
             .flush_client
-            .post(format!("{api_url}/api/v1/agent/events"))
+            .post(format!("{base}/api/v1/agent/events"))
             .bearer_auth(token)
             .header("X-Agent-Signature", signature)
             .header("Content-Type", "application/json")
@@ -131,12 +133,13 @@ impl Transport {
     }
 
     pub fn shutdown(&self, api_url: &str, token: &str, boot_id: &str, reason: &str) -> Result<(), SendError> {
+        let base = api_url.trim_end_matches('/');
         let body = serde_json::to_vec(&serde_json::json!({ "reason": reason, "boot_id": boot_id }))
             .map_err(|e| SendError::Unreachable(e.to_string()))?;
         let signature = sign_payload(token, &body);
         let response = self
             .client
-            .post(format!("{api_url}/api/v1/agent/shutdown"))
+            .post(format!("{base}/api/v1/agent/shutdown"))
             .bearer_auth(token)
             .header("X-Agent-Signature", signature)
             .header("Content-Type", "application/json")
@@ -147,9 +150,10 @@ impl Transport {
     }
 
     pub fn policy(&self, api_url: &str, token: &str) -> Result<Policy, SendError> {
+        let base = api_url.trim_end_matches('/');
         let response = self
             .client
-            .get(format!("{api_url}/api/v1/agent/rules"))
+            .get(format!("{base}/api/v1/agent/rules"))
             .bearer_auth(token)
             .send()
             .map_err(|e| SendError::Unreachable(e.to_string()))?;

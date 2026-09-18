@@ -60,6 +60,16 @@ pub fn install(app: &AppHandle, state: Arc<AgentState>) -> tauri::Result<()> {
         .on_menu_event(move |app, event| {
             handle_menu_event(app, &handler_state, event.id.as_ref());
         })
+        .on_tray_icon_event(|tray, event| {
+            if let tauri::tray::TrayIconEvent::Click {
+                button: tauri::tray::MouseButton::Left,
+                button_state: tauri::tray::MouseButtonState::Up,
+                ..
+            } = event
+            {
+                windows::open_diagnostics(tray.app_handle());
+            }
+        })
         .build(app)?;
 
     spawn_status_refresher(app.clone(), state, status);
@@ -68,7 +78,7 @@ pub fn install(app: &AppHandle, state: Arc<AgentState>) -> tauri::Result<()> {
 
 fn handle_menu_event(app: &AppHandle, state: &Arc<AgentState>, id: &str) {
     match id {
-        OPEN_ITEM => windows::open_contest_shell(state),
+        OPEN_ITEM => windows::open_contest_portal(state),
         DIAGNOSTICS_ITEM => windows::open_diagnostics(app),
         SUPPORT_ITEM => windows::open_diagnostics(app),
         SIGN_OUT_ITEM => sign_out(app, state),
