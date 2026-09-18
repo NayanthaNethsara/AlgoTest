@@ -89,6 +89,145 @@ The Linux release artifact is bundled as a standalone `AppImage`.
 
 ---
 
+### Stopping & Cleaning Up Legacy or Conflicting Installations
+
+If a machine previously ran an older version of the Algothon application (such as the legacy unified shell `mini-algothon-competitor`), residual background processes, autostart configurations, or cache files can cause conflicts:
+
+1. **Loopback Port Conflicts (`47615`)**: A stale background agent instance may hold port `47615`, blocking a newly installed standalone agent from starting or responding to portal attestation requests.
+2. **Legacy Multi-Display Lockouts**: Earlier competition shell builds monitored screen configurations and locked the display with blackout curtains when external or virtual monitors (Sidecar, AirPlay, BetterDisplay, DisplayLink) were active. If a legacy shell process or its LaunchAgent remains running, the screen can still lock even when using modern browser portals.
+3. **Outdated Enrollment Credentials**: Stale `agent.json` or `client.json` files from prior practice contests prevent enrolling into a newly hosted contest.
+
+---
+
+#### Method 1: Automatic Reset via CLI (`--reset`)
+
+The desktop binary includes an automated reset routine that cleanly shuts down running loopback instances, removes operating system autostart entries, and deletes all cached configuration files.
+
+**macOS:**
+```bash
+# Standalone agent:
+"/Applications/Algothon Agent.app/Contents/MacOS/algothon-agent" --reset
+
+# Unified competitor bundle:
+"/Applications/mini-algothon-competitor.app/Contents/MacOS/mini-algothon-competitor" --reset
+```
+
+**Windows (PowerShell):**
+```powershell
+& "$env:ProgramFiles\Algothon\algothon-agent.exe" --reset
+# Or if running portable binary:
+.\algothon-agent.exe --reset
+```
+
+**Linux:**
+```bash
+./algothon-agent --reset
+```
+
+**Development Environment:**
+```bash
+make agent-reset    # Resets standalone agent configuration
+make desktop-reset  # Resets legacy competitor client configuration
+```
+
+---
+
+#### Method 2: GUI Tray Reset
+
+If the application icon is visible in the macOS menu bar or Windows system tray:
+1. Click or right-click the Algothon shield tray icon.
+2. Select **Reset all client data and quit…**.
+3. Confirm the dialog prompt. The agent notifies the backend of a clean shutdown, deletes local credentials, unregisters autostart entries, and terminates.
+
+---
+
+#### Method 3: Complete Manual Clean-Up
+
+Use manual removal if an old installation cannot launch or if orphaned processes refuse to terminate:
+
+##### macOS Manual Removal
+
+1. **Terminate running processes**:
+   ```bash
+   killall algothon-agent algothon-competitor mini-algothon-competitor 2>/dev/null || true
+   ```
+
+2. **Unload and delete LaunchAgents** (prevents background auto-starting on login):
+   ```bash
+   launchctl unload ~/Library/LaunchAgents/*algothon*.plist 2>/dev/null || true
+   rm -f ~/Library/LaunchAgents/*algothon*.plist ~/Library/LaunchAgents/*minialgothon*.plist
+   ```
+
+3. **Delete saved tokens and application configuration**:
+   ```bash
+   rm -rf ~/Library/Application\ Support/com.algothon.agent \
+          ~/Library/Application\ Support/com.algothon.competitor \
+          ~/Library/Application\ Support/com.minialgothon.competitor
+   ```
+
+4. **Delete legacy app bundles**:
+   ```bash
+   rm -rf "/Applications/mini-algothon-competitor.app" \
+          "/Applications/Algothon Competitor.app"
+   ```
+
+5. **Verify the loopback port is released**:
+   ```bash
+   lsof -i :47615
+   ```
+   If nothing is returned, the port is free for the new agent.
+
+##### Windows Manual Removal (PowerShell)
+
+1. **Terminate running processes**:
+   ```powershell
+   Stop-Process -Name "algothon-agent", "algothon-competitor", "mini-algothon-competitor" -Force -ErrorAction SilentlyContinue
+   ```
+
+2. **Remove Startup shortcuts**:
+   ```powershell
+   Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\*algothon*.lnk" -ErrorAction SilentlyContinue
+   ```
+
+3. **Delete configuration and credential caches**:
+   ```powershell
+   Remove-Item -Recurse -Force "$env:APPDATA\com.algothon.agent" -ErrorAction SilentlyContinue
+   Remove-Item -Recurse -Force "$env:APPDATA\com.algothon.competitor" -ErrorAction SilentlyContinue
+   Remove-Item -Recurse -Force "$env:APPDATA\com.minialgothon.competitor" -ErrorAction SilentlyContinue
+   ```
+
+4. **Verify the loopback port is released**:
+   ```powershell
+   Get-NetTCPConnection -LocalPort 47615 -ErrorAction SilentlyContinue
+   ```
+
+##### Linux Manual Removal
+
+1. **Terminate running processes**:
+   ```bash
+   pkill -f algothon-agent || true
+   pkill -f algothon-competitor || true
+   ```
+
+2. **Remove autostart entries**:
+   ```bash
+   rm -f ~/.config/autostart/*algothon*.desktop
+   ```
+
+3. **Delete configuration folders**:
+   ```bash
+   rm -rf ~/.config/com.algothon.agent \
+          ~/.config/com.algothon.competitor \
+          ~/.config/com.minialgothon.competitor
+   ```
+
+4. **Verify the loopback port is released**:
+   ```bash
+   ss -tulpn | grep 47615
+   ```
+
+---
+
 ## 2. Client Architecture
 
 One binary, two processes, selected by argument:
