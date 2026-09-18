@@ -95,7 +95,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
           href="/"
           className="flex shrink-0 items-center gap-2 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <span className="text-sm font-bold tracking-tight">MiniAlgothon</span>
+          <span className="text-sm font-bold tracking-tight">Algothon</span>
           <Badge
             variant="outline"
             className="border-primary/25 bg-primary/10 text-[10px] font-semibold tracking-wider text-primary uppercase"

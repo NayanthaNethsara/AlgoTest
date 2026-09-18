@@ -422,7 +422,7 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
               <Input
                 value={settingsTitle}
                 onChange={(e) => setSettingsTitle(e.target.value)}
-                placeholder="e.g. MiniAlgothon 2026 Finals"
+                placeholder="e.g. Algothon 2026 Finals"
                 className="text-xs pixel-inset bg-input border-2 border-black rounded-none"
               />
             </div>

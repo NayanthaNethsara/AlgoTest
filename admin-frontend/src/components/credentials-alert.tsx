@@ -56,7 +56,7 @@ export function CredentialsAlert({
       ...credentials.map((c) => [c.username, c.teamName ?? "", c.password]),
     ];
     const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
-    const filename = `minialgothon-credentials-${new Date().toISOString().slice(0, 10)}.csv`;
+    const filename = `algothon-credentials-${new Date().toISOString().slice(0, 10)}.csv`;
     downloadTextFile(filename, csv, "text/csv;charset=utf-8");
   }
 

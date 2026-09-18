@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy & Disclaimer - MiniAlgothon",
+  title: "Privacy & Disclaimer - Algothon",
   description:
     "Open-source platform privacy disclosures, proctor telemetry details, and limitation of liability.",
 };
@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       <header className="border-b border-border/80 bg-card/40 px-6 py-4 sm:px-12">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-            <span className="font-bold text-foreground">MiniAlgothon</span>
+            <span className="font-bold text-foreground">Algothon</span>
             <span>/</span>
             <span>PRIVACY &amp; DISCLAIMER</span>
           </div>
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
             </h1>
             <p className="mt-2 text-xs text-muted-foreground sm:text-sm">
               This document outlines data handling, workstation proctoring disclosures, and
-              limitations of liability for the MiniAlgothon platform.
+              limitations of liability for the Algothon platform.
             </p>
           </div>
 
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
                 1. Platform Scope
               </h2>
               <p>
-                MiniAlgothon is an open-source platform designed for small-scale competitive
+                Algothon is an open-source platform designed for small-scale competitive
                 programming contests and hackathons. Access to the administrative console is
                 restricted to contest organizers, problem authors, and proctors.
               </p>
@@ -93,7 +93,7 @@ export default function PrivacyPage() {
                 3. Proctor Software &amp; Platform Liability Disclaimer
               </h2>
               <p>
-                MiniAlgothon and its proctoring client are open-source software provided &quot;AS
+                Algothon and its proctoring client are open-source software provided &quot;AS
                 IS&quot; and &quot;AS AVAILABLE&quot; without warranties of any kind.
               </p>
               <p>
@@ -157,7 +157,7 @@ export default function PrivacyPage() {
           <div className="mt-10 border-t border-border/60 pt-6">
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
               <span className="font-mono text-[11px] text-muted-foreground/60">
-                MiniAlgothon Open Source // Contact: nayanthanethsara@gmail.com
+                Algothon Open Source // Contact: nayanthanethsara@gmail.com
               </span>
               <div className="flex items-center gap-3">
                 <Link

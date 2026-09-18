@@ -109,7 +109,7 @@ export function ContestSettingsDialog({
                 id="contest-title"
                 value={form.title}
                 onChange={(e) => update("title", e.target.value)}
-                placeholder="MiniAlgothon 2026 Finals"
+                placeholder="Algothon 2026 Finals"
                 className="text-xs"
               />
             </Field>

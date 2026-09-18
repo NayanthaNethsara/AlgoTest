@@ -3,8 +3,8 @@ import { getAdminContestStateAction } from "@/lib/actions/contest";
 import { ContestTimerClient } from "@/components/timer/contest-timer-client";
 
 export const metadata: Metadata = {
-  title: "Contest Timer & Projector | MiniAlgothon Admin",
-  description: "Full-screen contest timer and projector control console for MiniAlgothon.",
+  title: "Contest Timer & Projector | Algothon Admin",
+  description: "Full-screen contest timer and projector control console for Algothon.",
 };
 
 export default async function ContestTimerPage() {

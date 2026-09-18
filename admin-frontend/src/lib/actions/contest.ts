@@ -13,7 +13,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 }
 
 const defaultContestState: ContestState = {
-  title: "MiniAlgothon 2026",
+  title: "Algothon 2026",
   status: CONTEST_STATUS.NOT_STARTED,
   startTime: null,
   endTime: null,

@@ -26,8 +26,8 @@ const pixelBody = Pixelify_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "MiniAlgothon Admin Console",
-  description: "Internal management portal for MiniAlgothon contest organizers",
+  title: "Algothon Admin Console",
+  description: "Internal management portal for Algothon contest organizers",
   robots: {
     index: false,
     follow: false,

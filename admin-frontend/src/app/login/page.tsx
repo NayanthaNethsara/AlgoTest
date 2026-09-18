@@ -50,7 +50,7 @@ export default function LoginPage() {
 
             <div className="mt-4">
               <h1 className="text-xl font-bold tracking-tight text-foreground xl:text-2xl">
-                MiniAlgothon Control Plane
+                Algothon Control Plane
               </h1>
               <p className="mt-1 text-xs text-muted-foreground">
                 Platform for managing small-scale competitive programming competitions.
@@ -94,7 +94,7 @@ export default function LoginPage() {
                 Open-Source Project Notice
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                MiniAlgothon is an open-source project provided &quot;AS IS&quot;. The proctor runs
+                Algothon is an open-source project provided &quot;AS IS&quot;. The proctor runs
                 locally on competitor PCs. Maintainers assume no responsibility or liability for
                 proctor monitoring, local computer configurations, or contest operations.
               </p>
@@ -112,7 +112,7 @@ export default function LoginPage() {
           className="flex h-full flex-col justify-between p-6 sm:p-10 lg:col-span-5 lg:p-8 xl:col-span-4 xl:p-12"
         >
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold tracking-tight text-foreground">MiniAlgothon</span>
+            <span className="text-sm font-bold tracking-tight text-foreground">Algothon</span>
           </div>
 
           <div className="my-auto w-full py-4">

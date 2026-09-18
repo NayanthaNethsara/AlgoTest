@@ -110,7 +110,7 @@ export function CountdownDisplay({
 
   return (
     <div className="w-full flex flex-col items-center justify-center select-none text-center">
-      {/* MiniAlgothon Logo Header */}
+      {/* Algothon Logo Header */}
       <div
         className={cn(
           "flex flex-col items-center gap-1.5 mb-1 sm:mb-2",
@@ -125,8 +125,8 @@ export function CountdownDisplay({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/mini-algothon.svg"
-            alt="MiniAlgothon"
+            src="/algothon.svg"
+            alt="Algothon"
             className={cn(
               "h-[clamp(1.5rem,min(4.5vw,4.5vh),3.25rem)] w-auto max-w-[85vw] shrink-0 object-contain sm:max-w-md",
               isProjectorFullscreen && "h-[clamp(1.75rem,min(6vw,7vh),5rem)] sm:max-w-xl md:max-w-2xl"
