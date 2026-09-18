@@ -34,9 +34,9 @@ func (r *Repository) ListHeartbeats(ctx context.Context, f ListFilter) ([]Heartb
 
 	const statusExpr = `
 		CASE
-			WHEN th.last_ping_at IS NULL THEN 'OFFLINE'
-			WHEN th.last_ping_at >= now() - interval '45 seconds' THEN 'ONLINE'
-			WHEN th.last_ping_at >= now() - interval '2 minutes' THEN 'STALE'
+			WHEN GREATEST(th.last_ping_at, th.web_last_ping_at) IS NULL THEN 'OFFLINE'
+			WHEN GREATEST(th.last_ping_at, th.web_last_ping_at) >= now() - interval '45 seconds' THEN 'ONLINE'
+			WHEN GREATEST(th.last_ping_at, th.web_last_ping_at) >= now() - interval '2 minutes' THEN 'STALE'
 			ELSE 'OFFLINE'
 		END`
 
@@ -52,17 +52,17 @@ func (r *Repository) ListHeartbeats(ctx context.Context, f ListFilter) ([]Heartb
 			u.id, u.username, u.display_name,
 			t.id, t.name,
 			COALESCE(th.active_window, ''),
-			COALESCE(th.os_info, ''),
-			COALESCE(th.ip_address, ''),
+			COALESCE(NULLIF(th.os_info, ''), NULLIF(th.web_user_agent, ''), ''),
+			COALESCE(NULLIF(th.ip_address, ''), NULLIF(th.web_ip, ''), ''),
 			COALESCE(th.agent_version, ''),
 			COALESCE(th.shell_alive, false),
 			COALESCE(th.internet_reachable, false),
 			COALESCE(th.running_processes, '{}'),
 			` + clientExpr + `,
-			th.last_ping_at,
+			GREATEST(th.last_ping_at, th.web_last_ping_at),
 			` + statusExpr + `,
 			ag.id IS NOT NULL,
-			COALESCE(EXTRACT(EPOCH FROM now() - th.last_ping_at)::int, 0),
+			COALESCE(EXTRACT(EPOCH FROM now() - GREATEST(th.last_ping_at, th.web_last_ping_at))::int, 0),
 			gp.user_id IS NOT NULL,
 			gp.started_at,
 			COALESCE(ag.stopped_reason, ''),
@@ -79,7 +79,7 @@ func (r *Repository) ListHeartbeats(ctx context.Context, f ListFilter) ([]Heartb
 		WHERE u.role = 'competitor'
 		  AND ($1 = '' OR ` + statusExpr + ` = $1 OR ($1 = 'GAP' AND gp.user_id IS NOT NULL))
 		  AND ($2 = '' OR u.username ILIKE '%' || $2 || '%' OR u.display_name ILIKE '%' || $2 || '%')
-		ORDER BY th.last_ping_at DESC NULLS LAST, u.display_name ASC
+		ORDER BY GREATEST(th.last_ping_at, th.web_last_ping_at) DESC NULLS LAST, u.display_name ASC
 		LIMIT $3 OFFSET $4;
 	`
 

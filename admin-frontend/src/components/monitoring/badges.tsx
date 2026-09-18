@@ -75,11 +75,11 @@ export function ModeBadge({ item }: { item: CompetitorHeartbeat }) {
 }
 
 export function DarkForCell({ item }: { item: CompetitorHeartbeat }) {
-  if (!item.enrolled) {
-    return <span className="text-[10px] text-warning">never enrolled</span>;
-  }
   if (item.status === "ONLINE") {
     return <span className="text-[10px] text-muted-foreground">—</span>;
+  }
+  if (!item.enrolled) {
+    return <span className="text-[10px] text-warning">never enrolled</span>;
   }
 
   return (
