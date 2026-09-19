@@ -16,6 +16,11 @@ import (
 const (
 	minEvaluationTestCases = 5
 	maxSingleTestFileSize  = 20 * 1024 * 1024 // 20MB max per single test file
+
+	// maxExpectedOutputSize must stay in sync with outputLimit and fsizeKB in
+	// internal/runner/types.go. A test whose expected output exceeds the
+	// sandbox's file-write cap can never be matched by any submission.
+	maxExpectedOutputSize = 16 * 1024 * 1024 // 16MB -- matches runner fsizeKB
 )
 
 type testCaseDTO struct {
@@ -81,6 +86,10 @@ func (h *handler) replaceTestCases(c *gin.Context) {
 		}
 		if len(t.Input) > maxSingleTestFileSize || len(t.Expected) > maxSingleTestFileSize {
 			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("test case %d exceeds max size of %d MB", t.Ordinal, maxSingleTestFileSize/(1024*1024))})
+			return
+		}
+		if len(t.Expected) > maxExpectedOutputSize {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("test case %d expected output (%d MB) exceeds sandbox output limit of %d MB; no submission could ever match it", t.Ordinal, len(t.Expected)/(1024*1024), maxExpectedOutputSize/(1024*1024))})
 			return
 		}
 	}
@@ -228,6 +237,10 @@ func (h *handler) addSingleTestCase(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("expected output file exceeds max size of %d MB", maxSingleTestFileSize/(1024*1024))})
 		return
 	}
+	if len(expectedBytes) > maxExpectedOutputSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("expected output (%d MB) exceeds sandbox output limit of %d MB; no submission could ever match it", len(expectedBytes)/(1024*1024), maxExpectedOutputSize/(1024*1024))})
+		return
+	}
 	if len(inputBytes) == 0 || len(expectedBytes) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "both input and expected output are required"})
 		return
@@ -351,6 +364,10 @@ func (h *handler) updateSingleTestCase(c *gin.Context) {
 	}
 	if len(expectedBytes) > maxSingleTestFileSize {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("expected output file exceeds max size of %d MB", maxSingleTestFileSize/(1024*1024))})
+		return
+	}
+	if len(expectedBytes) > maxExpectedOutputSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("expected output (%d MB) exceeds sandbox output limit of %d MB; no submission could ever match it", len(expectedBytes)/(1024*1024), maxExpectedOutputSize/(1024*1024))})
 		return
 	}
 

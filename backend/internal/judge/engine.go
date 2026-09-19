@@ -310,6 +310,8 @@ func verdictLabel(v runner.Verdict) string {
 		return "MLE"
 	case runner.VerdictIE:
 		return "IE"
+	case runner.VerdictOLE:
+		return "OLE"
 	default:
 		return "RTE"
 	}

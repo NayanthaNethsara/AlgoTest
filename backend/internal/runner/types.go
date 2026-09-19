@@ -12,7 +12,7 @@ var ErrSandboxUnavailable = errors.New("sandbox unavailable")
 
 // outputLimit caps how much stdout/stderr we hand back per run, to keep a
 // runaway program (e.g. an infinite print loop) from ballooning a response.
-const outputLimit = 4 * 1024 * 1024 // 4 MB limit
+const outputLimit = 16 * 1024 * 1024 // 16 MB limit
 
 // sandboxDir is where the per-run workspace is bind-mounted inside the sandbox.
 const sandboxDir = "/sandbox"
@@ -23,7 +23,7 @@ const sandboxDir = "/sandbox"
 const sandboxGrace = 5 * time.Second
 
 // fsizeKB bounds any single file the sandboxed program writes.
-const fsizeKB = 4 * 1024 // 4 MB file output bound
+const fsizeKB = 16 * 1024 // 16 MB file output bound
 
 // compileFsizeKB bounds single-file compiler output (binaries, object files).
 const compileFsizeKB = 64 * 1024 // 64 MB compile output bound
