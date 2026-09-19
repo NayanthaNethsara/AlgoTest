@@ -34,7 +34,7 @@ export function PortalShell({
     <ContestProvider initialState={initialContest}>
       <ProctorProvider initialProctor={initialProctor}>
         <SubmissionsProvider>
-          <div className="flex h-dvh flex-col overflow-hidden overscroll-none">
+          <div className="flex h-dvh min-w-[620px] min-h-[380px] flex-col overflow-hidden overscroll-none">
             <TopNav user={user} />
             <NetworkStatusBanner />
             <ContestPhaseBanner />

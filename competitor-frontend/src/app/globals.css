@@ -164,8 +164,6 @@
      rather than the wallpaper. */
   html,
   body {
-    min-width: 620px;
-    min-height: 380px;
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
