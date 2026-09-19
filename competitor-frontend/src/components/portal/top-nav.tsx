@@ -88,13 +88,21 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                 <Badge
                   variant="outline"
                   className="gap-1 border-primary bg-primary/20 text-primary text-xs h-7 px-1.5 sm:px-2 animate-pulse hidden lg:flex shrink-0"
-                  title={activeSubmission.status === "queued" ? `Queued #${activeSubmission.queuePosition ?? 1}` : "Judging..."}
+                  title={
+                    activeSubmission.status === "queued"
+                      ? `Queued #${activeSubmission.queuePosition ?? 1}`
+                      : activeSubmission.testsTotal
+                        ? `Judging: ${activeSubmission.testsDone ?? 0}/${activeSubmission.testsTotal} test cases`
+                        : "Judging..."
+                  }
                 >
                   <Loader2 className="h-3 w-3 pixel-spin" />
                   <span>
                     {activeSubmission.status === "queued"
                       ? `#${activeSubmission.queuePosition ?? 1}`
-                      : "Judging"}
+                      : activeSubmission.testsTotal
+                        ? `${activeSubmission.testsDone ?? 0}/${activeSubmission.testsTotal}`
+                        : "Judging"}
                   </span>
                 </Badge>
               )}
@@ -178,7 +186,9 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                     <span>
                       {activeSubmission.status === "queued"
                         ? `Queued #${activeSubmission.queuePosition ?? 1}`
-                        : "Evaluating..."}
+                        : activeSubmission.testsTotal
+                          ? `Evaluating (${activeSubmission.testsDone ?? 0}/${activeSubmission.testsTotal})`
+                          : "Evaluating..."}
                     </span>
                   </Badge>
                 </div>

@@ -14,6 +14,7 @@ import {
   useProctor,
 } from "@/components/portal/proctor-provider";
 import { VERDICT_DETAILS } from "@/lib/constants";
+import { summarizeSubtasks } from "@/lib/verdict-summary";
 import type { SubmitResult } from "@/types/code";
 import type {
   ActiveSubmission,
@@ -172,6 +173,8 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
                       problemId: parsed.problemId ?? prev?.problemId ?? "",
                       status: parsed.status as "queued" | "running",
                       queuePosition: parsed.queuePosition ?? prev?.queuePosition,
+                      testsDone: data.testsDone ?? prev?.testsDone,
+                      testsTotal: data.testsTotal ?? prev?.testsTotal,
                     }));
                   } else if (parsed.status === "passed" || parsed.status === "failed") {
                     setActiveSubmission(null);
@@ -190,7 +193,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
                         ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
                         : parsed.compileError
                           ? parsed.compileError
-                          : `Verdict: ${verdictLabel}`,
+                          : (summarizeSubtasks(parsed.subtasks) ?? `Verdict: ${verdictLabel}`),
                       variant: passed ? "success" : "error",
                     });
                   }
@@ -231,6 +234,8 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
               ...prev,
               status: parsed.status as "queued" | "running",
               queuePosition: parsed.queuePosition ?? prev.queuePosition,
+              testsDone: statusData.testsDone ?? prev.testsDone,
+              testsTotal: statusData.testsTotal ?? prev.testsTotal,
             }
             : null,
         );
@@ -251,7 +256,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
             ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
             : parsed.compileError
               ? parsed.compileError
-              : `Verdict: ${verdictLabel}`,
+              : (summarizeSubtasks(parsed.subtasks) ?? `Verdict: ${verdictLabel}`),
           variant: passed ? "success" : "error",
         });
       }

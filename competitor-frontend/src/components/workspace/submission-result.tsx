@@ -3,6 +3,7 @@
 import { AlertCircle, Check, Loader2, TrendingUp, X } from "lucide-react";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
 import { VERDICT_DETAILS } from "@/lib/constants";
+import { summarizeSubtasks } from "@/lib/verdict-summary";
 import type { SubmitResult } from "@/types/code";
 import type { VariantProps } from "class-variance-authority";
 
@@ -10,10 +11,14 @@ export function SubmissionResult({
   result,
   submitting,
   statusMessage,
+  testsDone,
+  testsTotal,
 }: {
   result: SubmitResult | null;
   submitting: boolean;
   statusMessage?: string;
+  testsDone?: number;
+  testsTotal?: number;
 }) {
   const hasFinalVerdict =
     Boolean(result?.verdict) ||
@@ -33,10 +38,28 @@ export function SubmissionResult({
           ? "Judging test cases on runner sandbox..."
           : "Submitting to evaluation queue...";
 
+    const progressPct =
+      testsTotal && testsTotal > 0
+        ? Math.min(100, Math.round(((testsDone ?? 0) / testsTotal) * 100))
+        : null;
+
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-8 text-center text-xs text-muted-foreground font-mono">
         <Loader2 className="size-6 pixel-spin text-primary" />
         <span>{statusMessage || queueMsg}</span>
+        {progressPct !== null && (
+          <div className="flex w-full max-w-xs flex-col gap-1">
+            <div className="h-2.5 w-full overflow-hidden pixel-flat bg-card">
+              <div
+                className="h-full bg-primary transition-[width] duration-300 ease-out"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <span className="text-[10px] text-muted-foreground">
+              {testsDone ?? 0} / {testsTotal} test cases
+            </span>
+          </div>
+        )}
       </div>
     );
   }
@@ -70,6 +93,8 @@ export function SubmissionResult({
       })
     : null;
 
+  const verdictBreakdown = summarizeSubtasks(result.subtasks);
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto p-4 pb-16 font-mono">
       <div className="flex items-center justify-between pixel-raised bg-card p-4">
@@ -98,6 +123,11 @@ export function SubmissionResult({
               </Badge>
             )}
           </div>
+          {verdictBreakdown && (
+            <span className="text-[10px] text-muted-foreground">
+              {verdictBreakdown}
+            </span>
+          )}
         </div>
         {result.improvedBest ? (
           <Badge

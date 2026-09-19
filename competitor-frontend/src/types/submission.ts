@@ -27,6 +27,8 @@ export type ActiveSubmission = {
   problemId: string;
   status: "queued" | "running";
   queuePosition?: number;
+  testsDone?: number;
+  testsTotal?: number;
 };
 
 export type ReviewNotice = {

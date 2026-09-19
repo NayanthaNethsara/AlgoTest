@@ -309,11 +309,15 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
               <SubmissionResult
                 result={activeResult}
                 submitting={Boolean(isCurrentProblemSubmitting)}
+                testsDone={activeSubmission?.testsDone}
+                testsTotal={activeSubmission?.testsTotal}
                 statusMessage={
                   activeSubmission
                     ? activeSubmission.status === "queued"
                       ? `Queued (Position #${activeSubmission.queuePosition ?? 1} in line)...`
-                      : "Evaluating against test cases..."
+                      : activeSubmission.testsTotal
+                        ? `Evaluating test cases (${activeSubmission.testsDone ?? 0}/${activeSubmission.testsTotal})...`
+                        : "Evaluating against test cases..."
                     : "Submitting to queue..."
                 }
               />
