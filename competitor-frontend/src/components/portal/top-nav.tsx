@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { KeyRound, Loader2, Menu, RotateCw, Users, X } from "lucide-react";
@@ -45,6 +46,19 @@ export function TopNav({ user }: { user: SessionUser | null }) {
               className="h-5 sm:h-6 w-auto max-w-[130px] sm:max-w-none object-contain shrink-0"
             />
           </Link>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="hidden lg:inline text-xs uppercase tracking-wide text-muted-foreground">
+              Powered by
+            </span>
+            <Image
+              src="/logo/gtn-white.png"
+              alt="GTN"
+              width={1200}
+              height={540}
+              className="h-7 sm:h-8 w-auto object-contain"
+            />
+          </div>
 
           <nav className="hidden md:flex items-center gap-1 lg:gap-1.5 border-l-2 border-black pl-2.5 sm:pl-3 lg:pl-5">
             {NAV_LINKS.map((link) => {
@@ -117,7 +131,9 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                   aria-label="Reload Portal"
                   className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0 flex items-center justify-center pixel-flat bg-card hover:bg-muted cursor-pointer"
                 >
-                  <RotateCw className={`size-3.5 ${isReloading ? "pixel-spin" : ""}`} />
+                  <RotateCw
+                    className={`size-3.5 ${isReloading ? "pixel-spin" : ""}`}
+                  />
                 </Button>
 
                 <UserAccountMenu user={user} />
@@ -236,7 +252,9 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                     title="Reload Portal"
                     className="h-8 px-2 text-xs"
                   >
-                    <RotateCw className={`size-3.5 mr-1 ${isReloading ? "pixel-spin" : ""}`} />
+                    <RotateCw
+                      className={`size-3.5 mr-1 ${isReloading ? "pixel-spin" : ""}`}
+                    />
                     Reload
                   </Button>
                   <Button

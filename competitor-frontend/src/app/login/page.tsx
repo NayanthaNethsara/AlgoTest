@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
 import { DesktopWindowControls } from "@/components/portal/desktop-window-controls";
@@ -19,9 +20,24 @@ export default async function LoginPage() {
             <div className="flex h-11 w-11 items-center justify-center pixel-flat bg-primary text-primary-foreground">
               <Terminal className="h-5 w-5" />
             </div>
-            <h1 className="text-sm font-pixel-header text-primary tracking-widest mt-2">
-              Algothon
-            </h1>
+            <div className="flex items-center gap-2.5 mt-2">
+              <h1 className="text-sm font-pixel-header text-primary tracking-widest">
+                Algothon
+              </h1>
+              <span
+                className="text-muted-foreground/60 text-base leading-none select-none"
+                aria-hidden="true"
+              >
+                |
+              </span>
+              <Image
+                src="/logo/gtn-white.png"
+                alt="GTN"
+                width={1200}
+                height={540}
+                className="h-10 w-auto object-contain"
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
               Sign in with your competitor credentials
             </p>
