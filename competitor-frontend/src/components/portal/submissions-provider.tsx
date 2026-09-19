@@ -8,7 +8,11 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { getSubmissionStatusAction, submitCode, type SubmissionTelemetry } from "@/actions/code";
+import {
+  getSubmissionStatusAction,
+  submitCode,
+  type SubmissionTelemetry,
+} from "@/actions/code";
 import {
   contestLocked,
   useProctor,
@@ -155,7 +159,9 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
                     });
                     setToast({
                       id: `review-${parsed.submissionId}`,
-                      title: rejected ? "Submission rejected" : "Submission reinstated",
+                      title: rejected
+                        ? "Submission rejected"
+                        : "Submission reinstated",
                       description: rejected
                         ? data.reviewReason
                           ? `An organizer removed it from the leaderboard: ${data.reviewReason}`
@@ -167,33 +173,44 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
                     continue;
                   }
 
-                  if (parsed.status === "queued" || parsed.status === "running") {
+                  if (
+                    parsed.status === "queued" ||
+                    parsed.status === "running"
+                  ) {
                     setActiveSubmission((prev) => ({
                       id: parsed.submissionId!,
                       problemId: parsed.problemId ?? prev?.problemId ?? "",
                       status: parsed.status as "queued" | "running",
-                      queuePosition: parsed.queuePosition ?? prev?.queuePosition,
+                      queuePosition:
+                        parsed.queuePosition ?? prev?.queuePosition,
                       testsDone: data.testsDone ?? prev?.testsDone,
                       testsTotal: data.testsTotal ?? prev?.testsTotal,
                     }));
-                  } else if (parsed.status === "passed" || parsed.status === "failed") {
+                  } else if (
+                    parsed.status === "passed" ||
+                    parsed.status === "failed"
+                  ) {
                     setActiveSubmission(null);
                     const passed = parsed.status === "passed";
 
                     setLastResult(parsed);
 
                     const verdictLabel = parsed.verdict
-                      ? (VERDICT_DETAILS[parsed.verdict]?.label ?? parsed.verdict)
+                      ? (VERDICT_DETAILS[parsed.verdict]?.label ??
+                        parsed.verdict)
                       : "Failed";
 
                     setToast({
                       id: parsed.submissionId,
-                      title: passed ? "Submission Accepted!" : "Submission Failed",
+                      title: passed
+                        ? "Submission Accepted!"
+                        : "Submission Failed",
                       description: passed
                         ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
                         : parsed.compileError
                           ? parsed.compileError
-                          : (summarizeSubtasks(parsed.subtasks) ?? `Verdict: ${verdictLabel}`),
+                          : (summarizeSubtasks(parsed.subtasks) ??
+                            `Verdict: ${verdictLabel}`),
                       variant: passed ? "success" : "error",
                     });
                   }
@@ -231,12 +248,15 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
         setActiveSubmission((prev) =>
           prev
             ? {
-              ...prev,
-              status: parsed.status as "queued" | "running",
-              queuePosition: parsed.queuePosition ?? prev.queuePosition,
-              testsDone: statusData.testsDone ?? prev.testsDone,
-              testsTotal: statusData.testsTotal ?? prev.testsTotal,
-            }
+                ...prev,
+                status: parsed.status as "queued" | "running",
+                queuePosition: parsed.queuePosition ?? prev.queuePosition,
+                testsDone: Math.max(
+                  statusData.testsDone ?? 0,
+                  prev.testsDone ?? 0,
+                ),
+                testsTotal: statusData.testsTotal ?? prev.testsTotal,
+              }
             : null,
         );
       } else if (parsed.status === "passed" || parsed.status === "failed") {
@@ -256,7 +276,8 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
             ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
             : parsed.compileError
               ? parsed.compileError
-              : (summarizeSubtasks(parsed.subtasks) ?? `Verdict: ${verdictLabel}`),
+              : (summarizeSubtasks(parsed.subtasks) ??
+                `Verdict: ${verdictLabel}`),
           variant: passed ? "success" : "error",
         });
       }
@@ -309,7 +330,8 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
 
       return result;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to process submission";
+      const msg =
+        err instanceof Error ? err.message : "Failed to process submission";
       setToast({
         id: Date.now().toString(),
         title: "Submission Error",
