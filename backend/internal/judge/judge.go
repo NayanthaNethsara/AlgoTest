@@ -12,6 +12,7 @@ var (
 	ErrLeaseLost              = errors.New("lease no longer held by this worker")
 	ErrNoTestCases            = errors.New("problem has no test cases configured")
 	ErrSubmissionNotFound     = errors.New("submission not found")
+	ErrSubmissionNotActive    = errors.New("submission is not queued or running")
 	ErrSubmissionRateLimited  = errors.New("submission cooldown active, please wait a few seconds before submitting again")
 )
 

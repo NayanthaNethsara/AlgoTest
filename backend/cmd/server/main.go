@@ -94,7 +94,7 @@ func main() {
 		}
 	}
 
-	j := judge.New(pool, cfg.JudgeWorkers, log)
+	j := judge.New(pool, cfg.JudgeWorkers, int64(cfg.JudgeTestCacheMB)*1024*1024, log)
 	j.SetRunner(rn)
 	j.Broadcaster().StartListener(ctx)
 

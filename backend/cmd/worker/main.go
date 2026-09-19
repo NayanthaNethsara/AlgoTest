@@ -58,7 +58,7 @@ func main() {
 	}
 	log.Info("worker sandbox initialized and host verified")
 
-	j := judge.New(pool, cfg.JudgeWorkers, log)
+	j := judge.New(pool, cfg.JudgeWorkers, int64(cfg.JudgeTestCacheMB)*1024*1024, log)
 	j.SetRunner(rn)
 
 	log.Info("judge worker service started", "workers", cfg.JudgeWorkers, "boxes", cfg.RunMaxConcurrent)

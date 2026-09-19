@@ -10,6 +10,69 @@ import (
 	"time"
 )
 
+func TestBatchOutputRetention(t *testing.T) {
+	isolate := filepath.Join(t.TempDir(), "isolate")
+	script := `#!/bin/sh
+for arg in "$@"; do
+  case "$arg" in
+    --init|--cleanup) exit 0 ;;
+    --meta=*) meta="${arg#--meta=}" ;;
+    --dir=/sandbox=*) work="${arg#--dir=/sandbox=}"; work="${work%:rw}" ;;
+    --stdout=*) out="${arg#--stdout=/sandbox/}" ;;
+    --stderr=*) err="${arg#--stderr=/sandbox/}" ;;
+  esac
+done
+cat "$work/stdin.txt" > "$work/$out"
+printf 'diagnostic' > "$work/$err"
+printf 'time:0.001\nexitcode:0\n' > "$meta"
+`
+	if err := os.WriteFile(isolate, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	r, err := New(Config{Memory: "256m", IsolateBin: isolate, WorkRoot: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slot := <-r.limiter.free
+	slot.Core = -1
+	r.limiter.free <- slot
+	payload := strings.Repeat("123456789\n", 100000)
+	for _, callback := range []bool{false, true} {
+		req := BatchRequest{Language: "python", Code: "pass"}
+		for i := 0; i < 3; i++ {
+			req.Cases = append(req.Cases, BatchCase{Ordinal: i + 1, Stdin: []byte(payload)})
+		}
+		seen := 0
+		if callback {
+			req.OnCase = func(result BatchCaseResult) {
+				seen++
+				if result.Stdout != payload || result.Stderr != "diagnostic" {
+					t.Error("callback lost case output")
+				}
+			}
+		}
+		result, err := r.RunBatch(context.Background(), req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Cases) != 3 {
+			t.Fatalf("got %d cases", len(result.Cases))
+		}
+		if callback && seen != 3 {
+			t.Fatalf("got %d callbacks", seen)
+		}
+		for _, c := range result.Cases {
+			if callback {
+				if c.Stdout != "" || c.Stderr != "" {
+					t.Fatal("graded output retained in batch")
+				}
+			} else if c.Stdout != payload || c.Stderr != "diagnostic" {
+				t.Fatal("output missing without callback")
+			}
+		}
+	}
+}
+
 func TestParseMemoryKB(t *testing.T) {
 	cases := []struct {
 		in   string
@@ -420,7 +483,7 @@ int main() {
     }
     return 0;
 }`,
-		Cases: []BatchCase{{Ordinal: 1, Stdin: "1\n"}, {Ordinal: 2, Stdin: "2\n"}},
+		Cases: []BatchCase{{Ordinal: 1, Stdin: []byte("1\n")}, {Ordinal: 2, Stdin: []byte("2\n")}},
 	})
 	if err != nil {
 		t.Fatalf("RunBatch: %v", err)
@@ -472,7 +535,7 @@ int main() {
     std::ofstream out("carried.txt");
     out << "state from an earlier case" << std::endl;
 }`,
-		Cases: []BatchCase{{Ordinal: 1, Stdin: "\n"}, {Ordinal: 2, Stdin: "\n"}, {Ordinal: 3, Stdin: "\n"}},
+		Cases: []BatchCase{{Ordinal: 1, Stdin: []byte("\n")}, {Ordinal: 2, Stdin: []byte("\n")}, {Ordinal: 3, Stdin: []byte("\n")}},
 	})
 	if err != nil {
 		t.Fatalf("RunBatch: %v", err)
@@ -624,7 +687,7 @@ int main() {
              for (size_t i = 0; i < N; i += 4096) p[i] = 1; }
     std::cout << n << std::endl;
 }`,
-		Cases: []BatchCase{{Ordinal: 1, Stdin: "1\n"}, {Ordinal: 2, Stdin: "0\n"}},
+		Cases: []BatchCase{{Ordinal: 1, Stdin: []byte("1\n")}, {Ordinal: 2, Stdin: []byte("0\n")}},
 	})
 	if err != nil {
 		t.Fatalf("RunBatch: %v", err)
@@ -689,7 +752,7 @@ func TestRequireIsolateBlocksUnsandboxedExecution(t *testing.T) {
 	batchRes, err := r.RunBatch(context.Background(), BatchRequest{
 		Language: "python",
 		Code:     "print(1)",
-		Cases:    []BatchCase{{Ordinal: 1, Stdin: ""}},
+		Cases:    []BatchCase{{Ordinal: 1}},
 	})
 	if err == nil && batchRes.CompileError == "" {
 		t.Fatal("RunBatch should have failed when isolate is unavailable with RequireIsolate=true")

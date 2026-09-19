@@ -117,9 +117,12 @@ func (r *Repository) CancelSubmission(ctx context.Context, id string) error {
 		UPDATE submissions
 		SET state = 'failed', verdict = $2, finished_at = $3,
 		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
-		WHERE id = $1
+		WHERE id = $1 AND state IN ('queued', 'running')
 		RETURNING team_id, problem_id;
 	`, id, verdict, now).Scan(&teamID, &problemID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrSubmissionNotActive
+	}
 	if err != nil {
 		return err
 	}
@@ -134,7 +137,8 @@ func (r *Repository) UnstickTeamSubmissions(ctx context.Context, teamID string) 
 	now := time.Now().UTC()
 	rows, err := r.pool.Query(ctx, `
 		UPDATE submissions
-		SET state = 'failed', verdict = $1, finished_at = $2
+		SET state = 'failed', verdict = $1, finished_at = $2,
+		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
 		WHERE team_id = $3 AND state IN ('queued', 'running')
 		RETURNING problem_id;
 	`, verdict, now, teamID)

@@ -25,9 +25,10 @@ type Config struct {
 	DBMaxConns int32
 	// DBMinConns keeps connections warm so a fleet-wide burst is not also a
 	// connection-establishment storm.
-	DBMinConns   int32
-	JudgeWorkers int
-	QueueSize    int
+	DBMinConns       int32
+	JudgeWorkers     int
+	JudgeTestCacheMB int
+	QueueSize        int
 
 	SessionCookieName    string
 	SessionTTLHours      int
@@ -57,15 +58,16 @@ type Config struct {
 
 func Load() Config {
 	c := Config{
-		Port:           getenv("PORT", "8080"),
-		Env:            getenv("ENV", "development"),
-		AllowedOrigins: strings.Split(getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,tauri://localhost,http://tauri.localhost,https://tauri.localhost"), ","),
-		TrustedProxies: splitNonEmpty(getenv("TRUSTED_PROXIES", "")),
-		DatabaseURL:    getenv("DATABASE_URL", "postgres://algothon:algothon@localhost:5432/algothon?sslmode=disable"),
-		DBMaxConns:     int32(getenvInt("DB_MAX_CONNS", 25)),
-		DBMinConns:     int32(getenvInt("DB_MIN_CONNS", 5)),
-		JudgeWorkers:   getenvInt("JUDGE_WORKERS", -1),
-		QueueSize:      getenvInt("JUDGE_QUEUE_SIZE", 64),
+		Port:             getenv("PORT", "8080"),
+		Env:              getenv("ENV", "development"),
+		AllowedOrigins:   strings.Split(getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,tauri://localhost,http://tauri.localhost,https://tauri.localhost"), ","),
+		TrustedProxies:   splitNonEmpty(getenv("TRUSTED_PROXIES", "")),
+		DatabaseURL:      getenv("DATABASE_URL", "postgres://algothon:algothon@localhost:5432/algothon?sslmode=disable"),
+		DBMaxConns:       int32(getenvInt("DB_MAX_CONNS", 25)),
+		DBMinConns:       int32(getenvInt("DB_MIN_CONNS", 5)),
+		JudgeWorkers:     getenvInt("JUDGE_WORKERS", -1),
+		JudgeTestCacheMB: getenvInt("JUDGE_TEST_CACHE_MB", 4096),
+		QueueSize:        getenvInt("JUDGE_QUEUE_SIZE", 64),
 
 		SessionCookieName:    getenv("SESSION_COOKIE_NAME", "session"),
 		SessionTTLHours:      getenvInt("SESSION_TTL_HOURS", 24*7),
@@ -88,6 +90,9 @@ func Load() Config {
 		DevBypassProctor:         getenvBool("DEV_BYPASS_PROCTOR", false),
 	}
 
+	if c.JudgeTestCacheMB <= 0 {
+		c.JudgeTestCacheMB = 4096
+	}
 	if c.JudgeWorkers < 0 {
 		c.JudgeWorkers = c.RunMaxConcurrent - c.RunReserve
 		if c.JudgeWorkers < 1 {

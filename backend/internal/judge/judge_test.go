@@ -34,27 +34,30 @@ func TestSubmissionLimitsFallsBackToServerDefaults(t *testing.T) {
 
 func TestTestCacheReadsSourceOnce(t *testing.T) {
 	var calls int
-	cache := newTestCache(func(ctx context.Context, problemID string) ([]TestCase, error) {
+	cache := newTestCache(1024, func(ctx context.Context, problemID string) ([]TestCase, error) {
 		calls++
 		return []TestCase{{Ordinal: 1, Points: 100}}, nil
 	})
 
 	for i := 0; i < 3; i++ {
-		tests, err := cache.get(context.Background(), "p1")
+		tests, release, err := cache.acquire(context.Background(), "p1")
 		if err != nil {
 			t.Fatalf("get: %v", err)
 		}
 		if len(tests) != 1 || tests[0].Points != 100 {
 			t.Fatalf("got %+v", tests)
 		}
+		release()
 	}
 	if calls != 1 {
 		t.Errorf("source called %d times, want 1", calls)
 	}
 
 	cache.invalidate("p1")
-	if _, err := cache.get(context.Background(), "p1"); err != nil {
+	if _, release, err := cache.acquire(context.Background(), "p1"); err != nil {
 		t.Fatalf("get after invalidate: %v", err)
+	} else {
+		release()
 	}
 	if calls != 2 {
 		t.Errorf("source called %d times after invalidate, want 2", calls)
@@ -63,13 +66,13 @@ func TestTestCacheReadsSourceOnce(t *testing.T) {
 
 func TestTestCacheDoesNotCacheErrors(t *testing.T) {
 	var calls int
-	cache := newTestCache(func(ctx context.Context, problemID string) ([]TestCase, error) {
+	cache := newTestCache(1024, func(ctx context.Context, problemID string) ([]TestCase, error) {
 		calls++
 		return nil, ErrNoTestCases
 	})
 
 	for i := 0; i < 2; i++ {
-		if _, err := cache.get(context.Background(), "p1"); !errors.Is(err, ErrNoTestCases) {
+		if _, _, err := cache.acquire(context.Background(), "p1"); !errors.Is(err, ErrNoTestCases) {
 			t.Fatalf("err = %v, want ErrNoTestCases", err)
 		}
 	}
@@ -79,7 +82,7 @@ func TestTestCacheDoesNotCacheErrors(t *testing.T) {
 }
 
 func TestTestCacheIsConcurrencySafe(t *testing.T) {
-	cache := newTestCache(func(ctx context.Context, problemID string) ([]TestCase, error) {
+	cache := newTestCache(1024, func(ctx context.Context, problemID string) ([]TestCase, error) {
 		return []TestCase{{Ordinal: 1}}, nil
 	})
 
@@ -88,8 +91,10 @@ func TestTestCacheIsConcurrencySafe(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if _, err := cache.get(context.Background(), "p1"); err != nil {
+			if _, release, err := cache.acquire(context.Background(), "p1"); err != nil {
 				t.Errorf("get: %v", err)
+			} else {
+				release()
 			}
 			if i%4 == 0 {
 				cache.invalidate("p1")
@@ -118,47 +123,214 @@ func TestBroadcastIsScopedToOneUser(t *testing.T) {
 }
 
 func TestTestCacheReturnsCloneToPreventMutation(t *testing.T) {
-	cache := newTestCache(func(ctx context.Context, problemID string) ([]TestCase, error) {
-		return []TestCase{{Ordinal: 1, Points: 10}}, nil
+	cache := newTestCache(1024, func(ctx context.Context, problemID string) ([]TestCase, error) {
+		return []TestCase{{Ordinal: 1, Points: 10, Input: []byte("input"), Expected: []byte("answer")}}, nil
 	})
 
-	tests1, err := cache.get(context.Background(), "p1")
+	tests1, release1, err := cache.acquire(context.Background(), "p1")
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
+	defer release1()
 	tests1[0].Points = 999
 
-	tests2, err := cache.get(context.Background(), "p1")
+	tests2, release2, err := cache.acquire(context.Background(), "p1")
 	if err != nil {
 		t.Fatalf("get: %v", err)
+	}
+	defer release2()
+	if &tests1[0].Input[0] != &tests2[0].Input[0] || &tests1[0].Expected[0] != &tests2[0].Expected[0] {
+		t.Fatal("test payloads were copied")
 	}
 	if tests2[0].Points != 10 {
 		t.Errorf("cache was mutated in-place: got Points=%d, want 10", tests2[0].Points)
 	}
 }
 
-func TestTestCacheWarmAllEvictsDeleted(t *testing.T) {
-	cache := newTestCache(func(ctx context.Context, problemID string) ([]TestCase, error) {
-		return nil, nil
+func TestTestCacheBudgetAndActiveSharing(t *testing.T) {
+	calls := make(map[string]int)
+	cache := newTestCache(4, func(_ context.Context, id string) ([]TestCase, error) {
+		calls[id]++
+		return []TestCase{{Input: []byte(id), Expected: []byte("abc")}}, nil
 	})
-
-	cache.warmAll(map[string][]TestCase{
-		"p1": {{Ordinal: 1, Points: 10}},
-		"p2": {{Ordinal: 1, Points: 20}},
-	})
-	if cache.len() != 2 {
-		t.Fatalf("expected 2 problems cached, got %d", cache.len())
+	get := func(id string) func() {
+		t.Helper()
+		_, release, err := cache.acquire(context.Background(), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return release
 	}
-
-	// Re-warm with only p2 (p1 was deleted)
-	cache.warmAll(map[string][]TestCase{
-		"p2": {{Ordinal: 1, Points: 20}},
-	})
-	if cache.len() != 1 {
-		t.Fatalf("expected 1 problem cached after eviction, got %d", cache.len())
+	get("a")()
+	get("b")()
+	get("a")()
+	if calls["a"] != 2 {
+		t.Fatal("idle suite was not evicted")
 	}
-	if _, ok := cache.byID["p1"]; ok {
-		t.Errorf("deleted problem p1 was not evicted from cache")
+	release := get("oversized")
+	get("oversized")()
+	if calls["oversized"] != 1 {
+		t.Fatal("active suite was loaded twice")
+	}
+	release()
+	if cache.bytes > cache.maxBytes {
+		t.Fatal("released suite exceeds budget")
+	}
+	get("oversized")()
+	if calls["oversized"] != 2 {
+		t.Fatal("oversized suite retained after release")
+	}
+}
+
+func TestTestCacheInvalidationDuringLoad(t *testing.T) {
+	for _, clearAll := range []bool{false, true} {
+		started, proceed := make(chan struct{}), make(chan struct{})
+		calls := 0
+		cache := newTestCache(1024, func(_ context.Context, _ string) ([]TestCase, error) {
+			calls++
+			if calls == 1 {
+				close(started)
+				<-proceed
+			}
+			return []TestCase{{Points: calls}}, nil
+		})
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			tests, release, err := cache.acquire(context.Background(), "p")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			defer release()
+			if tests[0].Points != 2 {
+				t.Error("stale load was published")
+			}
+		}()
+		<-started
+		if clearAll {
+			cache.clear()
+		} else {
+			cache.invalidate("p")
+		}
+		close(proceed)
+		<-done
+	}
+}
+
+func TestTestCacheCanceledLoaderCanBeRetried(t *testing.T) {
+	started := make(chan struct{})
+	calls := 0
+	cache := newTestCache(1024, func(ctx context.Context, _ string) ([]TestCase, error) {
+		calls++
+		if calls == 1 {
+			close(started)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+		return []TestCase{{Points: 100}}, nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := cache.acquire(ctx, "p")
+		done <- err
+	}()
+	<-started
+	retried := make(chan error, 1)
+	go func() {
+		_, release, err := cache.acquire(context.Background(), "p")
+		if err == nil {
+			release()
+		}
+		retried <- err
+	}()
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("loader: %v", err)
+	}
+	if err := <-retried; err != nil {
+		t.Fatalf("other submission: %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("got %d source calls", calls)
+	}
+}
+
+func TestTestCacheConcurrentMissesAndCancellation(t *testing.T) {
+	started, proceed := make(chan struct{}), make(chan struct{})
+	calls := 0
+	cache := newTestCache(1024, func(_ context.Context, _ string) ([]TestCase, error) {
+		calls++
+		if calls == 1 {
+			close(started)
+		}
+		<-proceed
+		return []TestCase{{Input: []byte("input")}}, nil
+	})
+	var wg sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, release, err := cache.acquire(context.Background(), "p")
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			release()
+		}()
+	}
+	<-started
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, _, err := cache.acquire(ctx, "p"); !errors.Is(err, context.Canceled) {
+		t.Errorf("cancellation: %v", err)
+	}
+	close(proceed)
+	wg.Wait()
+	if calls != 1 {
+		t.Fatalf("loaded %d times", calls)
+	}
+	cache.byID["p"].expires = time.Now().Add(-time.Second)
+	_, release, err := cache.acquire(context.Background(), "p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if calls != 2 {
+		t.Fatal("missed notification fallback did not refresh")
+	}
+}
+
+func BenchmarkTestCacheAcquire(b *testing.B) {
+	for _, size := range []int{1024, 20 * 1024 * 1024} {
+		name := "1KiB"
+		if size > 1024 {
+			name = "20MiB"
+		}
+		b.Run(name, func(b *testing.B) {
+			payload := make([]byte, size)
+			cache := newTestCache(2<<30, func(context.Context, string) ([]TestCase, error) {
+				tests := make([]TestCase, 46)
+				for i := range tests {
+					tests[i].Input = payload
+				}
+				return tests, nil
+			})
+			_, release, _ := cache.acquire(context.Background(), "p")
+			release()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_, release, err := cache.acquire(context.Background(), "p")
+				if err != nil {
+					b.Fatal(err)
+				}
+				release()
+			}
+		})
 	}
 }
 

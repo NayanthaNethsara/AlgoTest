@@ -443,7 +443,12 @@ func (r *Repository) DeleteSingleTest(ctx context.Context, problemID string, ord
 		return ErrNotFound
 	}
 
-	_, err = tx.Exec(ctx, `UPDATE problem_tests SET ordinal = ordinal - 1 WHERE problem_id = $1 AND ordinal > $2;`, problemID, ordinal)
+	_, err = tx.Exec(ctx, `UPDATE problem_tests SET ordinal = -ordinal WHERE problem_id = $1 AND ordinal > $2;`, problemID, ordinal)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `UPDATE problem_tests SET ordinal = -ordinal - 1 WHERE problem_id = $1 AND ordinal < 0;`, problemID)
 	if err != nil {
 		return err
 	}

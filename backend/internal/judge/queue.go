@@ -73,7 +73,7 @@ func (r *Repository) RenewLease(ctx context.Context, submissionID, workerID stri
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE submissions
 		SET lease_until = $1
-		WHERE id = $2 AND claimed_by = $3 AND state = 'running';
+		WHERE id = $2 AND claimed_by = $3 AND state = 'running' AND lease_until > NOW();
 	`, time.Now().Add(LeaseDuration), submissionID, workerID)
 	if err != nil {
 		return fmt.Errorf("renew lease: %w", err)
@@ -115,7 +115,7 @@ func (r *Repository) completeSubmissionTx(ctx context.Context, res Result, worke
 		SET state = $1, verdict = $2, score = $3, tests_done = $4, compile_error = $5, finished_at = $6,
 		    max_score = CASE WHEN $8 > 0 THEN $8 ELSE max_score END,
 		    is_rejudge = false
-		WHERE id = $7 AND ($9 = '' OR claimed_by = $9);
+		WHERE id = $7 AND claimed_by = $9 AND state = 'running' AND lease_until > NOW();
 	`, stateStr, res.Verdict, res.Score, res.TestsDone, res.CompileError, now, res.SubmissionID, res.MaxScore, workerID)
 	if err != nil {
 		return fmt.Errorf("update submission state: %w", err)
@@ -218,33 +218,4 @@ func (r *Repository) GetProblemTests(ctx context.Context, problemID string) ([]T
 	}
 
 	return tests, nil
-}
-
-// GetAllProblemTests retrieves all configured test cases across all problems for startup cache prewarming.
-func (r *Repository) GetAllProblemTests(ctx context.Context) (map[string][]TestCase, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT problem_id, id, ordinal, input, expected, points
-		FROM problem_tests
-		ORDER BY problem_id, ordinal ASC;
-	`)
-	if err != nil {
-		return nil, fmt.Errorf("query all problem tests: %w", err)
-	}
-	defer rows.Close()
-
-	result := make(map[string][]TestCase)
-	for rows.Next() {
-		var (
-			problemID string
-			t         TestCase
-		)
-		if err := rows.Scan(&problemID, &t.ID, &t.Ordinal, &t.Input, &t.Expected, &t.Points); err != nil {
-			return nil, fmt.Errorf("scan problem test: %w", err)
-		}
-		result[problemID] = append(result[problemID], t)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("read all problem tests: %w", err)
-	}
-	return result, nil
 }

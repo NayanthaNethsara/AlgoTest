@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/NayanthaNethsara/mini-algothon/backend/internal/metrics"
@@ -25,11 +26,11 @@ type Judge struct {
 	log         *slog.Logger
 }
 
-func New(pool *pgxpool.Pool, workers int, log *slog.Logger) *Judge {
+func New(pool *pgxpool.Pool, workers int, testCacheBytes int64, log *slog.Logger) *Judge {
 	repo := NewRepository(pool)
 	return &Judge{
 		repo:        repo,
-		tests:       newTestCache(repo.GetProblemTests),
+		tests:       newTestCache(testCacheBytes, repo.GetProblemTests),
 		broadcaster: NewBroadcaster(pool, log),
 		workers:     workers,
 		notify:      make(chan struct{}, 100),
@@ -86,55 +87,28 @@ func (j *Judge) Result(ctx context.Context, id string) (*Result, bool, error) {
 	return j.repo.GetSubmission(ctx, id)
 }
 
-// PreloadTests queries and warms the in-memory cache with all problem test cases.
-func (j *Judge) PreloadTests(ctx context.Context) error {
-	allTests, err := j.repo.GetAllProblemTests(ctx)
-	if err != nil {
-		return err
-	}
-	j.tests.warmAll(allTests)
-	if j.log != nil {
-		j.log.Info("in-memory problem test cases prewarmed", "problems_cached", len(allTests))
-	}
-	return nil
-}
-
 func (j *Judge) Start(ctx context.Context) {
 	metrics.JudgeWorkersActive.Set(float64(j.workers))
-
-	// Prewarm all problem test cases into RAM immediately on boot
-	if err := j.PreloadTests(ctx); err != nil && j.log != nil {
-		j.log.Warn("initial test cache prewarm had errors (will lazy load on demand)", "error", err)
-	}
+	defer metrics.JudgeWorkersActive.Set(0)
 
 	var wg sync.WaitGroup
-
-	// Background periodic cache sync to prewarm any newly added problems
+	listenerReady := make(chan struct{})
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(5 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				_ = j.PreloadTests(ctx)
-			}
-		}
+		j.startSubmissionListener(ctx, listenerReady)
 	}()
+	select {
+	case <-listenerReady:
+	case <-ctx.Done():
+		wg.Wait()
+		return
+	}
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		j.StartLeaseReaper(ctx, 10*time.Second)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		j.startSubmissionListener(ctx)
 	}()
 
 	for i := 0; i < j.workers; i++ {
@@ -147,7 +121,6 @@ func (j *Judge) Start(ctx context.Context) {
 
 	<-ctx.Done()
 	wg.Wait()
-	metrics.JudgeWorkersActive.Set(0)
 }
 
 func (j *Judge) workerLoop(ctx context.Context, workerID string) {
@@ -158,7 +131,8 @@ func (j *Judge) workerLoop(ctx context.Context, workerID string) {
 		default:
 		}
 
-		sub, err := j.repo.ClaimNextSubmission(ctx, workerID)
+		claimID := workerID + ":" + uuid.NewString()
+		sub, err := j.repo.ClaimNextSubmission(ctx, claimID)
 		if err != nil {
 			if errors.Is(err, ErrNoQueuedSubmission) {
 				select {
@@ -176,7 +150,7 @@ func (j *Judge) workerLoop(ctx context.Context, workerID string) {
 			continue
 		}
 
-		j.processSubmission(ctx, sub, workerID)
+		j.processSubmission(ctx, sub, claimID)
 	}
 }
 
@@ -191,11 +165,16 @@ func (j *Judge) processSubmission(ctx context.Context, s *Submission, workerID s
 		TestsDone:    0,
 	})
 
+	evalCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	leaseStop := make(chan struct{})
-	go j.heartbeatLease(ctx, s.ID, workerID, leaseStop)
+	defer close(leaseStop)
+	go j.heartbeatLease(evalCtx, s.ID, workerID, leaseStop, cancel)
 
-	res := j.evaluate(ctx, *s)
-	close(leaseStop)
+	res := j.evaluate(evalCtx, *s)
+	if evalCtx.Err() != nil {
+		return
+	}
 
 	if err := j.repo.CompleteSubmission(ctx, res, workerID); err != nil {
 		if errors.Is(err, ErrLeaseLost) {
@@ -219,7 +198,7 @@ func (j *Judge) processSubmission(ctx context.Context, s *Submission, workerID s
 	j.broadcaster.Broadcast(res)
 }
 
-func (j *Judge) heartbeatLease(ctx context.Context, submissionID, workerID string, stop <-chan struct{}) {
+func (j *Judge) heartbeatLease(ctx context.Context, submissionID, workerID string, stop <-chan struct{}, cancelEvaluation context.CancelFunc) {
 	ticker := time.NewTicker(LeaseDuration / 3)
 	defer ticker.Stop()
 
@@ -235,6 +214,7 @@ func (j *Judge) heartbeatLease(ctx context.Context, submissionID, workerID strin
 			cancel()
 
 			if errors.Is(err, ErrLeaseLost) {
+				cancelEvaluation()
 				if j.log != nil {
 					j.log.Warn("lease lost while judging", "submission_id", submissionID, "worker", workerID)
 				}
@@ -354,7 +334,7 @@ func submissionStatus(verdict string, totalScore int) Status {
 }
 
 func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
-	tests, err := j.tests.get(ctx, s.ProblemID)
+	tests, releaseTests, err := j.tests.acquire(ctx, s.ProblemID)
 	if err != nil {
 		if j.log != nil {
 			j.log.Error("failed to fetch problem tests for evaluation", "problem_id", s.ProblemID, "error", err)
@@ -370,6 +350,7 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 		res.CompileError = &msg
 		return res
 	}
+	defer releaseTests()
 
 	if len(tests) == 0 {
 		if j.log != nil {
@@ -393,7 +374,7 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 		for i, t := range tests {
 			batchCases[i] = runner.BatchCase{
 				Ordinal: t.Ordinal,
-				Stdin:   string(t.Input),
+				Stdin:   t.Input,
 			}
 		}
 
@@ -549,7 +530,7 @@ func sanitizeCompileError(msg string) string {
 	return msg[:maxLen] + "\n... [compiler output truncated]"
 }
 
-func (j *Judge) startSubmissionListener(ctx context.Context) {
+func (j *Judge) startSubmissionListener(ctx context.Context, ready chan<- struct{}) {
 	pool := j.repo.pool
 	if pool == nil {
 		return
@@ -581,9 +562,15 @@ func (j *Judge) startSubmissionListener(ctx context.Context) {
 			continue
 		}
 
+		j.tests.clear()
+		if ready != nil {
+			close(ready)
+			ready = nil
+		}
 		for {
 			notification, err := conn.Conn().WaitForNotification(ctx)
 			if err != nil {
+				j.tests.clear()
 				conn.Release()
 				break
 			}

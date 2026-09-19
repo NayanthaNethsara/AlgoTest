@@ -96,6 +96,10 @@ func (h *handler) rejudgeProblem(c *gin.Context) {
 func (h *handler) cancelSubmission(c *gin.Context) {
 	id := c.Param("id")
 	if err := h.judge.Repo().CancelSubmission(c.Request.Context(), id); err != nil {
+		if errors.Is(err, judge.ErrSubmissionNotActive) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cancel submission: " + err.Error()})
 		return
 	}

@@ -428,9 +428,9 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		}
 
 		var inFilename string
-		if c.Stdin != "" {
+		if len(c.Stdin) > 0 {
 			inFilename = "stdin.txt"
-			if err := writeSandboxFile(filepath.Join(work, inFilename), []byte(c.Stdin), 0644); err != nil {
+			if err := writeSandboxFile(filepath.Join(work, inFilename), c.Stdin, 0644); err != nil {
 				return BatchResult{Cases: results}, fmt.Errorf("writing stdin for case %d: %w", c.Ordinal, err)
 			}
 		}
@@ -486,10 +486,12 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 			Verdict:  verdict,
 		}
 
-		results = append(results, res)
 		if req.OnCase != nil {
 			req.OnCase(res)
+			res.Stdout = ""
+			res.Stderr = ""
 		}
+		results = append(results, res)
 	}
 
 	return BatchResult{Cases: results}, nil

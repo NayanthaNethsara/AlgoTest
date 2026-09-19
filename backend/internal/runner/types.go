@@ -136,7 +136,7 @@ type Config struct {
 
 type BatchCase struct {
 	Ordinal int
-	Stdin   string
+	Stdin   []byte
 }
 
 type BatchRequest struct {
@@ -144,7 +144,8 @@ type BatchRequest struct {
 	Code     string
 	Cases    []BatchCase
 	Limits   Limits
-	OnCase   func(result BatchCaseResult)
+	// OnCase consumes each case's output; when set, Cases retains only metadata.
+	OnCase func(result BatchCaseResult)
 }
 
 type BatchCaseResult struct {
