@@ -150,6 +150,7 @@ func (m *Manager) GetState() ContestState {
 		MinClientVersion:       snap.minClientVersion,
 		EnforceBinaryHash:      snap.enforceBinaryHash,
 		AuthorizedBinaryHashes: snap.authorizedBinaryHashes,
+		DownloadEnabled:        snap.downloadEnabled,
 		ServerTime:             now,
 	}
 }
@@ -353,6 +354,7 @@ func (m *Manager) UpdateSettings(
 	minClientVersion *string,
 	enforceBinaryHash *bool,
 	authorizedBinaryHashes *string,
+	downloadEnabled *bool,
 ) error {
 	updates := make(map[string]string)
 
@@ -389,6 +391,9 @@ func (m *Manager) UpdateSettings(
 	}
 	if authorizedBinaryHashes != nil {
 		updates["proctor.authorized_binary_hashes"] = strings.TrimSpace(*authorizedBinaryHashes)
+	}
+	if downloadEnabled != nil {
+		updates["download.enabled"] = strconv.FormatBool(*downloadEnabled)
 	}
 
 	if len(updates) == 0 {

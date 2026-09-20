@@ -178,6 +178,7 @@ type updateContestSettingsRequest struct {
 	MinClientVersion       *string `json:"minClientVersion"`
 	EnforceBinaryHash      *bool   `json:"enforceBinaryHash"`
 	AuthorizedBinaryHashes *string `json:"authorizedBinaryHashes"`
+	DownloadEnabled        *bool   `json:"downloadEnabled"`
 }
 
 // @Summary Admin Update Contest Settings
@@ -206,6 +207,7 @@ func (h *handler) adminUpdateContestSettings(c *gin.Context) {
 		req.MinClientVersion,
 		req.EnforceBinaryHash,
 		req.AuthorizedBinaryHashes,
+		req.DownloadEnabled,
 	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

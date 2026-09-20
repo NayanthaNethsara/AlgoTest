@@ -41,6 +41,7 @@ type ContestState struct {
 	MinClientVersion       string     `json:"minClientVersion"`
 	EnforceBinaryHash      bool       `json:"enforceBinaryHash"`
 	AuthorizedBinaryHashes string     `json:"authorizedBinaryHashes"`
+	DownloadEnabled        bool       `json:"downloadEnabled"`
 	ServerTime             time.Time  `json:"serverTime"`
 }
 
@@ -59,6 +60,7 @@ type stateSnapshot struct {
 	minClientVersion       string
 	enforceBinaryHash      bool
 	authorizedBinaryHashes string
+	downloadEnabled        bool
 }
 
 func parseSnapshot(values map[string]string) *stateSnapshot {
@@ -149,6 +151,12 @@ func parseSnapshot(values map[string]string) *stateSnapshot {
 		authorizedBinaryHashes = strings.TrimSpace(val)
 	}
 
+	downloadEnabled := true
+	if val, ok := values["download.enabled"]; ok {
+		trimmed := strings.ToLower(strings.TrimSpace(val))
+		downloadEnabled = trimmed != "false" && trimmed != "0"
+	}
+
 	return &stateSnapshot{
 		title:                  title,
 		status:                 status,
@@ -164,5 +172,6 @@ func parseSnapshot(values map[string]string) *stateSnapshot {
 		minClientVersion:       minClientVersion,
 		enforceBinaryHash:      enforceBinaryHash,
 		authorizedBinaryHashes: authorizedBinaryHashes,
+		downloadEnabled:        downloadEnabled,
 	}
 }
