@@ -24,10 +24,10 @@ export function TestCaseLimitsGuide() {
             System Limits &amp; Recommendations Guide
           </span>
           <Badge variant="outline" className="font-mono text-[10px]">
-            20 MB / file
+            20 MiB input
           </Badge>
           <Badge variant="outline" className="font-mono text-[10px]">
-            4 MB stdout
+            16 MiB output
           </Badge>
           <Badge variant="outline" className="font-mono text-[10px]">
             200+ MB suite support
@@ -62,17 +62,18 @@ export function TestCaseLimitsGuide() {
             </div>
             <ul className="space-y-1 list-disc list-inside">
               <li>
-                <strong className="text-foreground">20 MB</strong> maximum size per individual{" "}
-                <code className="font-mono text-[10px]">.in</code> or{" "}
+                Maximum <strong className="text-foreground">20 MiB</strong> per{" "}
+                <code className="font-mono text-[10px]">.in</code> file and{" "}
+                <strong className="text-foreground">16 MiB</strong> per{" "}
                 <code className="font-mono text-[10px]">.out</code> file.
               </li>
               <li>
                 Batch uploads stream sequentially part-by-part. Entire test suites totaling{" "}
                 <strong className="text-foreground">200+ MB</strong> (e.g. 15 cases at 10–15 MB each)
-                upload without exceeding the 32 MB HTTP request ceiling.
+                upload without exceeding the 64 MiB HTTP request ceiling.
               </li>
               <li>
-                Active test cases are prewarmed into server RAM at startup for low-latency judge dispatch.
+                Test suites load when first judged and are cached within the worker memory budget.
               </li>
             </ul>
           </div>
@@ -85,13 +86,13 @@ export function TestCaseLimitsGuide() {
             <ul className="space-y-1 list-disc list-inside">
               <li>
                 Sandbox isolates enforce a hard{" "}
-                <strong className="text-foreground">4 MB</strong> file size cap on contestant standard output.
+                <strong className="text-foreground">16 MiB</strong> file size cap on contestant standard output.
               </li>
               <li>
-                Programs producing &gt; 4 MB output receive a runtime error (SIGXFSZ / Output Limit Exceeded).
+                Programs exceeding 16 MiB of output receive Output Limit Exceeded (OLE).
               </li>
               <li>
-                Expected output files (<code className="font-mono text-[10px]">.out</code>) should not exceed 4 MB.
+                Expected output files (<code className="font-mono text-[10px]">.out</code>) must not exceed 16 MiB.
               </li>
             </ul>
           </div>
