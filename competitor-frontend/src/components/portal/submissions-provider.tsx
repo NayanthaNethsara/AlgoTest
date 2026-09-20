@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import {
   getSubmissionStatusAction,
+  listSubmissionsAction,
   submitCode,
   type SubmissionTelemetry,
 } from "@/actions/code";
@@ -89,9 +90,40 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
   const [lastResult, setLastResult] = useState<SubmitResult | null>(null);
   const [lastReview, setLastReview] = useState<ReviewNotice | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [streamHealthy, setStreamHealthy] = useState(false);
   const router = useRouter();
 
   const clearToast = () => setToast(null);
+
+  useEffect(() => {
+    if (locked) return;
+    let cancelled = false;
+
+    void listSubmissionsAction(undefined, 50, 0).then((submissions) => {
+      if (cancelled) return;
+      const restored: Record<string, ActiveSubmission> = {};
+      for (const submission of submissions) {
+        const status = submission.status.toLowerCase();
+        if (
+          submission.problemId &&
+          (status === "queued" || status === "running")
+        ) {
+          restored[submission.submissionId] = {
+            id: submission.submissionId,
+            problemId: submission.problemId,
+            status,
+          };
+        }
+      }
+      if (Object.keys(restored).length > 0) {
+        setActiveSubmissions((current) => ({ ...restored, ...current }));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [locked]);
 
   const applyProgress = useCallback((data: SubmissionStatusResponse) => {
     if (
@@ -149,6 +181,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     let isCancelled = false;
 
     async function streamLoop() {
+      let reconnectDelay = 1000;
       while (!isCancelled && !controller.signal.aborted) {
         try {
           const res = await fetch("/api/v1/submissions/stream", {
@@ -161,6 +194,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
           });
 
           if (!res.ok || !res.body) {
+            setStreamHealthy(false);
             if (res.status === 423) {
               // Account is locked or unenrolled by proctor gate -- wait 10s
               await new Promise((resolve) => setTimeout(resolve, 10000));
@@ -175,6 +209,9 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
             }
             continue;
           }
+
+          setStreamHealthy(true);
+          reconnectDelay = 1000;
 
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
@@ -237,9 +274,14 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
               }
             }
           }
+          setStreamHealthy(false);
+          await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
+          reconnectDelay = Math.min(reconnectDelay * 2, 15000);
         } catch {
+          setStreamHealthy(false);
           if (isCancelled || controller.signal.aborted) return;
-          await new Promise((resolve) => setTimeout(resolve, 3000));
+          await new Promise((resolve) => setTimeout(resolve, reconnectDelay));
+          reconnectDelay = Math.min(reconnectDelay * 2, 15000);
         }
       }
     }
@@ -248,12 +290,13 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isCancelled = true;
+      setStreamHealthy(false);
       controller.abort();
     };
   }, [locked, router, applyProgress]);
 
   useEffect(() => {
-    if (!activeIDs) return;
+    if (!activeIDs || streamHealthy) return;
     let cancelled = false;
     let polling = false;
 
@@ -275,7 +318,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [activeIDs, applyProgress]);
+  }, [activeIDs, applyProgress, streamHealthy]);
 
   async function submitFast(
     problemId: string,

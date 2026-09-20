@@ -8,6 +8,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import { getContestStateAction } from "@/actions/contest";
 import {
   CONTEST_STATUS,
@@ -65,6 +66,7 @@ export function ContestProvider({
   initialState: ContestState;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [state, setState] = useState<ContestState>(initialState);
   const [clockOffset, setClockOffset] = useState<number>(() => {
     if (!initialState.serverTime) return 0;
@@ -90,6 +92,7 @@ export function ContestProvider({
   const previousStatusRef = useRef<ContestStatus>(initialState.status);
   const previousFrozenRef = useRef<boolean>(initialState.isFrozen);
   const firedThresholdsRef = useRef<Set<number>>(new Set());
+  const endRefreshTriggeredRef = useRef(false);
 
   const checkStatusTransitions = useCallback(
     (prevStatus: ContestStatus, currentStatus: ContestStatus) => {
@@ -135,8 +138,9 @@ export function ContestProvider({
         });
       }
       previousStatusRef.current = currentStatus;
+      router.refresh();
     },
-    [],
+    [router],
   );
 
   const refresh = useCallback(async () => {
@@ -211,6 +215,13 @@ export function ContestProvider({
             const remaining = Math.max(0, Math.floor((endMs - now) / 1000));
             setRemainingSeconds(remaining);
 
+            if (remaining === 0 && !endRefreshTriggeredRef.current) {
+              endRefreshTriggeredRef.current = true;
+              void refresh();
+            } else if (remaining > 0) {
+              endRefreshTriggeredRef.current = false;
+            }
+
             if (current.startTime) {
               const startMs = new Date(current.startTime).getTime();
               const elapsed = Math.max(0, Math.floor((now - startMs) / 1000));
@@ -279,7 +290,7 @@ export function ContestProvider({
     calculateTick();
     const interval = setInterval(calculateTick, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refresh]);
 
   const isWarning =
     state.status === CONTEST_STATUS.RUNNING &&
@@ -293,9 +304,12 @@ export function ContestProvider({
     remainingSeconds <= CRITICAL_THRESHOLD_SECONDS;
 
   const isNotStarted = state.status === CONTEST_STATUS.NOT_STARTED;
-  const isRunning = state.status === CONTEST_STATUS.RUNNING;
+  const isRunning =
+    state.status === CONTEST_STATUS.RUNNING && remainingSeconds > 0;
   const isPaused = state.status === CONTEST_STATUS.PAUSED;
-  const isEnded = state.status === CONTEST_STATUS.ENDED;
+  const isEnded =
+    state.status === CONTEST_STATUS.ENDED ||
+    (state.status === CONTEST_STATUS.RUNNING && remainingSeconds === 0);
 
   const formattedRemaining = formatTime(remainingSeconds);
   const formattedStartsIn = formatTime(startsInSeconds);

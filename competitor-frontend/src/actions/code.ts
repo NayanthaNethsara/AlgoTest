@@ -196,6 +196,7 @@ export async function listSubmissionsAction(
       return {
         id: item.submissionId,
         submissionId: item.submissionId,
+        problemId: item.problemId,
         problemTitle: item.problemTitle,
         submittedBy: item.userName,
         teamName: item.teamName,

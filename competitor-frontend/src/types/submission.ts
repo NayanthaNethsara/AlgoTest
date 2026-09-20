@@ -8,6 +8,7 @@ export type SubmissionSortOption =
 export type SubmissionItem = {
   id: string;
   submissionId: string;
+  problemId?: string;
   problemTitle: string;
   submittedBy: string;
   teamName: string;
