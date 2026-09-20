@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -236,27 +237,58 @@ func (h *handler) streamSubmissions(c *gin.Context) {
 
 	u := currentUser(c)
 	ch, unsubscribe := h.judge.Broadcaster().Subscribe(u.ID)
+	if ch == nil {
+		c.Header("Content-Type", "application/json")
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many submission streams"})
+		return
+	}
 	defer unsubscribe()
+	controller := http.NewResponseController(c.Writer)
+	defer controller.SetWriteDeadline(time.Time{})
+	_ = controller.SetWriteDeadline(time.Now().Add(10 * time.Second))
 
 	c.SSEvent("connected", gin.H{"status": "connected"})
-	c.Writer.Flush()
+	if err := controller.Flush(); err != nil {
+		return
+	}
+	_ = controller.SetWriteDeadline(time.Time{})
 
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
+	token := h.extractSessionToken(c)
+	lastAuthCheck := time.Now()
 
 	for {
 		select {
 		case <-c.Request.Context().Done():
 			return
 		case <-ticker.C:
+			if time.Since(lastAuthCheck) >= time.Minute {
+				ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+				s, sessionErr := h.sessions.Get(ctx, token)
+				current, userErr := h.users.GetByID(ctx, u.ID)
+				cancel()
+				if sessionErr != nil || userErr != nil || s.UserID != u.ID || current.IsSuspended {
+					return
+				}
+				lastAuthCheck = time.Now()
+			}
+			_ = controller.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			c.SSEvent("ping", gin.H{"time": time.Now().Unix()})
-			c.Writer.Flush()
+			if err := controller.Flush(); err != nil {
+				return
+			}
+			_ = controller.SetWriteDeadline(time.Time{})
 		case res, ok := <-ch:
 			if !ok {
 				return
 			}
+			_ = controller.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			c.SSEvent("submission", res)
-			c.Writer.Flush()
+			if err := controller.Flush(); err != nil {
+				return
+			}
+			_ = controller.SetWriteDeadline(time.Time{})
 		}
 	}
 }
@@ -371,4 +403,3 @@ func evaluateSubmissionTelemetry(code string, req createSubmissionRequest) (bool
 
 	return false, nil
 }
-

@@ -8,41 +8,51 @@ import (
 )
 
 func (r *Repository) ReclaimExpiredLeases(ctx context.Context, log *slog.Logger) (int64, error) {
-	// 1. Mark submissions that exceeded 3 attempts as InternalError (IE)
-	tag, err := r.pool.Exec(ctx, `
-		UPDATE submissions
-		SET state = 'failed', verdict = 'IE', finished_at = NOW(),
-		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
-		WHERE state = 'running' AND lease_until < NOW() AND attempts >= 3;
-	`)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("fail expired submissions: %w", err)
+		return 0, err
 	}
-	failedCount := tag.RowsAffected()
-	if failedCount > 0 && log != nil {
-		log.Warn("reaper marked expired submissions as failed", "count", failedCount)
-	}
-
-	// 2. Re-queue expired running submissions with attempts < 3
-	tag, err = r.pool.Exec(ctx, `
+	defer tx.Rollback(ctx)
+	tag, err := tx.Exec(ctx, `
 		UPDATE submissions
-		SET state = 'queued', attempts = attempts + 1,
+		SET state = 'queued',
 		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
-		WHERE state = 'running' AND lease_until < NOW();
+		WHERE state = 'running' AND lease_until < NOW() AND attempts < 3;
 	`)
 	if err != nil {
 		return 0, fmt.Errorf("requeue expired submissions: %w", err)
 	}
 	requeuedCount := tag.RowsAffected()
+	rows, err := tx.Query(ctx, `
+		UPDATE submissions
+		SET state = 'failed', verdict = 'IE', finished_at = NOW(), score = 0, tests_done = 0, is_rejudge = false,
+		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
+		WHERE state = 'running' AND lease_until < NOW() AND attempts >= 3
+		RETURNING id, team_id, problem_id;
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("fail expired submissions: %w", err)
+	}
+	failedCount, err := reconcileSubmissionChanges(ctx, tx, rows)
+	if err != nil {
+		return 0, err
+	}
+	if requeuedCount > 0 {
+		if _, err := tx.Exec(ctx, "SELECT pg_notify('judge_new_submission', '')"); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	if failedCount > 0 && log != nil {
+		log.Warn("reaper marked expired submissions as failed", "count", failedCount)
+	}
+
 	if requeuedCount > 0 {
 		if log != nil {
 			log.Info("reaper requeued expired submissions", "count", requeuedCount)
 		}
-		go func() {
-			nCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			_, _ = r.pool.Exec(nCtx, "SELECT pg_notify('judge_new_submission', '')")
-		}()
 	}
 
 	return requeuedCount + failedCount, nil

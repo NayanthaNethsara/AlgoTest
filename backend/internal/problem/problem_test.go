@@ -135,6 +135,14 @@ func TestValidateTestPointsAcceptsExactCustomTotal(t *testing.T) {
 	}
 }
 
+func TestValidateTestPointsAcceptsDistributedZeros(t *testing.T) {
+	tests := weighted(0, 0, 0)
+	DistributePoints(tests, 2)
+	if err := ValidateTestPoints(tests, 2); err != nil {
+		t.Fatalf("distributed scores cannot be saved again: %v", err)
+	}
+}
+
 func TestValidateTestPointsRejectsPartiallyAssignedSet(t *testing.T) {
 	err := ValidateTestPoints(weighted(20, 0, 0, 0, 0), 100)
 	if !errors.Is(err, ErrPointsMismatch) {
@@ -196,4 +204,3 @@ func TestErrDuplicateTestWrapping(t *testing.T) {
 		t.Fatalf("expected errors.Is to match ErrDuplicateTest")
 	}
 }
-

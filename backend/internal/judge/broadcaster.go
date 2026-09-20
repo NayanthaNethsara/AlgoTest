@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,6 +25,8 @@ type Broadcaster struct {
 	subscribers map[chan Result]string
 	pool        *pgxpool.Pool
 	log         *slog.Logger
+	pending     chan []byte
+	publisher   sync.Once
 }
 
 func NewBroadcaster(pool *pgxpool.Pool, log *slog.Logger) *Broadcaster {
@@ -32,6 +35,7 @@ func NewBroadcaster(pool *pgxpool.Pool, log *slog.Logger) *Broadcaster {
 		subscribers: make(map[chan Result]string),
 		pool:        pool,
 		log:         log,
+		pending:     make(chan []byte, 256),
 	}
 }
 
@@ -46,7 +50,18 @@ func (b *Broadcaster) Subscribe(userID string) (chan Result, func()) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	ch := make(chan Result, 500)
+	if userID != "" {
+		count := 0
+		for _, id := range b.subscribers {
+			if id == userID {
+				count++
+			}
+		}
+		if count >= 4 {
+			return nil, func() {}
+		}
+	}
+	ch := make(chan Result, 64)
 	b.subscribers[ch] = userID
 
 	unsubscribe := func() {
@@ -67,7 +82,7 @@ func (b *Broadcaster) BroadcastLocal(res Result) {
 	isTerminal := res.Status == StatusPassed || res.Status == StatusFailed
 
 	for ch, subUserID := range b.subscribers {
-		if subUserID != "" && res.UserID != "" && res.UserID != subUserID {
+		if subUserID != "" && res.UserID != subUserID {
 			continue
 		}
 
@@ -116,6 +131,8 @@ func (b *Broadcaster) Broadcast(res Result) {
 	if len(payload) > 7500 {
 		stripped := res
 		stripped.Tests = nil
+		stripped.CompileError = nil
+		stripped.ReviewReason = ""
 		env.Result = stripped
 		payload, err = json.Marshal(env)
 		if err != nil {
@@ -123,22 +140,55 @@ func (b *Broadcaster) Broadcast(res Result) {
 		}
 	}
 
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		if _, err := pool.Exec(ctx, "SELECT pg_notify($1, $2)", JudgeVerdictsChannel, string(payload)); err != nil {
-			b.mu.RLock()
-			log := b.log
-			b.mu.RUnlock()
-			if log != nil {
-				log.Error("failed to broadcast judge verdict via pg_notify", "error", err, "submission_id", res.SubmissionID)
-			}
+	select {
+	case b.pending <- payload:
+	default:
+		if b.log != nil {
+			b.log.Warn("judge event queue full; clients will recover through polling", "submission_id", res.SubmissionID)
 		}
-	}()
+	}
+}
+
+func (b *Broadcaster) startPublisher(ctx context.Context) {
+	b.publisher.Do(func() {
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case payload := <-b.pending:
+					b.mu.RLock()
+					pool := b.pool
+					b.mu.RUnlock()
+					if pool == nil {
+						continue
+					}
+					batch := &pgx.Batch{}
+					batch.Queue("SELECT pg_notify($1, $2)", JudgeVerdictsChannel, string(payload))
+				drain:
+					for batch.Len() < 32 {
+						select {
+						case next := <-b.pending:
+							batch.Queue("SELECT pg_notify($1, $2)", JudgeVerdictsChannel, string(next))
+						default:
+							break drain
+						}
+					}
+					publishCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+					err := pool.SendBatch(publishCtx, batch).Close()
+					cancel()
+					if err != nil && b.log != nil {
+						b.log.Error("failed to publish judge event", "error", err)
+					}
+				}
+			}
+		}()
+	})
 }
 
 // StartListener listens on the PostgreSQL notify channel and routes external worker events to local subscribers.
 func (b *Broadcaster) StartListener(ctx context.Context) {
+	b.startPublisher(ctx)
 	b.mu.RLock()
 	pool := b.pool
 	log := b.log
@@ -201,6 +251,7 @@ func (b *Broadcaster) StartListener(ctx context.Context) {
 						qCtx, qCancel := context.WithTimeout(ctx, 2*time.Second)
 						if fullRes, found, _ := (&Repository{pool: pool}).GetSubmission(qCtx, env.Result.SubmissionID); found && fullRes != nil {
 							env.Result.Tests = fullRes.Tests
+							env.Result.CompileError = fullRes.CompileError
 						}
 						qCancel()
 					}

@@ -3,7 +3,6 @@ package runner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -79,11 +78,6 @@ func (r *Runner) checkWorkRoot() error {
 	return nil
 }
 
-// OverallTimeout bounds the whole Run call (compile + run + sandbox overhead).
-func (r *Runner) OverallTimeout() time.Duration {
-	return r.cfg.CompileTimeout + r.cfg.WallTimeout + 2*sandboxGrace + 10*time.Second
-}
-
 // batchTimeout scales with the case count. A fixed per-submission cap cancels
 // the tail of a large test set and reports those cases as runtime errors.
 func batchTimeout(compile, wall time.Duration, cases int) time.Duration {
@@ -92,10 +86,6 @@ func batchTimeout(compile, wall time.Duration, cases int) time.Duration {
 	}
 	perCase := wall + sandboxGrace + time.Second
 	return compile + sandboxGrace + time.Duration(cases)*perCase + 10*time.Second
-}
-
-func (r *Runner) BatchTimeout(cases int) time.Duration {
-	return batchTimeout(r.cfg.CompileTimeout, r.cfg.WallTimeout, cases)
 }
 
 func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
@@ -109,9 +99,6 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 		return Result{}, err
 	}
 	defer release()
-
-	execCtx, execCancel := context.WithTimeout(ctx, r.OverallTimeout())
-	defer execCancel()
 
 	baseCPU := req.Limits.CPUSeconds
 	if baseCPU <= 0 {
@@ -154,6 +141,9 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	if compileMemKB <= 0 {
 		compileMemKB = 1024 * 1024
 	}
+
+	execCtx, execCancel := context.WithTimeout(ctx, batchTimeout(compileTimeout, effectiveWall, 1))
+	defer execCancel()
 
 	base, err := os.MkdirTemp(r.cfg.WorkRoot, "algothon-run-*")
 	if err != nil {
@@ -452,17 +442,12 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		stdout := readCapped(filepath.Join(work, stepName+".out"))
 		stderr := readCapped(filepath.Join(work, stepName+".err"))
 
-		var verdict Verdict = VerdictAC
 		if err != nil {
-			if errors.Is(err, ErrSandboxUnavailable) {
-				return BatchResult{Cases: results}, err
-			}
-			verdict = VerdictIE
-		} else {
-			verdict = m.verdict(reqMemKB + sp.memoryBonusKB)
-			if m.timeCPU >= effectiveCPU || (effectiveWall > 0 && m.timeWall >= effectiveWall.Seconds()) {
-				verdict = VerdictTLE
-			}
+			return BatchResult{Cases: results}, fmt.Errorf("executing case %d: %w", c.Ordinal, err)
+		}
+		verdict := m.verdict(reqMemKB + sp.memoryBonusKB)
+		if m.timeCPU >= effectiveCPU || (effectiveWall > 0 && m.timeWall >= effectiveWall.Seconds()) {
+			verdict = VerdictTLE
 		}
 
 		var timeMs int64

@@ -47,11 +47,7 @@ func (r *Repository) ReplaceTests(ctx context.Context, problemID string, tests [
 		}
 		seenHashes[pairHash] = int(ord) - 1
 
-		pts := t.Points
-		if pts <= 0 {
-			pts = 1
-		}
-		_, err := tx.Exec(ctx, insertTest, problemID, ord, t.Input, t.Expected, inSha, expSha, pts)
+		_, err := tx.Exec(ctx, insertTest, problemID, ord, t.Input, t.Expected, inSha, expSha, t.Points)
 		if err != nil {
 			return fmt.Errorf("failed to create test case %d: %w", ord, err)
 		}

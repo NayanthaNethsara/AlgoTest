@@ -71,91 +71,112 @@ func (r *Repository) GetAdminSubmission(ctx context.Context, id string) (*AdminS
 }
 
 func (r *Repository) RejudgeSubmission(ctx context.Context, id string) error {
-	_, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	rows, err := tx.Query(ctx, `
 		UPDATE submissions
 		SET state = 'queued', verdict = NULL, score = 0, tests_done = 0, compile_error = NULL,
 		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL, finished_at = NULL,
 		    attempts = 0, is_rejudge = true
-		WHERE id = $1;
+		WHERE id = $1
+		RETURNING id, team_id, problem_id;
 	`, id)
-	if err == nil {
-		go func() {
-			nCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			_, _ = r.pool.Exec(nCtx, "SELECT pg_notify('judge_new_submission', '')")
-		}()
+	if err != nil {
+		return err
 	}
-	return err
+	count, err := reconcileSubmissionChanges(ctx, tx, rows)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return ErrSubmissionNotFound
+	}
+	if _, err := tx.Exec(ctx, "SELECT pg_notify('judge_new_submission', '')"); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) RejudgeProblemSubmissions(ctx context.Context, problemID string) (int64, error) {
-	tag, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	rows, err := tx.Query(ctx, `
 		UPDATE submissions
 		SET state = 'queued', verdict = NULL, score = 0, tests_done = 0, compile_error = NULL,
 		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL, finished_at = NULL,
 		    attempts = 0, is_rejudge = true
-		WHERE problem_id = $1 AND state NOT IN ('queued', 'running');
+		WHERE problem_id = $1 AND state NOT IN ('queued', 'running')
+		RETURNING id, team_id, problem_id;
 	`, problemID)
 	if err != nil {
 		return 0, fmt.Errorf("rejudge problem submissions: %w", err)
 	}
-	if tag.RowsAffected() > 0 {
-		go func() {
-			nCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			_, _ = r.pool.Exec(nCtx, "SELECT pg_notify('judge_new_submission', '')")
-		}()
+	count, err := reconcileSubmissionChanges(ctx, tx, rows)
+	if err != nil {
+		return 0, err
 	}
-	return tag.RowsAffected(), nil
+	if count > 0 {
+		if _, err := tx.Exec(ctx, "SELECT pg_notify('judge_new_submission', '')"); err != nil {
+			return 0, err
+		}
+	}
+	return count, tx.Commit(ctx)
 }
 
 func (r *Repository) CancelSubmission(ctx context.Context, id string) error {
 	verdict := "IE"
 	now := time.Now().UTC()
-	var teamID, problemID string
-	err := r.pool.QueryRow(ctx, `
-		UPDATE submissions
-		SET state = 'failed', verdict = $2, finished_at = $3,
-		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
-		WHERE id = $1 AND state IN ('queued', 'running')
-		RETURNING team_id, problem_id;
-	`, id, verdict, now).Scan(&teamID, &problemID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrSubmissionNotActive
-	}
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
-	if teamID != "" && problemID != "" {
-		_ = recomputeProblemScore(ctx, r.pool, teamID, problemID)
+	defer tx.Rollback(ctx)
+	rows, err := tx.Query(ctx, `
+		UPDATE submissions
+		SET state = 'failed', verdict = $2, finished_at = $3, score = 0, tests_done = 0, is_rejudge = false,
+		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
+		WHERE id = $1 AND state IN ('queued', 'running')
+		RETURNING id, team_id, problem_id;
+	`, id, verdict, now)
+	if err != nil {
+		return err
 	}
-	return nil
+	count, err := reconcileSubmissionChanges(ctx, tx, rows)
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return ErrSubmissionNotActive
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *Repository) UnstickTeamSubmissions(ctx context.Context, teamID string) error {
 	verdict := "IE"
 	now := time.Now().UTC()
-	rows, err := r.pool.Query(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	rows, err := tx.Query(ctx, `
 		UPDATE submissions
-		SET state = 'failed', verdict = $1, finished_at = $2,
+		SET state = 'failed', verdict = $1, finished_at = $2, score = 0, tests_done = 0, is_rejudge = false,
 		    claimed_at = NULL, claimed_by = NULL, lease_until = NULL
 		WHERE team_id = $3 AND state IN ('queued', 'running')
-		RETURNING problem_id;
+		RETURNING id, team_id, problem_id;
 	`, verdict, now, teamID)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
-
-	var problemIDs []string
-	for rows.Next() {
-		var pid string
-		if err := rows.Scan(&pid); err == nil {
-			problemIDs = append(problemIDs, pid)
-		}
+	if _, err := reconcileSubmissionChanges(ctx, tx, rows); err != nil {
+		return err
 	}
-	for _, pid := range problemIDs {
-		_ = recomputeProblemScore(ctx, r.pool, teamID, pid)
-	}
-	return nil
+	return tx.Commit(ctx)
 }

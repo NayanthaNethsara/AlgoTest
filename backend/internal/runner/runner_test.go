@@ -6,9 +6,31 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
+
+func TestReadCappedRejectsFIFO(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "output")
+	if err := syscall.Mkfifo(path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan string, 1)
+	go func() { done <- readCapped(path) }()
+	select {
+	case result := <-done:
+		if result != "" {
+			t.Fatalf("read special file: %q", result)
+		}
+	case <-time.After(time.Second):
+		writer, _ := os.OpenFile(path, os.O_WRONLY|syscall.O_NONBLOCK, 0)
+		if writer != nil {
+			writer.Close()
+		}
+		t.Fatal("output FIFO blocked the runner")
+	}
+}
 
 func TestBatchOutputRetention(t *testing.T) {
 	isolate := filepath.Join(t.TempDir(), "isolate")

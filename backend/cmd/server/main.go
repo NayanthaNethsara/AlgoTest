@@ -106,8 +106,11 @@ func main() {
 	}
 
 	server := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: api.NewRouter(cfg, j, rn, pool, users, sessions, problems, teams, telemetryRepo, log),
+		Addr:              ":" + cfg.Port,
+		Handler:           api.NewRouter(cfg, j, rn, pool, users, sessions, problems, teams, telemetryRepo, log),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       90 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	go func() {

@@ -3,10 +3,72 @@ package judge
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
 )
+
+func TestWorkspaceFailureIsInternalError(t *testing.T) {
+	var logs strings.Builder
+	j := New(nil, 1, 1024, slog.New(slog.NewTextHandler(&logs, nil)))
+	j.tests = newTestCache(1024, func(context.Context, string) ([]TestCase, error) {
+		return []TestCase{{Ordinal: 1, Points: 100, Input: []byte("1"), Expected: []byte("1")}}, nil
+	})
+	r, err := runner.New(runner.Config{Memory: "256m", WorkRoot: t.TempDir() + "/missing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	j.SetRunner(r)
+	result := j.evaluate(context.Background(), Submission{ID: "s", ProblemID: "p", Language: "cpp", MaxScore: 100})
+	if result.Verdict == nil || *result.Verdict != "IE" || result.Status != StatusFailed || result.Score != 0 {
+		t.Fatalf("infrastructure error blamed on contestant: %+v", result)
+	}
+	if !strings.Contains(logs.String(), "creating workspace") {
+		t.Fatal("missing administrator diagnostic")
+	}
+	if result.CompileError == nil || strings.Contains(*result.CompileError, "missing") {
+		t.Fatal("infrastructure detail exposed to contestant")
+	}
+}
+
+func BenchmarkOutputsEqual(b *testing.B) {
+	actual := strings.Repeat("123456789\n", 900000)
+	expected := []byte(actual)
+	b.SetBytes(int64(len(actual)))
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if !outputsEqual(actual, expected) {
+			b.Fatal("equal outputs differ")
+		}
+	}
+}
+
+func normalizeOutput(str string) string {
+	str = strings.ReplaceAll(str, "\r\n", "\n")
+	str = strings.ReplaceAll(str, "\r", "\n")
+	lines := strings.Split(strings.TrimSpace(str), "\n")
+	for i := range lines {
+		lines[i] = strings.TrimRight(lines[i], " \t")
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+func FuzzOutputsEqual(f *testing.F) {
+	for _, seed := range []string{"a\r\nb", " a \t\r\rb\t", "\u2003hello\n\u2003", "", "\xffa"} {
+		f.Add(seed, normalizeOutput(seed))
+	}
+	f.Fuzz(func(t *testing.T, actual, expected string) {
+		want := normalizeOutput(actual) == normalizeOutput(expected)
+		if got := outputsEqual(actual, []byte(expected)); got != want {
+			t.Fatalf("comparison mismatch: %q / %q: got %v, want %v", actual, expected, got, want)
+		}
+	})
+}
 
 func TestSubmissionLimitsUsesProblemBudget(t *testing.T) {
 	l := submissionLimits(Submission{TimeLimitMS: 4000, MemoryLimitMB: 256})
@@ -119,6 +181,25 @@ func TestBroadcastIsScopedToOneUser(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for submission")
+	}
+}
+
+func TestBroadcastLimitsStreamsPerUser(t *testing.T) {
+	b := NewBroadcaster(nil, nil)
+	for i := 0; i < 4; i++ {
+		ch, close := b.Subscribe("u")
+		if ch == nil {
+			t.Fatal("subscription refused below limit")
+		}
+		defer close()
+	}
+	if ch, _ := b.Subscribe("u"); ch != nil {
+		t.Fatal("stream limit was exceeded")
+	}
+	ch, close := b.Subscribe("other")
+	defer close()
+	if ch == nil {
+		t.Fatal("another user's streams were limited")
 	}
 }
 

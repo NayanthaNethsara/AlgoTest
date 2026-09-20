@@ -61,7 +61,7 @@ func (r *Repository) CreateSubmission(ctx context.Context, s Submission) (*Submi
 		       COALESCE((SELECT SUM(points) FROM problem_tests WHERE problem_id = p.id), 0)::INT,
 		       (SELECT COUNT(*) FROM problem_tests WHERE problem_id = p.id)::INT
 		FROM problems p
-		WHERE p.id = $1;
+		WHERE p.id = $1 AND p.published = true;
 	`, s.ProblemID).Scan(&declaredMax, &pointsTotal, &testsTotal)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -122,7 +122,7 @@ func (r *Repository) CreateSubmission(ctx context.Context, s Submission) (*Submi
 func (r *Repository) GetSubmission(ctx context.Context, id string) (*Result, bool, error) {
 	query := `
 		SELECT id, user_id, team_id, problem_id, state, verdict, score, max_score, tests_total, tests_done, compile_error, created_at, finished_at,
-		       review_status, review_reason, reviewed_at
+		       review_status, review_reason, reviewed_at, claimed_at
 		FROM submissions
 		WHERE id = $1;
 	`
@@ -135,7 +135,7 @@ func (r *Repository) GetSubmission(ctx context.Context, id string) (*Result, boo
 		&res.SubmissionID, &res.UserID, &res.TeamID, &res.ProblemID, &stateStr, &verdict,
 		&res.Score, &res.MaxScore, &res.TestsTotal, &res.TestsDone,
 		&compileErr, &res.CreatedAt, &finishedAt,
-		&reviewStatus, &res.ReviewReason, &reviewedAt,
+		&reviewStatus, &res.ReviewReason, &reviewedAt, &res.AttemptStartedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
