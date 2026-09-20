@@ -110,38 +110,36 @@ export function CountdownDisplay({
 
   return (
     <div className="w-full flex flex-col items-center justify-center select-none text-center">
-      {/* Algothon Logo Header */}
+      {/* Top Row: Algothon Logo + Sponsor, no card styling */}
       <div
         className={cn(
-          "flex flex-col items-center gap-1.5 mb-1 sm:mb-2",
-          isProjectorFullscreen && "gap-2 sm:gap-4 mb-2 sm:mb-6"
+          "flex flex-row flex-wrap items-center justify-center gap-3 sm:gap-5 mb-2.5 sm:mb-4",
+          isProjectorFullscreen && "gap-4 sm:gap-7 mb-3 sm:mb-6"
         )}
       >
-        <div
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/algothon.svg"
+          alt="Algothon"
           className={cn(
-            "flex items-center justify-center pixel-raised bg-card px-4 sm:px-6 py-1.5 sm:py-2 shadow-[0px_3px_0px_#000000]",
-            isProjectorFullscreen && "px-6 sm:px-10 py-3 sm:py-4 shadow-[0px_4px_0px_#000000]"
+            "h-[clamp(1.5rem,min(4.5vw,4.5vh),3.25rem)] w-auto max-w-[85vw] shrink-0 object-contain sm:max-w-md",
+            isProjectorFullscreen && "h-[clamp(1.75rem,min(6vw,7vh),5rem)] sm:max-w-xl md:max-w-2xl"
           )}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/algothon.svg"
-            alt="Algothon"
-            className={cn(
-              "h-[clamp(1.5rem,min(4.5vw,4.5vh),3.25rem)] w-auto max-w-[85vw] shrink-0 object-contain sm:max-w-md",
-              isProjectorFullscreen && "h-[clamp(1.75rem,min(6vw,7vh),5rem)] sm:max-w-xl md:max-w-2xl"
-            )}
-          />
-        </div>
+        />
 
-        {/* Powered By Sponsor Badge */}
+        {/* Powered By Sponsor */}
         <div
           className={cn(
-            "flex items-center gap-1.5 pixel-flat bg-black/40 border-2 border-black px-2.5 py-1 shadow-[0_2px_0_#000000]",
-            isProjectorFullscreen && "gap-2 px-3.5 py-1.5"
+            "flex items-center gap-1.5 sm:gap-2",
+            isProjectorFullscreen && "gap-2 sm:gap-3"
           )}
         >
-          <span className="font-pixel-header text-[7px] sm:text-[8px] uppercase tracking-widest text-muted-foreground">
+          <span
+            className={cn(
+              "font-pixel-header text-[9px] sm:text-[11px] uppercase tracking-widest text-muted-foreground whitespace-nowrap",
+              isProjectorFullscreen && "text-xs sm:text-sm"
+            )}
+          >
             Powered by
           </span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -149,74 +147,76 @@ export function CountdownDisplay({
             src="/gtn-white.png"
             alt="GTN"
             className={cn(
-              "h-3 sm:h-3.5 w-auto object-contain",
-              isProjectorFullscreen && "h-4 sm:h-5"
+              "h-[clamp(1.5rem,min(4.5vw,4.5vh),3.25rem)] w-auto shrink-0 object-contain",
+              isProjectorFullscreen && "h-[clamp(1.75rem,min(6vw,7vh),5rem)]"
             )}
           />
         </div>
+      </div>
 
-        {/* Status Badges in Pixel Flat Style */}
-        <div className="flex flex-wrap items-center justify-center gap-2 font-pixel-header text-[10px] sm:text-xs">
-          {isNotStarted && (
-            <div className="pixel-flat bg-muted px-3 py-1 text-muted-foreground uppercase tracking-wider border-2 border-black">
-              [ READY TO START ]
-            </div>
-          )}
+      {/* Next Row: Status Badges in Pixel Flat Style */}
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 font-pixel-header text-[10px] sm:text-xs mb-2 sm:mb-3",
+          isProjectorFullscreen && "mb-3 sm:mb-5"
+        )}
+      >
+        {isNotStarted && (
+          <div className="bg-muted px-3.5 py-1.5 text-muted-foreground uppercase tracking-wider">
+            [ READY TO START ]
+          </div>
+        )}
 
-          {isRunning && !isUrgent && !isCritical && (
-            <div className="pixel-flat bg-emerald-950/60 text-emerald-300 border-2 border-black px-3.5 py-1 uppercase tracking-wider flex items-center gap-2 shadow-[0_2px_0_#000000]">
-              <span className="h-2 w-2 rounded-none bg-emerald-400 animate-ping" />
-              <Play className="h-3 w-3 fill-current" />
-              <span>CONTEST LIVE</span>
-            </div>
-          )}
+        {isRunning && !isUrgent && !isCritical && (
+          <div className="flex items-center gap-2 bg-emerald-950/60 px-3.5 py-1.5 uppercase tracking-wider text-emerald-300">
+            <span className="h-2 w-2 bg-emerald-400 animate-ping" />
+            <Play className="h-3 w-3 fill-current" />
+            <span>CONTEST LIVE</span>
+          </div>
+        )}
 
-          {isRunning && isUrgent && (
-            <div className="pixel-flat bg-amber-950/70 text-amber-300 border-2 border-black px-3.5 py-1 uppercase tracking-wider flex items-center gap-2 animate-pulse shadow-[0_2px_0_#000000]">
-              <Clock className="h-3.5 w-3.5" />
-              <span>WARNING: UNDER 10 MINS</span>
-            </div>
-          )}
+        {isRunning && isUrgent && (
+          <div className="flex items-center gap-2 bg-amber-950/70 px-3.5 py-1.5 uppercase tracking-wider text-amber-300 animate-pulse">
+            <Clock className="h-3.5 w-3.5" />
+            <span>WARNING: UNDER 10 MINS</span>
+          </div>
+        )}
 
-          {isRunning && isCritical && (
-            <div className="pixel-flat bg-red-950/80 text-red-300 border-2 border-black px-3.5 py-1 uppercase tracking-wider flex items-center gap-2 animate-bounce shadow-[0_2px_0_#000000]">
-              <Clock className="h-3.5 w-3.5" />
-              <span>FINAL MINUTE</span>
-            </div>
-          )}
+        {isRunning && isCritical && (
+          <div className="flex items-center gap-2 bg-red-950/80 px-3.5 py-1.5 uppercase tracking-wider text-red-300 animate-bounce">
+            <Clock className="h-3.5 w-3.5" />
+            <span>FINAL MINUTE</span>
+          </div>
+        )}
 
-          {isPaused && (
-            <div className="pixel-flat bg-amber-950/80 text-amber-300 border-2 border-black px-3.5 py-1 uppercase tracking-wider flex items-center gap-2 animate-pulse shadow-[0_2px_0_#000000]">
-              <Pause className="h-3.5 w-3.5 fill-current" />
-              <span>CONTEST PAUSED</span>
-            </div>
-          )}
+        {isPaused && (
+          <div className="flex items-center gap-2 bg-amber-950/80 px-3.5 py-1.5 uppercase tracking-wider text-amber-300 animate-pulse">
+            <Pause className="h-3.5 w-3.5 fill-current" />
+            <span>CONTEST PAUSED</span>
+          </div>
+        )}
 
-          {isEnded && (
-            <div className="pixel-flat bg-red-950/60 text-red-400 border-2 border-black px-3.5 py-1 uppercase tracking-wider flex items-center gap-2 shadow-[0_2px_0_#000000]">
-              <StopCircle className="h-3.5 w-3.5" />
-              <span>CONTEST CONCLUDED</span>
-            </div>
-          )}
+        {isEnded && (
+          <div className="flex items-center gap-2 bg-red-950/60 px-3.5 py-1.5 uppercase tracking-wider text-red-400">
+            <StopCircle className="h-3.5 w-3.5" />
+            <span>CONTEST CONCLUDED</span>
+          </div>
+        )}
 
-          {isFrozen && (
-            <div className="pixel-flat bg-sky-950/60 text-sky-300 border-2 border-black px-3 py-1 uppercase tracking-wider flex items-center gap-2 shadow-[0_2px_0_#000000]">
-              <Snowflake
-                className="h-3.5 w-3.5 animate-spin"
-                style={{ animationDuration: "10s" }}
-              />
-              <span>SCOREBOARD FROZEN</span>
-            </div>
-          )}
-        </div>
+        {isFrozen && (
+          <div className="flex items-center gap-2 bg-sky-950/60 px-3.5 py-1.5 uppercase tracking-wider text-sky-300">
+            <Snowflake className="h-3.5 w-3.5 animate-spin" style={{ animationDuration: "10s" }} />
+            <span>SCOREBOARD FROZEN</span>
+          </div>
+        )}
       </div>
 
       {/* Hero Giant Digit Countdown in Retro Pixel Box Style */}
       <div
         className={cn(
-          "flex items-center justify-center gap-2 sm:gap-4 md:gap-6 my-1 sm:my-2 transition-all duration-300",
+          "flex items-center justify-center gap-2 sm:gap-4 md:gap-6 my-2 sm:my-3 transition-all duration-300",
           pulseAnimation,
-          isProjectorFullscreen && "my-2 sm:my-5"
+          isProjectorFullscreen && "my-3 sm:my-6"
         )}
         style={
           {
@@ -258,8 +258,8 @@ export function CountdownDisplay({
       {/* Retro Pixel Progress Bar */}
       <div
         className={cn(
-          "w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-1 sm:mt-2",
-          isProjectorFullscreen && "mt-2 sm:mt-6"
+          "w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-2 sm:mt-3",
+          isProjectorFullscreen && "mt-3 sm:mt-7"
         )}
       >
         <div className="h-3.5 sm:h-4.5 w-full border-2 border-black bg-black p-0.5 shadow-[0_2px_0_#000000]">
@@ -275,21 +275,21 @@ export function CountdownDisplay({
           />
         </div>
 
-        <div className="flex justify-between items-center mt-1.5 px-1 text-[10px] sm:text-xs font-pixel-header text-muted-foreground">
+        <div className="flex justify-between items-center mt-2 px-1 text-[10px] sm:text-xs font-pixel-header text-muted-foreground">
           <span>{Math.round(progressPercent)}% ELAPSED</span>
           <span>{formatTotalDurationMinutes(contestState.durationSeconds)} TOTAL</span>
         </div>
       </div>
 
-      {/* Contest Metadata Cards in Pixel Raised Style */}
+      {/* Contest Metadata Row, no card boxes */}
       <div
         className={cn(
-          "grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2.5 w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-1 sm:mt-2",
-          isProjectorFullscreen && "gap-2 sm:gap-3 mt-2 sm:mt-6"
+          "flex flex-wrap items-center justify-center gap-x-8 gap-y-3 sm:gap-x-12 w-full max-w-2xl sm:max-w-3xl md:max-w-4xl px-4 mt-3 sm:mt-5",
+          isProjectorFullscreen && "gap-x-10 sm:gap-x-16 mt-4 sm:mt-8"
         )}
       >
-        {/* Elapsed Time Card */}
-        <div className="flex items-center gap-2.5 pixel-raised bg-card px-3 py-2.5 text-left">
+        {/* Elapsed Time */}
+        <div className="flex items-center gap-2 text-left">
           <Hourglass className="h-4 w-4 text-primary shrink-0" />
           <div className="flex flex-col">
             <span className="text-[8px] sm:text-[9px] uppercase font-pixel-header text-muted-foreground tracking-wider">
@@ -301,8 +301,8 @@ export function CountdownDisplay({
           </div>
         </div>
 
-        {/* Total Duration Card */}
-        <div className="flex items-center gap-2.5 pixel-raised bg-card px-3 py-2.5 text-left">
+        {/* Total Duration */}
+        <div className="flex items-center gap-2 text-left">
           <Clock className="h-4 w-4 text-emerald-400 shrink-0" />
           <div className="flex flex-col">
             <span className="text-[8px] sm:text-[9px] uppercase font-pixel-header text-muted-foreground tracking-wider">
@@ -314,8 +314,8 @@ export function CountdownDisplay({
           </div>
         </div>
 
-        {/* Start Time Card */}
-        <div className="flex items-center gap-2.5 pixel-raised bg-card px-3 py-2.5 text-left">
+        {/* Start Time */}
+        <div className="flex items-center gap-2 text-left">
           <CalendarClock className="h-4 w-4 text-sky-400 shrink-0" />
           <div className="flex flex-col">
             <span className="text-[8px] sm:text-[9px] uppercase font-pixel-header text-muted-foreground tracking-wider">
@@ -327,8 +327,8 @@ export function CountdownDisplay({
           </div>
         </div>
 
-        {/* Finish Time Card */}
-        <div className="flex items-center gap-2.5 pixel-raised bg-card px-3 py-2.5 text-left">
+        {/* Finish Time */}
+        <div className="flex items-center gap-2 text-left">
           <CalendarClock className="h-4 w-4 text-amber-400 shrink-0" />
           <div className="flex flex-col">
             <span className="text-[8px] sm:text-[9px] uppercase font-pixel-header text-muted-foreground tracking-wider">
