@@ -1,10 +1,10 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
   Info,
   ShieldAlert,
-  ShieldOff,
   XCircle,
 } from "lucide-react";
 import { getContestStateAction } from "@/actions/contest";
@@ -21,6 +21,10 @@ export const metadata = {
 
 export default async function DownloadPage() {
   const { downloadEnabled } = await getContestStateAction();
+
+  if (!downloadEnabled) {
+    notFound();
+  }
 
   return (
     <div className="h-dvh flex flex-col bg-background select-none">
@@ -152,32 +156,19 @@ export default async function DownloadPage() {
             </p>
           </div>
 
-          {downloadEnabled ? (
-            <>
-              <DesktopDownloadCards />
+          <DesktopDownloadCards />
 
-              <div className="pixel-flat bg-amber-500/5 border border-amber-500/30 p-5 flex items-start gap-4">
-                <ShieldAlert className="size-5 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  These builds aren&apos;t code-signed yet, so your OS or
-                  antivirus may show an unrecognized-publisher warning on
-                  first launch — that&apos;s expected, not a sign of
-                  tampering. Only download from this page over HTTPS, and
-                  match the SHA-256 checksum shown under each build if you
-                  want to verify the file wasn&apos;t corrupted or modified in
-                  transit.
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="pixel-raised bg-card p-6 flex items-start gap-4 border border-border">
-              <ShieldOff className="size-5 text-muted-foreground shrink-0 mt-0.5" />
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Downloads are turned off right now. Check with an organizer,
-                or check back closer to the contest.
-              </p>
-            </div>
-          )}
+          <div className="pixel-flat bg-amber-500/5 border border-amber-500/30 p-5 flex items-start gap-4">
+            <ShieldAlert className="size-5 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              These builds aren&apos;t code-signed yet, so your OS or
+              antivirus may show an unrecognized-publisher warning on
+              first launch — that&apos;s expected, not a sign of tampering.
+              Only download from this page over HTTPS, and match the SHA-256
+              checksum shown under each build if you want to verify the file
+              wasn&apos;t corrupted or modified in transit.
+            </p>
+          </div>
         </div>
       </div>
     </div>

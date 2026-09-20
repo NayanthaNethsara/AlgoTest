@@ -27,7 +27,7 @@ const defaultContestState: ContestState = {
   minClientVersion: "0.2.0",
   enforceBinaryHash: false,
   authorizedBinaryHashes: "",
-  downloadEnabled: true,
+  downloadEnabled: false,
   serverTime: new Date().toISOString(),
 };
 
@@ -47,7 +47,7 @@ function normalizeState(data: Record<string, unknown>): ContestState {
     minClientVersion: (data.minClientVersion as string) || "0.2.0",
     enforceBinaryHash: Boolean(data.enforceBinaryHash),
     authorizedBinaryHashes: (data.authorizedBinaryHashes as string) || "",
-    downloadEnabled: data.downloadEnabled === undefined ? true : Boolean(data.downloadEnabled),
+    downloadEnabled: data.downloadEnabled === undefined ? false : Boolean(data.downloadEnabled),
     serverTime: (data.serverTime as string) || new Date().toISOString(),
   };
 }

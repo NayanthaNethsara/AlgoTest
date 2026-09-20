@@ -21,6 +21,16 @@ func TestParseSnapshotDefaults(t *testing.T) {
 	if snap.freezeMinutes != defaultFreezeMinutes {
 		t.Errorf("freezeMinutes = %d, want %d", snap.freezeMinutes, defaultFreezeMinutes)
 	}
+	if snap.downloadEnabled {
+		t.Error("downloadEnabled should default to false when the setting is absent")
+	}
+}
+
+func TestParseSnapshotDownloadDisabled(t *testing.T) {
+	snap := parseSnapshot(map[string]string{"download.enabled": "false"})
+	if snap.downloadEnabled {
+		t.Error("downloadEnabled should remain false after loading the persisted setting")
+	}
 }
 
 func TestContestStateCalculations(t *testing.T) {
@@ -169,4 +179,3 @@ func TestParseSnapshotProctorSettings(t *testing.T) {
 		t.Errorf("expected state.AuthorizedBinaryHashes match, got %s", state.AuthorizedBinaryHashes)
 	}
 }
-

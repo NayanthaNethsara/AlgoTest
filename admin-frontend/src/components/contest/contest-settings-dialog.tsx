@@ -42,7 +42,7 @@ function formOf(state: ContestState | null): ContestSettingsForm {
     minClientVersion: state?.minClientVersion || "0.2.0",
     enforceBinaryHash: Boolean(state?.enforceBinaryHash),
     authorizedBinaryHashes: state?.authorizedBinaryHashes || "",
-    downloadEnabled: state?.downloadEnabled ?? true,
+    downloadEnabled: state?.downloadEnabled ?? false,
   };
 }
 
