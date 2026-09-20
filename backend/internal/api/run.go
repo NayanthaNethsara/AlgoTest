@@ -147,20 +147,18 @@ func (h *handler) runCode(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
 			return
 		}
-		if err == nil {
-			p := detail
-			if p.TimeLimitMs > 0 {
-				cpu := time.Duration(p.TimeLimitMs) * time.Millisecond
-				limits.CPUSeconds = cpu.Seconds()
-				wall := 3*cpu + 2*time.Second
-				if wall < 5*time.Second {
-					wall = 5 * time.Second
-				}
-				limits.Wall = wall
+		p := detail
+		if p.TimeLimitMs > 0 {
+			cpu := time.Duration(p.TimeLimitMs) * time.Millisecond
+			limits.CPUSeconds = cpu.Seconds()
+			wall := 3*cpu + 2*time.Second
+			if wall < 5*time.Second {
+				wall = 5 * time.Second
 			}
-			if p.MemoryLimitMb > 0 {
-				limits.MemoryKB = int64(p.MemoryLimitMb) * 1024
-			}
+			limits.Wall = wall
+		}
+		if p.MemoryLimitMb > 0 {
+			limits.MemoryKB = int64(p.MemoryLimitMb) * 1024
 		}
 	}
 
