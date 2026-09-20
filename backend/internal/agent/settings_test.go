@@ -38,6 +38,14 @@ func TestMigrationSeedMatchesDefaultPolicy(t *testing.T) {
 	}
 }
 
+func TestAttestationIsRequiredByDefault(t *testing.T) {
+	settings := &Settings{}
+	settings.snapshot.Store(buildSnapshot(map[string]string{}, nil))
+	if !settings.RequireAgentAttest() {
+		t.Fatal("same-machine attestation must fail closed when the setting is absent")
+	}
+}
+
 func policyEqual(a, b Policy) bool {
 	return a.HeartbeatSeconds == b.HeartbeatSeconds &&
 		a.PortProbeSeconds == b.PortProbeSeconds &&

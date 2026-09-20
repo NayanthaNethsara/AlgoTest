@@ -362,7 +362,7 @@ A desktop claim the agent does not corroborate is recorded (`claims_shell` / `sh
 | Live (≤20s) | `DESKTOP`, attested | any | allowed | — |
 | Live (≤20s) | `WEB_WITH_AGENT`, attested | no `web_with_agent` | **423 Locked** `CLIENT_NOT_ALLOWED` | `tel.web_client` (low) |
 | Live (≤20s) | `WEB_WITH_AGENT`, attested | `web_with_agent` | allowed | `tel.web_client` (low) |
-| Live (≤20s) | either, **no attestation** | any | allowed | `tel.no_attest` (medium) |
+| Live (≤20s) | either, **no attestation** | any | **423 Locked** `NOT_ATTESTED` | `tel.no_attest` (medium) |
 | Stale (>20s) or never seen | `WEB_ONLY` | no `web_only` | **423 Locked** | `tel.no_agent_submit` |
 | Stale (>20s) or never seen | `WEB_ONLY` | `web_only` | allowed | `tel.web_only_grant` (low) |
 | Any | any, `proctor_exempt` | any | allowed | standing exemption finding |
@@ -387,8 +387,9 @@ A desktop claim the agent does not corroborate is recorded (`claims_shell` / `sh
   proctoring **off**, while a `web_only` grant keeps every finding and records each submission against
   the organizer's stated reason. Reviewers can tell "allowed to use a browser" from "not being
   watched".
-- Optional `contest_settings.require_agent_attest` promotes the no-attestation row from finding to
-  block. Ship it **off**; it is a lever for an organizer who sees abuse, not a default.
+- `contest_settings.require_agent_attest` ships **on**, so an agent on one machine cannot authorize
+  a browser on another. Explicit `WEB_ONLY` grants and proctor exemptions remain the break-glass
+  paths for contestants whose browser cannot reach loopback.
 
 ---
 
@@ -485,7 +486,7 @@ bypass, `competitor-desktop/src-tauri/server/` (stale bundled Node + Next artifa
 | Server down | heartbeats fail | Amber pill, buffer fills | locked while down | fix the server; buffer replays |
 | `agent.json` lost / wiped | no agent for that user | Setup window on next launch | locked until re-enrolled | re-enroll, 60s |
 | Second machine enrolled | `tel.agent_rebound` | Old agent stops | old machine locked | **investigate** |
-| Browser on machine B, agent on machine A | no attestation, LAN IP mismatch | Works | allowed (or blocked with the lever on) | **investigate** |
+| Browser on machine B, agent on machine A | no local attestation | Same-machine verification screen | **locked** | `tel.no_attest` |
 | Clock changed | `wall_ts` vs `mono_ms` skew | nothing | allowed | medium finding |
 
 The load-bearing row is the first one: a client bug costs a contestant nothing, because the portal is
@@ -658,8 +659,8 @@ need for a remote origin to invoke commands at all.
    submitting succeeds within 15s.
 3. Stop the server for 3 minutes → agent buffers; on restart the timeline is continuous and the
    window is classified as infrastructure, with zero contestant findings across all test agents.
-4. Submit from a browser on machine B while the agent runs on machine A → allowed, with
-   `tel.no_attest` and an IP mismatch visible in review.
+4. Submit from a browser on machine B while the agent runs on machine A → `423 NOT_ATTESTED`, with
+   `tel.no_attest` visible in review.
 5. Start a plain dev server on `:8080` → **no** finding (the fingerprint false-positive control).
    Start Ollama → `ai.port.ollama` `confirmed: true` within 60s, exactly one finding, not one per
    ping.

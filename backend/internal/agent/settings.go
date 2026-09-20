@@ -96,10 +96,10 @@ func (s *Settings) Policy() Policy {
 }
 
 // RequireAgentAttest promotes a missing loopback attestation from a review signal
-// to a hard block. Ships off: it is a lever for organizers who see abuse, not a
-// default that would lock out anyone whose browser can't reach loopback.
+// to a hard block, preventing an agent on one machine from authorizing a browser
+// on another machine.
 func (s *Settings) RequireAgentAttest() bool {
-	return s.bool("require_agent_attest", false)
+	return s.bool("require_agent_attest", true)
 }
 
 // ContestAccessGrant is the floor under every contestant: the fallbacks that need

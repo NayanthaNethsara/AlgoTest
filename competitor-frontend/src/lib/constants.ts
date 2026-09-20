@@ -53,6 +53,7 @@ export const PROCTOR_LOCK_TITLES: Record<string, string> = {
   AGENT_UNREACHABLE: "Proctor Client Unreachable",
   AGENT_STALE: "Proctor Connection Stale",
   AGENT_STARTING: "Proctor Client Starting",
+  NOT_ATTESTED: "Same-Machine Verification Required",
 };
 
 export const PROCTOR_TRANSIENT_CODE = "AGENT_STARTING";
