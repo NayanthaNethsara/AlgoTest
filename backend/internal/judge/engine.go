@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
@@ -88,6 +87,7 @@ func (j *Judge) Result(ctx context.Context, id string) (*Result, bool, error) {
 }
 
 func (j *Judge) Start(ctx context.Context) {
+	j.broadcaster.startPublisher(ctx)
 	metrics.JudgeWorkersActive.Set(float64(j.workers))
 	defer metrics.JudgeWorkersActive.Set(0)
 
@@ -156,13 +156,14 @@ func (j *Judge) workerLoop(ctx context.Context, workerID string) {
 
 func (j *Judge) processSubmission(ctx context.Context, s *Submission, workerID string) {
 	j.broadcaster.Broadcast(Result{
-		SubmissionID: s.ID,
-		UserID:       s.UserID,
-		TeamID:       s.TeamID,
-		ProblemID:    s.ProblemID,
-		Status:       StatusRunning,
-		TestsTotal:   s.TestsTotal,
-		TestsDone:    0,
+		SubmissionID:     s.ID,
+		UserID:           s.UserID,
+		TeamID:           s.TeamID,
+		ProblemID:        s.ProblemID,
+		Status:           StatusRunning,
+		TestsTotal:       s.TestsTotal,
+		TestsDone:        0,
+		AttemptStartedAt: s.AttemptStartedAt,
 	})
 
 	evalCtx, cancel := context.WithCancel(ctx)
@@ -250,32 +251,15 @@ func submissionLimits(s Submission) runner.Limits {
 
 func newResult(s Submission, status Status, verdict string) Result {
 	return Result{
-		SubmissionID: s.ID,
-		UserID:       s.UserID,
-		TeamID:       s.TeamID,
-		ProblemID:    s.ProblemID,
-		Status:       status,
-		Verdict:      &verdict,
+		SubmissionID:     s.ID,
+		UserID:           s.UserID,
+		TeamID:           s.TeamID,
+		ProblemID:        s.ProblemID,
+		Status:           status,
+		Verdict:          &verdict,
+		AttemptStartedAt: s.AttemptStartedAt,
+		CreatedAt:        s.CreatedAt,
 	}
-}
-
-func normalizeOutput(str string) string {
-	str = strings.ReplaceAll(str, "\r\n", "\n")
-	str = strings.ReplaceAll(str, "\r", "\n")
-	str = strings.TrimSpace(str)
-	if str == "" {
-		return ""
-	}
-	var b strings.Builder
-	b.Grow(len(str))
-	lines := strings.Split(str, "\n")
-	for i, line := range lines {
-		if i > 0 {
-			b.WriteByte('\n')
-		}
-		b.WriteString(strings.TrimRight(line, " \t"))
-	}
-	return strings.TrimSpace(b.String())
 }
 
 func verdictLabel(v runner.Verdict) string {
@@ -394,7 +378,7 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 				return gradedCase{verdict: verdictLabel(cr.Verdict)}
 			}
 			t, exists := testMap[cr.Ordinal]
-			if exists && normalizeOutput(cr.Stdout) == normalizeOutput(string(t.Expected)) {
+			if exists && outputsEqual(cr.Stdout, t.Expected) {
 				return gradedCase{verdict: "AC", points: t.Points}
 			}
 			return gradedCase{verdict: "WA"}
@@ -402,6 +386,7 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 
 		completedCount := 0
 		currentScore := 0
+		var lastProgress time.Time
 		var mu sync.Mutex
 
 		batchReq := runner.BatchRequest{
@@ -420,16 +405,21 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 				sc := currentScore
 				mu.Unlock()
 
+				if cnt != len(tests) && time.Since(lastProgress) < 250*time.Millisecond {
+					return
+				}
+				lastProgress = time.Now()
 				j.broadcaster.Broadcast(Result{
-					SubmissionID: s.ID,
-					UserID:       s.UserID,
-					TeamID:       s.TeamID,
-					ProblemID:    s.ProblemID,
-					Status:       StatusRunning,
-					Score:        sc,
-					MaxScore:     maxScore,
-					TestsTotal:   len(tests),
-					TestsDone:    cnt,
+					SubmissionID:     s.ID,
+					UserID:           s.UserID,
+					TeamID:           s.TeamID,
+					ProblemID:        s.ProblemID,
+					Status:           StatusRunning,
+					Score:            sc,
+					MaxScore:         maxScore,
+					TestsTotal:       len(tests),
+					TestsDone:        cnt,
+					AttemptStartedAt: s.AttemptStartedAt,
 				})
 			},
 		}
@@ -473,19 +463,20 @@ func (j *Judge) evaluate(ctx context.Context, s Submission) Result {
 		}
 
 		if runErr != nil {
-			failVerdict := "RTE"
+			failVerdict := "IE"
+			if j.log != nil {
+				j.log.Error("judge execution failed", "submission_id", s.ID, "problem_id", s.ProblemID, "completed_cases", len(batchRes.Cases), "error", runErr)
+			}
 			if errors.Is(runErr, runner.ErrSandboxUnavailable) {
 				failVerdict = "IE"
 				errMsg := "Sandbox environment is unavailable on the judge host. Please contact an organizer."
 				compileErrStr = &errMsg
 			} else {
-				errMsg := "Execution terminated unexpectedly during testing."
+				errMsg := "Judge execution failed. Please contact an organizer."
 				compileErrStr = &errMsg
 			}
 
-			if overallVerdict == "AC" {
-				overallVerdict = failVerdict
-			}
+			overallVerdict = failVerdict
 
 			for _, t := range tests {
 				if !runCasesMap[t.Ordinal] {

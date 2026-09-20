@@ -128,26 +128,25 @@ func ValidateTestPoints(tests []TestInput, maxScore int32) error {
 		return nil
 	}
 
-	var sum int32
+	var sum int64
 	custom := false
 	for _, t := range tests {
 		if t.Points != 0 {
 			custom = true
 		}
-		sum += t.Points
+		sum += int64(t.Points)
 	}
 	if !custom {
 		return nil
 	}
 
 	for _, t := range tests {
-		if t.Points <= 0 {
-			return fmt.Errorf("%w: test %d carries %d points -- once any test is weighted by hand every test needs a positive value, or leave them all at 0 to split %d evenly",
-				ErrPointsMismatch, t.Ordinal, t.Points, maxScore)
+		if t.Points < 0 {
+			return fmt.Errorf("%w: test %d carries negative points", ErrPointsMismatch, t.Ordinal)
 		}
 	}
 
-	if sum != maxScore {
+	if sum != int64(maxScore) {
 		return fmt.Errorf("%w: the test cases total %d points but the problem is worth %d -- give every test a value that adds up to %d, or leave them all at 0 to split it evenly",
 			ErrPointsMismatch, sum, maxScore, maxScore)
 	}

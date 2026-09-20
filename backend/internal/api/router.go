@@ -113,7 +113,7 @@ func NewRouter(
 		h.registerCompetitorRoutes(v1, gated)
 		h.registerAgentRoutes(v1)
 
-		admin := v1.Group("/admin", h.requireUser, h.requireAdmin, maxBodySizeMiddleware(32_000_000), rateLimitMiddleware(adminLimiter, userIDKeyFunc))
+		admin := v1.Group("/admin", h.requireUser, h.requireAdmin, maxBodySizeMiddleware(64*1024*1024), rateLimitMiddleware(adminLimiter, userIDKeyFunc))
 		h.registerAdminRoutes(admin)
 	}
 
@@ -152,7 +152,7 @@ func (h *handler) registerCompetitorRoutes(v1 *gin.RouterGroup, gated gin.Handle
 
 	v1.POST("/submissions", h.requireUser, maxBodySizeMiddleware(2_000_000), rateLimitMiddleware(submissionLimiter, userIDKeyFunc), submissionsAllowed, h.createSubmission)
 	v1.GET("/submissions", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.listUserSubmissions)
-	v1.GET("/submissions/stream", h.requireUser, rateLimitMiddleware(streamLimiter, userIDKeyFunc), gated, h.streamSubmissions)
+	v1.GET("/submissions/stream", h.requireUser, rateLimitMiddleware(streamLimiter, userIDKeyFunc), h.streamSubmissions)
 	v1.GET("/submissions/:id", h.requireUser, rateLimitMiddleware(submissionStatusLimiter, userIDKeyFunc), gated, h.getSubmission)
 }
 

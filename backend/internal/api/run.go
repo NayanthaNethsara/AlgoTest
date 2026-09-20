@@ -143,6 +143,10 @@ func (h *handler) runCode(c *gin.Context) {
 		if err != nil {
 			detail, err = h.problems.GetPublishedBySlug(c.Request.Context(), req.ProblemID)
 		}
+		if err != nil || (!detail.Published && u.Role != user.RoleAdmin) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+			return
+		}
 		if err == nil {
 			p := detail
 			if p.TimeLimitMs > 0 {

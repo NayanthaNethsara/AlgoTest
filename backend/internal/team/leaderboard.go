@@ -25,11 +25,12 @@ func (r *Repository) GetLeaderboardWithCutoff(ctx context.Context, cutoff *time.
 				t.id AS team_id,
 				t.name AS team_name,
 				COALESCE(SUM(ps.best_score) FILTER (WHERE p.published), 0)::INT AS total_score,
-				COUNT(DISTINCT ps.problem_id) FILTER (WHERE p.published AND ps.best_score > 0)::INT AS problems_solved,
-				MAX(ps.updated_at) FILTER (WHERE p.published AND ps.best_score > 0) AS last_submission_at
+				COUNT(DISTINCT ps.problem_id) FILTER (WHERE p.published AND ps.best_score > 0 AND ps.best_score >= s.max_score)::INT AS problems_solved,
+				MAX(s.created_at) FILTER (WHERE p.published AND ps.best_score > 0) AS last_submission_at
 			FROM teams t
 			LEFT JOIN problem_scores ps ON t.id = ps.team_id
 			LEFT JOIN problems p ON p.id = ps.problem_id
+			LEFT JOIN submissions s ON s.id = ps.best_submission_id
 			GROUP BY t.id, t.name
 			ORDER BY total_score DESC, last_submission_at ASC NULLS LAST, t.name ASC;
 		`
@@ -41,17 +42,18 @@ func (r *Repository) GetLeaderboardWithCutoff(ctx context.Context, cutoff *time.
 					s.team_id,
 					s.problem_id,
 					s.score AS best_score,
-					CASE WHEN s.score > 0 THEN s.finished_at ELSE NULL END AS last_accepted_at
+					s.max_score,
+					CASE WHEN s.score > 0 THEN s.created_at ELSE NULL END AS last_accepted_at
 				FROM submissions s
 				JOIN problems p ON p.id = s.problem_id AND p.published = true
-				WHERE s.finished_at <= $1 AND s.state = 'passed' AND (s.review_status IS NULL OR s.review_status != 'rejected')
-				ORDER BY s.team_id, s.problem_id, s.score DESC, s.finished_at ASC
+				WHERE s.created_at <= $1 AND s.state = 'passed' AND s.review_status = 'accepted'
+				ORDER BY s.team_id, s.problem_id, s.score DESC, s.created_at ASC, s.id ASC
 			)
 			SELECT 
 				t.id AS team_id,
 				t.name AS team_name,
 				COALESCE(SUM(tps.best_score), 0)::INT AS total_score,
-				COUNT(DISTINCT tps.problem_id) FILTER (WHERE tps.best_score > 0)::INT AS problems_solved,
+				COUNT(DISTINCT tps.problem_id) FILTER (WHERE tps.best_score > 0 AND tps.best_score >= tps.max_score)::INT AS problems_solved,
 				MAX(tps.last_accepted_at) AS last_submission_at
 			FROM teams t
 			LEFT JOIN team_problem_scores tps ON t.id = tps.team_id

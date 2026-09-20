@@ -78,7 +78,7 @@ func makeWorkDir(base string) (string, error) {
 // reads as root, so a symlink the sandbox plants here would otherwise leak any
 // host file back as the program's own output.
 func readCapped(path string) string {
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return ""
 	}
