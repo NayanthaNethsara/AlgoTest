@@ -26,14 +26,14 @@ const (
 )
 
 type ContestState struct {
-	Title            string     `json:"title"`
-	Status           string     `json:"status"`
-	StartTime        *time.Time `json:"startTime,omitempty"`
-	EndTime          *time.Time `json:"endTime,omitempty"`
-	DurationSeconds  int        `json:"durationSeconds"`
-	FreezeMinutes    int        `json:"freezeMinutes"`
-	FreezeStartTime  *time.Time `json:"freezeStartTime,omitempty"`
-	PausedAt         *time.Time `json:"pausedAt,omitempty"`
+	Title                  string     `json:"title"`
+	Status                 string     `json:"status"`
+	StartTime              *time.Time `json:"startTime,omitempty"`
+	EndTime                *time.Time `json:"endTime,omitempty"`
+	DurationSeconds        int        `json:"durationSeconds"`
+	FreezeMinutes          int        `json:"freezeMinutes"`
+	FreezeStartTime        *time.Time `json:"freezeStartTime,omitempty"`
+	PausedAt               *time.Time `json:"pausedAt,omitempty"`
 	RemainingSeconds       int        `json:"remainingSeconds"`
 	ElapsedSeconds         int        `json:"elapsedSeconds"`
 	IsFrozen               bool       `json:"isFrozen"`
@@ -151,7 +151,7 @@ func parseSnapshot(values map[string]string) *stateSnapshot {
 		authorizedBinaryHashes = strings.TrimSpace(val)
 	}
 
-	downloadEnabled := true
+	downloadEnabled := false
 	if val, ok := values["download.enabled"]; ok {
 		trimmed := strings.ToLower(strings.TrimSpace(val))
 		downloadEnabled = trimmed != "false" && trimmed != "0"

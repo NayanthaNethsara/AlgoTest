@@ -16,7 +16,13 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 func (r *Repository) GetSettings(ctx context.Context) (map[string]string, error) {
-	rows, err := r.pool.Query(ctx, `SELECT key, value FROM contest_settings WHERE key LIKE 'contest.%' OR key LIKE 'proctor.%';`)
+	rows, err := r.pool.Query(ctx, `
+		SELECT key, value
+		FROM contest_settings
+		WHERE key LIKE 'contest.%'
+		   OR key LIKE 'proctor.%'
+		   OR key = 'download.enabled';
+	`)
 	if err != nil {
 		return nil, fmt.Errorf("query contest settings: %w", err)
 	}

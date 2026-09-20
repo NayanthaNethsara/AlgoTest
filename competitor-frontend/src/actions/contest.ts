@@ -15,7 +15,7 @@ const defaultContestState: ContestState = {
   remainingSeconds: 7200,
   elapsedSeconds: 0,
   isFrozen: false,
-  downloadEnabled: true,
+  downloadEnabled: false,
   serverTime: new Date().toISOString(),
 };
 
