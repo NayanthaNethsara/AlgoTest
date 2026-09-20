@@ -115,7 +115,7 @@ func (r *Repository) GetByToken(ctx context.Context, tokenHash string) (Agent, e
 }
 
 func (r *Repository) RecordHeartbeat(ctx context.Context, agentID string, hb Heartbeat, clockOffsetMs int64, eventWritten bool) error {
-	_, err := r.pool.Exec(ctx, `
+	result, err := r.pool.Exec(ctx, `
 		UPDATE proctor_agents SET
 			boot_id           = $2::uuid,
 			seq               = CASE
@@ -132,11 +132,15 @@ func (r *Repository) RecordHeartbeat(ctx context.Context, agentID string, hb Hea
 			last_seen_at      = now(),
 			stopped_at        = NULL,
 			stopped_reason    = ''
-		WHERE id = $1;
+		WHERE id = $1
+		  AND (stopped_at IS NULL OR boot_id IS DISTINCT FROM $2::uuid);
 	`, agentID, hb.BootID, hb.Seq, hb.LoopbackPort, hb.AttestNonce, hb.AgentVersion,
 		hb.SignalHash, clockOffsetMs, eventWritten)
 	if err != nil {
 		return fmt.Errorf("record heartbeat: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return ErrUnknownAgent
 	}
 	return nil
 }

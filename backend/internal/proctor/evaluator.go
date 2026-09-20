@@ -223,9 +223,10 @@ func matchUnauthorizedForeground(app string, dwell map[string]int64, allowlist [
 
 	for _, candidate := range candidates {
 		tokens := tokenize(candidate)
+		alias := tokenize(foregroundLauncherAlias(candidate))
 		allowed := false
 		for _, term := range terms {
-			if matchesTerm(tokens, term) {
+			if matchesTerm(tokens, term) || matchesTerm(alias, term) {
 				allowed = true
 				break
 			}
@@ -235,6 +236,31 @@ func matchUnauthorizedForeground(app string, dwell map[string]int64, allowlist [
 		}
 	}
 	return ""
+}
+
+func foregroundLauncherAlias(app string) string {
+	name := strings.TrimSuffix(strings.ToLower(app), ".exe")
+	switch name {
+	case "idea64":
+		return "idea"
+	case "pycharm64":
+		return "pycharm"
+	case "clion64":
+		return "clion"
+	case "webstorm64":
+		return "webstorm"
+	case "goland64":
+		return "goland"
+	case "rider64":
+		return "rider"
+	case "phpstorm64":
+		return "phpstorm"
+	case "rubymine64":
+		return "rubymine"
+	case "datagrip64":
+		return "datagrip"
+	}
+	return app
 }
 
 // tokenize splits on every non-alphanumeric character, lowercasing as it goes.

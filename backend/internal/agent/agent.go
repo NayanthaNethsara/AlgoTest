@@ -16,7 +16,7 @@ var (
 )
 
 const (
-	GateMaxStaleSeconds  = 90
+	GateMaxStaleSeconds  = 20
 	ClockSkewToleranceMs = 120_000
 )
 
@@ -107,7 +107,7 @@ type Policy struct {
 
 func DefaultPolicy() Policy {
 	return Policy{
-		HeartbeatSeconds:    15,
+		HeartbeatSeconds:    10,
 		PortProbeSeconds:    60,
 		KeepaliveSeconds:    300,
 		RulesRefreshSeconds: 300,

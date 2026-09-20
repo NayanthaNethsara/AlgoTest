@@ -86,6 +86,17 @@ func TestMatchForegroundReturnsTheMatchedCandidate(t *testing.T) {
 func TestMatchUnauthorizedForeground(t *testing.T) {
 	allowlist := []string{"com.microsoft.vscode", "chrome", "terminal"}
 
+	t.Run("recognizes exact JetBrains Windows launcher aliases", func(t *testing.T) {
+		for _, app := range []string{"idea64.exe", "PYCHARM64.EXE", "clion64.exe"} {
+			if got := matchUnauthorizedForeground(app, nil, []string{"idea", "pycharm", "clion"}); got != "" {
+				t.Errorf("ordinary IDE %q was flagged: %q", app, got)
+			}
+		}
+		if got := matchUnauthorizedForeground("idea64-malware.exe", nil, []string{"idea"}); got == "" {
+			t.Error("an unrelated prefix must not inherit an IDE alias")
+		}
+	})
+
 	t.Run("allows whitelisted focused app", func(t *testing.T) {
 		if got := matchUnauthorizedForeground("com.microsoft.VSCode", nil, allowlist); got != "" {
 			t.Errorf("matchUnauthorizedForeground = %q, want empty (allowed)", got)

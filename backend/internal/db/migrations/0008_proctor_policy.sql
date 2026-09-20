@@ -9,11 +9,11 @@
 -- key that is absent, empty or unparseable falls back to the compiled-in default
 -- rather than to nothing — an empty denylist would silently disable detection.
 INSERT INTO contest_settings (key, value) VALUES
-    ('proctor.heartbeat_seconds', '15'),
+    ('proctor.heartbeat_seconds', '10'),
     ('proctor.port_probe_seconds', '60'),
     ('proctor.keepalive_seconds', '300'),
     ('proctor.rules_refresh_seconds', '300'),
-    ('proctor.gate_max_stale_seconds', '90'),
+    ('proctor.gate_max_stale_seconds', '20'),
     -- Kept in step with DefaultPolicy, and asserted by
     -- TestMigrationSeedMatchesDefaultPolicy so the two copies cannot drift.
     --

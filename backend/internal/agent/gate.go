@@ -107,11 +107,11 @@ type Decision struct {
 // laptop resuming from sleep, or a shell stalled under load, therefore produces one
 // heartbeat that says false while the contestant sits in front of the client doing
 // nothing wrong. Refusing them would be this gate's worst failure, so a sighting
-// counts for the same 90s a missing agent heartbeat is tolerated for.
+// counts for the same 20s a missing agent heartbeat is tolerated for.
 //
-// The cost is bounded and worth naming: for 90s after genuinely closing the client,
+// The cost is bounded and worth naming: for 20s after genuinely closing the client,
 // a hand-forged marker in a browser would pass as DESKTOP. That requires having just
-// run the proctored client, so it buys a contestant a minute and a half of the
+// run the proctored client, so it buys a contestant up to twenty seconds of the
 // weaker mode, never an unproctored one.
 const ShellGraceSeconds = GateMaxStaleSeconds
 
@@ -163,7 +163,7 @@ func Decide(in GateInput, now time.Time) Decision {
 		d.SecondsSincePing = int(now.Sub(*in.LastSeenAt).Seconds())
 	}
 
-	agentLive := in.HasAgent && in.LastSeenAt != nil && d.SecondsSincePing <= maxStale
+	agentLive := in.HasAgent && in.StoppedAt == nil && in.LastSeenAt != nil && d.SecondsSincePing <= maxStale
 	d.AccessMode = resolveMode(in, agentLive, now)
 	d.ActiveClient = ClientBrowser
 	if d.AccessMode == ModeDesktopShell {

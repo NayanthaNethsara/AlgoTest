@@ -7,9 +7,9 @@ import (
 
 func TestDecide(t *testing.T) {
 	now := time.Now()
-	fresh := now.Add(-30 * time.Second)
-	stale := now.Add(-120 * time.Second)
-	stoppedAt := now.Add(-100 * time.Second)
+	fresh := now.Add(-3 * time.Second)
+	stale := now.Add(-30 * time.Second)
+	stoppedAt := now.Add(-15 * time.Second)
 
 	// The desktop path, spelled out once: a live agent, its shell process reporting
 	// alive, and a client that says it is that shell.
@@ -126,6 +126,15 @@ func TestDecide(t *testing.T) {
 			wantFindings: []string{"tel.no_agent_submit"},
 		},
 		{
+			name:         "a deliberate stop locks even with a fresh heartbeat and valid attestation",
+			in:           GateInput{HasAgent: true, LastSeenAt: &fresh, StoppedAt: &now, AttestOK: true, ShellAlive: true, ClaimsDesktop: true},
+			wantAllowed:  false,
+			wantCode:     CodeAgentStopped,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
+			wantFindings: []string{"tel.no_agent_submit"},
+		},
+		{
 			name:         "never-enrolled contestant is locked",
 			in:           GateInput{HasAgent: false},
 			wantAllowed:  false,
@@ -212,18 +221,18 @@ func TestDecide(t *testing.T) {
 // client, which is the worst thing this gate could do.
 func TestDesktopClaimSurvivesOneMissedShellPing(t *testing.T) {
 	now := time.Now()
-	fresh := now.Add(-10 * time.Second)
+	fresh := now.Add(-3 * time.Second)
 
 	base := GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: false, ClaimsDesktop: true, AttestOK: true}
 
 	t.Run("a recent sighting still corroborates the claim", func(t *testing.T) {
-		seen := now.Add(-40 * time.Second)
+		seen := now.Add(-10 * time.Second)
 		in := base
 		in.ShellSeenAt = &seen
 
 		got := Decide(in, now)
 		if got.AccessMode != ModeDesktopShell {
-			t.Errorf("AccessMode = %q, want %q for a shell seen 40s ago", got.AccessMode, ModeDesktopShell)
+			t.Errorf("AccessMode = %q, want %q for a shell seen 10s ago", got.AccessMode, ModeDesktopShell)
 		}
 		if !got.Allowed {
 			t.Errorf("a desktop contestant was refused with code %q", got.Code)
@@ -266,7 +275,7 @@ func TestDesktopClaimSurvivesOneMissedShellPing(t *testing.T) {
 // cheated, so it must never present the portal host as the contestant's address.
 func TestUnattestedEvidenceOmitsUntrustedClientIP(t *testing.T) {
 	now := time.Now()
-	fresh := now.Add(-30 * time.Second)
+	fresh := now.Add(-3 * time.Second)
 	base := GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: true, ClaimsDesktop: true, AgentLanIP: "10.0.0.5"}
 
 	t.Run("untrusted address is withheld rather than compared", func(t *testing.T) {
