@@ -68,7 +68,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  prefetch={true}
                   title={link.label}
                   className={`flex items-center gap-1.5 border-b-2 px-2 lg:px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
                     active
@@ -172,7 +171,6 @@ export function TopNav({ user }: { user: SessionUser | null }) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  prefetch={true}
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-2 border-l-2 px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors ${
                     active

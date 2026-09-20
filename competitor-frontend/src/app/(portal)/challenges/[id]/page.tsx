@@ -22,10 +22,14 @@ export default async function ChallengePage({
 }) {
   const { id } = await params;
 
-  const proctor = await readProctorGate();
+  const [proctor, contestState, problem] = await Promise.all([
+    readProctorGate(),
+    getContestStateAction(),
+    getProblemAction(id),
+  ]);
+
   if (proctorLocksContest(proctor)) return null;
 
-  const contestState = await getContestStateAction();
   if (contestState.status === CONTEST_STATUS.PAUSED) {
     return (
       <div className="flex h-full w-full items-center justify-center p-6 text-center">
@@ -70,7 +74,6 @@ export default async function ChallengePage({
     );
   }
 
-  const problem = await getProblemAction(id);
   if (!problem) {
     if (proctor && !proctor.allowed) return null;
     notFound();

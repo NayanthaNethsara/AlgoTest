@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -39,6 +40,7 @@ export function ChallengeCard({
   layout?: "grid" | "list";
 }) {
   const { state: contestState } = useContest();
+  const [intentPrefetch, setIntentPrefetch] = useState(false);
   const isPaused = contestState.status === CONTEST_STATUS.PAUSED;
   const isNotStarted = contestState.status === CONTEST_STATUS.NOT_STARTED;
   const isLocked = isPaused || isNotStarted;
@@ -140,6 +142,9 @@ export function ChallengeCard({
     return (
       <Link
         href={`/challenges/${problem.slug}`}
+        prefetch={intentPrefetch ? true : false}
+        onMouseEnter={() => setIntentPrefetch(true)}
+        onFocus={() => setIntentPrefetch(true)}
         className="flex flex-col h-full"
       >
         {cardContent}
@@ -229,7 +234,12 @@ export function ChallengeCard({
   }
 
   return (
-    <Link href={`/challenges/${problem.slug}`}>
+    <Link
+      href={`/challenges/${problem.slug}`}
+      prefetch={intentPrefetch ? true : false}
+      onMouseEnter={() => setIntentPrefetch(true)}
+      onFocus={() => setIntentPrefetch(true)}
+    >
       {listCardContent}
     </Link>
   );
