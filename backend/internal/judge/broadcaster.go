@@ -252,6 +252,7 @@ func (b *Broadcaster) StartListener(ctx context.Context) {
 						if fullRes, found, _ := (&Repository{pool: pool}).GetSubmission(qCtx, env.Result.SubmissionID); found && fullRes != nil {
 							env.Result.Tests = fullRes.Tests
 							env.Result.CompileError = fullRes.CompileError
+							env.Result.ReviewReason = fullRes.ReviewReason
 						}
 						qCancel()
 					}
