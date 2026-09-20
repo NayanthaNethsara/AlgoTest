@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, KeyRound, LogOut, Users } from "lucide-react";
+import { ChevronDown, FileText, KeyRound, LogOut, Shield, Users } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
 import { useProctor } from "@/components/portal/proctor-provider";
@@ -158,6 +159,28 @@ export function UserAccountMenu({ user }: { user: SessionUser }) {
             <KeyRound className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <span>Change Password</span>
           </button>
+
+          {/* Legal Links */}
+          <Link
+            href="/rules"
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground pixel-flat text-left transition-colors cursor-pointer"
+          >
+            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>Contest Rules</span>
+          </Link>
+          <Link
+            href="/privacy"
+            role="menuitem"
+            onClick={() => setIsOpen(false)}
+            className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground pixel-flat text-left transition-colors cursor-pointer"
+          >
+            <Shield className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>Privacy &amp; Support</span>
+          </Link>
+
+          <div className="pixel-divider my-1.5" />
 
           {/* Sign Out Item */}
           {!isConfirmingSignOut ? (

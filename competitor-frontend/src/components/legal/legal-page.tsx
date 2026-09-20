@@ -30,12 +30,14 @@ export function LegalPage({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 py-8 sm:py-10">
-          <h1 className="text-lg font-pixel-header text-primary tracking-wide mb-2">
+        <div className="mx-auto w-full max-w-5xl px-4 sm:px-8 py-10 sm:py-14 font-mono">
+          <h1 className="text-2xl sm:text-3xl font-pixel-header text-primary tracking-wide mb-3">
             {title}
           </h1>
           {description && (
-            <p className="text-sm text-muted-foreground mb-6">{description}</p>
+            <p className="text-sm sm:text-base text-muted-foreground mb-8 max-w-2xl leading-relaxed">
+              {description}
+            </p>
           )}
           <div className="space-y-6">{children}</div>
         </div>
