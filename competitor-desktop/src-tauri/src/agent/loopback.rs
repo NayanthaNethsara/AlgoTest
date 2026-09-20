@@ -71,10 +71,6 @@ fn serve(server: Server, state: Arc<AgentState>) {
                     cors_origin,
                 )
             }
-            (Method::Post, "/shell") => {
-                state.mark_shell_alive();
-                with_cors(Response::from_string("").with_status_code(204), cors_origin)
-            }
             (Method::Post, "/setup") => {
                 if let Some(app) = state.app_handle() {
                     super::windows::open_setup(&app);

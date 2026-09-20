@@ -108,7 +108,7 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
         attest_nonce: nonce.clone(),
         signal_hash: report.signal_hash(),
         buffered: false,
-        shell_alive: state.shell_alive(),
+        shell_alive: false,
         signals: report,
     };
 

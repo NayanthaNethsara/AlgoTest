@@ -16,7 +16,6 @@ pub const HEALTHY_WINDOW: Duration = Duration::from_secs(45);
 /// Measured from when the agent last began trying to report.
 pub const STARTUP_GRACE: Duration = Duration::from_secs(60);
 
-const SHELL_ALIVE_WINDOW: Duration = Duration::from_secs(30);
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Policy {
@@ -85,7 +84,6 @@ pub struct AgentState {
     pub seq: AtomicU64,
     pub loopback_port: AtomicU16,
     pub published_nonce: Mutex<String>,
-    pub shell_last_seen: Mutex<Option<Instant>>,
     pub last_ack: Mutex<Option<Instant>>,
     pub last_ack_wall: Mutex<Option<SystemTime>>,
     pub last_error: Mutex<Option<String>>,
@@ -113,7 +111,6 @@ impl AgentState {
             seq: AtomicU64::new(0),
             loopback_port: AtomicU16::new(0),
             published_nonce: Mutex::new(String::new()),
-            shell_last_seen: Mutex::new(None),
             last_ack: Mutex::new(None),
             last_ack_wall: Mutex::new(None),
             last_error: Mutex::new(None),
@@ -197,21 +194,6 @@ impl AgentState {
 
     pub fn uptime_seconds(&self) -> u64 {
         self.started_at.elapsed().as_secs()
-    }
-
-    pub fn shell_alive(&self) -> bool {
-        self.shell_last_seen
-            .lock()
-            .ok()
-            .and_then(|s| *s)
-            .map(|seen| seen.elapsed() < SHELL_ALIVE_WINDOW)
-            .unwrap_or(false)
-    }
-
-    pub fn mark_shell_alive(&self) {
-        if let Ok(mut slot) = self.shell_last_seen.lock() {
-            *slot = Some(Instant::now());
-        }
     }
 
     pub fn force_heartbeat(&self) {
