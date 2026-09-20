@@ -92,3 +92,22 @@ export const LANGUAGE_OPTIONS = LANGUAGES.map((lang) => ({
   label: lang.label,
 }));
 
+const LANGUAGE_ALIASES: Record<string, string> = {
+  "c++": "cpp",
+  "g++": "cpp",
+  py: "python",
+  python3: "python",
+  javascript: "js",
+  node: "js",
+  rs: "rust",
+};
+
+export function getLanguage(languageId: string): Language | undefined {
+  const id = languageId.trim().toLowerCase();
+  const normalizedId = LANGUAGE_ALIASES[id] ?? id;
+  return LANGUAGES.find((language) => language.id === normalizedId);
+}
+
+export function normalizeLanguageId(languageId: string): string {
+  return getLanguage(languageId)?.id ?? languageId;
+}
