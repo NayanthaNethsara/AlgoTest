@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listSubmissionsAction } from "@/actions/code";
 import { HISTORY_STORAGE_PREFIX, MAX_HISTORY_SNAPSHOTS } from "@/lib/constants";
+import { normalizeLanguageId } from "@/lib/languages";
 import type { Snapshot, SnapshotTrigger } from "@/types/history";
 import type { SubmissionItem } from "@/types/submission";
 
@@ -43,13 +44,23 @@ function mergeServerSubmissions(
 
     if (existingIndex !== -1) {
       const existing = merged[existingIndex];
-      if (!existing.code && sub.code) {
-        merged[existingIndex] = {
-          ...existing,
-          code: sub.code,
-          verdict: sub.status ?? existing.verdict,
-          score: sub.score ?? existing.score,
-        };
+      const updated: Snapshot = {
+        ...existing,
+        language: normalizeLanguageId(sub.language ?? existing.language),
+        code: sub.code || existing.code,
+        verdict: sub.status ?? existing.verdict,
+        score: sub.score ?? existing.score,
+        maxScore: sub.maxScore ?? existing.maxScore,
+      };
+
+      if (
+        updated.language !== existing.language ||
+        updated.code !== existing.code ||
+        updated.verdict !== existing.verdict ||
+        updated.score !== existing.score ||
+        updated.maxScore !== existing.maxScore
+      ) {
+        merged[existingIndex] = updated;
         hasChanges = true;
       }
     } else {
@@ -57,7 +68,7 @@ function mergeServerSubmissions(
         id: `server-${sub.submissionId}`,
         at: sub.timestamp || Date.now(),
         trigger: "submitted",
-        language: sub.language ?? "cpp",
+        language: normalizeLanguageId(sub.language ?? "cpp"),
         code: sub.code ?? "",
         verdict: sub.status,
         score: sub.score,
@@ -160,7 +171,7 @@ export function useHistory(problemId: string) {
           id: generateSnapshotId(),
           at: Date.now(),
           trigger,
-          language,
+          language: normalizeLanguageId(language),
           code,
           verdict: extra?.verdict,
           score: extra?.score,

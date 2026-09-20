@@ -19,7 +19,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useHistory } from "@/hooks/use-history";
 import { BEST_SCORE_STORAGE_PREFIX } from "@/lib/constants";
-import { LANGUAGE_OPTIONS, LANGUAGES } from "@/lib/languages";
+import { getLanguage, LANGUAGE_OPTIONS, LANGUAGES } from "@/lib/languages";
 import type { Language, RunResult, SubmitResult } from "@/types/code";
 import type { Snapshot } from "@/types/history";
 import type { Problem } from "@/types/problem";
@@ -78,8 +78,17 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   const recordedResult = useRef<string | null>(null);
   useEffect(() => {
     const id = activeResult?.submissionId;
-    if (!id || recordedResult.current === id) return;
-    recordedResult.current = id;
+    if (!id) return;
+
+    const resultVersion = [
+      id,
+      activeResult.status,
+      activeResult.verdict,
+      activeResult.score,
+      activeResult.maxScore,
+    ].join(":");
+    if (recordedResult.current === resultVersion) return;
+    recordedResult.current = resultVersion;
 
     if (activeResult.score > storedBest) {
       localStorage.setItem(bestKey, String(activeResult.score));
@@ -184,8 +193,8 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   });
 
   function handleRestore(snapshot: Snapshot) {
-    const lang = LANGUAGES.find((l) => l.id === snapshot.language) ?? language;
-    setLanguage(lang);
+    const restoredLanguage = getLanguage(snapshot.language);
+    if (restoredLanguage) setLanguage(restoredLanguage);
     setCode(snapshot.code);
   }
 
