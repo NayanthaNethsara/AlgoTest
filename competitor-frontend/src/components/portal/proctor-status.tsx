@@ -372,8 +372,8 @@ export function ProctorLockBanner() {
       </span>
       <p className="w-full text-muted-foreground text-[11px]">
         {code === "NOT_ATTESTED" && localAccessState === "denied"
-          ? "Local access was denied. You can keep working and run tests; enable it in this site's browser permissions before making a scored submission."
-          : "Test runs are enabled. Scored submissions are held until proctor connects."}
+          ? "Local access was denied. Enable it in this site's browser permissions, then retry verification."
+          : "The contest workspace remains locked until the required proctor verification succeeds."}
       </p>
     </div>
   );

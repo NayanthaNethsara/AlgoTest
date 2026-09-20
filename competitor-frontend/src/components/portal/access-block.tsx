@@ -17,17 +17,16 @@ import { CONTEST_STATUS } from "@/types/contest";
 export function AccessBlockScreen() {
   const { state: contestState } = useContest();
   const state = useProctor();
-  const { code, accessMode, allowedModes, remedy, local } = state;
+  const { code, accessMode, allowedModes, remedy, local,
+    localAccessState, requestLocalAccess } = state;
 
   if (contestState.status === CONTEST_STATUS.NOT_STARTED) {
     return null;
   }
 
-  // A browser permission/network policy must not hide the workspace. Scored
-  // submissions remain protected by the server-side attestation check.
-  if (code === "NOT_ATTESTED") return null;
-
   if (!contestLocked(state)) return null;
+
+  const canRequestLocalAccess = !local && localAccessState !== "not-required";
 
   const transient = code === PROCTOR_TRANSIENT_CODE;
   const title = (code && PROCTOR_LOCK_TITLES[code]) || "Contest Access Blocked";
@@ -97,13 +96,29 @@ export function AccessBlockScreen() {
             {remedy ??
               "Start the proctor client window, or ask an organizer to grant browser access for your account."}
           </p>
+          {canRequestLocalAccess && (
+            <p className="text-muted-foreground leading-relaxed">
+              {localAccessState === "denied"
+                ? "Local access is blocked. Enable it in this site's browser permissions, then retry. A managed browser may require help from your organizer."
+                : "Start the proctor client on this computer, then choose Allow local access. If your browser asks for permission, choose Allow to verify the client."}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-border pt-4">
-          <Button type="button" onClick={() => window.location.reload()}>
+          <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" disabled={localAccessState === "requesting"} onClick={() => window.location.reload()}>
             <RotateCw className="size-4" />
             Retry connection
           </Button>
+          {canRequestLocalAccess && (
+            <Button type="button" disabled={localAccessState === "requesting"}
+              onClick={() => void requestLocalAccess()}>
+              {localAccessState === "requesting" && <Loader2 className="size-4 animate-spin" />}
+              {localAccessState === "requesting" ? "Checking local access…" : "Allow local access"}
+            </Button>
+          )}
+          </div>
           {local?.support_code && (
             <span className="font-mono text-xs text-muted-foreground">
               Support code:{" "}
