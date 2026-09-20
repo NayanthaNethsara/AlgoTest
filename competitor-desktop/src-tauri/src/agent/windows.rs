@@ -20,19 +20,23 @@ pub fn open_setup(app: &AppHandle) {
     }
 
     let app = app.clone();
-    std::thread::spawn(move || {
-        let built = WebviewWindowBuilder::new(&app, SETUP_WINDOW, WebviewUrl::App("index.html".into()))
-            .title("Algothon Proctor — Setup")
-            .inner_size(500.0, 560.0)
-            .min_inner_size(440.0, 460.0)
-            .resizable(true)
-            .center()
-            .build();
+    let dispatch = app.clone();
+    if let Err(err) = dispatch.run_on_main_thread(move || {
+        let built =
+            WebviewWindowBuilder::new(&app, SETUP_WINDOW, WebviewUrl::App("index.html".into()))
+                .title("Algothon Proctor — Setup")
+                .inner_size(500.0, 560.0)
+                .min_inner_size(440.0, 460.0)
+                .resizable(true)
+                .center()
+                .build();
 
         if let Err(err) = built {
             log::error!("could not open the setup window: {err}");
         }
-    });
+    }) {
+        log::error!("could not schedule the setup window: {err}");
+    }
 }
 
 pub fn close_setup(app: &AppHandle) {
@@ -53,7 +57,8 @@ pub fn open_diagnostics(app: &AppHandle) {
     }
 
     let app = app.clone();
-    std::thread::spawn(move || {
+    let dispatch = app.clone();
+    if let Err(err) = dispatch.run_on_main_thread(move || {
         let built = WebviewWindowBuilder::new(
             &app,
             DIAGNOSTICS_WINDOW,
@@ -69,7 +74,9 @@ pub fn open_diagnostics(app: &AppHandle) {
         if let Err(err) = built {
             log::error!("could not open the diagnostics window: {err}");
         }
-    });
+    }) {
+        log::error!("could not schedule the diagnostics window: {err}");
+    }
 }
 
 pub fn open_contest_portal(state: &Arc<AgentState>) {

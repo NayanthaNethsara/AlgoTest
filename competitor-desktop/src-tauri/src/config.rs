@@ -178,9 +178,13 @@ pub fn ensure_current_version(current_version: &str) {
             current_version
         );
         let _ = reset();
-        if let Ok(()) = std::fs::create_dir_all(&dir) {
-            let _ = std::fs::write(&version_path, current_version.trim());
-        }
+        write_version_marker(&dir, current_version);
+    }
+}
+
+fn write_version_marker(dir: &std::path::Path, current_version: &str) {
+    if std::fs::create_dir_all(dir).is_ok() {
+        let _ = std::fs::write(dir.join("version.txt"), current_version.trim());
     }
 }
 
@@ -379,14 +383,15 @@ mod tests {
     }
 
     #[test]
-    fn test_ensure_current_version_writes_file() {
-        ensure_current_version("0.99.99");
-        let dir = config_dir().expect("config dir exists");
+    fn writes_version_marker() {
+        let dir =
+            std::env::temp_dir().join(format!("algothon-version-test-{}", uuid::Uuid::new_v4()));
+        write_version_marker(&dir, "0.99.99");
         let version_file = dir.join("version.txt");
         assert!(version_file.exists());
         let read_back = std::fs::read_to_string(&version_file).unwrap();
         assert_eq!(read_back.trim(), "0.99.99");
-        // Reset back to current version
-        ensure_current_version(crate::AGENT_VERSION);
+        std::fs::remove_file(version_file).unwrap();
+        std::fs::remove_dir(dir).unwrap();
     }
 }

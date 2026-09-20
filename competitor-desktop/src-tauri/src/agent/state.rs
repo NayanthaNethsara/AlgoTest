@@ -114,10 +114,7 @@ impl AgentState {
             last_ack: Mutex::new(None),
             last_ack_wall: Mutex::new(None),
             last_error: Mutex::new(None),
-            buffer: Mutex::new(
-                crate::config::load_buffer::<VecDeque<Heartbeat>>()
-                    .unwrap_or_else(|| VecDeque::with_capacity(BUFFER_CAPACITY)),
-            ),
+            buffer: Mutex::new(load_bounded_buffer()),
             history: Mutex::new(VecDeque::with_capacity(20)),
             last_signals: Mutex::new(SignalReport::default()),
             app: Mutex::new(None),
@@ -394,6 +391,15 @@ fn persist(buffer: &VecDeque<Heartbeat>) {
     if let Err(err) = crate::config::save_buffer(buffer) {
         log::warn!("could not persist the offline heartbeat buffer: {err}");
     }
+}
+
+fn load_bounded_buffer() -> VecDeque<Heartbeat> {
+    let mut buffer = crate::config::load_buffer::<VecDeque<Heartbeat>>()
+        .unwrap_or_else(|| VecDeque::with_capacity(BUFFER_CAPACITY));
+    while buffer.len() > BUFFER_CAPACITY {
+        buffer.pop_front();
+    }
+    buffer
 }
 
 pub fn now_iso() -> String {

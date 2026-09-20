@@ -56,16 +56,20 @@ pub fn save_server(server_url: String, api_url: String, state: State<'_, Arc<Age
 }
 
 #[tauri::command]
-pub fn fetch_disclosure(state: State<'_, Arc<AgentState>>) -> Result<serde_json::Value, String> {
+pub async fn fetch_disclosure(
+    state: State<'_, Arc<AgentState>>,
+) -> Result<serde_json::Value, String> {
     let api_url = state.api_url();
     if api_url.is_empty() {
         return Err("set the contest server address first".into());
     }
-    Transport::new().disclosure(&api_url)
+    tauri::async_runtime::spawn_blocking(move || Transport::new().disclosure(&api_url))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn enroll_agent(
+pub async fn enroll_agent(
     username: String,
     password: String,
     consent_version: String,
@@ -82,30 +86,37 @@ pub fn enroll_agent(
         return Err("username cannot be empty".into());
     }
 
-    let effective_consent = if consent_version.trim().is_empty() || consent_version == "unknown" {
-        Transport::new()
-            .disclosure(&api_url)
-            .ok()
-            .and_then(|disc| {
-                disc.get("disclosure")
-                    .and_then(|d| d.get("version"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-            })
-            .unwrap_or(consent_version)
-    } else {
-        consent_version
-    };
+    let username = trimmed_user.to_string();
+    let enrollment_username = username.clone();
+    let (enrollment, policy) = tauri::async_runtime::spawn_blocking(move || {
+        let effective_consent = if consent_version.trim().is_empty() || consent_version == "unknown"
+        {
+            Transport::new()
+                .disclosure(&api_url)
+                .ok()
+                .and_then(|disc| {
+                    disc.get("disclosure")
+                        .and_then(|d| d.get("version"))
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                })
+                .unwrap_or(consent_version)
+        } else {
+            consent_version
+        };
 
-    let (enrollment, policy) = Transport::new().enroll(
-        &api_url,
-        trimmed_user,
-        &password,
-        &identity::machine_id(),
-        &identity::platform(),
-        &effective_consent,
-        &identity::current_exe_hash(),
-    )?;
+        Transport::new().enroll(
+            &api_url,
+            &enrollment_username,
+            &password,
+            &identity::machine_id(),
+            &identity::platform(),
+            &effective_consent,
+            &identity::current_exe_hash(),
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())??;
 
     config::save_enrollment(&enrollment)?;
     if let Ok(mut slot) = state.enrollment.lock() {
@@ -117,7 +128,7 @@ pub fn enroll_agent(
     state.revoked.store(false, Ordering::Relaxed);
     state.mark_reporting_start();
     state.force_heartbeat();
-    state.log("enrolled", format!("agent enrolled as {}", username.trim()));
+    state.log("enrolled", format!("agent enrolled as {username}"));
 
     Ok(())
 }
@@ -157,6 +168,7 @@ pub struct Diagnostics {
     internet_reachable: bool,
     inference_ports: Vec<String>,
     process_matches: Vec<String>,
+    foreground_monitoring: bool,
     history: Vec<TickLog>,
 }
 
@@ -196,6 +208,7 @@ pub fn get_diagnostics(state: State<'_, Arc<AgentState>>) -> Diagnostics {
             .map(|p| format!("{} on {}", p.product, p.port))
             .collect(),
         process_matches: signals.process_matches,
+        foreground_monitoring: cfg!(any(target_os = "macos", target_os = "windows")),
         history: state.history(),
     }
 }
@@ -222,6 +235,27 @@ pub async fn reset_enrollment(app: tauri::AppHandle, state: State<'_, Arc<AgentS
 #[tauri::command]
 pub fn trigger_heartbeat(state: State<'_, Arc<AgentState>>) {
     state.force_heartbeat();
+}
+
+#[tauri::command]
+pub async fn reconnect_agent(state: State<'_, Arc<AgentState>>) -> Result<(), String> {
+    let state_inner = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        let api_url = state_inner.api_url();
+        let token = state_inner
+            .token()
+            .ok_or_else(|| "this machine is not enrolled".to_string())?;
+        state_inner.force_heartbeat();
+        let policy = Transport::new()
+            .policy(&api_url, &token)
+            .map_err(|e| e.message())?;
+        if let Ok(mut slot) = state_inner.policy.lock() {
+            *slot = policy;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

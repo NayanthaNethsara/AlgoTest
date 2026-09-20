@@ -188,6 +188,12 @@ fn spawn_status_refresher(app: AppHandle, state: Arc<AgentState>, status: MenuIt
                 Some(seconds) => format!("{label} · no report for {seconds}s"),
                 None => format!("{label} · no report yet"),
             };
+            let buffered = state.buffer_len();
+            let detail = if buffered > 0 {
+                format!("{detail} · {buffered} report(s) buffered")
+            } else {
+                detail
+            };
             let _ = tray.set_tooltip(Some(detail));
         }
     });

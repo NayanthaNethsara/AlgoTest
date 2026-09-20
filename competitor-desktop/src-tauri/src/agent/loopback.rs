@@ -27,7 +27,11 @@ pub fn start(state: Arc<AgentState>) -> Option<u16> {
 }
 
 pub fn is_agent_running() -> bool {
-    LOOPBACK_PORTS.iter().any(|port| probe(*port))
+    running_port().is_some()
+}
+
+pub fn running_port() -> Option<u16> {
+    LOOPBACK_PORTS.iter().copied().find(|port| probe(*port))
 }
 
 fn probe(port: u16) -> bool {

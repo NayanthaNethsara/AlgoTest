@@ -19,13 +19,13 @@ fn main() {
 
     app_lib::config::ensure_current_version(app_lib::AGENT_VERSION);
 
-    if app_lib::agent::loopback::is_agent_running() {
+    if let Some(port) = app_lib::agent::loopback::running_port() {
         if let Ok(client) = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_millis(500))
             .build()
         {
             if app_lib::config::load_enrollment().is_none() {
-                let _ = client.post(app_lib::loopback_url(app_lib::LOOPBACK_PORTS[0], "/setup")).send();
+                let _ = client.post(app_lib::loopback_url(port, "/setup")).send();
             } else {
                 let config = app_lib::config::load_client();
                 if !config.server_url.is_empty() {

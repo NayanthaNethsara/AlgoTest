@@ -9,10 +9,10 @@ fn main() {
 
     app_lib::config::ensure_current_version(app_lib::AGENT_VERSION);
 
-    if app_lib::agent::loopback::is_agent_running() {
+    if let Some(port) = app_lib::agent::loopback::running_port() {
         if let Ok(client) = build_loopback_client(std::time::Duration::from_millis(500)) {
             if app_lib::config::load_enrollment().is_none() {
-                send_loopback_post(&client, &app_lib::loopback_url(app_lib::LOOPBACK_PORTS[0], "/setup"));
+                send_loopback_post(&client, &app_lib::loopback_url(port, "/setup"));
             } else {
                 let config = app_lib::config::load_client();
                 if !config.server_url.is_empty() {

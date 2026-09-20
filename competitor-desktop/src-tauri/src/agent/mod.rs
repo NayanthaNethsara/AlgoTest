@@ -54,6 +54,7 @@ pub fn run() {
             commands::open_contest_window,
             commands::enter_contest,
             commands::trigger_heartbeat,
+            commands::reconnect_agent,
             commands::reset_enrollment,
             commands::close_current_window,
         ]);

@@ -40,13 +40,14 @@
 
     <div class="row">
       <button id="open" type="button">Open Contest Portal</button>
-      <button id="ping" type="button" class="secondary">Send Ping Now</button>
+      <button id="ping" type="button" class="secondary">Reconnect Now</button>
       <button id="copy" type="button" class="secondary">Copy Diagnostics</button>
       <button id="reset" type="button" class="secondary">Re-enrol Machine</button>
     </div>
 
     <div class="footer-bar">
       <span id="last-refreshed">Updated just now</span>
+      <span>Closing this window keeps proctoring active in the tray.</span>
       <span id="network-pill" class="pill ok" style="padding: 2px 8px; font-size: 10px;">Network Online</span>
     </div>
 
@@ -54,6 +55,8 @@
       const invoke = window.appInvoke;
       const el = (id) => document.getElementById(id);
       let latest = null;
+      let refreshTimer = null;
+      let refreshing = false;
 
       function facts(target, rows) {
         const node = el(target);
@@ -74,6 +77,8 @@
       }
 
       async function refresh() {
+        if (refreshing || document.hidden) return;
+        refreshing = true;
         try {
           const invokeFn = window.appInvoke || window.__TAURI__?.core?.invoke || window.__TAURI_INTERNALS__?.invoke;
           if (typeof invokeFn !== "function") {
@@ -111,6 +116,7 @@
             ["Reports Sent", `#${d.seq ?? 0}`],
             ["Local AI Ports", localAi],
             ["Matched Processes", matchedProc],
+            ["Foreground Monitoring", d.foreground_monitoring ? "Available" : "Unavailable on this platform"],
           ]);
 
           const netPill = el("network-pill");
@@ -148,7 +154,23 @@
         } catch (err) {
           el("error").textContent = `Diagnostics error: ${err}`;
           el("error").hidden = false;
+        } finally {
+          refreshing = false;
         }
+      }
+
+      function scheduleRefresh() {
+        clearTimeout(refreshTimer);
+        if (document.hidden) return;
+        refreshTimer = setTimeout(async () => {
+          await refresh();
+          scheduleRefresh();
+        }, 2500);
+      }
+
+      function showActionError(action, err) {
+        el("error").textContent = `${action}: ${err}`;
+        el("error").hidden = false;
       }
 
       el("copy").addEventListener("click", async () => {
@@ -166,33 +188,64 @@
           network_online: latest.internet_reachable,
           platform: latest.platform,
         };
-        await navigator.clipboard.writeText(JSON.stringify(sanitized, null, 2));
-        el("copy").textContent = "Copied";
-        setTimeout(() => (el("copy").textContent = "Copy Diagnostics"), 1500);
+        try {
+          await navigator.clipboard.writeText(JSON.stringify(sanitized, null, 2));
+          el("copy").textContent = "Copied";
+          setTimeout(() => (el("copy").textContent = "Copy Diagnostics"), 1500);
+        } catch (err) {
+          showActionError("Could not copy diagnostics", err);
+        }
       });
 
       el("ping").addEventListener("click", async () => {
         const btn = el("ping");
         btn.disabled = true;
-        btn.textContent = "Pinging...";
+        btn.textContent = "Reconnecting...";
         try {
-          await invoke("trigger_heartbeat");
+          await invoke("reconnect_agent");
           setTimeout(async () => {
-            await refresh();
-            btn.disabled = false;
-            btn.textContent = "Send Ping Now";
+            try {
+              await refresh();
+            } finally {
+              btn.disabled = false;
+              btn.textContent = "Reconnect Now";
+            }
           }, 600);
-        } catch (e) {
+        } catch (err) {
+          showActionError("Could not reconnect", err);
           btn.disabled = false;
-          btn.textContent = "Send Ping Now";
+          btn.textContent = "Reconnect Now";
         }
       });
 
-      el("open").addEventListener("click", () => invoke("open_contest_window"));
-      el("reset").addEventListener("click", () => invoke("reset_enrollment"));
+      el("open").addEventListener("click", async () => {
+        try {
+          await invoke("open_contest_window");
+        } catch (err) {
+          showActionError("Could not open the contest portal", err);
+        }
+      });
+      el("reset").addEventListener("click", async () => {
+        const btn = el("reset");
+        btn.disabled = true;
+        try {
+          await invoke("reset_enrollment");
+        } catch (err) {
+          showActionError("Could not reset enrollment", err);
+          btn.disabled = false;
+        }
+      });
 
-      refresh();
-      setInterval(refresh, 2500);
+      document.addEventListener("visibilitychange", async () => {
+        if (document.hidden) {
+          clearTimeout(refreshTimer);
+          return;
+        }
+        await refresh();
+        scheduleRefresh();
+      });
+
+      refresh().then(scheduleRefresh);
     </script>
   </body>
 </html>
