@@ -37,7 +37,10 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
   const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [running, setRunning] = useState(false);
 
-  const { activeSubmission, lastResult, submitFast } = useSubmissions();
+  const { activeSubmissions, lastResult, submitFast } = useSubmissions();
+  const activeSubmission = Object.values(activeSubmissions).find(
+    (submission) => submission.problemId === problem.id,
+  );
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editorTelemetry, setEditorTelemetry] = useState<EditorTelemetry | undefined>();

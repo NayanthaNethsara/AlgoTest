@@ -4,6 +4,8 @@ import {
   createContext,
   useContext,
   useEffect,
+  useCallback,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -19,6 +21,7 @@ import {
 } from "@/components/portal/proctor-provider";
 import { VERDICT_DETAILS } from "@/lib/constants";
 import { summarizeSubtasks } from "@/lib/verdict-summary";
+import { shouldApplySubmissionProgress } from "@/lib/submission-progress";
 import type { SubmitResult } from "@/types/code";
 import type {
   ActiveSubmission,
@@ -29,6 +32,7 @@ import type {
 
 type SubmissionsContextType = {
   activeSubmission: ActiveSubmission | null;
+  activeSubmissions: Record<string, ActiveSubmission>;
   lastResult: SubmitResult | null;
   lastReview: ReviewNotice | null;
   toast: ToastMessage | null;
@@ -76,14 +80,67 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
   const { attestNonce } = proctor;
   const locked = contestLocked(proctor);
 
-  const [activeSubmission, setActiveSubmission] =
-    useState<ActiveSubmission | null>(null);
+  const [activeSubmissions, setActiveSubmissions] =
+    useState<Record<string, ActiveSubmission>>({});
+  const activeSubmission = Object.values(activeSubmissions).at(-1) ?? null;
+  const activeIDs = Object.keys(activeSubmissions).sort().join(",");
+  const latest = useRef(new Map<string, SubmissionStatusResponse>());
+  const pollIndex = useRef(0);
   const [lastResult, setLastResult] = useState<SubmitResult | null>(null);
   const [lastReview, setLastReview] = useState<ReviewNotice | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const router = useRouter();
 
   const clearToast = () => setToast(null);
+
+  const applyProgress = useCallback((data: SubmissionStatusResponse) => {
+    if (
+      !data.submissionId ||
+      !shouldApplySubmissionProgress(latest.current.get(data.submissionId), data)
+    ) return;
+    latest.current.set(data.submissionId, data);
+    if (latest.current.size > 256) {
+      const oldest = latest.current.keys().next().value;
+      if (oldest) latest.current.delete(oldest);
+    }
+    const parsed = parseSubmissionResult(data);
+    if (data.status === "queued" || data.status === "running") {
+      const status = data.status;
+      setActiveSubmissions((previous) => ({
+        ...previous,
+        [data.submissionId]: {
+          id: data.submissionId,
+          problemId: data.problemId,
+          status,
+          queuePosition: data.queuePosition,
+          testsDone: data.testsDone,
+          testsTotal: data.testsTotal,
+        },
+      }));
+      return;
+    }
+    setActiveSubmissions((previous) => {
+      const remaining = { ...previous };
+      delete remaining[data.submissionId];
+      return remaining;
+    });
+    setLastResult(parsed);
+    const accepted = parsed.verdict === "AC";
+    const partial = !accepted && parsed.score > 0;
+    const label = parsed.verdict
+      ? (VERDICT_DETAILS[parsed.verdict]?.label ?? parsed.verdict)
+      : "Failed";
+    setToast({
+      id: data.submissionId,
+      title: accepted
+        ? "Submission Accepted!"
+        : partial ? "Partial credit" : "Submission Failed",
+      description: accepted || partial
+        ? `Scored ${parsed.score} / ${parsed.maxScore} points.${partial ? ` Verdict: ${label}.` : ""}`
+        : parsed.compileError ?? summarizeSubtasks(parsed.subtasks) ?? `Verdict: ${label}`,
+      variant: accepted ? "success" : partial ? "info" : "error",
+    });
+  }, []);
 
   useEffect(() => {
     if (locked) return;
@@ -173,47 +230,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
                     continue;
                   }
 
-                  if (
-                    parsed.status === "queued" ||
-                    parsed.status === "running"
-                  ) {
-                    setActiveSubmission((prev) => ({
-                      id: parsed.submissionId!,
-                      problemId: parsed.problemId ?? prev?.problemId ?? "",
-                      status: parsed.status as "queued" | "running",
-                      queuePosition:
-                        parsed.queuePosition ?? prev?.queuePosition,
-                      testsDone: data.testsDone ?? prev?.testsDone,
-                      testsTotal: data.testsTotal ?? prev?.testsTotal,
-                    }));
-                  } else if (
-                    parsed.status === "passed" ||
-                    parsed.status === "failed"
-                  ) {
-                    setActiveSubmission(null);
-                    const passed = parsed.status === "passed";
-
-                    setLastResult(parsed);
-
-                    const verdictLabel = parsed.verdict
-                      ? (VERDICT_DETAILS[parsed.verdict]?.label ??
-                        parsed.verdict)
-                      : "Failed";
-
-                    setToast({
-                      id: parsed.submissionId,
-                      title: passed
-                        ? "Submission Accepted!"
-                        : "Submission Failed",
-                      description: passed
-                        ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
-                        : parsed.compileError
-                          ? parsed.compileError
-                          : (summarizeSubtasks(parsed.subtasks) ??
-                            `Verdict: ${verdictLabel}`),
-                      variant: passed ? "success" : "error",
-                    });
-                  }
+                  applyProgress(data);
                 } catch {
                   // Ignore JSON parse errors
                 }
@@ -233,58 +250,32 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
       isCancelled = true;
       controller.abort();
     };
-  }, [locked, router]);
+  }, [locked, router, applyProgress]);
 
   useEffect(() => {
-    if (!activeSubmission) return;
+    if (!activeIDs) return;
+    let cancelled = false;
+    let polling = false;
 
     const interval = setInterval(async () => {
-      const statusData = await getSubmissionStatusAction(activeSubmission.id);
-      if (!statusData) return;
-
-      const parsed = parseSubmissionResult(statusData);
-
-      if (parsed.status === "queued" || parsed.status === "running") {
-        setActiveSubmission((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: parsed.status as "queued" | "running",
-                queuePosition: parsed.queuePosition ?? prev.queuePosition,
-                testsDone: Math.max(
-                  statusData.testsDone ?? 0,
-                  prev.testsDone ?? 0,
-                ),
-                testsTotal: statusData.testsTotal ?? prev.testsTotal,
-              }
-            : null,
-        );
-      } else if (parsed.status === "passed" || parsed.status === "failed") {
-        setActiveSubmission(null);
-        const passed = parsed.status === "passed";
-
-        setLastResult(parsed);
-
-        const verdictLabel = parsed.verdict
-          ? (VERDICT_DETAILS[parsed.verdict]?.label ?? parsed.verdict)
-          : "Failed";
-
-        setToast({
-          id: parsed.submissionId,
-          title: passed ? "Submission Accepted!" : "Submission Failed",
-          description: passed
-            ? `Scored ${parsed.score} / ${parsed.maxScore} points.`
-            : parsed.compileError
-              ? parsed.compileError
-              : (summarizeSubtasks(parsed.subtasks) ??
-                `Verdict: ${verdictLabel}`),
-          variant: passed ? "success" : "error",
-        });
+      if (polling) return;
+      polling = true;
+      try {
+        const ids = activeIDs.split(",");
+        const id = ids[pollIndex.current % ids.length];
+        pollIndex.current++;
+        const statusData = await getSubmissionStatusAction(id);
+        if (!cancelled && statusData) applyProgress(statusData);
+      } finally {
+        polling = false;
       }
     }, 1500);
 
-    return () => clearInterval(interval);
-  }, [activeSubmission]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [activeIDs, applyProgress]);
 
   async function submitFast(
     problemId: string,
@@ -320,12 +311,13 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
       }
 
       if (result.submissionId) {
-        setActiveSubmission({
-          id: result.submissionId,
-          problemId,
-          status: "queued",
-          queuePosition: result.queuePosition,
-        });
+        const id = result.submissionId;
+        if (!latest.current.has(id)) {
+          setActiveSubmissions((previous) => ({
+            ...previous,
+            [id]: { id, problemId, status: "queued", queuePosition: result.queuePosition },
+          }));
+        }
       }
 
       return result;
@@ -353,6 +345,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
     <SubmissionsContext.Provider
       value={{
         activeSubmission,
+        activeSubmissions,
         lastResult,
         lastReview,
         toast,

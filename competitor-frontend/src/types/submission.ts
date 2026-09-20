@@ -70,6 +70,7 @@ export type SubmissionStatusResponse = {
   tests?: SubmissionTestResult[];
   createdAt: string;
   finishedAt?: string;
+  attemptStartedAt?: string;
   reviewStatus?: "accepted" | "rejected";
   reviewReason?: string;
   reviewedAt?: string;
