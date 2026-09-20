@@ -64,3 +64,12 @@ export type ProctorState = {
   /** False until the first status resolution lands, so nothing flashes a warning. */
   resolved: boolean;
 };
+
+export type LocalAccessState =
+  | "not-required"
+  | "checking"
+  | "prompt"
+  | "requesting"
+  | "granted"
+  | "denied"
+  | "unavailable";

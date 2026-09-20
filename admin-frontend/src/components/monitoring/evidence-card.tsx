@@ -18,7 +18,9 @@ import type { EvidenceFinding } from "@/types/proctor";
 
 type EvidencePayload = {
   pasted_chars?: number;
+  effective_pasted?: number;
   pasted_ratio?: number;
+  paste_count?: number;
   typed_count?: number;
   code_length?: number;
   max_paste_size?: number;
@@ -157,18 +159,30 @@ export function EvidenceCard({ finding }: EvidenceCardProps) {
         {/* Case 1: Paste Burst Telemetry */}
         {finding.ruleId === "ai.code.paste_burst" && (
           <div className="space-y-2.5">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
               <div className="bg-card p-2 rounded border border-border">
                 <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                  Pasted Characters
+                  {evidence.effective_pasted != null &&
+                  evidence.effective_pasted !== evidence.pasted_chars
+                    ? "Detected / Inferred"
+                    : "Pasted Characters"}
                 </span>
                 <p className="text-sm font-mono font-bold text-amber-400">
-                  {evidence.pasted_chars ?? 0}
+                  {evidence.effective_pasted ?? evidence.pasted_chars ?? 0}
                   {evidence.pasted_ratio != null && (
                     <span className="text-[11px] font-normal text-muted-foreground ml-1">
                       ({Math.round(evidence.pasted_ratio * 100)}%)
                     </span>
                   )}
+                </p>
+              </div>
+
+              <div className="bg-card p-2 rounded border border-border">
+                <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                  Paste Events
+                </span>
+                <p className="text-sm font-mono font-bold text-foreground">
+                  {evidence.paste_count ?? 0}
                 </p>
               </div>
 
@@ -200,7 +214,10 @@ export function EvidenceCard({ finding }: EvidenceCardProps) {
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Large code block pasted from clipboard with minimal typed keystroke cadence.
+              {evidence.effective_pasted != null &&
+              evidence.effective_pasted !== evidence.pasted_chars
+                ? "The server inferred unaccounted code characters because browser paste telemetry was missing or incomplete."
+                : "Large code block pasted from clipboard with minimal typed keystroke cadence."}
             </p>
           </div>
         )}

@@ -65,9 +65,57 @@ allowlist entry. Host-level firewall policies (Windows Defender Firewall,
 macOS `pf`, endpoint security software, or antivirus) **must not block loopback sockets**:
 
 - **Target IP**: `127.0.0.1` (`localhost`)
-- **Port Range**: `47615` - `47620` (TCP)
+- **Port Range**: `47615` - `47619` (TCP, local HTTP)
 - **Interface**: Local loopback (`lo` on Linux, `lo0` on macOS, Loopback on Windows)
 - **Direction**: Inbound and outbound
+
+### Can the venue network block these local ports?
+
+An ordinary router, Wi-Fi access point, or perimeter firewall cannot directly
+filter a connection to `127.0.0.1`: that traffic stays inside the workstation
+and never reaches the venue network. Wi-Fi client isolation (blocking traffic
+between contestants' computers) should therefore not affect this connection.
+
+Venue-managed settings can still interfere indirectly: a proxy/PAC configuration
+that routes local requests through a proxy, browser restrictions, VPN/security
+software, or a workstation firewall policy applied on that network. Ensure
+`localhost` and `127.0.0.1` bypass proxies and that endpoint policies permit the
+portal to contact the local agent. Browsers commonly bypass loopback by default;
+check for overrides rather than assuming a proxy is the cause.
+
+Allow the portal's local/loopback access permission where the browser requires
+it. Permission names vary by browser/version; see the
+[Chrome Local Network Access documentation](https://developer.chrome.com/blog/local-network-access).
+Scope any managed exception to the exact competitor portal origin. Do not
+disable browser security globally, expose these ports to the LAN/Internet,
+add port forwarding, or change the agent to listen on `0.0.0.0`.
+
+### Client online, but same-device verification fails
+
+The error “Submit from the proctor client, or reload the portal so it can reach
+the agent” means the submission did not provide valid same-device attestation.
+“Client online” confirms the agent-to-backend connection; it does not confirm
+that the browser can reach that agent locally or that its proof matches the
+account's current enrollment.
+
+1. Test the same computer, browser profile, and account on the venue network
+   and a mobile hotspot. Success only on the hotspot suggests a network-specific
+   configuration or policy, but does not prove the router blocks loopback.
+2. On the venue network, open the portal's developer tools → Network, reload,
+   and inspect requests to `http://127.0.0.1:47615/status` through port `47619`.
+   Only the agent's active port needs to respond; failed probes to other ports
+   can be normal.
+3. Record the failing request's error and the corresponding Console message.
+   Permission/policy errors indicate browser restrictions; connection refusal
+   can mean no listener on that port; timeouts can indicate filtering or an
+   unresponsive agent. CORS errors need origin/header investigation. A status
+   response alone does not prove the backend accepted the attestation.
+4. Check the portal's local-access permission, proxy/PAC loopback bypass, and
+   workstation/VPN security logs. Ask IT: “Does a network-specific device or
+   browser policy prevent this portal from reaching `127.0.0.1:47615–47619`?”
+
+Do not share raw status response bodies or attestation nonces when reporting
+the failure; the request URL and error message are sufficient for initial diagnosis.
 
 ---
 

@@ -219,14 +219,24 @@ export function CodeEditor({ language, value, onChange, onTelemetryChange }: Cod
       onChange={(next) => onChange(next ?? "")}
       onMount={(editor) => {
         editor.onKeyDown((e) => {
-          if (e.browserEvent.key && e.browserEvent.key.length === 1) {
+          const event = e.browserEvent;
+          if (
+            event.key &&
+            event.key.length === 1 &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.altKey
+          ) {
             telemetryRef.current.typedCount += 1;
             onTelemetryChange?.({ ...telemetryRef.current });
           }
         });
 
-        editor.onDidPaste((e) => {
-          const text = editor.getModel()?.getValueInRange(e.range) ?? "";
+        // Monaco's onDidPaste range is not reliable in every browser/build.
+        // Capture the browser clipboard event at the editor root instead.
+        const editorNode = editor.getDomNode();
+        const handlePaste = (event: ClipboardEvent) => {
+          const text = event.clipboardData?.getData("text/plain") ?? "";
           const len = text.length;
           telemetryRef.current.pasteCount += 1;
           telemetryRef.current.pastedChars += len;
@@ -234,6 +244,10 @@ export function CodeEditor({ language, value, onChange, onTelemetryChange }: Cod
             telemetryRef.current.maxPasteSize = len;
           }
           onTelemetryChange?.({ ...telemetryRef.current });
+        };
+        editorNode?.addEventListener("paste", handlePaste, true);
+        editor.onDidDispose(() => {
+          editorNode?.removeEventListener("paste", handlePaste, true);
         });
       }}
       beforeMount={defineTheme}

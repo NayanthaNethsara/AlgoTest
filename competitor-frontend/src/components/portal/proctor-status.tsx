@@ -304,6 +304,8 @@ export function ProctorLockBanner() {
     secondsSincePing,
     local,
     starting,
+    localAccessState,
+    requestLocalAccess,
   } = useProctor();
 
   if (!resolved || submissionsAllowed || exempt) return null;
@@ -351,15 +353,27 @@ export function ProctorLockBanner() {
           type="button"
           variant="destructive"
           size="sm"
-          onClick={() => window.location.reload()}
+          disabled={localAccessState === "requesting"}
+          onClick={() => {
+            if (code === "NOT_ATTESTED") {
+              void requestLocalAccess();
+            } else {
+              window.location.reload();
+            }
+          }}
         >
-          <RotateCw className="h-3 w-3" />
-          Retry
+          {localAccessState === "requesting" ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <RotateCw className="h-3 w-3" />
+          )}
+          {code === "NOT_ATTESTED" ? "Allow local access" : "Retry"}
         </Button>
       </span>
       <p className="w-full text-muted-foreground text-[11px]">
-        Test runs are enabled. Scored submissions are held until proctor
-        connects.
+        {code === "NOT_ATTESTED" && localAccessState === "denied"
+          ? "Local access was denied. You can keep working and run tests; enable it in this site's browser permissions before making a scored submission."
+          : "Test runs are enabled. Scored submissions are held until proctor connects."}
       </p>
     </div>
   );

@@ -23,6 +23,10 @@ export function AccessBlockScreen() {
     return null;
   }
 
+  // A browser permission/network policy must not hide the workspace. Scored
+  // submissions remain protected by the server-side attestation check.
+  if (code === "NOT_ATTESTED") return null;
+
   if (!contestLocked(state)) return null;
 
   const transient = code === PROCTOR_TRANSIENT_CODE;

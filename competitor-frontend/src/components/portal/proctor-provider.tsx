@@ -14,6 +14,7 @@ import { POLL_DEGRADED_MS, POLL_HEALTHY_MS } from "@/lib/constants";
 import { readLocalAgent } from "@/lib/proctor";
 import type {
   AgentLocalStatus,
+  LocalAccessState,
   ProctorSelfStatus,
   ProctorState,
 } from "@/types/proctor";
@@ -31,13 +32,37 @@ const INITIAL_PROCTOR_STATE: ProctorState = {
   resolved: false,
 };
 
-const ProctorContext = createContext<ProctorState>(INITIAL_PROCTOR_STATE);
+type ProctorContextValue = ProctorState & {
+  localAccessState: LocalAccessState;
+  requestLocalAccess: () => Promise<void>;
+};
+
+const ProctorContext = createContext<ProctorContextValue>({
+  ...INITIAL_PROCTOR_STATE,
+  localAccessState: "checking",
+  requestLocalAccess: async () => {},
+});
+
+async function getLocalNetworkPermission(): Promise<PermissionState | null> {
+  if (typeof navigator === "undefined" || !navigator.permissions) return null;
+  try {
+    return (
+      await navigator.permissions.query({
+        name: "local-network-access" as PermissionName,
+      })
+    ).state;
+  } catch {
+    // Browsers without the Local Network Access permission API can still use
+    // loopback, so preserve the normal probe for them.
+    return null;
+  }
+}
 
 function seed(self: ProctorSelfStatus | null): ProctorState {
   if (!self) return INITIAL_PROCTOR_STATE;
   const localProofRequired =
     !self.exempt &&
-    !(self.allowed && self.allowed_modes?.includes("WEB_ONLY"));
+    !(self.allowed && self.access_mode === "WEB_ONLY");
   const state = { ...resolve(self, null), resolved: !localProofRequired };
   if (state.code === "AGENT_MISSING") {
     state.remedy = self.remedy ?? state.remedy;
@@ -53,10 +78,12 @@ export function ProctorProvider({
   children: React.ReactNode;
 }) {
   const [state, setState] = useState<ProctorState>(() => seed(initialProctor));
+  const [localAccessState, setLocalAccessState] =
+    useState<LocalAccessState>("checking");
   const knownPort = useRef<number | undefined>(undefined);
   const router = useRouter();
 
-  const refresh = useCallback(async (exhaustive = false) => {
+  const refresh = useCallback(async (exhaustive = false, requestAccess = false) => {
     const tabVisible =
       typeof document !== "undefined" ? !document.hidden : true;
     const self = await getProctorSelfAction(tabVisible);
@@ -64,11 +91,29 @@ export function ProctorProvider({
     const needsLocalProbe =
       Boolean(self) &&
       !self?.exempt &&
-      !(self?.allowed && self?.allowed_modes?.includes("WEB_ONLY"));
+      !(self?.allowed && self?.access_mode === "WEB_ONLY");
 
-    const local = needsLocalProbe
-      ? await readLocalAgent(knownPort.current, exhaustive)
-      : null;
+    let local: AgentLocalStatus | null = null;
+    if (!needsLocalProbe) {
+      setLocalAccessState("not-required");
+    } else {
+      const permission = await getLocalNetworkPermission();
+      if (!requestAccess && permission === "prompt") {
+        setLocalAccessState("prompt");
+      } else if (!requestAccess && permission === "denied") {
+        setLocalAccessState("denied");
+      } else {
+        local = await readLocalAgent(knownPort.current, exhaustive);
+        const permissionAfterProbe = await getLocalNetworkPermission();
+        setLocalAccessState(
+          local
+            ? "granted"
+            : permissionAfterProbe === "denied"
+              ? "denied"
+              : "unavailable",
+        );
+      }
+    }
 
     if (local?.loopback_port) {
       knownPort.current = local.loopback_port;
@@ -78,6 +123,11 @@ export function ProctorProvider({
 
     setState({ ...resolve(self, local), resolved: true });
   }, []);
+
+  const requestLocalAccess = useCallback(async () => {
+    setLocalAccessState("requesting");
+    await refresh(true, true);
+  }, [refresh]);
 
   const degraded =
     state.resolved && (!state.submissionsAllowed || state.starting);
@@ -154,7 +204,11 @@ export function ProctorProvider({
   }, [refresh]);
 
   return (
-    <ProctorContext.Provider value={state}>{children}</ProctorContext.Provider>
+    <ProctorContext.Provider
+      value={{ ...state, localAccessState, requestLocalAccess }}
+    >
+      {children}
+    </ProctorContext.Provider>
   );
 }
 
@@ -178,7 +232,7 @@ function resolve(
     return { ...base, submissionsAllowed: true };
   }
 
-  if (self?.allowed && self.allowed_modes?.includes("WEB_ONLY")) {
+  if (self?.allowed && self.access_mode === "WEB_ONLY") {
     return { ...base, submissionsAllowed: true };
   }
 
