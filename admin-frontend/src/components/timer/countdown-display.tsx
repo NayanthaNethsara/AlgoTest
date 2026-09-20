@@ -134,6 +134,27 @@ export function CountdownDisplay({
           />
         </div>
 
+        {/* Powered By Sponsor Badge */}
+        <div
+          className={cn(
+            "flex items-center gap-1.5 pixel-flat bg-black/40 border-2 border-black px-2.5 py-1 shadow-[0_2px_0_#000000]",
+            isProjectorFullscreen && "gap-2 px-3.5 py-1.5"
+          )}
+        >
+          <span className="font-pixel-header text-[7px] sm:text-[8px] uppercase tracking-widest text-muted-foreground">
+            Powered by
+          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/gtn-white.png"
+            alt="GTN"
+            className={cn(
+              "h-3 sm:h-3.5 w-auto object-contain",
+              isProjectorFullscreen && "h-4 sm:h-5"
+            )}
+          />
+        </div>
+
         {/* Status Badges in Pixel Flat Style */}
         <div className="flex flex-wrap items-center justify-center gap-2 font-pixel-header text-[10px] sm:text-xs">
           {isNotStarted && (
