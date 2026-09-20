@@ -22,6 +22,7 @@ export type ContestState = {
   minClientVersion?: string;
   enforceBinaryHash?: boolean;
   authorizedBinaryHashes?: string;
+  downloadEnabled?: boolean;
   serverTime: string;
 };
 
@@ -33,4 +34,5 @@ export type ContestSettingsInput = {
   minClientVersion?: string;
   enforceBinaryHash?: boolean;
   authorizedBinaryHashes?: string;
+  downloadEnabled?: boolean;
 };

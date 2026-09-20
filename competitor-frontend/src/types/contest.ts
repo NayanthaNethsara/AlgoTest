@@ -17,6 +17,7 @@ export type ContestState = {
   elapsedSeconds: number;
   isFrozen: boolean;
   requireFullscreen?: boolean;
+  downloadEnabled?: boolean;
   serverTime: string;
 };
 

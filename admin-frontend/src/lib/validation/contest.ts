@@ -38,6 +38,7 @@ export const updateContestSettingsSchema = z
     minClientVersion: z.string().optional(),
     enforceBinaryHash: z.boolean().optional(),
     authorizedBinaryHashes: z.string().optional(),
+    downloadEnabled: z.boolean().optional(),
   })
   .refine((data) => data.freezeMinutes <= data.durationMinutes, {
     message: "Freeze window cannot be longer than total contest duration",

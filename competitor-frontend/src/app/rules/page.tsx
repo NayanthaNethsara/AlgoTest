@@ -39,7 +39,18 @@ export default function RulesPage() {
         <LegalList
           items={[
             "Keep the contest portal open. Challenges and status updates appear automatically without a manual refresh.",
-            "The Desktop Proctor client must stay running for the duration of the contest — closing it locks scored submissions until it reconnects.",
+            <>
+              The Desktop Proctor client must stay running for the duration
+              of the contest — closing it locks scored submissions until it
+              reconnects.{" "}
+              <Link
+                href="/download"
+                className="text-primary underline underline-offset-2"
+              >
+                Download it
+              </Link>{" "}
+              before the contest starts.
+            </>,
             "Submitted solutions are compiled and run against hidden test cases inside an isolated sandbox.",
           ]}
         />

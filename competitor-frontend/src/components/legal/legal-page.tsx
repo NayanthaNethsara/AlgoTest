@@ -63,11 +63,11 @@ export function LegalSection({
   );
 }
 
-export function LegalList({ items }: { items: string[] }) {
+export function LegalList({ items }: { items: ReactNode[] }) {
   return (
     <div className="space-y-2">
-      {items.map((item) => (
-        <div key={item} className="flex items-start gap-2.5">
+      {items.map((item, index) => (
+        <div key={index} className="flex items-start gap-2.5">
           <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1.5" />
           <span>{item}</span>
         </div>

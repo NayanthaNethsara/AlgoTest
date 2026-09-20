@@ -31,6 +31,7 @@ export type ContestSettingsForm = {
   minClientVersion: string;
   enforceBinaryHash: boolean;
   authorizedBinaryHashes: string;
+  downloadEnabled: boolean;
 };
 
 function formOf(state: ContestState | null): ContestSettingsForm {
@@ -41,6 +42,7 @@ function formOf(state: ContestState | null): ContestSettingsForm {
     minClientVersion: state?.minClientVersion || "0.2.0",
     enforceBinaryHash: Boolean(state?.enforceBinaryHash),
     authorizedBinaryHashes: state?.authorizedBinaryHashes || "",
+    downloadEnabled: state?.downloadEnabled ?? true,
   };
 }
 
@@ -88,6 +90,7 @@ export function ContestSettingsDialog({
       minClientVersion: form.minClientVersion.trim(),
       enforceBinaryHash: form.enforceBinaryHash,
       authorizedBinaryHashes: form.authorizedBinaryHashes.trim(),
+      downloadEnabled: form.downloadEnabled,
     });
   }
 
@@ -147,6 +150,23 @@ export function ContestSettingsDialog({
                 id="require-fullscreen"
                 checked={form.requireFullscreen}
                 onCheckedChange={(checked) => update("requireFullscreen", checked)}
+              />
+            </Field>
+
+            <FieldSeparator />
+
+            <Field orientation="horizontal">
+              <FieldLabel htmlFor="download-enabled" className="flex-col items-start gap-0.5">
+                <FieldTitle>Desktop client download page</FieldTitle>
+                <FieldDescription>
+                  Turns the public /download page and installers off — links
+                  to it show a disabled notice instead.
+                </FieldDescription>
+              </FieldLabel>
+              <Switch
+                id="download-enabled"
+                checked={form.downloadEnabled}
+                onCheckedChange={(checked) => update("downloadEnabled", checked)}
               />
             </Field>
 
