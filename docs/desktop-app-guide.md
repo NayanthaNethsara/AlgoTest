@@ -234,7 +234,7 @@ One binary, two processes, selected by argument:
 
 | Mode | Command | Role |
 | --- | --- | --- |
-| Proctor agent | `mini-algothon-competitor --agent` | Holds its own enrolled credential, collects endpoint signals, heartbeats every 15s, serves loopback attestation, owns the tray. Autostarts at login. |
+| Proctor agent | `mini-algothon-competitor --agent` | Holds its own enrolled credential, collects endpoint signals, heartbeats every 10s, serves loopback attestation, and owns the tray. |
 | Contest shell | `mini-algothon-competitor` | A webview pointed at the server-hosted portal. Holds no credential and makes no proctoring decision. |
 
 The split is the point: **the shell can crash, hang, or ship a bad portal deploy without

@@ -70,7 +70,7 @@ flowchart LR
     Shell -->|"GET /status (Loopback Attestation)"| Agent
 
     Shell -->|"requireUser: Portal UI & Submissions"| Nginx
-    Agent -->|"requireAgent: Heartbeats every 15s"| Nginx
+    Agent -->|"requireAgent: Heartbeats every 10s"| Nginx
 
     Nginx -->|"/ (SSR Pages)"| Portal
     Nginx -->|"/api/ (REST Endpoints)"| API
@@ -213,7 +213,7 @@ defeat the short-circuit entirely. There are unit tests for exactly this in `sig
 
 ## 5. Offline buffering and gap fairness
 
-The agent keeps a 240-entry ring buffer (~1 hour at 15s) and flushes it to
+The agent keeps a 240-entry ring buffer (~40 minutes at 10s) and flushes it to
 `POST /api/v1/agent/events` on reconnect, `buffered: true`. Without this, every nginx reload becomes
 300 contestant gaps.
 
@@ -345,12 +345,12 @@ agent's `shell_alive` report. Neither alone is enough:
   contestant with the client open in the background and the contest in Chrome is `WEB_WITH_AGENT`,
   and reading them as `DESKTOP` would make the browser grant unenforceable.
 
-The corroboration is a **sighting within `ShellGraceSeconds` (90s)**, stored as
+The corroboration is a **sighting within `ShellGraceSeconds` (20s)**, stored as
 `telemetry_heartbeats.shell_alive_at`, not the newest heartbeat's boolean. The chain is lossy by
-construction — shell pings the agent every 10s, agent forgets after 30s, agent reports every 15s — so
+construction — shell pings the agent every 10s, agent forgets after 30s, agent reports every 10s — so
 a resumed laptop or a stalled shell produces one `shell_alive: false` heartbeat while the contestant
 sits in front of the client. Refusing them there would be this gate's worst failure. The bounded cost:
-for 90s after genuinely closing the client, a hand-forged marker in a browser passes as `DESKTOP` —
+for 20s after genuinely closing the client, a hand-forged marker in a browser passes as `DESKTOP` —
 which requires having just run the proctored client, so it buys the weaker mode, never an unproctored
 one.
 
@@ -359,18 +359,18 @@ A desktop claim the agent does not corroborate is recorded (`claims_shell` / `sh
 
 | Agent | Mode | Grant | Submissions | Finding |
 | --- | --- | --- | --- | --- |
-| Live (≤90s) | `DESKTOP`, attested | any | allowed | — |
-| Live (≤90s) | `WEB_WITH_AGENT`, attested | no `web_with_agent` | **423 Locked** `CLIENT_NOT_ALLOWED` | `tel.web_client` (low) |
-| Live (≤90s) | `WEB_WITH_AGENT`, attested | `web_with_agent` | allowed | `tel.web_client` (low) |
-| Live (≤90s) | either, **no attestation** | any | allowed | `tel.no_attest` (medium) |
-| Stale (>90s) or never seen | `WEB_ONLY` | no `web_only` | **423 Locked** | `tel.no_agent_submit` |
-| Stale (>90s) or never seen | `WEB_ONLY` | `web_only` | allowed | `tel.web_only_grant` (low) |
+| Live (≤20s) | `DESKTOP`, attested | any | allowed | — |
+| Live (≤20s) | `WEB_WITH_AGENT`, attested | no `web_with_agent` | **423 Locked** `CLIENT_NOT_ALLOWED` | `tel.web_client` (low) |
+| Live (≤20s) | `WEB_WITH_AGENT`, attested | `web_with_agent` | allowed | `tel.web_client` (low) |
+| Live (≤20s) | either, **no attestation** | any | allowed | `tel.no_attest` (medium) |
+| Stale (>20s) or never seen | `WEB_ONLY` | no `web_only` | **423 Locked** | `tel.no_agent_submit` |
+| Stale (>20s) or never seen | `WEB_ONLY` | `web_only` | allowed | `tel.web_only_grant` (low) |
 | Any | any, `proctor_exempt` | any | allowed | standing exemption finding |
 
 - `/api/v1/run` stays **ungated** — contestants must be able to test through an agent hiccup.
 - `423` body: `{ code, last_ping_at, seconds_since_ping, access_mode, allowed_modes, remedy }`, plus
-  the banner polling `/telemetry/self` every 15s so they learn while coding, not with 90 seconds
-  left. The poll forwards the same client marker, so it answers for the window the contestant is
+  the banner polling `/telemetry/self` every 10s so they learn while coding, not only when they try
+  to submit. The poll forwards the same client marker, so it answers for the window the contestant is
   actually looking at rather than the most permissive one they could open.
 - `CLIENT_NOT_ALLOWED` is deliberately not an `AGENT_*` code: the agent is reporting fine, and
   telling someone to restart a working client sends them in circles.
@@ -477,11 +477,11 @@ bypass, `competitor-desktop/src-tauri/server/` (stale bundled Node + Next artifa
 | --- | --- | --- | --- | --- |
 | Shell webview crashes / white-screens | shell gone, `shell_alive: false` | Tray still green | **allowed** — open the portal in a browser | none |
 | Portal UI bug (bad deploy) | reports | Broken page | allowed via browser; hotfix the server-hosted portal | redeploy, no reimaging |
-| Agent crashes | new `boot_id`, no shutdown | Red banner in shell/browser + *Restart proctoring* | locked until it returns (≤15s) | low-weight finding |
+| Agent crashes | new `boot_id`, no shutdown | Red banner in shell/browser + *Restart proctoring* | locked after 20s until it returns | low-weight finding |
 | Agent killed via Task Manager | gap, no shutdown | Locked banner | locked | review the gap |
 | Contestant stops proctoring from tray | clean shutdown | Explicit confirm dialog | locked, by their choice | none |
 | Laptop reboots | *(no autostart — see §6)* | Locked, no green | **locked until the contestant manually relaunches the app** | none |
-| LAN blip / nginx reload | many agents gap at once | Amber pill, agent buffers | ≤90s allowed; then locked | suppressed as infrastructure |
+| LAN blip / nginx reload | many agents gap at once | Amber pill, agent buffers | ≤20s allowed; then locked | suppressed as infrastructure |
 | Server down | heartbeats fail | Amber pill, buffer fills | locked while down | fix the server; buffer replays |
 | `agent.json` lost / wiped | no agent for that user | Setup window on next launch | locked until re-enrolled | re-enroll, 60s |
 | Second machine enrolled | `tel.agent_rebound` | Old agent stops | old machine locked | **investigate** |
@@ -533,8 +533,8 @@ legible after the fact:
 | Time | Agent | Server | Contestant |
 | --- | --- | --- | --- |
 | T+0 | Heartbeat fails, buffers **to disk** | `last_seen_at` freezes | Tray shows seconds since last report |
-| T+45s | Still collecting | Live tab → STALE | Pill flips to "not reporting", banner appears |
-| T+90s | | Gate `423`s; sweeper opens a gap | Banner names the remedy and support code |
+| T+20s | Still collecting | Gate treats the agent as stale | Pill flips to "not reporting"; protected actions lock |
+| Next sweep | | Sweeper opens a gap | Banner names the remedy and support code |
 | Reconnect | Flushes up to 240 held heartbeats | Events land **at their original timestamps**; gap closed | Pill green |
 
 The load-bearing property: **disconnecting delays evidence, it does not erase it.** Tethering during
@@ -585,7 +585,7 @@ as a running maximum (`GREATEST(seq, incoming)`) looked harmless and was not: af
 the agent's counter resets to 1 while the server still held the previous boot's high-water mark, so
 every heartbeat of the new boot compared as a replay, got `409`, and never advanced `last_seen_at`.
 The contestant saw *"not reporting · last report 73s ago"* for as long as it took the counter to climb
-past the old value — minutes at a 15s cadence — and then it silently fixed itself.
+past the old value — minutes at the former 15s cadence — and then it silently fixed itself.
 
 `RecordHeartbeat` now resets the counter when `boot_id` changes. Two defences sit behind that:
 
@@ -600,14 +600,14 @@ past the old value — minutes at a 15s cadence — and then it silently fixed i
 
 ### One startup trap, now closed
 
-The scheduler originally slept a full interval before its first heartbeat, so for the first 15
+The scheduler originally slept a full interval before its first heartbeat, so for the first 10
 seconds a freshly launched agent had no acknowledged report — and the portal could only read that as
 "not reporting", which it rendered as *"cannot reach the contest server"*. Every client passed through
 that state on launch, and 300 would at a contest start.
 
 Fixed in three places: the agent reports on its **first** tick (and immediately after enrolling, via a
 force flag), it distinguishes `starting` from unreachable in its loopback status, and the portal shows
-a quiet "Proctoring is starting" strip for that state while polling every 5s instead of 15s until it
+a quiet "Proctoring is starting" strip for that state while polling every 5s instead of 10s until it
 clears.
 
 ### Not built
