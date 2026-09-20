@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Editor, { loader, type Monaco } from "@monaco-editor/react";
+import type { editor, Position } from "monaco-editor";
 import { useChallengeTheme } from "@/components/problem/challenge-theme-provider";
 
 loader.config({ paths: { vs: "/monaco/vs" } });
@@ -36,7 +37,101 @@ const PALETTE = {
   redstone: "#f87171",
 } as const;
 
+const LANGUAGE_KEYWORDS: Record<string, string[]> = {
+  cpp: "auto bool break case char class const continue default do double else enum false float for if int long namespace private protected public return short signed sizeof static string struct switch true unsigned using vector void while".split(
+    " ",
+  ),
+  c: "auto break case char const continue default do double else enum extern float for if int long register return short signed sizeof static struct switch typedef union unsigned void volatile while".split(
+    " ",
+  ),
+  java: "abstract boolean break byte case catch char class const continue default do double else enum extends false final finally float for if implements import instanceof int interface long new null package private protected public return short static super switch this throw throws true try void while".split(
+    " ",
+  ),
+  python: "and as assert async await break class continue def del elif else except False finally for from global if import in is lambda None nonlocal not or pass raise return True try while with yield".split(
+    " ",
+  ),
+  javascript: "async await break case catch class const continue default delete do else export extends false finally for function if import in instanceof let new null return static super switch this throw true try typeof undefined var void while yield".split(
+    " ",
+  ),
+  rust: "as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while".split(
+    " ",
+  ),
+};
+
+const LANGUAGE_SNIPPETS: Record<
+  string,
+  Array<{ label: string; detail: string; insertText: string }>
+> = {
+  cpp: [
+    { label: "for loop", detail: "Indexed for loop", insertText: "for (int ${1:i} = 0; ${1:i} < ${2:n}; ++${1:i}) {\n\t${0}\n}" },
+    { label: "cout", detail: "Print a value", insertText: "cout << ${1:value} << '\\n';" },
+    { label: "vector", detail: "Declare a vector", insertText: "vector<${1:int}> ${2:values};" },
+  ],
+  c: [
+    { label: "for loop", detail: "Indexed for loop", insertText: "for (int ${1:i} = 0; ${1:i} < ${2:n}; ++${1:i}) {\n\t${0}\n}" },
+    { label: "printf", detail: "Print a value", insertText: 'printf("${1:%d}\\n", ${2:value});' },
+    { label: "scanf", detail: "Read a value", insertText: 'scanf("${1:%d}", &${2:value});' },
+  ],
+  java: [
+    { label: "for loop", detail: "Indexed for loop", insertText: "for (int ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {\n\t${0}\n}" },
+    { label: "println", detail: "Print a line", insertText: "System.out.println(${1:value});" },
+  ],
+  python: [
+    { label: "for range", detail: "Range loop", insertText: "for ${1:i} in range(${2:n}):\n\t${0}" },
+    { label: "list comprehension", detail: "Create a list", insertText: "[${1:value} for ${2:item} in ${3:items}]" },
+  ],
+  javascript: [
+    { label: "for loop", detail: "Indexed for loop", insertText: "for (let ${1:i} = 0; ${1:i} < ${2:n}; ${1:i}++) {\n\t${0}\n}" },
+    { label: "console.log", detail: "Print a value", insertText: "console.log(${1:value});" },
+  ],
+  rust: [
+    { label: "for range", detail: "Range loop", insertText: "for ${1:i} in 0..${2:n} {\n\t${0}\n}" },
+    { label: "println!", detail: "Print a line", insertText: 'println!("${1:{}}", ${2:value});' },
+  ],
+};
+
+let completionsRegistered = false;
+
+function registerCompletions(monaco: Monaco) {
+  if (completionsRegistered) return;
+  completionsRegistered = true;
+
+  for (const [language, keywords] of Object.entries(LANGUAGE_KEYWORDS)) {
+    monaco.languages.registerCompletionItemProvider(language, {
+      provideCompletionItems(model: editor.ITextModel, position: Position) {
+        const word = model.getWordUntilPosition(position);
+        const range = {
+          startLineNumber: position.lineNumber,
+          endLineNumber: position.lineNumber,
+          startColumn: word.startColumn,
+          endColumn: word.endColumn,
+        };
+        const keywordSuggestions = keywords.map((keyword) => ({
+          label: keyword,
+          kind: monaco.languages.CompletionItemKind.Keyword,
+          insertText: keyword,
+          range,
+        }));
+        const snippetSuggestions = (LANGUAGE_SNIPPETS[language] ?? []).map(
+          (snippet) => ({
+            label: snippet.label,
+            detail: snippet.detail,
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: snippet.insertText,
+            insertTextRules:
+              monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            range,
+          }),
+        );
+
+        return { suggestions: [...snippetSuggestions, ...keywordSuggestions] };
+      },
+    });
+  }
+}
+
 function defineTheme(monaco: Monaco) {
+  registerCompletions(monaco);
   monaco.editor.defineTheme("mini-pixel", {
     base: "vs-dark",
     inherit: true,
@@ -163,6 +258,9 @@ export function CodeEditor({ language, value, onChange, onTelemetryChange }: Cod
         cursorSmoothCaretAnimation: "on",
         smoothScrolling: true,
         roundedSelection: true,
+        quickSuggestions: { other: true, comments: false, strings: false },
+        suggestOnTriggerCharacters: true,
+        snippetSuggestions: "top",
       }}
     />
   );
