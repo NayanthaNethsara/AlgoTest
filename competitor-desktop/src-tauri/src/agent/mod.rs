@@ -10,6 +10,7 @@ pub mod windows;
 
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use tauri::Manager;
 
 use state::AgentState;
 
@@ -19,12 +20,14 @@ pub fn run() {
     let _instance_lock = match crate::acquire_process_lock("Local\\AlgothonAgentInstance") {
         Some(lock) => lock,
         None => {
+            loopback::focus_existing();
             log::warn!("another proctor agent instance is already running; exiting");
             return;
         }
     };
 
     if loopback::is_agent_running() {
+        loopback::focus_existing();
         log::warn!("another proctor agent is already running; exiting");
         return;
     }
@@ -76,34 +79,39 @@ pub fn run() {
             tray::install(app.handle(), Arc::clone(&setup_state))?;
             lifecycle::sync_autostart(app.handle(), setup_state.is_enrolled());
 
-            #[cfg(target_os = "macos")]
-            if setup_state.is_enrolled() {
-                app.set_activation_policy(tauri::ActivationPolicy::Accessory);
-            }
-
-            if !setup_state.is_enrolled() {
-                windows::open_setup(app.handle());
-            }
+            windows::open_diagnostics(app.handle());
 
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == windows::DIAGNOSTICS_WINDOW || window.label() == windows::SETUP_WINDOW {
+            if window.label() == windows::SETUP_WINDOW {
+                if let tauri::WindowEvent::Resized(_) = event {
+                    if window.is_minimized().unwrap_or(false) {
+                        let _ = window.hide();
+                    }
+                }
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
-                    let _ = window.hide();
+                    lifecycle::request_exit(
+                        window.app_handle(),
+                        &window.state::<Arc<AgentState>>(),
+                        "application window closed",
+                    );
                 }
             }
         })
         .build(crate::context())
         .expect("failed to build the proctor agent")
-        .run(move |_app, event| {
-            if let tauri::RunEvent::ExitRequested { api, .. } = event {
-                if state.is_enrolled() && !state.stopping.load(Ordering::Relaxed) {
+        .run(move |app, event| {
+            if let tauri::RunEvent::ExitRequested { ref api, .. } = event {
+                if !state.exit_ready.load(Ordering::Relaxed) {
                     api.prevent_exit();
-                } else if !state.stopping.swap(true, Ordering::Relaxed) {
-                    scheduler::report_shutdown(&state, "agent process exiting");
+                    lifecycle::request_exit(app, &state, "application quit");
                 }
+            }
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                windows::open_diagnostics(app);
             }
         });
 }

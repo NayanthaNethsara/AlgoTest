@@ -78,7 +78,7 @@ export function ProctorPill() {
   const isServerVerified = Boolean(
     submissionsAllowed &&
       (accessMode === "WEB_WITH_AGENT" || accessMode === "DESKTOP") &&
-      secondsSincePing <= 90,
+      secondsSincePing <= 20,
   );
 
   if (starting) {

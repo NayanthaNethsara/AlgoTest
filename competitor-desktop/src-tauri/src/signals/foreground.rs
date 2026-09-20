@@ -25,49 +25,69 @@ pub fn get_foreground_app() -> ForegroundInfo {
 pub fn get_foreground_app() -> ForegroundInfo {
     use std::os::windows::ffi::OsStringExt;
 
-    use windows_sys::Win32::Foundation::{CloseHandle, MAX_PATH};
+    use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
     };
-    use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, GetWindowThreadProcessId,
+    };
 
     unsafe {
         let window = GetForegroundWindow();
         if window.is_null() {
-            return ForegroundInfo { supported: true, app_id: "unknown".to_string() };
+            return ForegroundInfo {
+                supported: true,
+                app_id: "unknown".to_string(),
+            };
         }
 
         let mut pid: u32 = 0;
         GetWindowThreadProcessId(window, &mut pid);
         if pid == 0 {
-            return ForegroundInfo { supported: true, app_id: "unknown".to_string() };
+            return ForegroundInfo {
+                supported: true,
+                app_id: "unknown".to_string(),
+            };
         }
 
         let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
         if handle.is_null() {
-            return ForegroundInfo { supported: true, app_id: "unknown".to_string() };
+            return ForegroundInfo {
+                supported: true,
+                app_id: "unknown".to_string(),
+            };
         }
 
-        let mut buffer = [0u16; MAX_PATH as usize];
+        let mut buffer = [0u16; 32768];
         let mut len = buffer.len() as u32;
         let ok = QueryFullProcessImageNameW(handle, 0, buffer.as_mut_ptr(), &mut len);
         CloseHandle(handle);
 
         if ok == 0 || len == 0 {
-            return ForegroundInfo { supported: true, app_id: "unknown".to_string() };
+            return ForegroundInfo {
+                supported: true,
+                app_id: "unknown".to_string(),
+            };
         }
 
         let path = std::ffi::OsString::from_wide(&buffer[..len as usize]);
         let app_id = std::path::Path::new(&path)
             .file_name()
-            .map(|n| n.to_string_lossy().to_string())
+            .map(|n| super::applications::canonical_executable(&n.to_string_lossy()))
             .unwrap_or_else(|| "unknown".to_string());
 
-        ForegroundInfo { supported: true, app_id }
+        ForegroundInfo {
+            supported: true,
+            app_id,
+        }
     }
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub fn get_foreground_app() -> ForegroundInfo {
-    ForegroundInfo { supported: false, app_id: String::new() }
+    ForegroundInfo {
+        supported: false,
+        app_id: String::new(),
+    }
 }

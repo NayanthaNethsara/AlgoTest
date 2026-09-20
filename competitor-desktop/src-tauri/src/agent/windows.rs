@@ -5,9 +5,19 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use super::state::AgentState;
 
 pub const SETUP_WINDOW: &str = "setup";
-pub const DIAGNOSTICS_WINDOW: &str = "diagnostics";
 
 pub fn open_setup(app: &AppHandle) {
+    show_page(app, "index.html");
+}
+
+fn show_page(app: &AppHandle, page: &'static str) {
+    if app
+        .state::<Arc<AgentState>>()
+        .stopping
+        .load(std::sync::atomic::Ordering::Relaxed)
+    {
+        return;
+    }
     #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
 
@@ -15,24 +25,35 @@ pub fn open_setup(app: &AppHandle) {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
-        let _ = window.eval("if (window.location) window.location.reload();");
+        let _ = window.eval(format!(
+            "if (!location.pathname.endsWith('/{page}')) location.replace('{page}');"
+        ));
         return;
     }
 
     let app = app.clone();
     let dispatch = app.clone();
     if let Err(err) = dispatch.run_on_main_thread(move || {
-        let built =
-            WebviewWindowBuilder::new(&app, SETUP_WINDOW, WebviewUrl::App("index.html".into()))
-                .title("Algothon Proctor — Setup")
-                .inner_size(500.0, 560.0)
-                .min_inner_size(440.0, 460.0)
-                .resizable(true)
-                .center()
-                .build();
+        if let Some(window) = app.get_webview_window(SETUP_WINDOW) {
+            let _ = window.show();
+            let _ = window.set_focus();
+            return;
+        }
+        let built = WebviewWindowBuilder::new(&app, SETUP_WINDOW, WebviewUrl::App(page.into()))
+            .title("Algothon Proctor")
+            .inner_size(520.0, 580.0)
+            .min_inner_size(440.0, 460.0)
+            .resizable(true)
+            .center()
+            .build();
 
         if let Err(err) = built {
             log::error!("could not open the setup window: {err}");
+            super::lifecycle::request_exit(
+                &app,
+                &app.state::<Arc<AgentState>>(),
+                "application window failed",
+            );
         }
     }) {
         log::error!("could not schedule the setup window: {err}");
@@ -40,43 +61,19 @@ pub fn open_setup(app: &AppHandle) {
 }
 
 pub fn close_setup(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window(SETUP_WINDOW) {
-        let _ = window.hide();
-    }
-
-    #[cfg(target_os = "macos")]
-    let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+    open_diagnostics(app);
 }
 
 pub fn open_diagnostics(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window(DIAGNOSTICS_WINDOW) {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-        return;
-    }
-
-    let app = app.clone();
-    let dispatch = app.clone();
-    if let Err(err) = dispatch.run_on_main_thread(move || {
-        let built = WebviewWindowBuilder::new(
-            &app,
-            DIAGNOSTICS_WINDOW,
-            WebviewUrl::App("diagnostics.html".into()),
-        )
-        .title("Algothon Proctor — Diagnostics")
-        .inner_size(520.0, 580.0)
-        .min_inner_size(460.0, 480.0)
-        .resizable(true)
-        .center()
-        .build();
-
-        if let Err(err) = built {
-            log::error!("could not open the diagnostics window: {err}");
-        }
-    }) {
-        log::error!("could not schedule the diagnostics window: {err}");
-    }
+    let state = app.state::<Arc<AgentState>>();
+    show_page(
+        app,
+        if state.is_enrolled() {
+            "diagnostics.html"
+        } else {
+            "index.html"
+        },
+    );
 }
 
 pub fn open_contest_portal(state: &Arc<AgentState>) {

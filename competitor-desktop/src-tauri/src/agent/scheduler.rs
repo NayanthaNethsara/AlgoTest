@@ -20,17 +20,25 @@ pub fn spawn(state: Arc<AgentState>) {
 
 fn run(state: Arc<AgentState>) {
     let transport = Transport::new();
-    let mut system = System::new_all();
+    let mut system = System::new();
     let mut dwell = DwellTracker::new();
     let mut reachability = ReachabilityProbe::new();
     let mut cached_ports: Vec<PortMatch> = Vec::new();
-    let mut cached_extensions: Vec<String> = scan_installed_ai_extensions();
-    let mut lan = lan_ip();
+    let mut cached_extensions: Vec<String> = Vec::new();
+    let mut lan = String::new();
     let mut tick: u64 = 0;
 
     loop {
+        let reporting = state.reporting.lock().expect("reporting lock");
         if state.stopping.load(Ordering::Relaxed) {
             return;
+        }
+        if state.signing_out.load(Ordering::Relaxed) || !state.is_enrolled() {
+            dwell = DwellTracker::new();
+            tick = 0;
+            drop(reporting);
+            std::thread::sleep(Duration::from_millis(100));
+            continue;
         }
 
         let now = Instant::now();
@@ -76,6 +84,7 @@ fn run(state: Arc<AgentState>) {
             refresh_policy(&state, &transport);
         }
 
+        drop(reporting);
         wait_for_next_tick(&state);
         tick = tick.wrapping_add(1);
     }
@@ -128,13 +137,19 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
             state.on_ack();
             state.clear_rejections();
             state.log("sent", summary);
-            flush_buffer(state, transport, &api_url, &token);
+            if !state.stopping.load(Ordering::Relaxed) && !state.signing_out.load(Ordering::Relaxed)
+            {
+                flush_buffer(state, transport, &api_url, &token);
+            }
         }
         Err(SendError::Revoked) => {
             log::warn!("heartbeat rejected: enrollment revoked");
             state.revoked.store(true, Ordering::Relaxed);
             state.on_error("enrollment revoked — re-enrol from the tray".to_string());
-            state.log("revoked", "server rejected this agent credential".to_string());
+            state.log(
+                "revoked",
+                "server rejected this agent credential".to_string(),
+            );
         }
         Err(SendError::Rejected(detail)) => {
             log::warn!("heartbeat rejected: {detail}");
@@ -142,7 +157,10 @@ fn send(state: &Arc<AgentState>, transport: &Transport, report: SignalReport) {
             state.log("rejected", detail);
 
             if state.note_rejection() >= 2 {
-                state.log("recovering", "starting a new boot after repeated rejections".to_string());
+                state.log(
+                    "recovering",
+                    "starting a new boot after repeated rejections".to_string(),
+                );
                 state.rotate_boot();
             }
         }

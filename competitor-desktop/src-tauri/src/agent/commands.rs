@@ -28,7 +28,10 @@ pub fn get_setup_state(state: State<'_, Arc<AgentState>>) -> SetupState {
         enrolled: enrollment.is_some(),
         server_url: state.server_url(),
         api_url: state.api_url(),
-        username: enrollment.as_ref().map(|e| e.username.clone()).unwrap_or_default(),
+        username: enrollment
+            .as_ref()
+            .map(|e| e.username.clone())
+            .unwrap_or_default(),
         machine_id: identity::machine_id(),
         agent_version: crate::AGENT_VERSION.to_string(),
         binary_hash: identity::current_exe_hash(),
@@ -36,7 +39,11 @@ pub fn get_setup_state(state: State<'_, Arc<AgentState>>) -> SetupState {
 }
 
 #[tauri::command]
-pub fn save_server(server_url: String, api_url: String, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
+pub fn save_server(
+    server_url: String,
+    api_url: String,
+    state: State<'_, Arc<AgentState>>,
+) -> Result<(), String> {
     let cfg = ClientConfig {
         server_url: server_url.trim().trim_end_matches('/').to_string(),
         api_url: api_url.trim().trim_end_matches('/').to_string(),
@@ -88,7 +95,17 @@ pub async fn enroll_agent(
 
     let username = trimmed_user.to_string();
     let enrollment_username = username.clone();
-    let (enrollment, policy) = tauri::async_runtime::spawn_blocking(move || {
+    let enrolling_state = Arc::clone(state.inner());
+    tauri::async_runtime::spawn_blocking(move || {
+        let _reporting = enrolling_state
+            .reporting
+            .lock()
+            .map_err(|e| e.to_string())?;
+        if enrolling_state.stopping.load(Ordering::Relaxed)
+            || enrolling_state.signing_out.load(Ordering::Relaxed)
+        {
+            return Err("The application is stopping. Try again after signing out.".to_string());
+        }
         let effective_consent = if consent_version.trim().is_empty() || consent_version == "unknown"
         {
             Transport::new()
@@ -105,7 +122,7 @@ pub async fn enroll_agent(
             consent_version
         };
 
-        Transport::new().enroll(
+        let (enrollment, policy) = Transport::new().enroll(
             &api_url,
             &enrollment_username,
             &password,
@@ -113,28 +130,35 @@ pub async fn enroll_agent(
             &identity::platform(),
             &effective_consent,
             &identity::current_exe_hash(),
-        )
+        )?;
+        config::save_enrollment(&enrollment)?;
+        if let Ok(mut slot) = enrolling_state.enrollment.lock() {
+            *slot = Some(enrollment);
+        }
+        if let Ok(mut slot) = enrolling_state.policy.lock() {
+            *slot = policy;
+        }
+        enrolling_state.revoked.store(false, Ordering::Relaxed);
+        enrolling_state.mark_reporting_start();
+        enrolling_state.force_heartbeat();
+        Ok::<(), String>(())
     })
     .await
     .map_err(|e| e.to_string())??;
 
-    config::save_enrollment(&enrollment)?;
-    if let Ok(mut slot) = state.enrollment.lock() {
-        *slot = Some(enrollment);
+    if state.stopping.load(Ordering::Relaxed) || state.signing_out.load(Ordering::Relaxed) {
+        return Err("The application is stopping.".to_string());
     }
-    if let Ok(mut slot) = state.policy.lock() {
-        *slot = policy;
-    }
-    state.revoked.store(false, Ordering::Relaxed);
-    state.mark_reporting_start();
-    state.force_heartbeat();
     state.log("enrolled", format!("agent enrolled as {username}"));
-
+    windows::open_diagnostics(&_app);
     Ok(())
 }
 
 #[tauri::command]
-pub async fn enter_contest(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
+pub async fn enter_contest(
+    app: tauri::AppHandle,
+    state: State<'_, Arc<AgentState>>,
+) -> Result<(), String> {
     windows::close_setup(&app);
     let state_inner = Arc::clone(state.inner());
     tauri::async_runtime::spawn_blocking(move || {
@@ -169,6 +193,8 @@ pub struct Diagnostics {
     inference_ports: Vec<String>,
     process_matches: Vec<String>,
     foreground_monitoring: bool,
+    foreground_app: String,
+    installed_ai_extensions: Vec<String>,
     history: Vec<TickLog>,
 }
 
@@ -185,7 +211,10 @@ pub fn get_diagnostics(state: State<'_, Arc<AgentState>>) -> Diagnostics {
         uptime_seconds: state.uptime_seconds(),
         enrolled: enrollment.is_some(),
         revoked: state.revoked.load(Ordering::Relaxed),
-        username: enrollment.as_ref().map(|e| e.username.clone()).unwrap_or_default(),
+        username: enrollment
+            .as_ref()
+            .map(|e| e.username.clone())
+            .unwrap_or_default(),
         machine_id: enrollment
             .as_ref()
             .map(|e| e.machine_id.clone())
@@ -208,6 +237,9 @@ pub fn get_diagnostics(state: State<'_, Arc<AgentState>>) -> Diagnostics {
             .map(|p| format!("{} on {}", p.product, p.port))
             .collect(),
         process_matches: signals.process_matches,
+        foreground_app: crate::signals::applications::display_name(&signals.foreground_app)
+            .to_string(),
+        installed_ai_extensions: signals.extension_matches,
         foreground_monitoring: cfg!(any(target_os = "macos", target_os = "windows")),
         history: state.history(),
     }
@@ -219,11 +251,18 @@ pub fn open_contest_window(state: State<'_, Arc<AgentState>>) {
 }
 
 #[tauri::command]
-pub async fn reset_enrollment(app: tauri::AppHandle, state: State<'_, Arc<AgentState>>) -> Result<(), String> {
+pub async fn reset_enrollment(
+    app: tauri::AppHandle,
+    state: State<'_, Arc<AgentState>>,
+) -> Result<(), String> {
     let app_handle = app.clone();
     let state_inner = Arc::clone(state.inner());
     tauri::async_runtime::spawn_blocking(move || {
-        lifecycle::unenroll(&app_handle, &state_inner, "enrollment reset from the diagnostics window")
+        lifecycle::unenroll(
+            &app_handle,
+            &state_inner,
+            "enrollment reset from the diagnostics window",
+        )
     })
     .await
     .map_err(|e| e.to_string())??;
@@ -260,9 +299,5 @@ pub async fn reconnect_agent(state: State<'_, Arc<AgentState>>) -> Result<(), St
 
 #[tauri::command]
 pub fn close_current_window(window: tauri::WebviewWindow) -> Result<(), String> {
-    if window.label() == windows::SETUP_WINDOW || window.label() == windows::DIAGNOSTICS_WINDOW {
-        window.hide().map_err(|e| e.to_string())
-    } else {
-        window.close().map_err(|e| e.to_string())
-    }
+    window.close().map_err(|e| e.to_string())
 }

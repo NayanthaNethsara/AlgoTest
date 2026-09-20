@@ -15,7 +15,10 @@ pub fn start(state: Arc<AgentState>) -> Option<u16> {
                 state.loopback_port.store(port, Ordering::Relaxed);
                 let state = Arc::clone(&state);
                 std::thread::spawn(move || serve(server, state));
-                log::info!("loopback attestation server listening on {}:{port}", crate::LOOPBACK_IP);
+                log::info!(
+                    "loopback attestation server listening on {}:{port}",
+                    crate::LOOPBACK_IP
+                );
                 return Some(port);
             }
             Err(err) => {
@@ -35,17 +38,37 @@ pub fn running_port() -> Option<u16> {
 }
 
 fn probe(port: u16) -> bool {
-    use std::net::{SocketAddr, TcpStream};
     use std::time::Duration;
+    let Ok(client) = reqwest::blocking::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_millis(300))
+        .build()
+    else {
+        return false;
+    };
+    client
+        .get(crate::loopback_url(port, "/status"))
+        .send()
+        .and_then(|response| response.json::<serde_json::Value>())
+        .map(|status| status["agent_version"].is_string() && status["boot_id"].is_string())
+        .unwrap_or(false)
+}
 
-    let addr = SocketAddr::from((crate::LOOPBACK_IP, port));
-    TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
+pub fn focus_existing() {
+    if let Some(port) = running_port() {
+        if let Ok(client) = reqwest::blocking::Client::builder()
+            .no_proxy()
+            .timeout(std::time::Duration::from_secs(1))
+            .build()
+        {
+            let _ = client.post(crate::loopback_url(port, "/setup")).send();
+        }
+    }
 }
 
 fn serve(server: Server, state: Arc<AgentState>) {
     for request in server.incoming_requests() {
-        let allowed_origin =
-            allowed_portal_origins(&state.server_url(), &state.portal_origins());
+        let allowed_origin = allowed_portal_origins(&state.server_url(), &state.portal_origins());
         let request_origin = header(&request, "Origin");
 
         let cors_origin = match &request_origin {
@@ -58,7 +81,10 @@ fn serve(server: Server, state: Arc<AgentState>) {
                     "origin_rejected",
                     format!("refused {origin}; this client is configured for {allowed_origin}"),
                 );
-                let _ = request.respond(with_cors(Response::from_string("").with_status_code(403), None));
+                let _ = request.respond(with_cors(
+                    Response::from_string("").with_status_code(403),
+                    None,
+                ));
                 continue;
             }
         };
@@ -67,7 +93,9 @@ fn serve(server: Server, state: Arc<AgentState>) {
         let path = request.url().split('?').next().unwrap_or("").to_string();
 
         let response = match (&method, path.as_str()) {
-            (Method::Options, _) => with_cors(Response::from_string("").with_status_code(204), cors_origin),
+            (Method::Options, _) => {
+                with_cors(Response::from_string("").with_status_code(204), cors_origin)
+            }
             (Method::Get, "/status") => {
                 let body = status_json(&state);
                 with_cors(
@@ -77,7 +105,7 @@ fn serve(server: Server, state: Arc<AgentState>) {
             }
             (Method::Post, "/setup") => {
                 if let Some(app) = state.app_handle() {
-                    super::windows::open_setup(&app);
+                    super::windows::open_diagnostics(&app);
                 }
                 with_cors(Response::from_string("").with_status_code(204), cors_origin)
             }
@@ -89,12 +117,10 @@ fn serve(server: Server, state: Arc<AgentState>) {
                     "contestant exited from the competition shell"
                 };
                 std::thread::spawn(move || {
-                    let Some(app) = worker.app_handle() else { return };
-                    if let Err(err) = super::lifecycle::sign_out_and_quit(
-                        &app,
-                        &worker,
-                        reason,
-                    ) {
+                    let Some(app) = worker.app_handle() else {
+                        return;
+                    };
+                    if let Err(err) = super::lifecycle::sign_out(&app, &worker, reason) {
                         log::warn!("sign-out could not clear the enrollment: {err}");
                     }
                 });
@@ -102,13 +128,13 @@ fn serve(server: Server, state: Arc<AgentState>) {
             }
             (Method::Post, "/quit") if request_origin.is_none() => {
                 let worker = Arc::clone(&state);
-                std::thread::spawn(move || {
-                    worker.stopping.store(true, Ordering::Relaxed);
-                    super::scheduler::report_shutdown(&worker, "client reset on this machine");
-                    match worker.app_handle() {
-                        Some(app) => app.exit(0),
-                        None => std::process::exit(0),
-                    }
+                std::thread::spawn(move || match worker.app_handle() {
+                    Some(app) => super::lifecycle::request_exit(
+                        &app,
+                        &worker,
+                        "client reset on this machine",
+                    ),
+                    None => std::process::exit(0),
                 });
                 Response::from_string("").with_status_code(204)
             }
@@ -150,7 +176,9 @@ fn json_header() -> Header {
 fn with_cors<R: std::io::Read>(response: Response<R>, origin: Option<String>) -> Response<R> {
     let mut response = response;
     if let Some(origin) = origin {
-        if let Ok(header) = Header::from_bytes(&b"Access-Control-Allow-Origin"[..], origin.as_bytes()) {
+        if let Ok(header) =
+            Header::from_bytes(&b"Access-Control-Allow-Origin"[..], origin.as_bytes())
+        {
             response = response.with_header(header);
         }
         for (name, value) in [

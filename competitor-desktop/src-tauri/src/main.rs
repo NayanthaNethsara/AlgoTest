@@ -11,14 +11,7 @@ fn main() {
 
     if let Some(port) = app_lib::agent::loopback::running_port() {
         if let Ok(client) = build_loopback_client(std::time::Duration::from_millis(500)) {
-            if app_lib::config::load_enrollment().is_none() {
-                send_loopback_post(&client, &app_lib::loopback_url(port, "/setup"));
-            } else {
-                let config = app_lib::config::load_client();
-                if !config.server_url.is_empty() {
-                    app_lib::agent::windows::open_in_browser(&config.server_url);
-                }
-            }
+            send_loopback_post(&client, &app_lib::loopback_url(port, "/setup"));
         }
         return;
     }
@@ -46,7 +39,9 @@ fn reset() {
     }
 }
 
-fn build_loopback_client(timeout: std::time::Duration) -> Result<reqwest::blocking::Client, reqwest::Error> {
+fn build_loopback_client(
+    timeout: std::time::Duration,
+) -> Result<reqwest::blocking::Client, reqwest::Error> {
     reqwest::blocking::Client::builder()
         .timeout(timeout)
         .build()

@@ -40,7 +40,7 @@ fn scan_vscode_style_dir(editor_label: &str, dir: &Path, detected: &mut Vec<Stri
     };
 
     for entry in entries.flatten() {
-        let Ok(file_type) = entry.file_type() else {
+        let Ok(file_type) = entry.metadata() else {
             continue;
         };
         if !file_type.is_dir() {
@@ -63,7 +63,7 @@ fn scan_jetbrains_dir(editor_label: &str, dir: &Path, detected: &mut Vec<String>
     };
 
     for entry in entries.flatten() {
-        let Ok(file_type) = entry.file_type() else {
+        let Ok(file_type) = entry.metadata() else {
             continue;
         };
         if !file_type.is_dir() {
@@ -71,15 +71,23 @@ fn scan_jetbrains_dir(editor_label: &str, dir: &Path, detected: &mut Vec<String>
         }
 
         let folder_name = entry.file_name().to_string_lossy().to_lowercase();
-        if folder_name.contains("copilot") {
-            detected.push(format!("{}:github.copilot", editor_label));
-        } else if folder_name.contains("tabnine") {
-            detected.push(format!("{}:tabnine", editor_label));
-        } else if folder_name.contains("continue") {
-            detected.push(format!("{}:continue", editor_label));
-        } else if folder_name.contains("codeium") {
-            detected.push(format!("{}:codeium", editor_label));
+        if let Some(plugin) = jetbrains_plugin(&folder_name) {
+            detected.push(format!("{}:{}", editor_label, plugin));
         }
+    }
+}
+
+fn jetbrains_plugin(folder: &str) -> Option<&'static str> {
+    match folder {
+        "github-copilot-intellij" | "github-copilot" | "copilot" => Some("github.copilot"),
+        "tabnine" | "tabnine-intellij" => Some("tabnine"),
+        "continue" | "continue-intellij-extension" => Some("continue"),
+        "codeium" | "codeium-intellij" | "windsurf" => Some("codeium"),
+        "aiassistant" | "ai-assistant" | "llm" | "com.intellij.ml.llm" => {
+            Some("jetbrains.ai-assistant")
+        }
+        "junie" => Some("jetbrains.junie"),
+        _ => None,
     }
 }
 
@@ -99,7 +107,10 @@ pub fn is_extension_match(folder_name: &str, signature: &str) -> bool {
             if let Some(first_char) = after_dash.chars().next() {
                 return first_char.is_ascii_digit()
                     || (first_char == 'v'
-                        && after_dash.chars().nth(1).is_some_and(|c| c.is_ascii_digit()));
+                        && after_dash
+                            .chars()
+                            .nth(1)
+                            .is_some_and(|c| c.is_ascii_digit()));
             }
         }
     }
@@ -114,7 +125,10 @@ fn get_editor_extension_roots() -> Vec<(&'static str, PathBuf)> {
     {
         if let Some(user_profile) = std::env::var_os("USERPROFILE").map(PathBuf::from) {
             roots.push(("vscode", user_profile.join(".vscode/extensions")));
-            roots.push(("vscode-insiders", user_profile.join(".vscode-insiders/extensions")));
+            roots.push((
+                "vscode-insiders",
+                user_profile.join(".vscode-insiders/extensions"),
+            ));
             roots.push(("cursor", user_profile.join(".cursor/extensions")));
             roots.push(("windsurf", user_profile.join(".windsurf/extensions")));
         }
@@ -159,7 +173,10 @@ fn get_editor_extension_roots() -> Vec<(&'static str, PathBuf)> {
             roots.push(("cursor", home.join(".cursor/extensions")));
             roots.push(("windsurf", home.join(".windsurf/extensions")));
 
-            let jetbrains_dir = home.join(".local/share/JetBrains");
+            let data_home = std::env::var_os("XDG_DATA_HOME")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| home.join(".local/share"));
+            let jetbrains_dir = data_home.join("JetBrains");
             if let Ok(entries) = std::fs::read_dir(&jetbrains_dir) {
                 for entry in entries.flatten() {
                     let plugins_dir = entry.path().join("plugins");
@@ -180,16 +197,47 @@ mod tests {
 
     #[test]
     fn matches_versioned_extension_folders() {
-        assert!(is_extension_match("github.copilot-1.250.0", "github.copilot"));
-        assert!(is_extension_match("github.copilot-chat-0.22.2", "github.copilot-chat"));
-        assert!(is_extension_match("continue.continue-0.9.1", "continue.continue"));
-        assert!(is_extension_match("supermaven.supermaven-0.1.0", "supermaven.supermaven"));
+        assert!(is_extension_match(
+            "github.copilot-1.250.0",
+            "github.copilot"
+        ));
+        assert!(is_extension_match(
+            "github.copilot-chat-0.22.2",
+            "github.copilot-chat"
+        ));
+        assert!(is_extension_match(
+            "continue.continue-0.9.1",
+            "continue.continue"
+        ));
+        assert!(is_extension_match(
+            "supermaven.supermaven-0.1.0",
+            "supermaven.supermaven"
+        ));
     }
 
     #[test]
     fn does_not_match_unrelated_prefixes() {
-        assert!(!is_extension_match("github.copilot-chat-0.22.2", "github.copilot"));
-        assert!(!is_extension_match("github.other-tool-1.0.0", "github.copilot"));
+        assert!(!is_extension_match(
+            "github.copilot-chat-0.22.2",
+            "github.copilot"
+        ));
+        assert!(!is_extension_match(
+            "github.other-tool-1.0.0",
+            "github.copilot"
+        ));
         assert!(!is_extension_match("continue-helper", "continue.continue"));
+    }
+
+    #[test]
+    fn jetbrains_inventory_does_not_treat_arbitrary_substrings_as_plugins() {
+        assert_eq!(
+            jetbrains_plugin("aiassistant"),
+            Some("jetbrains.ai-assistant")
+        );
+        assert_eq!(
+            jetbrains_plugin("github-copilot-intellij"),
+            Some("github.copilot")
+        );
+        assert_eq!(jetbrains_plugin("continue-debugger"), None);
     }
 }

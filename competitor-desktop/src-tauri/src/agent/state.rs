@@ -11,11 +11,10 @@ use crate::signals::SignalReport;
 pub const BUFFER_CAPACITY: usize = 240;
 
 /// Matches the server's ONLINE boundary.
-pub const HEALTHY_WINDOW: Duration = Duration::from_secs(45);
+pub const HEALTHY_WINDOW: Duration = Duration::from_secs(20);
 
 /// Measured from when the agent last began trying to report.
 pub const STARTUP_GRACE: Duration = Duration::from_secs(60);
-
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Policy {
@@ -31,22 +30,37 @@ pub struct Policy {
 impl Default for Policy {
     fn default() -> Self {
         Self {
-            heartbeat_seconds: 15,
+            heartbeat_seconds: 10,
             port_probe_seconds: 60,
             keepalive_seconds: 300,
             rules_refresh_seconds: 300,
-            gate_max_stale_seconds: 90,
+            gate_max_stale_seconds: 20,
             process_denylist: vec![
-                "ollama", "lmstudio", "lm studio", "jan", "gpt4all", "llama-server",
-                "llama.cpp", "vllm", "koboldcpp", "localai", "text-generation-webui",
+                "ollama",
+                "lmstudio",
+                "lm studio",
+                "jan",
+                "gpt4all",
+                "llama-server",
+                "llama.cpp",
+                "vllm",
+                "koboldcpp",
+                "localai",
+                "text-generation-webui",
             ]
             .into_iter()
             .map(String::from)
             .collect(),
-            foreground_denylist: vec!["ai.ollama", "com.ollama", "lmstudio", "ai.jan", "com.gpt4all"]
-                .into_iter()
-                .map(String::from)
-                .collect(),
+            foreground_denylist: vec![
+                "ai.ollama",
+                "com.ollama",
+                "lmstudio",
+                "ai.jan",
+                "com.gpt4all",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
         }
     }
 }
@@ -75,6 +89,9 @@ pub struct TickLog {
 }
 
 pub struct AgentState {
+    pub reporting: Mutex<()>,
+    pub signing_out: AtomicBool,
+    pub exit_ready: AtomicBool,
     pub boot_id: Mutex<String>,
     pub started_at: Instant,
     reporting_since: Mutex<Instant>,
@@ -101,6 +118,9 @@ pub struct AgentState {
 impl AgentState {
     pub fn new() -> Self {
         Self {
+            reporting: Mutex::new(()),
+            signing_out: AtomicBool::new(false),
+            exit_ready: AtomicBool::new(false),
             persist_buffer: AtomicBool::new(true),
             boot_id: Mutex::new(uuid::Uuid::new_v4().to_string()),
             started_at: Instant::now(),
@@ -169,11 +189,18 @@ impl AgentState {
     }
 
     pub fn server_url(&self) -> String {
-        self.client.lock().map(|c| c.server_url.clone()).unwrap_or_default()
+        self.client
+            .lock()
+            .map(|c| c.server_url.clone())
+            .unwrap_or_default()
     }
 
     pub fn portal_origins(&self) -> String {
-        let configured = self.client.lock().map(|c| c.portal_origins.clone()).unwrap_or_default();
+        let configured = self
+            .client
+            .lock()
+            .map(|c| c.portal_origins.clone())
+            .unwrap_or_default();
         if configured.trim().is_empty() {
             crate::config::DEFAULT_PORTAL_ORIGINS.to_string()
         } else {
@@ -182,7 +209,11 @@ impl AgentState {
     }
 
     pub fn token(&self) -> Option<String> {
-        self.enrollment.lock().ok()?.as_ref().map(|e| e.agent_token.clone())
+        self.enrollment
+            .lock()
+            .ok()?
+            .as_ref()
+            .map(|e| e.agent_token.clone())
     }
 
     pub fn is_enrolled(&self) -> bool {
@@ -224,6 +255,12 @@ impl AgentState {
     }
 
     pub fn healthy(&self) -> bool {
+        if self.stopping.load(Ordering::Relaxed)
+            || self.signing_out.load(Ordering::Relaxed)
+            || !self.is_enrolled()
+        {
+            return false;
+        }
         self.last_ack
             .lock()
             .ok()
@@ -233,7 +270,11 @@ impl AgentState {
     }
 
     pub fn seconds_since_ack(&self) -> Option<u64> {
-        self.last_ack.lock().ok().and_then(|a| *a).map(|ack| ack.elapsed().as_secs())
+        self.last_ack
+            .lock()
+            .ok()
+            .and_then(|a| *a)
+            .map(|ack| ack.elapsed().as_secs())
     }
 
     pub fn on_ack(&self) {
@@ -261,7 +302,10 @@ impl AgentState {
     }
 
     pub fn nonce(&self) -> String {
-        self.published_nonce.lock().map(|n| n.clone()).unwrap_or_default()
+        self.published_nonce
+            .lock()
+            .map(|n| n.clone())
+            .unwrap_or_default()
     }
 
     pub fn buffer_push(&self, hb: Heartbeat) {
@@ -327,11 +371,17 @@ impl AgentState {
     }
 
     pub fn history(&self) -> Vec<TickLog> {
-        self.history.lock().map(|h| h.iter().cloned().collect()).unwrap_or_default()
+        self.history
+            .lock()
+            .map(|h| h.iter().cloned().collect())
+            .unwrap_or_default()
     }
 
     pub fn last_signals(&self) -> SignalReport {
-        self.last_signals.lock().map(|s| s.clone()).unwrap_or_default()
+        self.last_signals
+            .lock()
+            .map(|s| s.clone())
+            .unwrap_or_default()
     }
 
     pub fn set_last_signals(&self, report: SignalReport) {
@@ -356,14 +406,19 @@ impl AgentState {
             .lock()
             .ok()
             .and_then(|slot| {
-                slot.as_ref().map(|e| (e.username.clone(), e.machine_id.clone()))
+                slot.as_ref()
+                    .map(|e| (e.username.clone(), e.machine_id.clone()))
             })
             .unwrap_or_else(|| ("unenrolled".to_string(), String::new()));
         super::identity::support_code(&username, &machine, &self.boot_id())
     }
 
     pub fn status_label(&self) -> &'static str {
-        if !self.is_enrolled() {
+        if self.stopping.load(Ordering::Relaxed) {
+            "Stopping proctoring"
+        } else if self.signing_out.load(Ordering::Relaxed) {
+            "Signing out"
+        } else if !self.is_enrolled() {
             "Not enrolled"
         } else if self.revoked.load(Ordering::Relaxed) {
             "Enrollment revoked"
@@ -449,6 +504,27 @@ pub fn dwell_summary(dwell: &HashMap<String, u64>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stopping_invalidates_a_recent_acknowledgment() {
+        let state = AgentState::ephemeral();
+        *state.enrollment.lock().unwrap() = Some(Enrollment {
+            agent_id: String::new(),
+            agent_token: String::new(),
+            user_id: String::new(),
+            username: String::new(),
+            display_name: String::new(),
+            machine_id: String::new(),
+            consent_version: String::new(),
+        });
+        state.on_ack();
+        assert!(state.healthy());
+        state.signing_out.store(true, Ordering::Relaxed);
+        assert!(!state.healthy());
+        state.signing_out.store(false, Ordering::Relaxed);
+        state.stopping.store(true, Ordering::Relaxed);
+        assert!(!state.healthy());
+    }
 
     #[test]
     fn formats_epoch_as_iso8601() {

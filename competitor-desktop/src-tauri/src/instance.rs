@@ -21,7 +21,10 @@ pub fn acquire_process_lock(name: &str) -> Option<InstanceLock> {
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
     use windows_sys::Win32::System::Threading::CreateMutexW;
 
-    let wide_name: Vec<u16> = OsStr::new(name).encode_wide().chain(std::iter::once(0)).collect();
+    let wide_name: Vec<u16> = OsStr::new(name)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
     unsafe {
         let handle = CreateMutexW(std::ptr::null(), 1, wide_name.as_ptr());
         if handle.is_null() || GetLastError() == ERROR_ALREADY_EXISTS {
@@ -35,9 +38,24 @@ pub fn acquire_process_lock(name: &str) -> Option<InstanceLock> {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub struct InstanceLock;
+pub struct InstanceLock {
+    _file: std::fs::File,
+}
 
 #[cfg(not(target_os = "windows"))]
 pub fn acquire_process_lock(_name: &str) -> Option<InstanceLock> {
-    Some(InstanceLock)
+    use std::os::fd::AsRawFd;
+    let dir = crate::config::config_dir()?;
+    std::fs::create_dir_all(&dir).ok()?;
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(dir.join("instance.lock"))
+        .ok()?;
+    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+        return None;
+    }
+    Some(InstanceLock { _file: file })
 }

@@ -38,7 +38,7 @@ proctoring is unaffected, which is precisely the property the requirement asks f
 One binary, two modes selected by argv — one artifact to build, sign, and install:
 
 ```
-mini-algothon-competitor --agent     # headless proctor + tray + loopback API. Autostarts at login.
+mini-algothon-competitor --agent     # headless proctor + tray + loopback API. No autostart at login — see §6.
 mini-algothon-competitor             # contest shell: webview → portal. Spawns --agent if absent.
 ```
 
@@ -239,9 +239,15 @@ an organizer trusts and 300 findings they learn to ignore.
 
 ## 6. Lifecycle
 
-- **Autostart** via `tauri-plugin-autostart`, user-level only: HKCU `Run` (Windows),
-  `~/Library/LaunchAgents` (macOS), `~/.config/autostart` (Linux). Survives the mid-contest reboot.
-  Contest-morning ritual is still "open the app" — autostart is recovery, not the primary path.
+- **No autostart at login.** This was proposed (`tauri-plugin-autostart`, user-level: HKCU `Run` /
+  `~/Library/LaunchAgents` / `~/.config/autostart`) but the decision is to **not** register any
+  OS-level login item. The agent only runs when a contestant explicitly launches it. A reboot
+  mid-contest therefore leaves the contestant locked out of submissions until they relaunch the app
+  themselves — see the updated "Laptop reboots" row in [§10](#10-failure-matrix--what-web-as-backup-actually-covers)
+  and the corrected privacy note in [§11](#11-privacy-delta--the-consent-text-must-change). The only
+  code that touches this today is `clear_autostart_entry`
+  ([config.rs](../competitor-desktop/src-tauri/src/config.rs)), which removes a legacy login item if
+  one exists from an older build — it never creates one.
 - **Single instance** on both modes (`tauri-plugin-single-instance`). Two agents means two `seq`
   streams and a permanent `seq` regression finding.
 - **Closing the contest window hides it to tray**, with a one-time toast: *"Proctoring is still
@@ -474,7 +480,7 @@ bypass, `competitor-desktop/src-tauri/server/` (stale bundled Node + Next artifa
 | Agent crashes | new `boot_id`, no shutdown | Red banner in shell/browser + *Restart proctoring* | locked until it returns (≤15s) | low-weight finding |
 | Agent killed via Task Manager | gap, no shutdown | Locked banner | locked | review the gap |
 | Contestant stops proctoring from tray | clean shutdown | Explicit confirm dialog | locked, by their choice | none |
-| Laptop reboots | new `boot_id` after autostart | Back to green | locked for the reboot window | none |
+| Laptop reboots | *(no autostart — see §6)* | Locked, no green | **locked until the contestant manually relaunches the app** | none |
 | LAN blip / nginx reload | many agents gap at once | Amber pill, agent buffers | ≤90s allowed; then locked | suppressed as infrastructure |
 | Server down | heartbeats fail | Amber pill, buffer fills | locked while down | fix the server; buffer replays |
 | `agent.json` lost / wiped | no agent for that user | Setup window on next launch | locked until re-enrolled | re-enroll, 60s |

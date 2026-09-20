@@ -22,6 +22,9 @@
 
     <div class="card">
       <dl class="grid" id="agent-facts"></dl>
+      <p style="color: var(--fg-muted); font-size: 11px; margin-top: 12px;">
+        An installed AI extension does not prove it is enabled or being used.
+      </p>
     </div>
 
     <details class="disclosure-drawer">
@@ -42,12 +45,12 @@
       <button id="open" type="button">Open Contest Portal</button>
       <button id="ping" type="button" class="secondary">Reconnect Now</button>
       <button id="copy" type="button" class="secondary">Copy Diagnostics</button>
-      <button id="reset" type="button" class="secondary">Re-enrol Machine</button>
+      <button id="reset" type="button" class="secondary">Sign Out</button>
     </div>
 
     <div class="footer-bar">
       <span id="last-refreshed">Updated just now</span>
-      <span>Closing this window keeps proctoring active in the tray.</span>
+      <span>Keep this window open while competing. Closing signs you out, clears local app data, and locks submissions.</span>
       <span id="network-pill" class="pill ok" style="padding: 2px 8px; font-size: 10px;">Network Online</span>
     </div>
 
@@ -116,6 +119,8 @@
             ["Reports Sent", `#${d.seq ?? 0}`],
             ["Local AI Ports", localAi],
             ["Matched Processes", matchedProc],
+            ["Focused Application", d.foreground_app || "Not available"],
+            ["Installed AI Extensions", (d.installed_ai_extensions || []).join(", ") || "None detected"],
             ["Foreground Monitoring", d.foreground_monitoring ? "Available" : "Unavailable on this platform"],
           ]);
 
@@ -232,6 +237,7 @@
           await invoke("reset_enrollment");
         } catch (err) {
           showActionError("Could not reset enrollment", err);
+        } finally {
           btn.disabled = false;
         }
       });

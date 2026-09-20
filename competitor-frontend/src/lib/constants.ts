@@ -10,7 +10,7 @@ export const CONTEST_STATUS = {
   ENDED: "ENDED",
 } as const;
 
-export const POLL_HEALTHY_MS = 15_000;
+export const POLL_HEALTHY_MS = 10_000;
 export const POLL_DEGRADED_MS = 5_000;
 export const LEADERBOARD_POLL_INTERVAL_MS = 10_000;
 export const PROBE_TIMEOUT_MS = 1500;
@@ -108,4 +108,3 @@ export const LEADERBOARD_SORT_OPTIONS = [
   { value: "SOLVED_DESC", label: "Solved: most to least" },
   { value: "NAME_ASC", label: "Team: A to Z" },
 ] as const;
-

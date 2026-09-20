@@ -24,14 +24,7 @@ fn main() {
             .timeout(std::time::Duration::from_millis(500))
             .build()
         {
-            if app_lib::config::load_enrollment().is_none() {
-                let _ = client.post(app_lib::loopback_url(port, "/setup")).send();
-            } else {
-                let config = app_lib::config::load_client();
-                if !config.server_url.is_empty() {
-                    app_lib::agent::windows::open_in_browser(&config.server_url);
-                }
-            }
+            let _ = client.post(app_lib::loopback_url(port, "/setup")).send();
         }
         return;
     }

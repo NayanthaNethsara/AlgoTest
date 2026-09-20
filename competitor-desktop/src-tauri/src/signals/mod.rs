@@ -1,4 +1,5 @@
 pub mod dwell;
+pub mod applications;
 pub mod extensions;
 pub mod foreground;
 pub mod network;
