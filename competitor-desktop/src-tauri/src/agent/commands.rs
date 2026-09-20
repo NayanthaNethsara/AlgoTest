@@ -186,7 +186,7 @@ pub fn get_diagnostics(state: State<'_, Arc<AgentState>>) -> Diagnostics {
         healthy: state.healthy(),
         seconds_since_ack: state.seconds_since_ack(),
         buffered_heartbeats: state.buffer_len(),
-        shell_alive: state.shell_alive(),
+        shell_alive: false,
         last_error: state.last_error.lock().ok().and_then(|e| e.clone()),
         internet_reachable: signals.internet_reachable,
         inference_ports: signals
