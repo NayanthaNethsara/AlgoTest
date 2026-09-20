@@ -157,6 +157,8 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
       return remaining;
     });
     setLastResult(parsed);
+    // Update server-rendered challenge scores for both SSE and polling results.
+    router.refresh();
     const accepted = parsed.verdict === "AC";
     const partial = !accepted && parsed.score > 0;
     const label = parsed.verdict
@@ -172,7 +174,7 @@ export function SubmissionsProvider({ children }: { children: ReactNode }) {
         : parsed.compileError ?? summarizeSubtasks(parsed.subtasks) ?? `Verdict: ${label}`,
       variant: accepted ? "success" : partial ? "info" : "error",
     });
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (locked) return;

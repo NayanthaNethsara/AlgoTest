@@ -14,10 +14,10 @@ export const FALLBACKS: {
 }[] = [
   {
     key: "webOnly",
-    label: "Browser Only (No Proctor Agent)",
+    label: "Browser Only (Proctor Optional)",
     badge: "BROWSER ONLY",
     className: "bg-rose-500/10 text-rose-400 border-rose-500/30",
-    cost: "Exemption: Allows scored submissions directly from a browser without requiring any running proctor agent on the contestant machine.",
+    cost: "Allows scored submissions without local agent verification. A running, enrolled proctor continues reporting monitoring data.",
     reasonHint: "Proctor client cannot be installed on this machine (e.g. locked Chromebook)",
   },
 ];

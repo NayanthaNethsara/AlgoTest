@@ -84,7 +84,7 @@ var (
 	submissionLimiter       = NewLimiterStore(rate.Every(6*time.Second), 10)         // 10 req/min/user
 	submissionStatusLimiter = NewLimiterStore(rate.Every(1*time.Second), 60)         // 60 req/min/user
 	adminLimiter            = NewLimiterStore(rate.Every(500*time.Millisecond), 120) // 120 req/min/admin
-	readLimiter             = NewLimiterStore(rate.Every(500*time.Millisecond), 90)  // 120 req/min/user
+	readLimiter             = NewLimiterStore(rate.Every(250*time.Millisecond), 180) // 240 req/min/user; shared by page reads
 	streamLimiter           = NewLimiterStore(rate.Every(2*time.Second), 25)         // 30 opens/min/user, burst 25
 	healthLimiter           = NewLimiterStore(rate.Every(200*time.Millisecond), 60)  // 300 req/min/peer
 	enrollIPLimiter         = NewLimiterStore(rate.Every(200*time.Millisecond), 300) // 300 req/min/peer

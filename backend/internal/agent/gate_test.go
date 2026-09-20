@@ -25,6 +25,15 @@ func TestDecide(t *testing.T) {
 		wantFindings []string
 	}{
 		{
+			name: "web only grant bypasses attestation even with a live agent",
+			in: GateInput{HasAgent: true, LastSeenAt: &fresh, RequireAttest: true,
+				Grant: AccessGrant{WebOnly: true}},
+			wantAllowed:  true,
+			wantClient:   ClientBrowser,
+			wantMode:     ModeWebOnly,
+			wantFindings: []string{"tel.web_only_grant"},
+		},
+		{
 			name:         "desktop shell with fresh attested agent passes clean",
 			in:           desktop,
 			wantAllowed:  true,
@@ -170,17 +179,14 @@ func TestDecide(t *testing.T) {
 			wantFindings: []string{"tel.exempt"},
 		},
 		{
-			// The flags are independent, so this really does refuse the browser while
-			// permitting the same person to submit with no agent at all. Perverse, and
-			// enforced exactly as configured — the console is where it gets questioned.
-			name: "a web-only grant permits browser submissions with live agent as standard",
+			name: "a web-only grant remains effective with a verified live agent",
 			in: GateInput{HasAgent: true, LastSeenAt: &fresh, ShellAlive: false, AttestOK: true,
 				Grant: AccessGrant{WebOnly: true}, AccessReason: "machine cannot run the client"},
 			wantAllowed:  true,
 			wantCode:     "",
 			wantClient:   ClientBrowser,
-			wantMode:     ModeWebWithAgent,
-			wantFindings: []string{"tel.web_client"},
+			wantMode:     ModeWebOnly,
+			wantFindings: []string{"tel.web_only_grant"},
 		},
 	}
 

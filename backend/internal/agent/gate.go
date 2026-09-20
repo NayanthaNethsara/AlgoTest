@@ -121,10 +121,12 @@ const ShellGraceSeconds = GateMaxStaleSeconds
 // process on that machine. That pairing is what stops the marker — a cookie the
 // contestant's own browser can be made to send — from being an authorization: to
 // forge DESKTOP you must actually be running the desktop client, which means the
-// proctor is watching you anyway. WEB_ONLY cannot be forged in either direction,
-// because it is the absence of agent reports rather than any client's assertion.
+// proctor is watching you anyway. An organizer's WEB_ONLY grant takes precedence:
+// agent telemetry may continue, but it is not a prerequisite for access.
 func resolveMode(in GateInput, agentLive bool, now time.Time) AccessMode {
 	switch {
+	case in.Grant.Allows(ModeWebOnly):
+		return ModeWebOnly
 	case !agentLive:
 		return ModeWebOnly
 	case in.ClaimsDesktop && shellPresent(in, now):
@@ -179,9 +181,8 @@ func Decide(in GateInput, now time.Time) Decision {
 		return d
 	}
 
-	// No live agent. Allowed only where an organizer granted this mode explicitly —
-	// for everyone else this is the pre-existing lockout, reported with the code that
-	// names the condition they can actually fix.
+	// An explicit web-only grant makes agent liveness and attestation optional.
+	// Without that grant, a missing live agent remains a lockout.
 	if d.AccessMode == ModeWebOnly {
 		if grant.Allows(ModeWebOnly) {
 			d.Allowed = true

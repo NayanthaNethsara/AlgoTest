@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { ChallengeCard } from "@/components/challenges/challenge-card";
 import { ContestWaitingRoom } from "@/components/challenges/contest-waiting-room";
 import { useContest } from "@/components/portal/contest-provider";
@@ -19,6 +21,7 @@ import {
   Grid,
   List,
   Search,
+  RotateCw,
   SlidersHorizontal,
   X,
   Zap,
@@ -33,6 +36,9 @@ export function ChallengesListClient({
   progress: Record<string, ChallengeProgress>;
 }) {
   const { state: contestState } = useContest();
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  const lastRefresh = useRef(0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [difficultyFilter, setDifficultyFilter] = useState<string>("ALL");
@@ -130,6 +136,14 @@ export function ChallengesListClient({
           </p>
         </div>
 
+        <Button variant="outline" size="sm" disabled={refreshing} onClick={() => {
+          if (Date.now() - lastRefresh.current < 3000) return;
+          lastRefresh.current = Date.now();
+          startRefresh(() => router.refresh());
+        }}>
+          <RotateCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing…" : "Refresh progress"}
+        </Button>
         {problems.length > 0 && (
           <div className="flex items-center gap-3 pixel-flat bg-card px-3 py-1.5 shrink-0 text-xs">
             <Zap className="h-4 w-4 text-amber-400" />
