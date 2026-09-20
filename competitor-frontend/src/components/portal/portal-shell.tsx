@@ -9,6 +9,7 @@ import { ContestProvider } from "@/components/portal/contest-provider";
 import { ProctorProvider } from "@/components/portal/proctor-provider";
 import { ProctorLockBanner } from "@/components/portal/proctor-status";
 import { useContest } from "@/components/portal/contest-provider";
+import { useProctor } from "@/components/portal/proctor-provider";
 import {
   SubmissionsProvider,
   useSubmissions,
@@ -34,7 +35,7 @@ export function PortalShell({
     <ContestProvider initialState={initialContest}>
       <ProctorProvider initialProctor={initialProctor}>
         <SubmissionsProvider>
-          <div className="flex h-dvh min-w-[620px] min-h-[380px] flex-col overflow-hidden overscroll-none">
+          <div className="flex h-dvh min-w-0 min-h-[380px] flex-col overflow-hidden overscroll-none">
             <TopNav user={user} />
             <NetworkStatusBanner />
             <ContestPhaseBanner />
@@ -70,23 +71,24 @@ function getServerOnlineSnapshot(): boolean {
 }
 
 function NetworkStatusBanner() {
+  const { resolved, serverReachable } = useProctor();
   const isOnline = React.useSyncExternalStore(
     subscribeOnline,
     getOnlineSnapshot,
     getServerOnlineSnapshot,
   );
-  const isOffline = !isOnline;
+  const isOffline = !isOnline || (resolved && !serverReachable);
   const [showRestored, setShowRestored] = useState(false);
   const wasOfflineRef = React.useRef(false);
 
   useEffect(() => {
-    if (wasOfflineRef.current && isOnline) {
+    if (wasOfflineRef.current && !isOffline) {
       setShowRestored(true);
       const timer = setTimeout(() => setShowRestored(false), 4000);
       return () => clearTimeout(timer);
     }
-    wasOfflineRef.current = !isOnline;
-  }, [isOnline]);
+    wasOfflineRef.current = isOffline;
+  }, [isOffline]);
 
   if (isOffline) {
     return (
@@ -96,7 +98,9 @@ function NetworkStatusBanner() {
       >
         <div className="flex items-center gap-2">
           <WifiOff className="h-4 w-4 shrink-0 animate-pulse" />
-          <span className="font-semibold">Network Connection Lost.</span>
+          <span className="font-semibold">
+            {isOnline ? "Contest Server Unreachable." : "Network Connection Lost."}
+          </span>
           <span className="text-muted-foreground hidden sm:inline">
             Reconnecting to the contest server...
           </span>

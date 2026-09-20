@@ -91,10 +91,12 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
   );
 
   const [hasExitedFullscreen, setHasExitedFullscreen] = useState(false);
+  const [fullscreenError, setFullscreenError] = useState<string | null>(null);
   const lastInfractionReportTimeRef = useRef<number>(0);
 
   const enterFullscreenMode = useCallback(async () => {
     try {
+      setFullscreenError(null);
       const doc = document.documentElement as VendorHtmlElement;
       if (doc.requestFullscreen) {
         await doc.requestFullscreen();
@@ -104,6 +106,11 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
         await doc.mozRequestFullScreen();
       } else if (doc.msRequestFullscreen) {
         await doc.msRequestFullscreen();
+      } else {
+        setFullscreenError(
+          "This browser does not support fullscreen mode. Use a current version of Chrome, Edge, Firefox, or Safari.",
+        );
+        return;
       }
 
       const vendorNav = typeof navigator !== "undefined" ? (navigator as VendorNavigator) : null;
@@ -135,7 +142,11 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
       }
 
       setHasExitedFullscreen(false);
-    } catch {}
+    } catch {
+      setFullscreenError(
+        "Fullscreen could not start. Allow fullscreen access in your browser and try again.",
+      );
+    }
   }, []);
 
   const reportViolationTelemetry = useCallback(
@@ -306,6 +317,12 @@ export function BrowserLockdownScreen({ user }: { user: SessionUser | null }) {
               ? "You have exited full screen mode. To continue viewing and solving contest challenges, you must immediately return to full screen."
               : "To ensure competition fairness and prevent external tool usage, this contest portal must remain in Full Screen mode."}
           </p>
+
+          {fullscreenError && (
+            <p role="alert" className="pixel-flat bg-destructive/10 p-3 text-destructive">
+              {fullscreenError}
+            </p>
+          )}
 
           <ul className="flex flex-col gap-2.5 bg-muted/40 p-4 pixel-flat text-xs font-medium text-foreground">
             <li className="flex items-center gap-2">

@@ -11,10 +11,23 @@ function storageKey(problemId: string) {
   return `${HISTORY_STORAGE_PREFIX}${problemId}`;
 }
 
-function loadSnapshots(problemId: string): Snapshot[] {
+export function loadSnapshots(problemId: string): Snapshot[] {
   if (typeof window === "undefined") return [];
-  const raw = localStorage.getItem(storageKey(problemId));
-  return raw ? (JSON.parse(raw) as Snapshot[]) : [];
+  try {
+    const raw = localStorage.getItem(storageKey(problemId));
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? (parsed as Snapshot[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSnapshots(problemId: string, snapshots: Snapshot[]): void {
+  try {
+    localStorage.setItem(storageKey(problemId), JSON.stringify(snapshots));
+  } catch {
+    return;
+  }
 }
 
 function generateSnapshotId(): string {
@@ -101,7 +114,7 @@ export function useHistory(problemId: string) {
         setSnapshots((current) => {
           const merged = mergeServerSubmissions(current, serverSubmissions);
           if (merged !== current && typeof window !== "undefined") {
-            localStorage.setItem(storageKey(problemId), JSON.stringify(merged));
+            saveSnapshots(problemId, merged);
           }
           return merged;
         });
@@ -142,10 +155,7 @@ export function useHistory(problemId: string) {
               score: extra.score ?? updated[idx].score,
               maxScore: extra.maxScore ?? updated[idx].maxScore,
             };
-            localStorage.setItem(
-              storageKey(problemId),
-              JSON.stringify(updated),
-            );
+            saveSnapshots(problemId, updated);
             return updated;
           }
         }
@@ -179,7 +189,7 @@ export function useHistory(problemId: string) {
           submissionId: extra?.submissionId,
         };
         const next = [snapshot, ...current].slice(0, MAX_HISTORY_SNAPSHOTS);
-        localStorage.setItem(storageKey(problemId), JSON.stringify(next));
+        saveSnapshots(problemId, next);
         return next;
       });
     },

@@ -227,7 +227,7 @@ export function ProctorPill() {
               <span className="flex items-center gap-1">
                 <Radio className="h-3 w-3 text-primary" /> Heartbeat Rate:
               </span>
-              <span className="font-mono text-foreground font-semibold">Every 15s</span>
+              <span className="font-mono text-foreground font-semibold">Every 10s</span>
             </div>
             <div className="flex items-center justify-between text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -242,7 +242,7 @@ export function ProctorPill() {
                 <Terminal className="h-3 w-3 text-primary" /> Agent Version:
               </span>
               <span className="font-mono text-foreground">
-                {local?.agent_version ? `v${local.agent_version}` : "v0.2.0"}
+                {local?.agent_version ? `v${local.agent_version}` : "Unknown"}
               </span>
             </div>
             {local?.loopback_port && (

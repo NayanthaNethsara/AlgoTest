@@ -89,33 +89,50 @@ export function ProctorProvider({
   }, [locked, router]);
 
   const lastTickTime = useRef<number>(0);
+  const refreshInFlight = useRef(false);
+  const pollDelay = useRef(POLL_HEALTHY_MS);
+  const pollWhileHidden = useRef(false);
+  useEffect(() => {
+    pollDelay.current = degraded ? POLL_DEGRADED_MS : POLL_HEALTHY_MS;
+    pollWhileHidden.current = degraded;
+  }, [degraded]);
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
     const tick = async (exhaustive = false) => {
-      if (cancelled) return;
+      if (cancelled || refreshInFlight.current) return;
+      if (
+        typeof document !== "undefined" &&
+        document.hidden &&
+        !pollWhileHidden.current
+      ) {
+        timer = setTimeout(() => void tick(), pollDelay.current);
+        return;
+      }
+      refreshInFlight.current = true;
       lastTickTime.current = Date.now();
-      await refresh(exhaustive);
+      try {
+        await refresh(exhaustive);
+      } finally {
+        refreshInFlight.current = false;
+        if (!cancelled) {
+          timer = setTimeout(() => void tick(), pollDelay.current);
+        }
+      }
     };
 
     const handleVisibilityChange = () => {
       if (typeof document !== "undefined" && !document.hidden && !cancelled) {
         if (Date.now() - lastTickTime.current >= 3000) {
+          if (timer) clearTimeout(timer);
           void tick(true);
         }
       }
     };
 
     void tick(true);
-    const timer = setInterval(
-      () => {
-        if (typeof document === "undefined" || !document.hidden || degraded) {
-          void tick();
-        }
-      },
-      degraded ? POLL_DEGRADED_MS : POLL_HEALTHY_MS,
-    );
 
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -123,7 +140,7 @@ export function ProctorProvider({
 
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      if (timer) clearTimeout(timer);
       if (typeof document !== "undefined") {
         document.removeEventListener(
           "visibilitychange",
@@ -131,7 +148,7 @@ export function ProctorProvider({
         );
       }
     };
-  }, [refresh, degraded]);
+  }, [refresh]);
 
   return (
     <ProctorContext.Provider value={state}>{children}</ProctorContext.Provider>

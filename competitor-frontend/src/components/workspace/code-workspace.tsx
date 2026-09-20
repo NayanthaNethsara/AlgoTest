@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/resizable";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useHistory } from "@/hooks/use-history";
+import { loadSnapshots, useHistory } from "@/hooks/use-history";
 import { BEST_SCORE_STORAGE_PREFIX } from "@/lib/constants";
 import { getLanguage, LANGUAGE_OPTIONS, LANGUAGES } from "@/lib/languages";
 import type { Language, RunResult, SubmitResult } from "@/types/code";
@@ -28,11 +28,33 @@ const isRunFeatureEnabled =
   process.env.NEXT_PUBLIC_ENABLE_RUN !== "false" &&
   process.env.NEXT_PUBLIC_DISABLE_RUN !== "true";
 
+function readStoredBest(key: string): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    return Number(localStorage.getItem(key) ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
 export function CodeWorkspace({ problem }: { problem: Problem }) {
   const { isNotStarted, isPaused, isEnded } = useContest();
   const [language, setLanguage] = useState<Language>(LANGUAGES[0]);
   const [code, setCode] = useState(LANGUAGES[0].starter);
   const [stdin, setStdin] = useState(problem.samples[0]?.input ?? "");
+  const hasEdited = useRef(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (hasEdited.current) return;
+      const draft = loadSnapshots(problem.id)[0];
+      if (!draft) return;
+      const draftLanguage = getLanguage(draft.language) ?? LANGUAGES[0];
+      setLanguage(draftLanguage);
+      setCode(draft.code);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [problem.id]);
 
   const [runResult, setRunResult] = useState<RunResult | null>(null);
   const [running, setRunning] = useState(false);
@@ -50,10 +72,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
 
   const { snapshots, record } = useHistory(problem.id);
   const bestKey = `${BEST_SCORE_STORAGE_PREFIX}${problem.id}`;
-  const storedBest =
-    typeof window === "undefined"
-      ? 0
-      : Number(localStorage.getItem(bestKey) ?? 0);
+  const storedBest = useRef(readStoredBest(bestKey));
 
   const isCurrentProblemSubmitting =
     submitting || activeSubmission?.problemId === problem.id;
@@ -62,8 +81,6 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     lastResult && lastResult.problemId === problem.id
       ? lastResult
       : submitResult;
-
-  const best = Math.max(storedBest, activeResult?.score ?? 0);
 
   const firstRender = useRef(true);
   useEffect(() => {
@@ -90,8 +107,11 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     if (recordedResult.current === resultVersion) return;
     recordedResult.current = resultVersion;
 
-    if (activeResult.score > storedBest) {
-      localStorage.setItem(bestKey, String(activeResult.score));
+    if (activeResult.score > storedBest.current) {
+      storedBest.current = activeResult.score;
+      try {
+        localStorage.setItem(bestKey, String(activeResult.score));
+      } catch {}
     }
     record("submitted", language.id, code, {
       submissionId: id,
@@ -99,7 +119,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
       score: activeResult.score,
       maxScore: activeResult.maxScore,
     });
-  }, [activeResult, storedBest, bestKey, language.id, code, record]);
+  }, [activeResult, bestKey, language.id, code, record]);
 
   const [runCooldown, setRunCooldown] = useState(0);
   const [submitCooldown, setSubmitCooldown] = useState(0);
@@ -122,8 +142,17 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
 
   function handleLanguageChange(id: string | null) {
     const next = LANGUAGES.find((lang) => lang.id === id) ?? LANGUAGES[0];
+    record("autosave", language.id, code);
+    const savedDraft = snapshots.find(
+      (snapshot) => snapshot.language === next.id,
+    );
     setLanguage(next);
-    setCode(next.starter);
+    setCode(savedDraft?.code ?? next.starter);
+  }
+
+  function handleCodeChange(next: string) {
+    hasEdited.current = true;
+    setCode(next);
   }
 
   async function handleRun() {
@@ -152,7 +181,17 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
     setSubmitting(true);
     setSubmitResult(null);
     try {
-      const res = await submitFast(problem.id, code, best, language.id, editorTelemetry);
+      const previousBest = Math.max(
+        storedBest.current,
+        activeResult?.score ?? 0,
+      );
+      const res = await submitFast(
+        problem.id,
+        code,
+        previousBest,
+        language.id,
+        editorTelemetry,
+      );
       setSubmitResult(res);
       setSubmitCooldown(3);
       if (res.submissionId) {
@@ -231,7 +270,7 @@ export function CodeWorkspace({ problem }: { problem: Problem }) {
             <CodeEditor
               language={language.monaco}
               value={code}
-              onChange={setCode}
+              onChange={handleCodeChange}
               onTelemetryChange={setEditorTelemetry}
             />
           </div>
