@@ -35,7 +35,10 @@ const ProctorContext = createContext<ProctorState>(INITIAL_PROCTOR_STATE);
 
 function seed(self: ProctorSelfStatus | null): ProctorState {
   if (!self) return INITIAL_PROCTOR_STATE;
-  const state = { ...resolve(self, null), resolved: true };
+  const localProofRequired =
+    !self.exempt &&
+    !(self.allowed && self.allowed_modes?.includes("WEB_ONLY"));
+  const state = { ...resolve(self, null), resolved: !localProofRequired };
   if (state.code === "AGENT_MISSING") {
     state.remedy = self.remedy ?? state.remedy;
   }
@@ -222,6 +225,16 @@ function resolve(
 
   if (!serverReachable) {
     return { ...base, submissionsAllowed: true };
+  }
+
+  if (!local && self.allowed && self.access_mode !== "WEB_ONLY") {
+    return {
+      ...base,
+      submissionsAllowed: false,
+      code: "NOT_ATTESTED",
+      remedy:
+        "This browser cannot verify the proctor client on the same computer. Open the contestant window from the proctor client, or start the client on this machine.",
+    };
   }
 
   if (!local && !self.allowed && self.code === "AGENT_MISSING") {

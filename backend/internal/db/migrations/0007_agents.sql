@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS contest_settings (
 );
 
 INSERT INTO contest_settings (key, value) VALUES
-    ('require_agent_attest', 'false')
+    ('require_agent_attest', 'true')
 ON CONFLICT (key) DO NOTHING;
 
 -- +goose Down
