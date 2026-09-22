@@ -1,6 +1,6 @@
-# Algothon Admin Management Portal
+# Labyrithm Admin Management Portal
 
-The Algothon Admin Portal is a specialized Next.js 15 web application designed for contest organizers, system administrators, and problem authors. It provides real-time contest orchestration, problem authored management, user and team administration, submission reviews, live proctoring telemetry monitoring, and immutable audit log exploration.
+The Labyrithm Admin Portal is a specialized Next.js 15 web application for platform operators, educators, assessment authors, and contest organizers. It provides real-time session orchestration, problem authoring, user and team administration, submission review, live proctoring telemetry monitoring, and immutable audit-log exploration.
 
 ---
 

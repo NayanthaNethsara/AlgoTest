@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import {
   ActivityIcon,
   FileCode2Icon,
@@ -95,7 +96,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
           href="/"
           className="flex shrink-0 items-center gap-2 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <span className="text-sm font-bold tracking-tight">Algothon</span>
+          <span className="text-sm font-bold tracking-tight">{PRODUCT_NAME}</span>
           <Badge
             variant="outline"
             className="border-primary/25 bg-primary/10 text-[10px] font-semibold tracking-wider text-primary uppercase"
@@ -155,7 +156,7 @@ export function AdminNavbar({ user, onRefresh }: { user: User; onRefresh?: () =>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="hidden max-w-[180px] gap-2 pl-1 lg:inline-flex"
+                  className="hidden max-w-45 gap-2 pl-1 lg:inline-flex"
                   aria-label="Account menu"
                 />
               }

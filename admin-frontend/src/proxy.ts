@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ADMIN_SESSION_COOKIE } from "@mini-algothon/auth";
+import { ADMIN_SESSION_COOKIE } from "@labyrithm/auth";
 
 export function proxy(request: NextRequest) {
   const session = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;

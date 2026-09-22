@@ -112,7 +112,7 @@ export function ContestSettingsDialog({
                 id="contest-title"
                 value={form.title}
                 onChange={(e) => update("title", e.target.value)}
-                placeholder="Algothon 2026 Finals"
+                placeholder="e.g. University Algorithms Lab"
                 className="text-xs"
               />
             </Field>
@@ -159,8 +159,8 @@ export function ContestSettingsDialog({
               <FieldLabel htmlFor="download-enabled" className="flex-col items-start gap-0.5">
                 <FieldTitle>Desktop client download page</FieldTitle>
                 <FieldDescription>
-                  Turns the public /download page and installers off — links
-                  to it show a disabled notice instead.
+                  Turns the public /download page and installers off — links to it show a disabled
+                  notice instead.
                 </FieldDescription>
               </FieldLabel>
               <Switch

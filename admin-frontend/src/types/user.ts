@@ -1,4 +1,4 @@
-import type { SessionUser, UserRole } from "@mini-algothon/auth";
+import type { SessionUser, UserRole } from "@labyrithm/auth";
 
 export type { UserRole };
 export type User = SessionUser;

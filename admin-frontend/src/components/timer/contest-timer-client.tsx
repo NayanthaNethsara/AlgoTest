@@ -345,7 +345,7 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
       className={cn(
         "flex w-full flex-col items-center justify-between transition-colors duration-500",
         isFullscreen
-          ? "fixed inset-0 z-[100] min-h-screen overflow-y-auto bg-background gap-2 p-2 sm:gap-4 sm:p-6"
+          ? "fixed inset-0 z-100 min-h-screen overflow-y-auto bg-background gap-2 p-2 sm:gap-4 sm:p-6"
           : "relative h-full max-h-full flex-1 overflow-hidden bg-background/50 gap-1 p-1.5 sm:p-3"
       )}
     >
@@ -422,7 +422,7 @@ export function ContestTimerClient({ initialContestState }: ContestTimerClientPr
               <Input
                 value={settingsTitle}
                 onChange={(e) => setSettingsTitle(e.target.value)}
-                placeholder="e.g. Algothon 2026 Finals"
+                placeholder="e.g. University Algorithms Lab"
                 className="text-xs pixel-inset bg-input border-2 border-black rounded-none"
               />
             </div>

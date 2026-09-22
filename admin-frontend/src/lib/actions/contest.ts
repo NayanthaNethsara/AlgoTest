@@ -1,5 +1,6 @@
 "use server";
 
+import { DEFAULT_SESSION_TITLE } from "@labyrithm/branding";
 import { backendFetch } from "@/lib/api/server";
 import {
   startContestSchema,
@@ -13,7 +14,7 @@ function getErrorMessage(err: unknown, fallback: string): string {
 }
 
 const defaultContestState: ContestState = {
-  title: "Algothon 2026",
+  title: DEFAULT_SESSION_TITLE,
   status: CONTEST_STATUS.NOT_STARTED,
   startTime: null,
   endTime: null,

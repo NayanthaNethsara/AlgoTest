@@ -7,7 +7,7 @@ import {
   SESSION_COOKIE,
   COOKIE_SECURE,
   clientAddress,
-} from "@mini-algothon/auth";
+} from "@labyrithm/auth";
 
 export { API_URL, ADMIN_SESSION_COOKIE, COOKIE_SECURE };
 
@@ -51,4 +51,3 @@ export async function backendFetch(path: string, init?: RequestInit): Promise<Re
     cache: "no-store",
   });
 }
-

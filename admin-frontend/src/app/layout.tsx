@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { ADMIN_DESCRIPTION, PRODUCT_NAME } from "@labyrithm/branding";
 import { Geist_Mono, Pixelify_Sans, Press_Start_2P, Inter } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
@@ -26,8 +27,8 @@ const pixelBody = Pixelify_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Algothon Admin Console",
-  description: "Internal management portal for Algothon contest organizers",
+  title: `${PRODUCT_NAME} Admin Console`,
+  description: ADMIN_DESCRIPTION,
   robots: {
     index: false,
     follow: false,

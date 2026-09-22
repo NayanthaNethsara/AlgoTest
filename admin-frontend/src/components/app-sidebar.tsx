@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import {
   ActivityIcon,
   ChevronsUpDownIcon,
@@ -96,7 +97,10 @@ function initialsOf(user: User): string {
   return letters.toUpperCase();
 }
 
-export function AppSidebar({ user, ...props }: React.ComponentProps<typeof Sidebar> & { user: User }) {
+export function AppSidebar({
+  user,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & { user: User }) {
   const pathname = usePathname();
   const router = useRouter();
   const [loggingOut, startLogout] = useTransition();
@@ -121,7 +125,7 @@ export function AppSidebar({ user, ...props }: React.ComponentProps<typeof Sideb
               <div className="relative flex aspect-square size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border/80 bg-sidebar-accent shadow-xs">
                 <Image
                   src="/sidebar-icon.png"
-                  alt="Algothon"
+                  alt={PRODUCT_NAME}
                   width={32}
                   height={32}
                   className="size-8 object-cover rounded-lg"
@@ -130,7 +134,7 @@ export function AppSidebar({ user, ...props }: React.ComponentProps<typeof Sideb
               </div>
               <div className="flex flex-1 items-center justify-between gap-1.5 overflow-hidden">
                 <span className="truncate font-semibold tracking-tight text-sidebar-foreground text-sm">
-                  Algothon
+                  {PRODUCT_NAME}
                 </span>
                 <Badge className="border border-emerald-500/40 bg-emerald-500/15 text-emerald-400 px-1.5 py-0 text-[10px] font-bold uppercase tracking-wider rounded-sm">
                   Admin

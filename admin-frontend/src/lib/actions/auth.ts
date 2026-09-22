@@ -7,7 +7,7 @@ import {
   changeUserPassword,
   ADMIN_SESSION_COOKIE,
   type SessionUser,
-} from "@mini-algothon/auth";
+} from "@labyrithm/auth";
 
 export async function loginAction(username: string, password: string) {
   return authenticateUser({ username, password }, "admin", ADMIN_SESSION_COOKIE);

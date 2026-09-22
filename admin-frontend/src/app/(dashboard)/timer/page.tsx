@@ -1,10 +1,11 @@
 import { Metadata } from "next";
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import { getAdminContestStateAction } from "@/lib/actions/contest";
 import { ContestTimerClient } from "@/components/timer/contest-timer-client";
 
 export const metadata: Metadata = {
-  title: "Contest Timer & Projector | Algothon Admin",
-  description: "Full-screen contest timer and projector control console for Algothon.",
+  title: `Session Timer & Projector | ${PRODUCT_NAME} Admin`,
+  description: `Full-screen timer and projector control console for ${PRODUCT_NAME}.`,
 };
 
 export default async function ContestTimerPage() {
