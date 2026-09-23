@@ -10,20 +10,17 @@ on:
         description: 'Release tag (e.g. v0.2.2)'
         required: false
       release_name:
-        description: 'Release Title (e.g. Algothon Proctor Agent v0.2.2)'
+        description: 'Release title'
         required: false
       portal_url:
         description: 'Portal URL'
-        default: 'https://competitor-portal--algothon-2026.asia-southeast1.hosted.app'
-        required: false
+        required: true
       api_url:
         description: 'API base URL'
-        default: 'https://mini-algothon-api.nayantha.me'
-        required: false
+        required: true
       portal_origins:
         description: 'Standby portal origins, comma-separated'
-        default: 'https://competitor-portal--algothon-2026.asia-southeast1.hosted.app,http://localhost:3000'
-        required: false
+        required: true
       draft:
         description: 'Publish as a draft release'
         type: boolean
@@ -84,18 +81,17 @@ jobs:
         id: addr
         shell: bash
         env:
-          PORTAL: ${{ inputs.portal_url || vars.ALGOTHON_SERVER_URL }}
-          API: ${{ inputs.api_url || vars.ALGOTHON_API_URL }}
+          PORTAL: ${{ inputs.portal_url || vars.LABYRITHM_SERVER_URL }}
+          API: ${{ inputs.api_url || vars.LABYRITHM_API_URL }}
         run: |
-          if [ -z "$PORTAL" ]; then
-            PORTAL="https://competitor-portal--algothon-2026.asia-southeast1.hosted.app"
+          if [ -z "$PORTAL" ] || [ -z "$API" ]; then
+            echo "portal_url and api_url are required inputs or repository variables" >&2
+            exit 1
           fi
-          if [ -z "$API" ]; then
-            API="https://mini-algothon-api.nayantha.me"
-          fi
-          ORIGINS="${{ inputs.portal_origins || vars.ALGOTHON_PORTAL_ORIGINS }}"
+          ORIGINS="${{ inputs.portal_origins || vars.LABYRITHM_PORTAL_ORIGINS }}"
           if [ -z "$ORIGINS" ]; then
-            ORIGINS="https://competitor-portal--algothon-2026.asia-southeast1.hosted.app,http://localhost:3000"
+            echo "portal_origins is required as an input or repository variable" >&2
+            exit 1
           fi
           echo "portal=$PORTAL" >> "$GITHUB_OUTPUT"
           echo "api=$API" >> "$GITHUB_OUTPUT"
@@ -103,15 +99,15 @@ jobs:
 
       - name: Build Standalone Agent
         env:
-          ALGOTHON_SERVER_URL: ${{ steps.addr.outputs.portal }}
-          ALGOTHON_API_URL: ${{ steps.addr.outputs.api }}
-          ALGOTHON_PORTAL_ORIGINS: ${{ steps.addr.outputs.origins }}
+          LABYRITHM_SERVER_URL: ${{ steps.addr.outputs.portal }}
+          LABYRITHM_API_URL: ${{ steps.addr.outputs.api }}
+          LABYRITHM_PORTAL_ORIGINS: ${{ steps.addr.outputs.origins }}
         shell: bash
         run: |
           if [ "${{ matrix.target }}" = "macos" ]; then
             cd competitor-desktop && pnpm run build:agent
           else
-            cd competitor-desktop/src-tauri && cargo build --release --bin algothon-agent
+            cd competitor-desktop/src-tauri && cargo build --release --bin labyrithm-agent
           fi
 
       - name: Collect Release Assets
@@ -119,23 +115,23 @@ jobs:
         run: |
           mkdir -p "$GITHUB_WORKSPACE/release_assets"
           if [ "${{ matrix.target }}" = "windows" ]; then
-            cp competitor-desktop/src-tauri/target/release/algothon-agent.exe "$GITHUB_WORKSPACE/release_assets/algothon-agent-windows-x64.exe"
+            cp competitor-desktop/src-tauri/target/release/labyrithm-agent.exe "$GITHUB_WORKSPACE/release_assets/labyrithm-agent-windows-x64.exe"
           elif [ "${{ matrix.target }}" = "macos" ]; then
-            if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app" ]; then
+            if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/Labyrithm Agent.app" ]; then
               cd "competitor-desktop/src-tauri/target/release/bundle/macos"
-              zip -r -y "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos.zip" "Algothon Agent.app"
+              zip -r -y "$GITHUB_WORKSPACE/release_assets/labyrithm-agent-macos.zip" "Labyrithm Agent.app"
               cd "$GITHUB_WORKSPACE"
             fi
-            if [ -f "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" ]; then
-              cp "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos-binary"
-              chmod +x "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos-binary"
-            elif [ -f "competitor-desktop/src-tauri/target/release/algothon-agent" ]; then
-              cp "competitor-desktop/src-tauri/target/release/algothon-agent" "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos-binary"
-              chmod +x "$GITHUB_WORKSPACE/release_assets/algothon-agent-macos-binary"
+            if [ -f "competitor-desktop/src-tauri/target/release/bundle/macos/Labyrithm Agent.app/Contents/MacOS/labyrithm-agent" ]; then
+              cp "competitor-desktop/src-tauri/target/release/bundle/macos/Labyrithm Agent.app/Contents/MacOS/labyrithm-agent" "$GITHUB_WORKSPACE/release_assets/labyrithm-agent-macos-binary"
+              chmod +x "$GITHUB_WORKSPACE/release_assets/labyrithm-agent-macos-binary"
+            elif [ -f "competitor-desktop/src-tauri/target/release/labyrithm-agent" ]; then
+              cp "competitor-desktop/src-tauri/target/release/labyrithm-agent" "$GITHUB_WORKSPACE/release_assets/labyrithm-agent-macos-binary"
+              chmod +x "$GITHUB_WORKSPACE/release_assets/labyrithm-agent-macos-binary"
             fi
           elif [ "${{ matrix.target }}" = "linux" ]; then
-            cp competitor-desktop/src-tauri/target/release/algothon-agent "$GITHUB_WORKSPACE/release_assets/algothon-agent-linux-x64"
-            chmod +x "$GITHUB_WORKSPACE/release_assets/algothon-agent-linux-x64"
+            cp competitor-desktop/src-tauri/target/release/labyrithm-agent "$GITHUB_WORKSPACE/release_assets/labyrithm-agent-linux-x64"
+            chmod +x "$GITHUB_WORKSPACE/release_assets/labyrithm-agent-linux-x64"
           fi
 
       - name: Upload Platform Assets
@@ -163,7 +159,7 @@ jobs:
         shell: bash
         run: |
           cd all_release_assets
-          sha256sum algothon-agent-* > checksums.txt 2>/dev/null || shasum -a 256 algothon-agent-* > checksums.txt
+          sha256sum labyrithm-agent-* > checksums.txt 2>/dev/null || shasum -a 256 labyrithm-agent-* > checksums.txt
           echo "### Release Binary Checksums (SHA-256)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat checksums.txt >> $GITHUB_STEP_SUMMARY
@@ -185,7 +181,7 @@ jobs:
           if [ -n "${{ inputs.release_name }}" ]; then
             TITLE="${{ inputs.release_name }}"
           else
-            TITLE="Algothon Proctor Agent $TAG"
+            TITLE="Labyrithm Proctor Agent $TAG"
           fi
           
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"

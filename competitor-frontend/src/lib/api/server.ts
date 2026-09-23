@@ -1,6 +1,6 @@
 import "server-only";
 import { cookies, headers as incomingHeaders } from "next/headers";
-import { clientAddress } from "@mini-algothon/auth";
+import { clientAddress } from "@labyrithm/auth";
 import { API_URL, SESSION_COOKIE } from "@/lib/auth/constants";
 import {
   CLIENT_HEADER,

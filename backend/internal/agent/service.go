@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/proctor"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/proctor"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/telemetry"
 )
 
 const KeepaliveInterval = 5 * time.Minute

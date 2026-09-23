@@ -33,7 +33,7 @@ scrape_configs:
           source: timestamp
           format: RFC3339Nano
 
-      # Attempt to parse inner structured JSON logs emitted by MiniAlgothon backend
+      # Attempt to parse inner structured JSON logs emitted by Labyrithm backend
       - json:
           source: output
           expressions:

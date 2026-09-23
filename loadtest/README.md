@@ -1,6 +1,6 @@
-# Algothon Isolated Load Testing Suite
+# Labyrithm Isolated Load Testing Suite
 
-A standalone, production-grade load testing harness designed to stress test the cloud-hosted platform (`https://mini-algothon-api.nayantha.me`) from an external testing machine without modifying any files in the core codebase.
+A standalone, production-grade load testing harness designed to stress test a Labyrithm deployment from an external testing machine without modifying any files in the core codebase.
 
 ---
 
@@ -41,30 +41,30 @@ loadtest/
 
 ## Available Scenarios
 
-| Scenario | Target | What It Tests |
-| --- | --- | --- |
-| `submissions` | `POST /api/v1/submissions` | End-to-end judging: submission ingestion rate, Postgres `SKIP LOCKED` worker queue, Isolate sandbox execution, real-time SSE stream delivery, and concurrent background API responsiveness. |
-| `burst` | `POST /api/v1/run` | Code runner sandbox: rapid parallel compilation and execution, CPU and memory caps, worker pool saturation. |
-| `read` | `GET /healthz`, `/contest/state`, `/problems`, `/leaderboard` | Read gateway throughput, connection pooling (`pgxpool`), Nginx reverse proxy concurrency. |
-| `cleanup` | `DELETE /api/v1/admin/users/:id`, `teams/:id` | Purges `stresstest_*` users and `StressTeam_*` teams created during testing. |
+| Scenario      | Target                                                        | What It Tests                                                                                                                                                                               |
+| ------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `submissions` | `POST /api/v1/submissions`                                    | End-to-end judging: submission ingestion rate, Postgres `SKIP LOCKED` worker queue, Isolate sandbox execution, real-time SSE stream delivery, and concurrent background API responsiveness. |
+| `burst`       | `POST /api/v1/run`                                            | Code runner sandbox: rapid parallel compilation and execution, CPU and memory caps, worker pool saturation.                                                                                 |
+| `read`        | `GET /healthz`, `/contest/state`, `/problems`, `/leaderboard` | Read gateway throughput, connection pooling (`pgxpool`), Nginx reverse proxy concurrency.                                                                                                   |
+| `cleanup`     | `DELETE /api/v1/admin/users/:id`, `teams/:id`                 | Purges `stresstest_*` users and `StressTeam_*` teams created during testing.                                                                                                                |
 
 ---
 
 ## Presets / Profiles
 
-| Profile | Users | Concurrency | Read Duration |
-| --- | --- | --- | --- |
-| `smoke` | 5 | 5 | 5s |
-| `light` | 20 | 10 | 10s |
-| `medium` | 50 | 25 | 20s |
-| `heavy` | 100 | 50 | 30s |
-| `extreme` | 250 | 100 | 60s |
+| Profile   | Users | Concurrency | Read Duration |
+| --------- | ----- | ----------- | ------------- |
+| `smoke`   | 5     | 5           | 5s            |
+| `light`   | 20    | 10          | 10s           |
+| `medium`  | 50    | 25          | 20s           |
+| `heavy`   | 100   | 50          | 30s           |
+| `extreme` | 250   | 100         | 60s           |
 
 ---
 
 ## Usage Examples
 
-All commands run via `./loadtest/run.sh` or directly via `go run .` from the `loadtest` directory. The target URL automatically defaults to `https://mini-algothon-api.nayantha.me` (or the `API_URL` set in `.env`).
+All commands run via `./loadtest/run.sh` or directly via `go run .` from the `loadtest` directory. The target URL automatically defaults to `https://labyrithm-api.nayantha.me` (or the `API_URL` set in `.env`).
 
 ### 1. Gateway Read Benchmark (Unauthenticated or Authenticated)
 
@@ -109,18 +109,24 @@ All commands run via `./loadtest/run.sh` or directly via `go run .` from the `lo
 Two visual options are available to inspect results:
 
 ### 1. Interactive Local Web Dashboard (`http://localhost:8088`)
+
 Launch the built-in web dashboard:
+
 ```bash
 ./loadtest/run.sh -ui
 ```
+
 This opens `http://localhost:8088` in your browser:
+
 - **Visual Test Controller**: Select Scenario, Profile, and Concurrency, and trigger tests with one click.
 - **Interactive Charts**: Real-time response latency bar chart (Min, P50, P90, P95, P99, Max) and verdict doughnut chart.
 - **Historical Runs Explorer**: Browse and compare all past test runs from the sidebar.
 - **Quick Grafana Link**: Direct access to server-side telemetry.
 
 ### 2. Standalone HTML Reports
+
 Every test run automatically generates a self-contained HTML dashboard report in `loadtest/reports/`:
+
 ```bash
 # Open the latest generated report in your default browser
 open loadtest/reports/report_*.html
@@ -141,7 +147,7 @@ During a load test, you can monitor cloud system telemetry in real time:
    make grafana-remote
    ```
 3. Open `http://localhost:3002` (credentials: `admin` / `admin`).
-4. Select the **Algothon - Platform & System Overview** dashboard to monitor:
+4. Select the **Labyrithm - Platform & System Overview** dashboard to monitor:
    - **HTTP Request Rate & 5xx Error Rate**
    - **HTTP Response Latency Percentiles (P95, P99)**
    - **Active Judge Workers & Submission Queue Depth**

@@ -15,10 +15,10 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/auth"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/auth"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/config"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/db"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
 )
 
 func main() {

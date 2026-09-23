@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PRODUCT_DESCRIPTION, PRODUCT_NAME } from "@labyrithm/branding";
 import {
   Geist_Mono,
   Inter,
@@ -35,8 +36,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Algothon",
-  description: "Algorithm challenge platform",
+  title: PRODUCT_NAME,
+  description: PRODUCT_DESCRIPTION,
 };
 
 export default function RootLayout({
@@ -53,7 +54,7 @@ export default function RootLayout({
       <body className="h-full flex flex-col font-sans relative overflow-hidden overscroll-none">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{if(new URLSearchParams(window.location.search).get("client")==="desktop"){document.cookie="algothon-client=desktop; path=/; max-age=2592000; SameSite=Lax";}}catch(e){}})();`,
+            __html: `(function(){try{if(new URLSearchParams(window.location.search).get("client")==="desktop"){document.cookie="labyrithm-client=desktop; path=/; max-age=2592000; SameSite=Lax";}}catch(e){}})();`,
           }}
         />
         {children}

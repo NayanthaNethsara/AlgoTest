@@ -9,10 +9,10 @@ import {
   type AuthActionResult,
   type LoginCredentials,
   type SessionUser,
-} from "@mini-algothon/auth";
+} from "@labyrithm/auth";
 
 export async function loginAction(
-  credentials: LoginCredentials
+  credentials: LoginCredentials,
 ): Promise<AuthActionResult> {
   return authenticateUser(credentials, "competitor", SESSION_COOKIE);
 }
@@ -27,7 +27,7 @@ export async function getSessionUserAction(): Promise<SessionUser | null> {
 
 export async function changePasswordAction(
   currentPassword: string,
-  newPassword: string
+  newPassword: string,
 ): Promise<{ success: boolean; error?: string }> {
   return changeUserPassword(currentPassword, newPassword, SESSION_COOKIE);
 }

@@ -1,16 +1,18 @@
-# Algothon Competitor Portal
+# Labyrithm Competitor Portal
 
-The Algothon Competitor Portal is a Next.js web application designed for contest participants. It provides an intuitive coding interface with the Monaco code editor, real-time Server-Sent Events (SSE) submission updates, an interactive leaderboard, and background proctoring telemetry synchronization.
+The Labyrithm Competitor Portal is a Next.js web application for learners, candidates, and problem-solving participants. It provides a focused coding interface with the Monaco code editor, real-time Server-Sent Events (SSE) submission updates, an interactive leaderboard when rankings are enabled, and optional background proctoring telemetry synchronization.
 
 ---
 
 ## Key Features & User Interface
 
 ### 1. Challenge Browser (`/challenges`)
+
 - Displays all published contest problems with point values, difficulty indicators, and participant completion status.
 - Real-time synchronization with contest lifecycle states (upcoming, active, frozen, ended).
 
 ### 2. Code Solver & Editor (`/challenges/[id]`)
+
 - **Monaco Code Editor**: Full-featured code editor with syntax highlighting, autocomplete, and indentation formatting.
 - **Supported Programming Languages**:
   - C++ (GCC 13, C++20)
@@ -29,25 +31,29 @@ The Algothon Competitor Portal is a Next.js web application designed for contest
   - **Proctor-Gated**: Requires an enrolled proctor agent or an administrative web-only fallback grant.
 
 ### 3. Real-Time Submissions Feed (`/submissions`)
+
 - Connects directly to the Server-Sent Events (SSE) stream (`/api/v1/submissions/stream`).
 - Automatically updates submission status in real time (`queued` -> `running` -> final verdict).
 - Displays testcase pass/fail counts, execution time, and memory consumed.
 
 ### 4. Contest Scoreboard (`/leaderboard`)
+
 - Dynamic ranking based on solved problems, partial testcase points, and cumulative penalty time.
 - **Scoreboard Freeze**: Automatically indicates when the scoreboard has been frozen by contest organizers.
 
 ### 5. Participant Documentation (`/docs`)
+
 - Language-specific compiler flags, runtime versions, and standard I/O optimization tips (e.g. `cin.tie(NULL)`, `sys.stdin.read`).
 
 ### 6. Public Informational Pages (`/terms`, `/privacy`, `/support`, `/rules`)
+
 - Contest rules, academic honesty policies, privacy disclosures, and technical support FAQs.
 
 ---
 
 ## Proctoring & Telemetry Integration
 
-The competitor portal integrates with the proctoring engine via [src/components/portal/browser-lockdown.tsx](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/competitor-frontend/src/components/portal/browser-lockdown.tsx) and [src/actions/telemetry.ts](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/competitor-frontend/src/actions/telemetry.ts):
+The competitor portal integrates with the proctoring engine via [src/components/portal/browser-lockdown.tsx](file:///Users/nayanthanethsara/Documents/Github/labyrithm/competitor-frontend/src/components/portal/browser-lockdown.tsx) and [src/actions/telemetry.ts](file:///Users/nayanthanethsara/Documents/Github/labyrithm/competitor-frontend/src/actions/telemetry.ts):
 
 - **Event Monitoring**: Captures browser window focus loss, tab switching, and full-screen state transitions, reporting events to `/api/v1/telemetry/browser-event`.
 - **Loopback Attestation**: In desktop mode, probes the local background proctor daemon on `127.0.0.1:47615` to verify daemon health.

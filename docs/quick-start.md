@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-This guide describes how to set up, configure, and run Algothon in a local development environment.
+This guide describes how to set up, configure, and run Labyrithm in a local development environment.
 
 ---
 
@@ -18,16 +18,16 @@ Ensure the following tools are installed on your host system:
 
 ## Architecture & Service Map
 
-Algothon consists of four core local services:
+Labyrithm consists of the following core local services:
 
-| Service | Technology | Port / Access | Description |
-| --- | --- | --- | --- |
-| **Database** | PostgreSQL 16 | `localhost:5432` | Storage for accounts, problems, testcases, submissions, and audit logs |
-| **Backend API** | Go (Gin) | `http://localhost:8080` | REST API, SSE verdict stream, and in-process judge worker |
-| **Standalone Worker** | Go + Linux isolate | Background process | Optional detached execution worker polling queue via `SKIP LOCKED` |
-| **Competitor Frontend** | Next.js App Router | `http://localhost:3000` | Contestant interface with Monaco editor and real-time feed |
-| **Admin Frontend** | Next.js 15, shadcn | `http://localhost:3001` | Management console for contest timers, problems, users, and audit logs |
-| **Desktop Client** | Tauri v2 + Rust | `127.0.0.1:47615` | Proctoring agent daemon and contest shell webview |
+| Service                 | Technology         | Port / Access           | Description                                                            |
+| ----------------------- | ------------------ | ----------------------- | ---------------------------------------------------------------------- |
+| **Database**            | PostgreSQL 16      | `localhost:5432`        | Storage for accounts, problems, testcases, submissions, and audit logs |
+| **Backend API**         | Go (Gin)           | `http://localhost:8080` | REST API, SSE verdict stream, and in-process judge worker              |
+| **Standalone Worker**   | Go + Linux isolate | Background process      | Optional detached execution worker polling queue via `SKIP LOCKED`     |
+| **Competitor Frontend** | Next.js App Router | `http://localhost:3000` | Contestant interface with Monaco editor and real-time feed             |
+| **Admin Frontend**      | Next.js 15, shadcn | `http://localhost:3001` | Management console for contest timers, problems, users, and audit logs |
+| **Desktop Client**      | Tauri v2 + Rust    | `127.0.0.1:47615`       | Proctoring agent daemon and contest shell webview                      |
 
 ---
 
@@ -63,7 +63,7 @@ Start the PostgreSQL database container:
 make db-up
 ```
 
-The database container persists state in Docker volume `algothon-pgdata`. To tail logs, run `make db-logs`.
+The database container persists state in Docker volume `labyrithm-pgdata`. To tail logs, run `make db-logs`.
 
 ### Step 3: Seed the Root Administrator
 
@@ -80,6 +80,7 @@ Further administrators, problem authors, competitors, and teams are managed with
 ### Step 4: Start Applications
 
 #### Option A: Start Primary Services Concurrently
+
 To launch both the backend container and competitor frontend concurrently:
 
 ```sh
@@ -93,6 +94,7 @@ make admin-frontend
 ```
 
 #### Option B: Start Services Individually
+
 Run each command in a separate terminal session:
 
 ```sh
@@ -126,24 +128,29 @@ make worker
 Verify that all system components are functioning correctly:
 
 1. **Backend Health Check:**
+
    ```sh
    curl http://localhost:8080/healthz
    ```
+
    Response returns `{"status":"ok"}`.
 
 2. **Run Backend Unit Tests:**
+
    ```sh
    make test
    ```
 
 3. **Run Judge Load & Sandbox Security Test:**
    Evaluates CPU time limits, wall-clock time limits, memory caps, fork-bomb containment, and network isolation:
+
    ```sh
    make judgetest ARGS='-username competitor1 -password userpass -burst 10'
    ```
 
 4. **Simulate Proctoring Telemetry & Violations:**
    Simulates desktop agents sending heartbeats, window focus transitions, and violation triggers:
+
    ```sh
    make proctorsim ARGS='-agents 20 -events 100'
    ```
@@ -160,11 +167,11 @@ Verify that all system components are functioning correctly:
 
 There are three supported ways for a competitor to sit the contest:
 
-| Mode | Setup | Default |
-| --- | --- | --- |
-| **Desktop client, proctor running** | Contest opened inside the desktop app | **Allowed** |
-| **Browser, proctor running** | Desktop app installed and reporting in background, contest open in Chrome/Safari | Needs a grant |
-| **Browser, no proctor at all** | Nothing installed (web-only fallback) | Needs a web-only grant |
+| Mode                                | Setup                                                                            | Default                |
+| ----------------------------------- | -------------------------------------------------------------------------------- | ---------------------- |
+| **Desktop client, proctor running** | Contest opened inside the desktop app                                            | **Allowed**            |
+| **Browser, proctor running**        | Desktop app installed and reporting in background, contest open in Chrome/Safari | Needs a grant          |
+| **Browser, no proctor at all**      | Nothing installed (web-only fallback)                                            | Needs a web-only grant |
 
 Test runs (`Run`) always work in every mode. Only **scored submissions** (`Submit`) are gated. Contestants running the proctor agent can submit from both the desktop client and a browser. If an enrolled agent is missing or stopped, submissions return `423 Locked` detailing the required remediation.
 
@@ -183,8 +190,9 @@ Test runs (`Run`) always work in every mode. Only **scored submissions** (`Submi
 ### Enabling Contest-Wide Web Fallback
 
 If the desktop client experiences issues across an entire venue:
+
 ```sh
-docker compose exec postgres psql -U algothon -d algothon -c \
+docker compose exec postgres psql -U labyrithm -d labyrithm -c \
   "UPDATE contest_settings SET value = 'true' WHERE key = 'access.allow_web_only';"
 ```
 
@@ -192,34 +200,34 @@ docker compose exec postgres psql -U algothon -d algothon -c \
 
 ## Database Management Commands
 
-| Command | Action |
-| --- | --- |
-| `make db-up` | Starts the PostgreSQL container in background |
-| `make db-down` | Stops the PostgreSQL container |
-| `make db-logs` | Streams live logs from PostgreSQL |
+| Command         | Action                                                     |
+| --------------- | ---------------------------------------------------------- |
+| `make db-up`    | Starts the PostgreSQL container in background              |
+| `make db-down`  | Stops the PostgreSQL container                             |
+| `make db-logs`  | Streams live logs from PostgreSQL                          |
 | `make db-reset` | Wipes database volume data and re-initializes clean schema |
-| `make migrate` | Applies pending migrations without starting the server |
+| `make migrate`  | Applies pending migrations without starting the server     |
 
 ---
 
 ## Desktop Client Commands
 
-| Command | Action |
-| --- | --- |
-| `make desktop` | Starts competitor desktop client in development mode |
-| `make desktop-build` | Builds production desktop release bundle |
+| Command              | Action                                                     |
+| -------------------- | ---------------------------------------------------------- |
+| `make desktop`       | Starts competitor desktop client in development mode       |
+| `make desktop-build` | Builds production desktop release bundle                   |
 | `make desktop-reset` | Clears saved local enrollment tokens and autostart entries |
-| `make agent` | Starts the standalone headless proctor daemon |
-| `make agent-build` | Builds production agent bundle |
-| `make agent-reset` | Resets agent local configuration |
+| `make agent`         | Starts the standalone headless proctor daemon              |
+| `make agent-build`   | Builds production agent bundle                             |
+| `make agent-reset`   | Resets agent local configuration                           |
 
 ---
 
 ## Observability Commands
 
-| Command | Action |
-| --- | --- |
-| `make monitoring-up` | Starts Prometheus, Loki, Promtail, Node Exporter, and Grafana (`http://localhost:3002`) |
-| `make monitoring-down` | Stops the local monitoring stack |
-| `make monitoring-tunnel` | Forwards deployed VM Prometheus (19090) and Loki (13100) via GCP IAP tunnel |
-| `make grafana-remote` | Starts local Grafana reading live metrics from the remote VM tunnel |
+| Command                  | Action                                                                                  |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| `make monitoring-up`     | Starts Prometheus, Loki, Promtail, Node Exporter, and Grafana (`http://localhost:3002`) |
+| `make monitoring-down`   | Stops the local monitoring stack                                                        |
+| `make monitoring-tunnel` | Forwards deployed VM Prometheus (19090) and Loki (13100) via GCP IAP tunnel             |
+| `make grafana-remote`    | Starts local Grafana reading live metrics from the remote VM tunnel                     |

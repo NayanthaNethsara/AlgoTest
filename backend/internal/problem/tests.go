@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/crypto"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/crypto"
 )
 
 var ErrDuplicateTest = errors.New("duplicate test case")

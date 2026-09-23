@@ -227,7 +227,7 @@ func GenerateHTMLReport(outputDir string, report *TestExecutionReport) (string, 
     </div>
 
     <div class="footer">
-      MiniAlgothon Standalone Load Testing Suite &bull; Exported from %s
+      Labyrithm Standalone Load Testing Suite &bull; Exported from %s
     </div>
   </div>
 

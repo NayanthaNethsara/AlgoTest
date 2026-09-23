@@ -14,7 +14,7 @@ func TestCORSMiddleware(t *testing.T) {
 	allowedOrigins := []string{
 		"http://localhost:3000",
 		"http://localhost:3001",
-		"https://portal.algothon.io",
+		"https://portal.labyrithm.io",
 		"*", // Wildcard should be ignored when credentials are true
 	}
 
@@ -36,7 +36,7 @@ func TestCORSMiddleware(t *testing.T) {
 		},
 		{
 			name:          "configured production portal origin",
-			origin:        "https://portal.algothon.io",
+			origin:        "https://portal.labyrithm.io",
 			expectAllowed: true,
 		},
 		{
@@ -46,7 +46,7 @@ func TestCORSMiddleware(t *testing.T) {
 		},
 		{
 			name:          "tauri custom scheme origin",
-			origin:        "tauri://mini-algothon",
+			origin:        "tauri://labyrithm",
 			expectAllowed: true,
 		},
 		{

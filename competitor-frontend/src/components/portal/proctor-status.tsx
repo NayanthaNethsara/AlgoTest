@@ -1,5 +1,6 @@
 "use client";
 
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import { useState, useRef, useEffect } from "react";
 import {
   Activity,
@@ -68,7 +69,8 @@ export function ProctorPill() {
   };
 
   let icon = <ShieldCheck className="h-3.5 w-3.5" />;
-  let badgeVariant: "default" | "secondary" | "destructive" | "outline" = "outline";
+  let badgeVariant: "default" | "secondary" | "destructive" | "outline" =
+    "outline";
   let badgeClass = "border-success bg-success/20 text-success";
   let statusText = "Active & Verified";
   let title = local?.agent_version
@@ -77,8 +79,8 @@ export function ProctorPill() {
 
   const isServerVerified = Boolean(
     submissionsAllowed &&
-      (accessMode === "WEB_WITH_AGENT" || accessMode === "DESKTOP") &&
-      secondsSincePing <= 20,
+    (accessMode === "WEB_WITH_AGENT" || accessMode === "DESKTOP") &&
+    secondsSincePing <= 20,
   );
 
   if (starting) {
@@ -102,7 +104,9 @@ export function ProctorPill() {
     icon = <ShieldOff className="h-3.5 w-3.5" />;
     badgeVariant = "destructive";
     badgeClass = "border-destructive bg-destructive/20 text-destructive";
-    title = local?.support_code ? `Support code ${local.support_code}` : statusText;
+    title = local?.support_code
+      ? `Support code ${local.support_code}`
+      : statusText;
   } else if (!serverReachable) {
     icon = <AlertTriangle className="h-3.5 w-3.5" />;
     badgeClass = "border-warning bg-warning/20 text-warning";
@@ -123,7 +127,7 @@ export function ProctorPill() {
       icon = <Radio className="h-3.5 w-3.5 animate-pulse text-amber-500" />;
       badgeClass = "border-amber-500/40 bg-amber-500/10 text-amber-500";
       statusText = "Agent Reconnecting";
-      title = "Waiting for local proctor agent on 127.0.0.1. Ensure Algothon Agent is running.";
+      title = `Waiting for local proctor agent on 127.0.0.1. Ensure ${PRODUCT_NAME} Agent is running.`;
     }
   }
 
@@ -155,7 +159,10 @@ export function ProctorPill() {
           className="absolute right-0 top-full mt-1.5 z-50 w-72 pixel-raised bg-card p-3 text-xs shadow-2xl animate-in fade-in-50 zoom-in-95 duration-100 select-none"
         >
           {/* Header */}
-          <div data-no-drag className="flex items-center justify-between border-b-2 border-black/40 pb-2 mb-2">
+          <div
+            data-no-drag
+            className="flex items-center justify-between border-b-2 border-black/40 pb-2 mb-2"
+          >
             <div className="flex items-center gap-1.5">
               <Activity className="h-4 w-4 text-primary shrink-0" />
               <span className="font-bold text-foreground uppercase tracking-wide text-xs">
@@ -182,17 +189,22 @@ export function ProctorPill() {
             </span>
           </div>
 
-          {!local && !exempt && accessMode !== "WEB_ONLY" && (
-            isServerVerified ? (
+          {!local &&
+            !exempt &&
+            accessMode !== "WEB_ONLY" &&
+            (isServerVerified ? (
               <div className="p-2 border border-success/40 bg-success/10 pixel-flat mb-2.5 text-[11px] text-success">
-                Proctoring telemetry is active and verified by the contest server ({secondsSincePing > 0 ? `${secondsSincePing}s ago` : "just now"}).
+                Proctoring telemetry is active and verified by the contest
+                server (
+                {secondsSincePing > 0 ? `${secondsSincePing}s ago` : "just now"}
+                ).
               </div>
             ) : (
               <div className="p-2 border border-amber-500/40 bg-amber-500/10 pixel-flat mb-2.5 text-[11px] text-amber-600 dark:text-amber-400">
-                Local agent not detected on loopback. Ensure Algothon Agent is running on this computer.
+                Local agent not detected on loopback. Ensure {PRODUCT_NAME}{" "}
+                Agent is running on this computer.
               </div>
-            )
-          )}
+            ))}
 
           {/* Support Code Box */}
           {local?.support_code && (
@@ -227,7 +239,9 @@ export function ProctorPill() {
               <span className="flex items-center gap-1">
                 <Radio className="h-3 w-3 text-primary" /> Heartbeat Rate:
               </span>
-              <span className="font-mono text-foreground font-semibold">Every 10s</span>
+              <span className="font-mono text-foreground font-semibold">
+                Every 10s
+              </span>
             </div>
             <div className="flex items-center justify-between text-muted-foreground">
               <span className="flex items-center gap-1">

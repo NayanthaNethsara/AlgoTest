@@ -1,6 +1,6 @@
 # Observability & Monitoring Guide
 
-Algothon runs a single-VM observability stack of **Prometheus**, **Loki**,
+Labyrithm runs a single-VM observability stack of **Prometheus**, **Loki**,
 **Promtail**, and **Node Exporter**, read through a **Grafana** that runs on your
 own machine rather than on the server. Inspecting logs and diagnosing performance
 needs no interactive SSH session on the VM.
@@ -13,7 +13,7 @@ needs no interactive SSH session on the VM.
 flowchart TD
     subgraph Host["Host VM Environment (Google Compute Engine)"]
         subgraph Sources["Telemetry Sources"]
-            Backend["Algothon Backend API (Port 8080: JSON slog stdout & HTTP /metrics)"]
+            Backend["Labyrithm Backend API (Port 8080: JSON slog stdout & HTTP /metrics)"]
             HostOS["Host OS Telemetry (CPU, Memory, Disk IO, Network)"]
         end
 
@@ -77,7 +77,7 @@ anywhere but your own machine).
 
 Both datasources are provisioned automatically -- Prometheus at
 `http://prometheus:9090` and Loki at `http://loki:3100` -- so there is nothing to
-wire up by hand. The two dashboards appear under **Dashboards -> Algothon**.
+wire up by hand. The two dashboards appear under **Dashboards -> Labyrithm**.
 
 ### Two DOWN scrape targets is normal locally
 
@@ -85,12 +85,12 @@ Prometheus is configured with three candidate targets for the backend so that on
 config file works in every environment:
 
 ```
-algothon-backend:8080    host.docker.internal:8080    localhost:8080
+labyrithm-backend:8080    host.docker.internal:8080    localhost:8080
 ```
 
 Only one of them can ever win. Locally, `docker-compose.yml` places the backend on
-its own default compose network rather than `algothon-net`, so the DNS name
-`algothon-backend` does not resolve from the Prometheus container. The scrape
+its own default compose network rather than `labyrithm-net`, so the DNS name
+`labyrithm-backend` does not resolve from the Prometheus container. The scrape
 succeeds via `host.docker.internal:8080` instead, because the dev compose file
 publishes `8080:8080` on the host. `localhost:8080` refers to the Prometheus
 container itself and never resolves.
@@ -99,7 +99,7 @@ So on <http://localhost:9090/targets>, **one target UP and two DOWN is the corre
 healthy state** in local dev. Only investigate if all three are down -- that means
 the backend is not running or not publishing 8080.
 
-In production all services share `algothon-net`, so `algothon-backend:8080` is the
+In production all services share `labyrithm-net`, so `labyrithm-backend:8080` is the
 target that succeeds there instead.
 
 ### Changing the port
@@ -130,8 +130,8 @@ To wipe stored metrics, logs, and any Grafana state:
 docker compose -f monitoring/docker-compose.monitoring.yml down -v
 ```
 
-This removes the `algothon-prom-data`, `algothon-loki-data`, and
-`algothon-grafana-data` volumes. Provisioned dashboards and datasources return on
+This removes the `labyrithm-prom-data`, `labyrithm-loki-data`, and
+`labyrithm-grafana-data` volumes. Provisioned dashboards and datasources return on
 the next start because they are mounted read-only from the repository, but any
 dashboard you created by hand in the UI is lost.
 
@@ -146,7 +146,7 @@ no admin password to leak there.
 
 Prometheus and Loki bind to `127.0.0.1` on the VM, so they are unreachable even
 from elsewhere inside the VPC. Node Exporter publishes no host port at all --
-Prometheus scrapes it over the `algothon-net` bridge. You read the data by
+Prometheus scrapes it over the `labyrithm-net` bridge. You read the data by
 forwarding the two ports to your own machine.
 
 ### 1. Open the tunnel
@@ -202,20 +202,22 @@ Tunnelling requires `roles/iap.tunnelResourceAccessor` and `roles/compute.osLogi
 
 ## Pre-Configured Dashboards
 
-Grafana is provisioned with two dashboards located in the `Algothon` folder:
+Grafana is provisioned with two dashboards located in the `Labyrithm` folder:
 
-### 1. Algothon - Platform & System Overview (`algothon-overview`)
+### 1. Labyrithm - Platform & System Overview (`labyrithm-overview`)
 
 Provides real-time visibility into all layers of the system:
+
 - **System Health Cards**: API status, HTTP Request Rate (RPS), 5xx error rate %, 4xx error rate %, P95 latency, active DB connections, active judge workers, sandbox boxes in use.
 - **HTTP Traffic & Latency**: Requests per second broken down by route and HTTP method, HTTP status code distribution (2xx, 4xx, 5xx), response latency percentiles (P50, P90, P99).
 - **Judge Engine & Sandbox Runners**: Submissions evaluated per minute by verdict (AC, WA, TLE, CE, RE, IE), active judge evaluations, runner sandbox box allocation, waiting queue depth.
 - **Database & Go Runtime**: PostgreSQL connection pool (Acquired vs Idle vs Max), connection acquisition wait duration, active goroutines, heap memory usage.
 - **Host VM & Hardware**: CPU usage %, memory usage %, root disk space available, network throughput.
 
-### 2. Algothon - Logs & Live Diagnostics (`algothon-logs`)
+### 2. Labyrithm - Logs & Live Diagnostics (`labyrithm-logs`)
 
 Provides live log streaming and diagnostic queries without requiring SSH:
+
 - **Log Volume Histogram**: Ingestion rate by log level (`error`, `warn`, `info`, `debug`) over time.
 - **Real-Time Log Stream**: Live streaming log viewer with text search filtering and auto-refresh.
 - **Error & Warning Stream**: Filtered view isolating 5xx errors, panics, and warning events with structured metadata.
@@ -228,21 +230,25 @@ Provides live log streaming and diagnostic queries without requiring SSH:
 In Grafana **Explore** (`/explore`), select the **Loki** datasource to run custom queries:
 
 - **Trace a specific request by Request ID**:
+
   ```logql
   {job="containerlogs"} | json | request_id = "018f4a12-7b2c-4e89-9a10-abcdef123456"
   ```
 
 - **All backend error logs**:
+
   ```logql
   {job="containerlogs"} | level = "error"
   ```
 
 - **Slow requests (> 500ms)**:
+
   ```logql
   {job="containerlogs"} | json | duration_ms > 500
   ```
 
 - **Requests for a specific user ID**:
+
   ```logql
   {job="containerlogs"} | json | user_id = "usr_12345"
   ```
@@ -258,20 +264,20 @@ In Grafana **Explore** (`/explore`), select the **Loki** datasource to run custo
 
 The backend exposes the following Prometheus metrics at `GET /metrics`:
 
-| Metric Name | Type | Description |
-|---|---|---|
-| `algothon_http_requests_total` | Counter | Requests processed partitioned by `method`, `route`, `status`. |
-| `algothon_http_request_duration_seconds` | Histogram | Request latency partitioned by `method`, `route`, `status`. |
-| `algothon_http_requests_in_flight` | Gauge | Number of HTTP requests currently being handled. |
-| `algothon_judge_submissions_total` | Counter | Submissions judged partitioned by `language` and `verdict`. |
-| `algothon_judge_submissions_active` | Gauge | Submissions currently undergoing evaluation. |
-| `algothon_judge_workers_active` | Gauge | Number of active judge worker goroutines. |
-| `algothon_runner_boxes_active` | Gauge | Number of isolate sandbox boxes currently executing. |
-| `algothon_runner_boxes_capacity` | Gauge | Total isolate boxes configured. |
-| `algothon_runner_queue_depth` | Gauge | Number of submissions waiting for an isolate box. |
-| `algothon_db_pool_acquired_connections` | Gauge | Active connections checked out of pgxpool. |
-| `algothon_db_pool_idle_connections` | Gauge | Idle connections ready in pgxpool. |
-| `algothon_db_pool_max_connections` | Gauge | Max connection capacity of the pool. |
+| Metric Name                              | Type      | Description                                                    |
+| ---------------------------------------- | --------- | -------------------------------------------------------------- |
+| `labyrithm_http_requests_total`           | Counter   | Requests processed partitioned by `method`, `route`, `status`. |
+| `labyrithm_http_request_duration_seconds` | Histogram | Request latency partitioned by `method`, `route`, `status`.    |
+| `labyrithm_http_requests_in_flight`       | Gauge     | Number of HTTP requests currently being handled.               |
+| `labyrithm_judge_submissions_total`       | Counter   | Submissions judged partitioned by `language` and `verdict`.    |
+| `labyrithm_judge_submissions_active`      | Gauge     | Submissions currently undergoing evaluation.                   |
+| `labyrithm_judge_workers_active`          | Gauge     | Number of active judge worker goroutines.                      |
+| `labyrithm_runner_boxes_active`           | Gauge     | Number of isolate sandbox boxes currently executing.           |
+| `labyrithm_runner_boxes_capacity`         | Gauge     | Total isolate boxes configured.                                |
+| `labyrithm_runner_queue_depth`            | Gauge     | Number of submissions waiting for an isolate box.              |
+| `labyrithm_db_pool_acquired_connections`  | Gauge     | Active connections checked out of pgxpool.                     |
+| `labyrithm_db_pool_idle_connections`      | Gauge     | Idle connections ready in pgxpool.                             |
+| `labyrithm_db_pool_max_connections`       | Gauge     | Max connection capacity of the pool.                           |
 
 ---
 
@@ -301,7 +307,7 @@ so setting it alone changes nothing. Do both:
 
 ```sh
 # 1. reset the running instance
-docker exec algothon-grafana grafana-cli admin reset-admin-password '<strong-password>'
+docker exec labyrithm-grafana grafana-cli admin reset-admin-password '<strong-password>'
 ```
 
 ```sh
@@ -312,7 +318,7 @@ GRAFANA_ADMIN_PASSWORD=<strong-password>
 ```
 
 Then `make monitoring-restart`. Step 1 alone is lost whenever the
-`algothon-grafana-data` volume is recreated; step 2 alone leaves a running
+`labyrithm-grafana-data` volume is recreated; step 2 alone leaves a running
 instance untouched.
 
 ### Do not proxy Grafana through nginx

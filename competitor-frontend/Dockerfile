@@ -1,7 +1,7 @@
 # Production image for the competitor portal.
 #
 # Build from the repository root, not this directory: the app depends on the
-# @mini-algothon/auth workspace package.
+# @labyrithm/auth workspace package.
 #
 #   docker build -f competitor-frontend/Dockerfile -t competitor-frontend .
 

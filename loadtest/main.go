@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NayanthaNethsara/mini-algothon/loadtest/dashboard"
-	"github.com/NayanthaNethsara/mini-algothon/loadtest/scenarios"
+	"github.com/NayanthaNethsara/labyrithm/loadtest/dashboard"
+	"github.com/NayanthaNethsara/labyrithm/loadtest/scenarios"
 )
 
 type ProfileConfig struct {
@@ -31,7 +31,7 @@ var standardProfiles = map[string]ProfileConfig{
 
 func main() {
 	var (
-		baseURL      = flag.String("url", "https://mini-algothon-api.nayantha.me", "Target backend API base URL")
+		baseURL      = flag.String("url", "https://labyrithm-api.nayantha.me", "Target backend API base URL")
 		scenario     = flag.String("scenario", "submissions", "Test scenario: submissions, burst, read, cleanup")
 		profile      = flag.String("profile", "smoke", "Preset profile: smoke, light, medium, heavy, extreme")
 		usersCount   = flag.Int("users", 0, "Override user count (0 uses profile default)")

@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/problem"
 )
 
 func TestValidateTestsAgainstSamples(t *testing.T) {

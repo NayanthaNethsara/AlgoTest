@@ -1,6 +1,6 @@
 # Agent Rules
 
-General rules and technical conventions for working in the Algothon codebase.
+General rules and technical conventions for working in the Labyrithm codebase.
 
 ## Code Style
 
@@ -19,6 +19,7 @@ General rules and technical conventions for working in the Algothon codebase.
 Every domain follows a standardized vertical layout:
 
 ### 1. Domain Package (`backend/internal/<domain>/`)
+
 - `<domain>.go`:
   - Contains domain structs, models, and domain-specific enums/constants.
   - Contains pure business logic and validation functions (e.g. `ValidateSlug`, `ClampLimits`, `ValidateTestPoints`).
@@ -31,17 +32,20 @@ Every domain follows a standardized vertical layout:
   - Pure unit tests covering domain validation, algorithms, and point distribution logic.
 
 ### 2. Transport & HTTP Layer (`backend/internal/api/`)
+
 - `<domain>.go`: Competitor-facing HTTP handlers (e.g. `problems.go`, `teams.go`, `contest.go`).
 - `admin_<domain>.go`: Admin-only HTTP handlers (e.g. `admin_problems.go`, `admin_teams.go`, `admin_contest.go`, `admin_audit.go`).
 - `router.go`: Registers all routes with appropriate middleware (`requireUser`, `requireAdmin`, `rateLimit`).
 
 ### 3. Distributed Queue & Worker Rules
+
 - Submissions are claimed atomically via `SELECT ... FOR UPDATE OF s SKIP LOCKED LIMIT 1`.
 - The claim transaction commits immediately after updating `state = 'running'`, `claimed_by = $worker_id`, and `lease_until = NOW() + 60s`.
 - Submissions are **never** held in a database transaction while sandbox code is executing.
 - The lease reaper runs periodically (every 10 seconds) to requeue timed-out submissions (`lease_until < NOW()`), with a 3-attempt poison-pill cap.
 
 ### 4. Audit Logging Standards
+
 - All authentication and administrative actions (user management, team changes, contest timer operations, problem edits, submission rejudges, and proctor overrides) must record an immutable audit entry via `RecordAsync`.
 - Audit writes must run asynchronously with a bounded background context (5 seconds) so database writes never block client HTTP responses.
 
@@ -51,10 +55,12 @@ Every domain follows a standardized vertical layout:
 
 Every domain on the frontend follows a standardized feature-driven layout:
 
-### 1. TypeScript Types (`src/types/<domain>.ts` or `@mini-algothon/*`)
+### 1. TypeScript Types (`src/types/<domain>.ts` or `@labyrithm/*`)
+
 - Declares static TypeScript interfaces, DTOs, and view models.
 
 ### 2. Zod Runtime Validation (`src/lib/validation/<domain>.ts`)
+
 - Contains all runtime Zod validation schemas:
   - `<domain>InputSchema` (e.g. `problemInputSchema`, `teamInputSchema`).
   - Sub-entity schemas (e.g. `sampleSchema`, `testCaseInputSchema`).
@@ -63,11 +69,13 @@ Every domain on the frontend follows a standardized feature-driven layout:
 - Exports inferred TypeScript types: `export type Validated<Domain>Input = z.infer<typeof ...>`.
 
 ### 3. Server Actions (`src/lib/actions/<domain>.ts` or `src/actions/<domain>.ts`)
+
 - Server Actions (`"use server"`) for mutations and API calls.
 - Every mutation executes `schema.safeParse(input)` before sending requests to the backend.
 - Formats and surfaces Zod validation errors immediately back to the UI.
 
 ### 4. Components & Pages
+
 - `src/components/<domain>/`: Feature-specific components, tables, modals, and forms.
 - `src/app/(dashboard)/<domain>/` or `src/app/(portal)/<domain>/`: Next.js App Router pages.
 - Admin UI must follow the zinc / base-lyra aesthetic with strict zero-radius corners (`rounded-none`).

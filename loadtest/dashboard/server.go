@@ -38,7 +38,7 @@ func (s *Server) Start() error {
 
 	addr := fmt.Sprintf(":%d", s.port)
 	fmt.Printf("\n=========================================================\n")
-	fmt.Printf("  MiniAlgothon Load Test Dashboard running at:\n")
+	fmt.Printf("  Labyrithm Load Test Dashboard running at:\n")
 	fmt.Printf("  http://localhost:%d\n", s.port)
 	fmt.Printf("=========================================================\n\n")
 
@@ -225,7 +225,7 @@ const indexHTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MiniAlgothon Load Testing Dashboard</title>
+  <title>Labyrithm Load Testing Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -414,7 +414,7 @@ const indexHTML = `<!DOCTYPE html>
 <body>
   <div class="sidebar">
     <div class="logo">
-      MiniAlgothon LoadTest
+      Labyrithm LoadTest
     </div>
 
     <div class="section-title">Test Controller</div>

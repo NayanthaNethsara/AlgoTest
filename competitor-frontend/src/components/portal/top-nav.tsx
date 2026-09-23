@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import { KeyRound, Loader2, Menu, RotateCw, Users, X } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChangePasswordDialog } from "@/components/auth/change-password-dialog";
@@ -41,9 +42,9 @@ export function TopNav({ user }: { user: SessionUser | null }) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo/algothon.svg"
-              alt="Algothon"
-              className="h-5 sm:h-6 w-auto max-w-[130px] sm:max-w-none object-contain shrink-0"
+              src="/logo/labyrithm.svg"
+              alt={PRODUCT_NAME}
+              className="h-5 sm:h-6 w-auto max-w-32.5 sm:max-w-none object-contain shrink-0"
             />
           </Link>
 

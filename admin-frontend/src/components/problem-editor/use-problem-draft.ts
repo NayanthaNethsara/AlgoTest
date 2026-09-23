@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { Difficulty, Sample } from "@/types/problem";
 
-export const DRAFT_STORAGE_KEY = "mini_algothon_new_problem_draft";
+export const DRAFT_STORAGE_KEY = "mini_labyrithm_new_problem_draft";
 
 export interface ProblemDraftState {
   slug: string;

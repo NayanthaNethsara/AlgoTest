@@ -17,9 +17,12 @@ importers:
       '@base-ui/react':
         specifier: ^1.6.0
         version: 1.6.0(@types/react@19.2.18)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@mini-algothon/auth':
+      '@labyrithm/auth':
         specifier: workspace:*
         version: link:../packages/auth
+      '@labyrithm/branding':
+        specifier: workspace:*
+        version: link:../packages/branding
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -121,9 +124,12 @@ importers:
       '@base-ui/react':
         specifier: ^1.6.0
         version: 1.6.0(@types/react@19.2.18)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@mini-algothon/auth':
+      '@labyrithm/auth':
         specifier: workspace:*
         version: link:../packages/auth
+      '@labyrithm/branding':
+        specifier: workspace:*
+        version: link:../packages/branding
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -231,6 +237,8 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+
+  packages/branding: {}
 
 packages:
 

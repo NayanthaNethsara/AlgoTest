@@ -229,7 +229,7 @@ fn sign_payload(token: &str, body: &[u8]) -> String {
 fn build_client(timeout: Duration) -> reqwest::blocking::Client {
     reqwest::blocking::Client::builder()
         .timeout(timeout)
-        .user_agent(format!("algothon-agent/{}", crate::AGENT_VERSION))
+        .user_agent(format!("labyrithm-agent/{}", crate::AGENT_VERSION))
         .build()
         .unwrap_or_default()
 }

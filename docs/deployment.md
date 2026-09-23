@@ -1,6 +1,6 @@
 # Deployment Guide
 
-How to run Algothon on a single Google Compute Engine VM: image built by
+How to run Labyrithm on a single Google Compute Engine VM: image built by
 GitHub Actions, published to GitHub Container Registry, pulled and run manually
 on the host.
 
@@ -25,7 +25,7 @@ flowchart TD
     BackendContainer -->|"127.0.0.1:5432"| PostgresContainer
 ```
 
-Algothon supports both single-VM all-in-one deployments and multi-VM horizontally
+Labyrithm supports both single-VM all-in-one deployments and multi-VM horizontally
 scaled worker clusters. Submissions are queued atomically in PostgreSQL using
 `FOR UPDATE SKIP LOCKED`, and real-time verdicts are broadcast across instances using
 PostgreSQL `LISTEN/NOTIFY`. A single larger VM is ideal for smaller contests, while
@@ -54,14 +54,14 @@ programs never share execution units. That matters more than raw clock speed
 when TLE decides a verdict. Avoid E2 (shared-core, oversubscribed).
 
 ```sh
-gcloud compute instances create algothon-judge \
+gcloud compute instances create labyrithm-judge \
   --zone=us-central1-a \
   --machine-type=t2d-standard-16 \
   --image-family=ubuntu-2404-lts-amd64 \
   --image-project=ubuntu-os-cloud \
   --boot-disk-size=100GB \
   --boot-disk-type=pd-balanced \
-  --tags=algothon-web
+  --tags=labyrithm-web
 ```
 
 `t2d-standard-8` is the cheaper pick and still judges a 10-team burst in about a
@@ -73,9 +73,9 @@ The backend must **not** be reachable directly: it is served through nginx, and
 `TRUSTED_PROXIES` below assumes every request arrives from localhost.
 
 ```sh
-gcloud compute firewall-rules create algothon-web \
+gcloud compute firewall-rules create labyrithm-web \
   --allow=tcp:80,tcp:443 \
-  --target-tags=algothon-web \
+  --target-tags=labyrithm-web \
   --description="Public HTTP/HTTPS for the contest portal"
 ```
 
@@ -84,7 +84,7 @@ Do not add 8080 or 5432.
 ## Step 3: Prepare the host
 
 ```sh
-gcloud compute ssh algothon-judge --zone=us-central1-a
+gcloud compute ssh labyrithm-judge --zone=us-central1-a
 ```
 
 ```sh
@@ -98,13 +98,13 @@ test -f /sys/fs/cgroup/cgroup.controllers && echo "cgroup v2 ok"
 ## Step 4: Start Postgres
 
 ```sh
-docker volume create algothon-pgdata
+docker volume create labyrithm-pgdata
 
-docker run -d --name algothon-postgres --restart=always \
-  -e POSTGRES_USER=algothon \
+docker run -d --name labyrithm-postgres --restart=always \
+  -e POSTGRES_USER=labyrithm \
   -e POSTGRES_PASSWORD='<strong-password>' \
-  -e POSTGRES_DB=algothon \
-  -v algothon-pgdata:/var/lib/postgresql/data \
+  -e POSTGRES_DB=labyrithm \
+  -v labyrithm-pgdata:/var/lib/postgresql/data \
   -p 127.0.0.1:5432:5432 \
   postgres:16-alpine
 ```
@@ -115,7 +115,7 @@ backups and failover use Cloud SQL instead and point `DATABASE_URL` at it.
 Schedule a dump somewhere off the box:
 
 ```sh
-docker exec algothon-postgres pg_dump -U algothon algothon | gzip > algothon-$(date +%F).sql.gz
+docker exec labyrithm-postgres pg_dump -U labyrithm labyrithm | gzip > labyrithm-$(date +%F).sql.gz
 ```
 
 ## Step 5: Publish the images
@@ -123,9 +123,9 @@ docker exec algothon-postgres pg_dump -U algothon algothon | gzip > algothon-$(d
 Two workflows publish to GitHub Container Registry on every push to `main` and
 every `v*` tag:
 
-| Workflow | Image |
-| --- | --- |
-| `build-backend.yml` | `ghcr.io/<owner>/<repo>/backend` |
+| Workflow             | Image                                        |
+| -------------------- | -------------------------------------------- |
+| `build-backend.yml`  | `ghcr.io/<owner>/<repo>/backend`             |
 | `build-frontend.yml` | `ghcr.io/<owner>/<repo>/competitor-frontend` |
 
 The backend workflow runs `go test` first, so a failing test blocks the image.
@@ -145,12 +145,12 @@ echo "$GHCR_PAT" | docker login ghcr.io -u <github-username> --password-stdin
 
 ## Step 6: Configure and run the backend
 
-Write `/opt/algothon/backend.env` (`chmod 600` — it holds the database password):
+Write `/opt/labyrithm/backend.env` (`chmod 600` — it holds the database password):
 
 ```ini
 ENV=production
 PORT=8080
-DATABASE_URL=postgres://algothon:<strong-password>@127.0.0.1:5432/algothon?sslmode=disable
+DATABASE_URL=postgres://labyrithm:<strong-password>@127.0.0.1:5432/labyrithm?sslmode=disable
 ALLOWED_ORIGINS=https://contest.example.com
 
 # nginx runs on the host or in a bridge container. Without trusting the proxy,
@@ -173,10 +173,10 @@ Run it:
 ```sh
 docker pull ghcr.io/<owner>/<repo>/backend:v1.0.0
 
-docker run -d --name algothon-backend --restart=always \
+docker run -d --name labyrithm-backend --restart=always \
   --privileged \
   --network host \
-  --env-file /opt/algothon/backend.env \
+  --env-file /opt/labyrithm/backend.env \
   --tmpfs /judge-work:size=4g,mode=0700 \
   ghcr.io/<owner>/<repo>/backend:v1.0.0
 ```
@@ -192,7 +192,7 @@ docker run -d --name algothon-backend --restart=always \
 Confirm the boot sequence:
 
 ```sh
-docker logs algothon-backend | tail -5
+docker logs labyrithm-backend | tail -5
 # entrypoint: sandbox ready (12 boxes)
 # "msg":"migrations applied"
 # "msg":"sandbox ready","boxes":12,"judge_workers":10,"run_reserve":2
@@ -207,7 +207,7 @@ The admin API needs an admin to authenticate, so the first one is created
 directly. Everyone else is managed in the admin frontend.
 
 ```sh
-docker exec algothon-backend algothon-usertool -username admin -name "Organizer"
+docker exec labyrithm-backend labyrithm-usertool -username admin -name "Organizer"
 ```
 
 The generated password is printed once.
@@ -231,8 +231,8 @@ and passwords cross the network in plaintext.
 
 The competitor portal has its own image, built by
 `.github/workflows/build-frontend.yml` from the repository root (it depends on
-the `@mini-algothon/auth` workspace package). Write
-`/opt/algothon/frontend.env`:
+the `@labyrithm/auth` workspace package). Write
+`/opt/labyrithm/frontend.env`:
 
 ```ini
 API_URL=http://127.0.0.1:8080
@@ -250,9 +250,9 @@ plain-HTTP LAN means browsers silently discard the cookie and nobody can sign in
 ```sh
 docker pull ghcr.io/<owner>/<repo>/competitor-frontend:v1.0.0
 
-docker run -d --name algothon-frontend --restart=always \
+docker run -d --name labyrithm-frontend --restart=always \
   --network host \
-  --env-file /opt/algothon/frontend.env \
+  --env-file /opt/labyrithm/frontend.env \
   ghcr.io/<owner>/<repo>/competitor-frontend:v1.0.0
 ```
 
@@ -264,23 +264,23 @@ The admin console has no image and no location block in `nginx.conf`. Reach it
 over an SSH tunnel:
 
 ```sh
-gcloud compute ssh algothon-judge --zone=us-central1-a -- -L 3001:localhost:3001
+gcloud compute ssh labyrithm-judge --zone=us-central1-a -- -L 3001:localhost:3001
 ```
 
 ### Hosting the portals instead
 
 Both front ends deploy as separate projects from this one repo. Each needs its
 own **Root Directory** — `competitor-frontend` and `admin-frontend` — so the
-platform installs from the workspace root and resolves `@mini-algothon/auth`.
+platform installs from the workspace root and resolves `@labyrithm/auth`.
 Only the root `pnpm-lock.yaml` is committed; a lockfile inside a package cannot
 resolve a `workspace:*` dependency and fails a frozen install.
 
-| | competitor | admin |
-| --- | --- | --- |
-| `API_URL` | the API's public host | same |
-| `COOKIE_SECURE` | `true` | `true` |
-| `NEXT_PUBLIC_PLATFORM` | `web` | — |
-| `NEXT_PUBLIC_ENABLE_TELEMETRY` | `true` | — |
+|                                | competitor            | admin  |
+| ------------------------------ | --------------------- | ------ |
+| `API_URL`                      | the API's public host | same   |
+| `COOKIE_SECURE`                | `true`                | `true` |
+| `NEXT_PUBLIC_PLATFORM`         | `web`                 | —      |
+| `NEXT_PUBLIC_ENABLE_TELEMETRY` | `true`                | —      |
 
 Two projects on one repo rebuild on every push. Skip the ones that changed
 nothing with an ignored-build-step check — including the shared package, which
@@ -335,8 +335,7 @@ docker compose -f monitoring/docker-compose.monitoring.yml up -d
 
 Prometheus and Loki bind to `127.0.0.1`, and Node Exporter publishes no host port
 at all, so none of them is reachable over the network -- deliberately, since none
-of the three has any authentication. Do not open firewall rules for 9090, 3100, or
-9100.
+of the three has any authentication. Do not open firewall rules for 9090, 3100, or 9100.
 
 To read the data, forward the two ports over IAP and point a local Grafana at them:
 
@@ -346,8 +345,8 @@ make grafana-remote      # in another; Grafana on http://localhost:3002
 ```
 
 - Pre-provisioned dashboards:
-  - **Algothon - Platform & System Overview**: Live HTTP throughput, P95 latencies, judge workers, runner boxes, database connection pool, and host CPU/RAM.
-  - **Algothon - Logs & Live Diagnostics**: Real-time log streaming with level filtering and error search.
+  - **Labyrithm - Platform & System Overview**: Live HTTP throughput, P95 latencies, judge workers, runner boxes, database connection pool, and host CPU/RAM.
+  - **Labyrithm - Logs & Live Diagnostics**: Real-time log streaming with level filtering and error search.
 - See [monitoring.md](monitoring.md) for the full local/remote workflow, LogQL/PromQL queries, and the metrics reference.
 
 ## Step 11: Verify
@@ -484,8 +483,8 @@ answers an Origin no contestant is browsing and attestation fails on every
 machine. Scheme and host must match what contestants actually type:
 
 ```sh
-MINIALGOTHON_SERVER_URL=https://contest.example.com \
-MINIALGOTHON_API_URL=https://contest.example.com \
+LABYRITHM_SERVER_URL=https://contest.example.com \
+LABYRITHM_API_URL=https://contest.example.com \
   cargo tauri build
 ```
 
@@ -567,6 +566,7 @@ flowchart TD
 ### Worker Crash Resilience & Lease Reaper
 
 If a worker node crashes, is killed by OOM, or loses network connectivity mid-evaluation:
+
 - The row is **not** locked indefinitely. It holds an application lease (`lease_until = NOW() + 60s`).
 - The running worker sends heartbeats every 20 seconds. If the worker dies, heartbeats stop.
 - Every 10 seconds, the background lease reaper runs:
@@ -603,7 +603,7 @@ If quota limits prevent provisioning all worker VMs in a single GCP project, wor
    - In `pg_hba.conf`, require `hostssl` with SCRAM-SHA-256 authentication for external worker IPs.
    - On worker VMs, connect using:
      ```bash
-     DATABASE_URL=postgres://algothon:password@<DB-STATIC-IP>:5432/algothon?sslmode=require
+     DATABASE_URL=postgres://labyrithm:password@<DB-STATIC-IP>:5432/labyrithm?sslmode=require
      ```
 
 ### Option 2: Tailscale Mesh VPN (Zero Public Ports)
@@ -616,7 +616,7 @@ If quota limits prevent provisioning all worker VMs in a single GCP project, wor
 2. Each machine joins a private encrypted WireGuard mesh network and receives a private IP (`100.x.y.z`).
 3. Workers connect directly to the database via its Tailscale IP:
    ```bash
-   DATABASE_URL=postgres://algothon:password@100.x.y.z:5432/algothon?sslmode=disable
+   DATABASE_URL=postgres://labyrithm:password@100.x.y.z:5432/labyrithm?sslmode=disable
    ```
 4. Port 5432 remains completely closed to the external internet.
 
@@ -624,11 +624,11 @@ If quota limits prevent provisioning all worker VMs in a single GCP project, wor
 
 ## PostgreSQL Sizing & Connection Limits
 
-| Component | Default Pool | Recommended for Scaling |
-| :--- | :--- | :--- |
-| **API Server** | `DB_MAX_CONNS=25`, `DB_MIN_CONNS=5` | `DB_MAX_CONNS=25`, `DB_MIN_CONNS=5` |
-| **Worker VM (per node)** | `DB_MAX_CONNS=25`, `DB_MIN_CONNS=5` | `DB_MAX_CONNS=8`, `DB_MIN_CONNS=2` |
-| **PostgreSQL Engine** | `max_connections=100` | `max_connections=250` (or `300`) |
+| Component                | Default Pool                        | Recommended for Scaling             |
+| :----------------------- | :---------------------------------- | :---------------------------------- |
+| **API Server**           | `DB_MAX_CONNS=25`, `DB_MIN_CONNS=5` | `DB_MAX_CONNS=25`, `DB_MIN_CONNS=5` |
+| **Worker VM (per node)** | `DB_MAX_CONNS=25`, `DB_MIN_CONNS=5` | `DB_MAX_CONNS=8`, `DB_MIN_CONNS=2`  |
+| **PostgreSQL Engine**    | `max_connections=100`               | `max_connections=250` (or `300`)    |
 
 ### Database VM Storage Persistence
 
@@ -667,8 +667,8 @@ If quota limits prevent provisioning all worker VMs in a single GCP project, wor
 
 ```sh
 docker pull ghcr.io/<owner>/<repo>/backend:v1.1.0
-docker stop algothon-backend && docker rm algothon-backend
-docker run -d --name algothon-backend ...   # same flags, new tag
+docker stop labyrithm-backend && docker rm labyrithm-backend
+docker run -d --name labyrithm-backend ...   # same flags, new tag
 ```
 
 Restarting drops in-flight submissions. The lease reaper requeues them within
@@ -679,19 +679,18 @@ check whether the release added any before rolling back.
 
 ## Settings that matter
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `DATABASE_URL` | `postgres://...` | Connection URI for PostgreSQL database. |
-| `DB_MAX_CONNS` | `25` | Maximum active connections in pgxpool (tune to 8-10 on worker nodes). |
-| `DB_MIN_CONNS` | `5` | Warm idle connections kept open to prevent connection establishment storms. |
-| `JUDGE_WORKERS` | `-1` (auto) | Worker threads. Set to `0` on the API server for pure API gateway mode. |
-| `RUN_MAX_CONCURRENT` | `4` (dev) / `12` (prod) | Sandboxes provisioned in isolate. Match VM physical cores. |
-| `RUN_RESERVE` | `1` | Sandboxes reserved for interactive `/run` calls so test runs don't queue behind batch submissions. |
-| `RUN_WORK_ROOT` | `/judge-work` | Path to tmpfs mount for isolated sandbox workspaces. Refuses to start if unset. |
-| `RUN_CPU_LIST` | `""` | Pin sandboxes to specific cores (e.g. `4-15`), leaving cores 0-3 for OS and API server. |
-| `TRUSTED_PROXIES` | `""` | IP ranges allowed to set forwarded client IP headers (`127.0.0.1` behind reverse proxy). |
-| `SESSION_TTL_HOURS` | `168` (dev) / `3` (prod) | Competitor session token validity duration. |
-| `ADMIN_SESSION_TTL_HOURS` | `12` | Administrator session token validity duration. |
-| `ENV` | `development` | Setting to `production` disables Swagger UI and enforces strict security policies. |
-| `ALLOWED_ORIGINS` | `http://localhost:...` | Permitted browser origins for CORS headers. |
-
+| Variable                  | Default                  | Purpose                                                                                            |
+| ------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`            | `postgres://...`         | Connection URI for PostgreSQL database.                                                            |
+| `DB_MAX_CONNS`            | `25`                     | Maximum active connections in pgxpool (tune to 8-10 on worker nodes).                              |
+| `DB_MIN_CONNS`            | `5`                      | Warm idle connections kept open to prevent connection establishment storms.                        |
+| `JUDGE_WORKERS`           | `-1` (auto)              | Worker threads. Set to `0` on the API server for pure API gateway mode.                            |
+| `RUN_MAX_CONCURRENT`      | `4` (dev) / `12` (prod)  | Sandboxes provisioned in isolate. Match VM physical cores.                                         |
+| `RUN_RESERVE`             | `1`                      | Sandboxes reserved for interactive `/run` calls so test runs don't queue behind batch submissions. |
+| `RUN_WORK_ROOT`           | `/judge-work`            | Path to tmpfs mount for isolated sandbox workspaces. Refuses to start if unset.                    |
+| `RUN_CPU_LIST`            | `""`                     | Pin sandboxes to specific cores (e.g. `4-15`), leaving cores 0-3 for OS and API server.            |
+| `TRUSTED_PROXIES`         | `""`                     | IP ranges allowed to set forwarded client IP headers (`127.0.0.1` behind reverse proxy).           |
+| `SESSION_TTL_HOURS`       | `168` (dev) / `3` (prod) | Competitor session token validity duration.                                                        |
+| `ADMIN_SESSION_TTL_HOURS` | `12`                     | Administrator session token validity duration.                                                     |
+| `ENV`                     | `development`            | Setting to `production` disables Swagger UI and enforces strict security policies.                 |
+| `ALLOWED_ORIGINS`         | `http://localhost:...`   | Permitted browser origins for CORS headers.                                                        |

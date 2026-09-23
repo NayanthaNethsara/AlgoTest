@@ -1,5 +1,6 @@
 "use client";
 
+import { DEFAULT_SESSION_TITLE, PRODUCT_NAME } from "@labyrithm/branding";
 import { useContest } from "@/components/portal/contest-provider";
 import { useProctor } from "@/components/portal/proctor-provider";
 import { Badge } from "@/components/ui/badge";
@@ -44,10 +45,11 @@ export function ContestWaitingRoom() {
 
         <div className="space-y-2 max-w-lg">
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-            {state.title || "Algothon 2026"}
+            {state.title || DEFAULT_SESSION_TITLE}
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            The contest has not started yet. Problem statements and code workspaces will unlock automatically when the timer begins.
+            The contest has not started yet. Problem statements and code
+            workspaces will unlock automatically when the timer begins.
           </p>
         </div>
 
@@ -157,7 +159,7 @@ export function ContestWaitingRoom() {
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {isProctorConnected
                   ? "Your workstation desktop proctor client is active and communicating with the contest servers."
-                  : "Please make sure to launch the Algothon Desktop Proctor client on your laptop before the contest starts. If you experience any technical issues launching the proctor, contact the support team in the official WhatsApp group."}
+                  : `Please make sure to launch the ${PRODUCT_NAME} Desktop Proctor client on your laptop before the session starts. If you experience any technical issues launching the proctor, contact the support team.`}
               </p>
             </div>
           </div>
@@ -174,22 +176,34 @@ export function ContestWaitingRoom() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-muted-foreground">
           <div className="flex items-start gap-2.5">
             <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1.5" />
-            <span>Do not close this window. Challenges will appear automatically without manual page refresh.</span>
+            <span>
+              Do not close this window. Challenges will appear automatically
+              without manual page refresh.
+            </span>
           </div>
 
           <div className="flex items-start gap-2.5">
             <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1.5" />
-            <span>Solutions are compiled and executed against hidden test cases in an isolated sandbox.</span>
+            <span>
+              Solutions are compiled and executed against hidden test cases in
+              an isolated sandbox.
+            </span>
           </div>
 
           <div className="flex items-start gap-2.5">
             <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1.5" />
-            <span>Leaderboard ranking factors total problems solved and time penalties per failed submission.</span>
+            <span>
+              Leaderboard ranking factors total problems solved and time
+              penalties per failed submission.
+            </span>
           </div>
 
           <div className="flex items-start gap-2.5">
             <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1.5" />
-            <span>For help or urgent queries, message the organizing committee via WhatsApp.</span>
+            <span>
+              For help or urgent queries, message the organizing committee via
+              WhatsApp.
+            </span>
           </div>
         </div>
       </div>

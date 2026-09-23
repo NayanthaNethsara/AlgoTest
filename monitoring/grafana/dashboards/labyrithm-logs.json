@@ -208,7 +208,7 @@
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["algothon", "logs", "loki"],
+  "tags": ["labyrithm", "logs", "loki"],
   "templating": {
     "list": [
       {
@@ -244,7 +244,7 @@
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"] },
   "timezone": "browser",
-  "title": "MiniAlgothon - Logs & Live Diagnostics",
-  "uid": "algothon-logs",
+  "title": "Labyrithm - Logs & Live Diagnostics",
+  "uid": "labyrithm-logs",
   "version": 1
 }

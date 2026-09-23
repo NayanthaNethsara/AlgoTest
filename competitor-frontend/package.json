@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
-    "@mini-algothon/auth": "workspace:*",
+    "@labyrithm/auth": "workspace:*",
+    "@labyrithm/branding": "workspace:*",
     "@monaco-editor/react": "^4.7.0",
     "@tauri-apps/api": "^2.11.1",
     "class-variance-authority": "^0.7.1",

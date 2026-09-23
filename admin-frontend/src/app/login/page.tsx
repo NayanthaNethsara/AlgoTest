@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import { loginAction } from "@/lib/actions/auth";
 import { getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
@@ -50,7 +51,7 @@ export default function LoginPage() {
 
             <div className="mt-4">
               <h1 className="text-xl font-bold tracking-tight text-foreground xl:text-2xl">
-                Algothon Control Plane
+                {PRODUCT_NAME} Control Plane
               </h1>
               <p className="mt-1 text-xs text-muted-foreground">
                 Platform for managing small-scale competitive programming competitions.
@@ -94,9 +95,9 @@ export default function LoginPage() {
                 Open-Source Project Notice
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                Algothon is an open-source project provided &quot;AS IS&quot;. The proctor runs
-                locally on competitor PCs. Maintainers assume no responsibility or liability for
-                proctor monitoring, local computer configurations, or contest operations.
+                {PRODUCT_NAME} is an open-source project provided &quot;AS IS&quot;. The proctor
+                runs locally on competitor PCs. Maintainers assume no responsibility or liability
+                for proctor monitoring, local computer configurations, or contest operations.
               </p>
             </div>
           </div>
@@ -112,7 +113,7 @@ export default function LoginPage() {
           className="flex h-full flex-col justify-between p-6 sm:p-10 lg:col-span-5 lg:p-8 xl:col-span-4 xl:p-12"
         >
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold tracking-tight text-foreground">Algothon</span>
+            <span className="text-sm font-bold tracking-tight text-foreground">{PRODUCT_NAME}</span>
           </div>
 
           <div className="my-auto w-full py-4">

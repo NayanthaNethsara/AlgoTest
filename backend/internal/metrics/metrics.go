@@ -14,7 +14,7 @@ import (
 var (
 	HTTPRequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "http",
 			Name:      "requests_total",
 			Help:      "Total number of HTTP requests processed by method, route, and status code.",
@@ -24,7 +24,7 @@ var (
 
 	HTTPRequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "http",
 			Name:      "request_duration_seconds",
 			Help:      "Duration of HTTP requests in seconds.",
@@ -35,7 +35,7 @@ var (
 
 	HTTPRequestsInFlight = promauto.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "http",
 			Name:      "requests_in_flight",
 			Help:      "Current number of in-flight HTTP requests.",
@@ -44,7 +44,7 @@ var (
 
 	HTTPRequestSizeBytes = promauto.NewSummaryVec(
 		prometheus.SummaryOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "http",
 			Name:      "request_size_bytes",
 			Help:      "Size of HTTP request bodies in bytes.",
@@ -54,7 +54,7 @@ var (
 
 	HTTPResponseSizeBytes = promauto.NewSummaryVec(
 		prometheus.SummaryOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "http",
 			Name:      "response_size_bytes",
 			Help:      "Size of HTTP response bodies in bytes.",
@@ -64,7 +64,7 @@ var (
 
 	JudgeSubmissionsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "judge",
 			Name:      "submissions_total",
 			Help:      "Total number of submissions judged by language and verdict.",
@@ -74,7 +74,7 @@ var (
 
 	JudgeSubmissionsQueuedTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "judge",
 			Name:      "submissions_queued_total",
 			Help:      "Total number of submissions accepted into the queue.",
@@ -83,7 +83,7 @@ var (
 
 	JudgeSubmissionsActive = promauto.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "judge",
 			Name:      "submissions_active",
 			Help:      "Number of submissions currently being evaluated.",
@@ -92,7 +92,7 @@ var (
 
 	JudgeWorkersActive = promauto.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "judge",
 			Name:      "workers_active",
 			Help:      "Configured number of active judge worker goroutines.",
@@ -101,7 +101,7 @@ var (
 
 	JudgeExecutionDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "judge",
 			Name:      "execution_duration_seconds",
 			Help:      "Duration of submission compilation and execution phases in seconds.",
@@ -112,7 +112,7 @@ var (
 
 	RunnerBoxesActive = promauto.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "runner",
 			Name:      "boxes_active",
 			Help:      "Number of isolate sandbox boxes currently in use.",
@@ -121,7 +121,7 @@ var (
 
 	RunnerBoxesCapacity = promauto.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "runner",
 			Name:      "boxes_capacity",
 			Help:      "Total number of isolate sandbox boxes configured.",
@@ -130,7 +130,7 @@ var (
 
 	RunnerQueueDepth = promauto.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "algothon",
+			Namespace: "labyrithm",
 			Subsystem: "runner",
 			Name:      "queue_depth",
 			Help:      "Number of execution requests currently waiting in the runner queue.",
@@ -155,42 +155,42 @@ func NewDBPoolCollector(pool *pgxpool.Pool) *DBPoolCollector {
 	return &DBPoolCollector{
 		pool: pool,
 		totalConnsDesc: prometheus.NewDesc(
-			"algothon_db_pool_total_connections",
+			"labyrithm_db_pool_total_connections",
 			"Current total number of open database connections in the pool.",
 			nil, nil,
 		),
 		idleConnsDesc: prometheus.NewDesc(
-			"algothon_db_pool_idle_connections",
+			"labyrithm_db_pool_idle_connections",
 			"Current number of idle database connections in the pool.",
 			nil, nil,
 		),
 		acquiredConnsDesc: prometheus.NewDesc(
-			"algothon_db_pool_acquired_connections",
+			"labyrithm_db_pool_acquired_connections",
 			"Current number of database connections actively checked out of the pool.",
 			nil, nil,
 		),
 		maxConnsDesc: prometheus.NewDesc(
-			"algothon_db_pool_max_connections",
+			"labyrithm_db_pool_max_connections",
 			"Maximum number of connections allowed in the database pool.",
 			nil, nil,
 		),
 		acquireCountDesc: prometheus.NewDesc(
-			"algothon_db_pool_acquire_count_total",
+			"labyrithm_db_pool_acquire_count_total",
 			"Cumulative number of successful connection acquisitions from the pool.",
 			nil, nil,
 		),
 		acquireDurationDesc: prometheus.NewDesc(
-			"algothon_db_pool_acquire_duration_seconds_total",
+			"labyrithm_db_pool_acquire_duration_seconds_total",
 			"Total time spent waiting to acquire connections from the pool.",
 			nil, nil,
 		),
 		emptyAcquireDesc: prometheus.NewDesc(
-			"algothon_db_pool_empty_acquire_total",
+			"labyrithm_db_pool_empty_acquire_total",
 			"Cumulative number of times a connection acquire had to wait for a free connection.",
 			nil, nil,
 		),
 		canceledAcquireDesc: prometheus.NewDesc(
-			"algothon_db_pool_canceled_acquire_total",
+			"labyrithm_db_pool_canceled_acquire_total",
 			"Cumulative number of connection acquisitions canceled due to context timeouts.",
 			nil, nil,
 		),

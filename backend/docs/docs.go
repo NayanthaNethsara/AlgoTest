@@ -4571,7 +4571,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "MiniAlgothon API",
+	Title:            "Labyrithm API",
 	Description:      "Algorithmic contest platform REST API & judge engine.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

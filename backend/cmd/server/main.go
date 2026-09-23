@@ -13,19 +13,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/api"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/session"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/api"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/config"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/db"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/judge"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/problem"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/runner"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/session"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/team"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/telemetry"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
 )
 
-// @title MiniAlgothon API
+// @title Labyrithm API
 // @version 1.0
 // @description Algorithmic contest platform REST API & judge engine.
 // @host localhost:8080

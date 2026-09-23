@@ -1,7 +1,7 @@
 # Competitor Desktop Application Guide
 
 This guide covers installation, Gatekeeper troubleshooting, building, and deployment for the
-**Algothon Competitor Client** (Tauri v2 + Rust). See
+**Labyrithm Desktop Client** (Tauri v2 + Rust). See
 [client-design.md](client-design.md) for why it is built the way it is.
 
 ---
@@ -18,7 +18,7 @@ The `aarch64` bundle runs only on Apple Silicon. An Intel Mac will not launch it
 not a Gatekeeper prompt, there is nothing to bypass. Check what you have:
 
 ```bash
-lipo -archs /path/to/mini-algothon-competitor.app/Contents/MacOS/app
+lipo -archs /path/to/labyrithm-competitor.app/Contents/MacOS/app
 ```
 
 `arm64` alone is Apple Silicon only. `x86_64 arm64` is universal and runs everywhere. Build the
@@ -30,19 +30,19 @@ macOS attaches `com.apple.quarantine` to anything a browser downloads. The clien
 signed — valid, but without an Apple Developer ID — so Gatekeeper refuses it until the attribute
 is removed. What you see depends on the macOS version:
 
-| Message | Meaning |
-| --- | --- |
-| *"Apple could not verify … is free of malware"* | macOS 15+, normal for an unnotarized app |
-| *"cannot be opened because it is from an unidentified developer"* | macOS 14 and earlier, same cause |
-| *"is damaged and can't be opened. You should move it to the Trash"* | The signature is inconsistent, not merely unsigned. An official build should never show this — report it rather than working around it |
+| Message                                                             | Meaning                                                                                                                                |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| _"Apple could not verify … is free of malware"_                     | macOS 15+, normal for an unnotarized app                                                                                               |
+| _"cannot be opened because it is from an unidentified developer"_   | macOS 14 and earlier, same cause                                                                                                       |
+| _"is damaged and can't be opened. You should move it to the Trash"_ | The signature is inconsistent, not merely unsigned. An official build should never show this — report it rather than working around it |
 
 #### Solution: remove the attribute (works on every version)
 
 Copy the app out of the DMG to `/Applications` **first**, then:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/mini-algothon-competitor.app
-open /Applications/mini-algothon-competitor.app
+xattr -dr com.apple.quarantine /Applications/labyrithm-competitor.app
+open /Applications/labyrithm-competitor.app
 ```
 
 Run it against the app's final location. Removing the attribute and then moving the app is fine;
@@ -68,7 +68,7 @@ The Windows release artifact is provided in two forms:
 
 1. **Standalone Portable Executable (`.exe`)**:
    - No installation wizard required.
-   - Simply double-click `mini-algothon-competitor_portable.exe` to run directly.
+   - Simply double-click `labyrithm-competitor_portable.exe` to run directly.
 2. **Standard Installer (`.exe` / `.msi`)**:
    - Installs the app into `Program Files` and creates Start Menu and Desktop shortcuts.
 
@@ -80,18 +80,18 @@ The Linux release artifact is bundled as a standalone `AppImage`.
 
 1. Grant execution permission:
    ```bash
-   chmod +x mini-algothon-competitor.AppImage
+   chmod +x labyrithm-competitor.AppImage
    ```
 2. Run the executable:
    ```bash
-   ./mini-algothon-competitor.AppImage
+   ./labyrithm-competitor.AppImage
    ```
 
 ---
 
 ### Stopping & Cleaning Up Legacy or Conflicting Installations
 
-If a machine previously ran an older version of the Algothon application (such as the legacy unified shell `mini-algothon-competitor`), residual background processes, autostart configurations, or cache files can cause conflicts:
+If a machine previously ran an older version of the Labyrithm application (such as the legacy unified shell `labyrithm-competitor`), residual background processes, autostart configurations, or cache files can cause conflicts:
 
 1. **Loopback Port Conflicts (`47615`)**: A stale background agent instance may hold port `47615`, blocking a newly installed standalone agent from starting or responding to portal attestation requests.
 2. **Legacy Multi-Display Lockouts**: Earlier competition shell builds monitored screen configurations and locked the display with blackout curtains when external or virtual monitors (Sidecar, AirPlay, BetterDisplay, DisplayLink) were active. If a legacy shell process or its LaunchAgent remains running, the screen can still lock even when using modern browser portals.
@@ -104,27 +104,31 @@ If a machine previously ran an older version of the Algothon application (such a
 The desktop binary includes an automated reset routine that cleanly shuts down running loopback instances, removes operating system autostart entries, and deletes all cached configuration files.
 
 **macOS:**
+
 ```bash
 # Standalone agent:
-"/Applications/Algothon Agent.app/Contents/MacOS/algothon-agent" --reset
+"/Applications/Labyrithm Agent.app/Contents/MacOS/labyrithm-agent" --reset
 
 # Unified competitor bundle:
-"/Applications/mini-algothon-competitor.app/Contents/MacOS/mini-algothon-competitor" --reset
+"/Applications/labyrithm-competitor.app/Contents/MacOS/labyrithm-competitor" --reset
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
-& "$env:ProgramFiles\Algothon\algothon-agent.exe" --reset
+& "$env:ProgramFiles\Labyrithm\labyrithm-agent.exe" --reset
 # Or if running portable binary:
-.\algothon-agent.exe --reset
+.\labyrithm-agent.exe --reset
 ```
 
 **Linux:**
+
 ```bash
-./algothon-agent --reset
+./labyrithm-agent --reset
 ```
 
 **Development Environment:**
+
 ```bash
 make agent-reset    # Resets standalone agent configuration
 make desktop-reset  # Resets legacy competitor client configuration
@@ -135,7 +139,8 @@ make desktop-reset  # Resets legacy competitor client configuration
 #### Method 2: GUI Tray Reset
 
 If the application icon is visible in the macOS menu bar or Windows system tray:
-1. Click or right-click the Algothon shield tray icon.
+
+1. Click or right-click the Labyrithm shield tray icon.
 2. Select **Reset all client data and quit…**.
 3. Confirm the dialog prompt. The agent notifies the backend of a clean shutdown, deletes local credentials, unregisters autostart entries, and terminates.
 
@@ -148,27 +153,31 @@ Use manual removal if an old installation cannot launch or if orphaned processes
 ##### macOS Manual Removal
 
 1. **Terminate running processes**:
+
    ```bash
-   killall algothon-agent algothon-competitor mini-algothon-competitor 2>/dev/null || true
+   killall labyrithm-agent labyrithm-competitor labyrithm-competitor 2>/dev/null || true
    ```
 
 2. **Unload and delete LaunchAgents** (prevents background auto-starting on login):
+
    ```bash
-   launchctl unload ~/Library/LaunchAgents/*algothon*.plist 2>/dev/null || true
-   rm -f ~/Library/LaunchAgents/*algothon*.plist ~/Library/LaunchAgents/*minialgothon*.plist
+   launchctl unload ~/Library/LaunchAgents/*labyrithm*.plist 2>/dev/null || true
+   rm -f ~/Library/LaunchAgents/*labyrithm*.plist ~/Library/LaunchAgents/*minilabyrithm*.plist
    ```
 
 3. **Delete saved tokens and application configuration**:
+
    ```bash
-   rm -rf ~/Library/Application\ Support/com.algothon.agent \
-          ~/Library/Application\ Support/com.algothon.competitor \
-          ~/Library/Application\ Support/com.minialgothon.competitor
+   rm -rf ~/Library/Application\ Support/com.labyrithm.agent \
+          ~/Library/Application\ Support/com.labyrithm.competitor \
+          ~/Library/Application\ Support/com.minilabyrithm.competitor
    ```
 
 4. **Delete legacy app bundles**:
+
    ```bash
-   rm -rf "/Applications/mini-algothon-competitor.app" \
-          "/Applications/Algothon Competitor.app"
+   rm -rf "/Applications/labyrithm-competitor.app" \
+          "/Applications/Labyrithm Competitor.app"
    ```
 
 5. **Verify the loopback port is released**:
@@ -180,20 +189,23 @@ Use manual removal if an old installation cannot launch or if orphaned processes
 ##### Windows Manual Removal (PowerShell)
 
 1. **Terminate running processes**:
+
    ```powershell
-   Stop-Process -Name "algothon-agent", "algothon-competitor", "mini-algothon-competitor" -Force -ErrorAction SilentlyContinue
+   Stop-Process -Name "labyrithm-agent", "labyrithm-competitor", "labyrithm-competitor" -Force -ErrorAction SilentlyContinue
    ```
 
 2. **Remove Startup shortcuts**:
+
    ```powershell
-   Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\*algothon*.lnk" -ErrorAction SilentlyContinue
+   Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\*labyrithm*.lnk" -ErrorAction SilentlyContinue
    ```
 
 3. **Delete configuration and credential caches**:
+
    ```powershell
-   Remove-Item -Recurse -Force "$env:APPDATA\com.algothon.agent" -ErrorAction SilentlyContinue
-   Remove-Item -Recurse -Force "$env:APPDATA\com.algothon.competitor" -ErrorAction SilentlyContinue
-   Remove-Item -Recurse -Force "$env:APPDATA\com.minialgothon.competitor" -ErrorAction SilentlyContinue
+   Remove-Item -Recurse -Force "$env:APPDATA\com.labyrithm.agent" -ErrorAction SilentlyContinue
+   Remove-Item -Recurse -Force "$env:APPDATA\com.labyrithm.competitor" -ErrorAction SilentlyContinue
+   Remove-Item -Recurse -Force "$env:APPDATA\com.minilabyrithm.competitor" -ErrorAction SilentlyContinue
    ```
 
 4. **Verify the loopback port is released**:
@@ -204,21 +216,24 @@ Use manual removal if an old installation cannot launch or if orphaned processes
 ##### Linux Manual Removal
 
 1. **Terminate running processes**:
+
    ```bash
-   pkill -f algothon-agent || true
-   pkill -f algothon-competitor || true
+   pkill -f labyrithm-agent || true
+   pkill -f labyrithm-competitor || true
    ```
 
 2. **Remove autostart entries**:
+
    ```bash
-   rm -f ~/.config/autostart/*algothon*.desktop
+   rm -f ~/.config/autostart/*labyrithm*.desktop
    ```
 
 3. **Delete configuration folders**:
+
    ```bash
-   rm -rf ~/.config/com.algothon.agent \
-          ~/.config/com.algothon.competitor \
-          ~/.config/com.minialgothon.competitor
+   rm -rf ~/.config/com.labyrithm.agent \
+          ~/.config/com.labyrithm.competitor \
+          ~/.config/com.minilabyrithm.competitor
    ```
 
 4. **Verify the loopback port is released**:
@@ -232,10 +247,10 @@ Use manual removal if an old installation cannot launch or if orphaned processes
 
 One binary, two processes, selected by argument:
 
-| Mode | Command | Role |
-| --- | --- | --- |
-| Proctor agent | `mini-algothon-competitor --agent` | Holds its own enrolled credential, collects endpoint signals, heartbeats every 10s, serves loopback attestation, and owns the tray. |
-| Contest shell | `mini-algothon-competitor` | A webview pointed at the server-hosted portal. Holds no credential and makes no proctoring decision. |
+| Mode          | Command                            | Role                                                                                                                                |
+| ------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Proctor agent | `labyrithm-competitor --agent` | Holds its own enrolled credential, collects endpoint signals, heartbeats every 10s, serves loopback attestation, and owns the tray. |
+| Contest shell | `labyrithm-competitor`         | A webview pointed at the server-hosted portal. Holds no credential and makes no proctoring decision.                                |
 
 The split is the point: **the shell can crash, hang, or ship a bad portal deploy without
 affecting a contestant's ability to submit**, because liveness lives in a process the UI cannot
@@ -254,9 +269,9 @@ working — the agent is still reporting, so the submission gate stays open.
 Three separate causes produced a white screen in the first build of this split, all of them now
 closed:
 
-- **`app.withGlobalTauri` must be `true`.** It defaults to *false* in Tauri v2, so
+- **`app.withGlobalTauri` must be `true`.** It defaults to _false_ in Tauri v2, so
   `window.__TAURI__` is never injected and the plain-HTML setup and diagnostics pages died on their
-  first line. `setup/bridge.js` now resolves `__TAURI__` *or* `__TAURI_INTERNALS__` and, if neither
+  first line. `setup/bridge.js` now resolves `__TAURI__` _or_ `__TAURI_INTERNALS__` and, if neither
   exists, prints what to do instead of leaving the page inert.
 - **First run must not spawn-and-exit.** With nothing configured the shell used to launch a detached
   agent and quit, which is indistinguishable from a crash. `main.rs` now routes an unconfigured or
@@ -296,7 +311,7 @@ make desktop-build
 Output:
 
 ```text
-competitor-desktop/src-tauri/target/release/bundle/macos/mini-algothon-competitor.app
+competitor-desktop/src-tauri/target/release/bundle/macos/labyrithm-competitor.app
 ```
 
 Build a universal bundle so one artifact covers Intel and Apple Silicon:
@@ -310,17 +325,17 @@ cd competitor-desktop && pnpm tauri build --target universal-apple-darwin
 they must be set when cargo runs:
 
 ```bash
-MINIALGOTHON_SERVER_URL=https://portal.example \
-MINIALGOTHON_API_URL=https://api.example \
-MINIALGOTHON_PORTAL_ORIGINS=http://10.0.0.5 \
+LABYRITHM_SERVER_URL=https://portal.example \
+LABYRITHM_API_URL=https://api.example \
+LABYRITHM_PORTAL_ORIGINS=http://10.0.0.5 \
   make desktop-build
 ```
 
-| Variable | What it is |
-| --- | --- |
-| `MINIALGOTHON_SERVER_URL` | The portal this client opens, and the Origin its loopback server answers |
-| `MINIALGOTHON_API_URL` | Where the agent reports. On a LAN with no contestant internet, the venue relay — **not** including `/api`, which the agent appends itself |
-| `MINIALGOTHON_PORTAL_ORIGINS` | Standby portals the loopback server also answers, comma-separated. What makes a failover portal usable without reinstalling across a hall |
+| Variable                      | What it is                                                                                                                                |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `LABYRITHM_SERVER_URL`     | The portal this client opens, and the Origin its loopback server answers                                                                  |
+| `LABYRITHM_API_URL`        | Where the agent reports. On a LAN with no contestant internet, the venue relay — **not** including `/api`, which the agent appends itself |
+| `LABYRITHM_PORTAL_ORIGINS` | Standby portals the loopback server also answers, comma-separated. What makes a failover portal usable without reinstalling across a hall |
 
 Baking them in is deliberate. The address a contestant types becomes the only Origin the loopback
 server will answer, so one typo costs them attestation and shows a banner blaming an agent that is
@@ -329,11 +344,11 @@ running perfectly.
 A saved `client.json` still overrides the build, so a contest server can move without reimaging.
 Config lives at:
 
-| Platform | Path |
-| --- | --- |
-| macOS | `~/Library/Application Support/com.minialgothon.competitor/` |
-| Windows | `%APPDATA%\com.minialgothon.competitor\` |
-| Linux | `~/.config/com.minialgothon.competitor/` |
+| Platform | Path                                                         |
+| -------- | ------------------------------------------------------------ |
+| macOS    | `~/Library/Application Support/com.minilabyrithm.competitor/` |
+| Windows  | `%APPDATA%\com.minilabyrithm.competitor\`                     |
+| Linux    | `~/.config/com.minilabyrithm.competitor/`                     |
 
 To pre-seed a lab image, write `client.json` there before first launch:
 
@@ -360,10 +375,10 @@ Multi-platform builds (macOS, Windows, Linux) are automated in
    ```
 3. **Manual trigger**: Actions → Build Desktop Release Applications → Run workflow.
 
-**Set `MINIALGOTHON_SERVER_URL` and `MINIALGOTHON_API_URL` as repository variables**
+**Set `LABYRITHM_SERVER_URL` and `LABYRITHM_API_URL` as repository variables**
 (Settings → Secrets and variables → Actions → Variables), or pass them as inputs on a manual run.
 The workflow fails fast when they are missing rather than publishing installers that point at
-`localhost`. `MINIALGOTHON_PORTAL_ORIGINS` is optional.
+`localhost`. `LABYRITHM_PORTAL_ORIGINS` is optional.
 
 An empty value is worse than an absent one — `option_env!` returns `Some("")` for a variable that
 is set but blank — which is what that pre-build check exists to catch.

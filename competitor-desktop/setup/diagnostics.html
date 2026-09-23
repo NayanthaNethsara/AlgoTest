@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Algothon Diagnostics</title>
+    <title>Labyrithm Diagnostics</title>
     <link rel="stylesheet" href="shared.css" />
     <script src="bridge.js"></script>
   </head>
@@ -12,7 +12,16 @@
 
     <div class="support-box">
       <div>
-        <div style="font-size: 11px; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.04em;">Support Code</div>
+        <div
+          style="
+            font-size: 11px;
+            color: var(--fg-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          "
+        >
+          Support Code
+        </div>
         <div class="support-code" id="support">—</div>
       </div>
       <span class="pill" id="status">Checking...</span>
@@ -22,18 +31,23 @@
 
     <div class="card">
       <dl class="grid" id="agent-facts"></dl>
-      <p style="color: var(--fg-muted); font-size: 11px; margin-top: 12px;">
+      <p style="color: var(--fg-muted); font-size: 11px; margin-top: 12px">
         An installed AI extension does not prove it is enabled or being used.
       </p>
     </div>
 
     <details class="disclosure-drawer">
       <summary>Recent Heartbeats</summary>
-      <div class="disclosure-body" style="padding: 0;">
-        <div class="table-container" style="margin-bottom: 0; border: none;">
+      <div class="disclosure-body" style="padding: 0">
+        <div class="table-container" style="margin-bottom: 0; border: none">
           <table>
             <thead>
-              <tr><th>Time</th><th>Seq</th><th>Outcome</th><th>Detail</th></tr>
+              <tr>
+                <th>Time</th>
+                <th>Seq</th>
+                <th>Outcome</th>
+                <th>Detail</th>
+              </tr>
             </thead>
             <tbody id="history"></tbody>
           </table>
@@ -44,14 +58,24 @@
     <div class="row">
       <button id="open" type="button">Open Contest Portal</button>
       <button id="ping" type="button" class="secondary">Reconnect Now</button>
-      <button id="copy" type="button" class="secondary">Copy Diagnostics</button>
+      <button id="copy" type="button" class="secondary">
+        Copy Diagnostics
+      </button>
       <button id="reset" type="button" class="secondary">Sign Out</button>
     </div>
 
     <div class="footer-bar">
       <span id="last-refreshed">Updated just now</span>
-      <span>Keep this window open while competing. Closing signs you out, clears local app data, and locks submissions.</span>
-      <span id="network-pill" class="pill ok" style="padding: 2px 8px; font-size: 10px;">Network Online</span>
+      <span
+        >Keep this window open while competing. Closing signs you out, clears
+        local app data, and locks submissions.</span
+      >
+      <span
+        id="network-pill"
+        class="pill ok"
+        style="padding: 2px 8px; font-size: 10px"
+        >Network Online</span
+      >
     </div>
 
     <script>
@@ -83,7 +107,10 @@
         if (refreshing || document.hidden) return;
         refreshing = true;
         try {
-          const invokeFn = window.appInvoke || window.__TAURI__?.core?.invoke || window.__TAURI_INTERNALS__?.invoke;
+          const invokeFn =
+            window.appInvoke ||
+            window.__TAURI__?.core?.invoke ||
+            window.__TAURI_INTERNALS__?.invoke;
           if (typeof invokeFn !== "function") {
             el("error").textContent = "Desktop bridge is not available.";
             el("error").hidden = false;
@@ -106,22 +133,51 @@
           }
 
           const machineId = d.machine_id || "";
-          const shortMachineId = machineId.length >= 8 ? machineId.slice(0, 8) : (machineId || "unknown");
-          const localAi = d.inference_ports && d.inference_ports.length ? d.inference_ports.join(", ") : "None";
-          const matchedProc = d.process_matches && d.process_matches.length ? d.process_matches.join(", ") : "None";
+          const shortMachineId =
+            machineId.length >= 8
+              ? machineId.slice(0, 8)
+              : machineId || "unknown";
+          const localAi =
+            d.inference_ports && d.inference_ports.length
+              ? d.inference_ports.join(", ")
+              : "None";
+          const matchedProc =
+            d.process_matches && d.process_matches.length
+              ? d.process_matches.join(", ")
+              : "None";
 
           facts("agent-facts", [
             ["Contestant", d.username || "Not enrolled"],
-            ["Connection", d.healthy ? "Active" : (d.enrolled ? "Reconnecting" : "Awaiting Login")],
+            [
+              "Connection",
+              d.healthy
+                ? "Active"
+                : d.enrolled
+                  ? "Reconnecting"
+                  : "Awaiting Login",
+            ],
             ["Version", `v${d.agent_version || "unknown"}`],
             ["Machine ID", shortMachineId],
-            ["Last Heartbeat", d.seconds_since_ack === null || d.seconds_since_ack === undefined ? "Never" : `${d.seconds_since_ack}s ago`],
+            [
+              "Last Heartbeat",
+              d.seconds_since_ack === null || d.seconds_since_ack === undefined
+                ? "Never"
+                : `${d.seconds_since_ack}s ago`,
+            ],
             ["Reports Sent", `#${d.seq ?? 0}`],
             ["Local AI Ports", localAi],
             ["Matched Processes", matchedProc],
             ["Focused Application", d.foreground_app || "Not available"],
-            ["Installed AI Extensions", (d.installed_ai_extensions || []).join(", ") || "None detected"],
-            ["Foreground Monitoring", d.foreground_monitoring ? "Available" : "Unavailable on this platform"],
+            [
+              "Installed AI Extensions",
+              (d.installed_ai_extensions || []).join(", ") || "None detected",
+            ],
+            [
+              "Foreground Monitoring",
+              d.foreground_monitoring
+                ? "Available"
+                : "Unavailable on this platform",
+            ],
           ]);
 
           const netPill = el("network-pill");
@@ -133,7 +189,8 @@
             netPill.textContent = "Offline";
           }
 
-          el("last-refreshed").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+          el("last-refreshed").textContent =
+            `Updated ${new Date().toLocaleTimeString()}`;
 
           const historyNode = el("history");
           if (historyNode) {
@@ -141,13 +198,22 @@
             const entries = [...(d.history || [])].reverse().slice(0, 25);
             if (entries.length === 0) {
               const tr = document.createElement("tr");
-              tr.innerHTML = '<td colspan="4" style="text-align: center; color: var(--fg-dim); padding: 8px;">No heartbeats recorded yet</td>';
+              tr.innerHTML =
+                '<td colspan="4" style="text-align: center; color: var(--fg-dim); padding: 8px;">No heartbeats recorded yet</td>';
               historyNode.appendChild(tr);
             } else {
               for (const entry of entries) {
                 const row = document.createElement("tr");
-                const timeStr = entry.at && entry.at.length >= 19 ? entry.at.slice(11, 19) : (entry.at || "");
-                for (const value of [timeStr, entry.seq, entry.outcome, entry.detail]) {
+                const timeStr =
+                  entry.at && entry.at.length >= 19
+                    ? entry.at.slice(11, 19)
+                    : entry.at || "";
+                for (const value of [
+                  timeStr,
+                  entry.seq,
+                  entry.outcome,
+                  entry.detail,
+                ]) {
                   const cell = document.createElement("td");
                   cell.textContent = String(value ?? "");
                   row.appendChild(cell);
@@ -194,7 +260,9 @@
           platform: latest.platform,
         };
         try {
-          await navigator.clipboard.writeText(JSON.stringify(sanitized, null, 2));
+          await navigator.clipboard.writeText(
+            JSON.stringify(sanitized, null, 2),
+          );
           el("copy").textContent = "Copied";
           setTimeout(() => (el("copy").textContent = "Copy Diagnostics"), 1500);
         } catch (err) {

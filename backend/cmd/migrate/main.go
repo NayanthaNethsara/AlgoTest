@@ -8,8 +8,8 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/config"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/db"
 )
 
 func main() {

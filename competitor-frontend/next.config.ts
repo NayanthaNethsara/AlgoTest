@@ -43,7 +43,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "20mb",
       allowedOrigins: [
-        "competitor-portal--algothon-2026.asia-southeast1.hosted.app",
+        "competitor-portal--labyrithm-2026.asia-southeast1.hosted.app",
         "*.hosted.app",
         "*.run.app",
         "localhost:3000",

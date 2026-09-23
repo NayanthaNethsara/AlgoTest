@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -12,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { DesktopDownloadCards } from "@/components/download/desktop-download-cards";
 
 export const metadata = {
-  title: "Download Desktop Proctor — Algothon",
+  title: `Download Desktop Proctor — ${PRODUCT_NAME}`,
   robots: {
     index: false,
     follow: false,
@@ -38,8 +39,8 @@ export default async function DownloadPage() {
         </Link>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo/algothon.svg"
-          alt="Algothon"
+          src="/logo/labyrithm.svg"
+          alt={PRODUCT_NAME}
           className="h-5 w-auto object-contain"
         />
       </div>
@@ -90,8 +91,8 @@ export default async function DownloadPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                    Watches for a specific, published list of proctoring
-                    signals and sends anything flagged to a human for review.
+                    Watches for a specific, published list of proctoring signals
+                    and sends anything flagged to a human for review.
                   </li>
                 </ul>
               </div>
@@ -120,8 +121,8 @@ export default async function DownloadPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <XCircle className="size-3.5 text-red-500 shrink-0 mt-0.5" />
-                    Doesn&apos;t need to stay installed afterward — quit it
-                    once the contest and submissions are closed.
+                    Doesn&apos;t need to stay installed afterward — quit it once
+                    the contest and submissions are closed.
                   </li>
                 </ul>
               </div>
@@ -131,14 +132,14 @@ export default async function DownloadPage() {
               <strong className="text-foreground">
                 Beta software, independent project.
               </strong>{" "}
-              Algothon is an independent student project — free and
-              open-source, provided as-is with no guaranteed uptime or
-              support. It isn&apos;t an official platform of, endorsed by, or
-              affiliated with GTN or SLIIT, and neither is responsible for it.
-              This client is still in beta and isn&apos;t code-signed —
-              install and run it at your own risk. We don&apos;t accept
-              liability for lost submissions, downtime, or other issues that
-              come from using it during the contest. See{" "}
+              {PRODUCT_NAME} is an independent student project — free and
+              open-source, provided as-is with no guaranteed uptime or support.
+              It isn&apos;t an official platform of, endorsed by, or affiliated
+              with GTN or SLIIT, and neither is responsible for it. This client
+              is still in beta and isn&apos;t code-signed — install and run it
+              at your own risk. We don&apos;t accept liability for lost
+              submissions, downtime, or other issues that come from using it
+              during the contest. See{" "}
               <Link
                 href="/rules"
                 className="text-primary underline underline-offset-2"
@@ -161,12 +162,12 @@ export default async function DownloadPage() {
           <div className="pixel-flat bg-amber-500/5 border border-amber-500/30 p-5 flex items-start gap-4">
             <ShieldAlert className="size-5 text-amber-500 shrink-0 mt-0.5" />
             <p className="text-sm text-muted-foreground leading-relaxed">
-              These builds aren&apos;t code-signed yet, so your OS or
-              antivirus may show an unrecognized-publisher warning on
-              first launch — that&apos;s expected, not a sign of tampering.
-              Only download from this page over HTTPS, and match the SHA-256
-              checksum shown under each build if you want to verify the file
-              wasn&apos;t corrupted or modified in transit.
+              These builds aren&apos;t code-signed yet, so your OS or antivirus
+              may show an unrecognized-publisher warning on first launch —
+              that&apos;s expected, not a sign of tampering. Only download from
+              this page over HTTPS, and match the SHA-256 checksum shown under
+              each build if you want to verify the file wasn&apos;t corrupted or
+              modified in transit.
             </p>
           </div>
         </div>

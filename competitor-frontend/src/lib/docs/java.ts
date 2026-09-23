@@ -54,7 +54,7 @@ Get-Content input.txt | java Main`,
         {
           id: "java-cli-judge",
           name: "3. Judge Sandbox Evaluation Command",
-          syntax: `# The exact command used by the Algothon evaluation sandbox:
+          syntax: `# The exact command used by the Labyrithm evaluation sandbox:
 javac Main.java
 java -XX:+UseSerialGC -Xss32m -Xmx256m Main < input.txt`,
           description:

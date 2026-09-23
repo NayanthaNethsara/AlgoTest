@@ -1,8 +1,8 @@
 [package]
-name = "algothon-competitor"
+name = "labyrithm-competitor"
 version = "0.2.4"
-description = "Algothon competitor client: proctor agent"
-authors = ["Algothon"]
+description = "Labyrithm competitor client: proctor agent"
+authors = ["Labyrithm"]
 license = ""
 repository = ""
 edition = "2021"
@@ -13,11 +13,11 @@ name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "algothon-competitor"
+name = "labyrithm-competitor"
 path = "src/main.rs"
 
 [[bin]]
-name = "algothon-agent"
+name = "labyrithm-agent"
 path = "src/agent_main.rs"
 
 [build-dependencies]

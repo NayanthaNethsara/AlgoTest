@@ -61,7 +61,7 @@ pub fn request_exit(app: &AppHandle, state: &Arc<AgentState>, reason: &str) {
         return;
     }
     if let Some(window) = app.get_webview_window(super::windows::SETUP_WINDOW) {
-        let _ = window.set_title("Algothon Proctor — Stopping…");
+        let _ = window.set_title("Labyrithm Proctor — Stopping…");
     }
     let app = app.clone();
     let state = Arc::clone(state);

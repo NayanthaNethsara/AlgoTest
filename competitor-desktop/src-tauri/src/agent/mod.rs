@@ -17,7 +17,7 @@ use state::AgentState;
 pub fn run() {
     crate::config::ensure_current_version(crate::AGENT_VERSION);
 
-    let _instance_lock = match crate::acquire_process_lock("Local\\AlgothonAgentInstance") {
+    let _instance_lock = match crate::acquire_process_lock("Local\\LabyrithmAgentInstance") {
         Some(lock) => lock,
         None => {
             loopback::focus_existing();

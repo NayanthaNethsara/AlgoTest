@@ -62,7 +62,7 @@ func Load() Config {
 		Env:              getenv("ENV", "development"),
 		AllowedOrigins:   strings.Split(getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,tauri://localhost,http://tauri.localhost,https://tauri.localhost"), ","),
 		TrustedProxies:   splitNonEmpty(getenv("TRUSTED_PROXIES", "")),
-		DatabaseURL:      getenv("DATABASE_URL", "postgres://algothon:algothon@localhost:5432/algothon?sslmode=disable"),
+		DatabaseURL:      getenv("DATABASE_URL", "postgres://labyrithm:labyrithm@localhost:5432/labyrithm?sslmode=disable"),
 		DBMaxConns:       int32(getenvInt("DB_MAX_CONNS", 25)),
 		DBMinConns:       int32(getenvInt("DB_MIN_CONNS", 5)),
 		JudgeWorkers:     getenvInt("JUDGE_WORKERS", -1),

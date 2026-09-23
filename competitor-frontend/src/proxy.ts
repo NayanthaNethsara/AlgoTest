@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE } from "@mini-algothon/auth";
+import { SESSION_COOKIE } from "@labyrithm/auth";
 import { DESKTOP_CLIENT_COOKIE, DESKTOP_CLIENT_VALUE } from "@/lib/desktop";
 
 /** Paths that need a session. `/` and `/login` are matched only to catch the

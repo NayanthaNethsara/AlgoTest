@@ -1,17 +1,17 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: algothon-postgres
+    container_name: labyrithm-postgres
     environment:
-      POSTGRES_USER: algothon
-      POSTGRES_PASSWORD: algothon
-      POSTGRES_DB: algothon
+      POSTGRES_USER: labyrithm
+      POSTGRES_PASSWORD: labyrithm
+      POSTGRES_DB: labyrithm
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - algothon-pgdata:/var/lib/postgresql/data
+      - labyrithm-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U algothon -d algothon"]
+      test: ["CMD-SHELL", "pg_isready -U labyrithm -d labyrithm"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: algothon-backend
+    container_name: labyrithm-backend
     # isolate creates cgroups and switches UIDs; a container manager does not
     # delegate enough for that unprivileged. Acceptable for local dev only --
     # production runs isolate on a real host, not in a container.
@@ -32,7 +32,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      DATABASE_URL: postgres://algothon:algothon@postgres:5432/algothon?sslmode=disable
+      DATABASE_URL: postgres://labyrithm:labyrithm@postgres:5432/labyrithm?sslmode=disable
       ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
       TRUSTED_PROXIES: ""
       DB_MAX_CONNS: "25"
@@ -41,7 +41,7 @@ services:
       RUN_WORK_ROOT: /judge-work
     volumes:
       - ./backend:/app
-      - algothon-gocache:/go
+      - labyrithm-gocache:/go
     tmpfs:
       - /judge-work:size=2g,mode=0700
     depends_on:
@@ -52,16 +52,16 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: algothon-worker
+    container_name: labyrithm-worker
     command: ["go", "run", "./cmd/worker"]
     privileged: true
     environment:
-      DATABASE_URL: postgres://algothon:algothon@postgres:5432/algothon?sslmode=disable
+      DATABASE_URL: postgres://labyrithm:labyrithm@postgres:5432/labyrithm?sslmode=disable
       RUN_MAX_CONCURRENT: "8"
       RUN_WORK_ROOT: /judge-work
     volumes:
       - ./backend:/app
-      - algothon-gocache:/go
+      - labyrithm-gocache:/go
     tmpfs:
       - /judge-work:size=2g,mode=0700
     depends_on:
@@ -69,7 +69,7 @@ services:
         condition: service_healthy
 
 volumes:
-  algothon-pgdata:
-    name: algothon-pgdata
-  algothon-gocache:
-    name: algothon-gocache
+  labyrithm-pgdata:
+    name: labyrithm-pgdata
+  labyrithm-gocache:
+    name: labyrithm-gocache

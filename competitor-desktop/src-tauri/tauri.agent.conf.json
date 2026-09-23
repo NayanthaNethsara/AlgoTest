@@ -1,9 +1,9 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Algothon Agent",
+  "productName": "Labyrithm Agent",
   "version": "0.2.4",
-  "identifier": "com.algothon.agent",
-  "mainBinaryName": "algothon-agent",
+  "identifier": "com.labyrithm.agent",
+  "mainBinaryName": "labyrithm-agent",
   "build": {
     "frontendDist": "../setup",
     "beforeDevCommand": "",

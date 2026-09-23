@@ -10,10 +10,10 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/config"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/db"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/judge"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/runner"
 )
 
 func main() {

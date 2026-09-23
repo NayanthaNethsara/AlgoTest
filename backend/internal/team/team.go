@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
 )
 
 const (

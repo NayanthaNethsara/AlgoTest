@@ -1,11 +1,12 @@
 "use server";
 
+import { DEFAULT_SESSION_TITLE } from "@labyrithm/branding";
 import { backendFetch } from "@/lib/api/server";
 import { contestStateSchema } from "@/lib/validation/contest";
 import { CONTEST_STATUS, type ContestState } from "@/types/contest";
 
 const defaultContestState: ContestState = {
-  title: "Algothon 2026",
+  title: DEFAULT_SESSION_TITLE,
   status: CONTEST_STATUS.NOT_STARTED,
   startTime: null,
   endTime: null,

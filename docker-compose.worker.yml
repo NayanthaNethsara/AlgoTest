@@ -1,22 +1,22 @@
-name: algothon-worker
+name: labyrithm-worker
 
 services:
   judge-worker:
     image: ghcr.io/nayanthanethsara/algotest/backend:latest
-    container_name: algothon-judge-worker
+    container_name: labyrithm-judge-worker
     privileged: true
     restart: unless-stopped
-    command: ["algothon-worker"]
+    command: ["labyrithm-worker"]
     env_file:
       - ./backend/.env
     volumes:
-      - /var/local/lib/algothon-work:/var/local/lib/algothon-work
+      - /var/local/lib/labyrithm-work:/var/local/lib/labyrithm-work
     networks:
-      - algothon-worker-net
+      - labyrithm-worker-net
 
   promtail:
     image: grafana/promtail:3.0.0
-    container_name: algothon-worker-promtail
+    container_name: labyrithm-worker-promtail
     restart: unless-stopped
     command: -config.file=/etc/promtail/config.yml
     volumes:
@@ -24,9 +24,9 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - algothon-worker-net
+      - labyrithm-worker-net
 
 networks:
-  algothon-worker-net:
-    name: algothon-worker-net
+  labyrithm-worker-net:
+    name: labyrithm-worker-net
     driver: bridge

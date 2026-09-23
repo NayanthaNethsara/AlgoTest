@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/db"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/db"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/problem"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/team"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"

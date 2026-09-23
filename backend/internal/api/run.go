@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/contest"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/contest"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/runner"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
 )
 
 const (

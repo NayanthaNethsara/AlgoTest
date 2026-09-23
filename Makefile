@@ -80,20 +80,20 @@ desktop: competitor-desktop
 desktop-dev: competitor-desktop
 
 agent:
-	cd competitor-desktop/src-tauri && cargo run --bin algothon-agent
+	cd competitor-desktop/src-tauri && cargo run --bin labyrithm-agent
 
 agent-dev: agent
 
 agent-build:
 	cd competitor-desktop && pnpm run build:agent
-	@echo "Algothon Agent bundle complete!"
+	@echo "Labyrithm Agent bundle complete!"
 
 agent-binary:
-	cd competitor-desktop/src-tauri && cargo build --release --bin algothon-agent
-	@echo "Agent raw binary built at competitor-desktop/src-tauri/target/release/algothon-agent"
+	cd competitor-desktop/src-tauri && cargo build --release --bin labyrithm-agent
+	@echo "Agent raw binary built at competitor-desktop/src-tauri/target/release/labyrithm-agent"
 
 agent-reset:
-	cd competitor-desktop/src-tauri && cargo run --quiet --bin algothon-agent -- --reset
+	cd competitor-desktop/src-tauri && cargo run --quiet --bin labyrithm-agent -- --reset
 
 desktop-build:
 	cd competitor-desktop && pnpm build
@@ -104,7 +104,7 @@ desktop-build:
 # The agent is built to survive being closed, which is right in a contest hall and
 # unhelpful on a development laptop.
 desktop-reset:
-	cd competitor-desktop/src-tauri && cargo run --quiet --bin algothon-competitor -- --reset
+	cd competitor-desktop/src-tauri && cargo run --quiet --bin labyrithm-competitor -- --reset
 
 frontend: competitor-frontend
 
@@ -162,8 +162,8 @@ MONITORING = docker compose -f monitoring/docker-compose.monitoring.yml
 MONITORING_LOCAL = $(MONITORING) --profile local
 
 # Local ports for the IAP tunnel, offset so they never collide with a local stack.
-GCP_PROJECT ?= algothon-26
-VM_NAME ?= mini-algothon
+GCP_PROJECT ?= labyrithm-26
+VM_NAME ?= labyrithm
 VM_ZONE ?= asia-southeast1-b
 REMOTE_PROM_PORT ?= 19090
 REMOTE_LOKI_PORT ?= 13100

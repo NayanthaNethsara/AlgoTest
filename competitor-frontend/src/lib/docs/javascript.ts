@@ -121,7 +121,7 @@ const MAX_LIMIT = 100; // Constant (cannot be reassigned)
           name: "Primitive Types",
           syntax: `const num = 42;                 // 64-bit IEEE float (safe up to 2^53 - 1)
 const big = 9007199254740992n;  // BigInt for 64-bit+ integers
-const str = "Algothon";          // String
+const str = "Labyrithm";          // String
 const bool = true;              // Boolean
 const empty = null;             // Explicit absence of value
 const notSet = undefined;       // Uninitialized variable`,

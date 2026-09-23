@@ -17,7 +17,7 @@ upstream portal {
 
 map $http_x_proctor_client $proctor_client_claim {
     default $http_x_proctor_client;
-    ""      $cookie_mini_algothon_client;
+    ""      $cookie_mini_labyrithm_client;
 }
 
 server {

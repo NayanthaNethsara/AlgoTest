@@ -1,6 +1,6 @@
 use sha2::{Digest, Sha256};
 
-const MACHINE_ID_SALT: &str = "algothon-proctor-v1";
+const MACHINE_ID_SALT: &str = "labyrithm-proctor-v1";
 
 pub fn machine_id() -> String {
     let raw = machine_uid::get()

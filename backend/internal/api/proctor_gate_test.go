@@ -11,8 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/agent"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
 )
 
 func gatedRouter(status gateStatusFunc) *gin.Engine {
@@ -125,7 +125,7 @@ func TestPortalHeaderExtraction(t *testing.T) {
 	t.Run("extracts desktop client claim from cookie", func(t *testing.T) {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
 		req, _ := http.NewRequest(http.MethodGet, "/test", nil)
-		req.AddCookie(&http.Cookie{Name: "algothon-client", Value: "desktop"})
+		req.AddCookie(&http.Cookie{Name: "labyrithm-client", Value: "desktop"})
 		c.Request = req
 
 		if !portalClaimsDesktop(c) {

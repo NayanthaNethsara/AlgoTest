@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/metrics"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/metrics"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/runner"
 )
 
 type Judge struct {

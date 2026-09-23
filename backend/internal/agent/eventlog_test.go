@@ -115,7 +115,7 @@ func TestAppNameFormatting(t *testing.T) {
 	}{
 		{"chrome.exe", "chrome"},
 		{"Code.exe", "Code"},
-		{"MiniAlgothon.exe", "MiniAlgothon"},
+		{"Labyrithm.exe", "Labyrithm"},
 		{`C:\Program Files\Google\Chrome\Application\chrome.exe`, "chrome"},
 		{`/usr/bin/google-chrome`, "google-chrome"},
 		{"com.google.Chrome", "Chrome"},

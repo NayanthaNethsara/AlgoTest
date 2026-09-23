@@ -1,4 +1,4 @@
-module github.com/NayanthaNethsara/mini-algothon/backend
+module github.com/NayanthaNethsara/labyrithm/backend
 
 go 1.25.7
 

@@ -11,9 +11,9 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/algothon-server ./cmd/server \
-    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/algothon-usertool ./cmd/usertool \
-    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/algothon-worker ./cmd/worker
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/labyrithm-server ./cmd/server \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/labyrithm-usertool ./cmd/usertool \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/labyrithm-worker ./cmd/worker
 
 FROM ubuntu:24.04
 
@@ -45,11 +45,11 @@ RUN find /usr/include -path '*/c++/*/bits/stdc++.h' | while read -r header; do \
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-COPY --from=build /out/algothon-server /usr/local/bin/algothon-server
-COPY --from=build /out/algothon-usertool /usr/local/bin/algothon-usertool
-COPY --from=build /out/algothon-worker /usr/local/bin/algothon-worker
+COPY --from=build /out/labyrithm-server /usr/local/bin/labyrithm-server
+COPY --from=build /out/labyrithm-usertool /usr/local/bin/labyrithm-usertool
+COPY --from=build /out/labyrithm-worker /usr/local/bin/labyrithm-worker
 
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["algothon-server"]
+CMD ["labyrithm-server"]

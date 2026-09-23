@@ -1,4 +1,4 @@
-# Algothon Contest Environment - Network Firewall & Allowlist Specification
+# Labyrithm Environment - Network Firewall & Allowlist Specification
 
 **Target Audience**: Network Administrators, Venue IT Teams, Exam Hall Technicians  
 **Enforcement Policy**: **Default Deny** (Whitelist-only outbound access)
@@ -7,8 +7,9 @@
 
 ## Executive Summary
 
-To preserve academic integrity and prevent cheating during Algothon competitions, contestant workstations (laptops/lab PCs) must be restricted to accessing:
-1. The **Algothon Contest Platform** (Web Portal, CDN, and Backend API).
+To preserve academic integrity during Labyrithm sessions, contestant workstations (laptops/lab PCs) must be restricted to accessing:
+
+1. The **Labyrithm Platform** (Web Portal, CDN, and Backend API).
 2. **Authorized Programming Language Documentation** (Rust, C, C++, Python, Java, JavaScript, and W3Schools).
 3. **Internal Loopback Sockets** on `127.0.0.1` for proctor agent telemetry.
 
@@ -20,10 +21,10 @@ All other outbound Internet traffic—especially generative AI platforms, search
 
 The network gateway/firewall must permit outbound TCP traffic on **Port 443 (HTTPS/WSS)** to the following endpoints:
 
-| Domain / FQDN | Port | Protocol | Function |
-|---|---|---|---|
-| `competitor-portal--algothon-2026.asia-southeast1.hosted.app` | `443` | HTTPS | Contest Web Portal UI |
-| `mini-algothon-api.nayantha.me` | `443` | HTTPS | Backend API, submission grading, and long-lived Server-Sent Events (SSE) |
+| Domain / FQDN                                                 | Port  | Protocol | Function                                                                 |
+| ------------------------------------------------------------- | ----- | -------- | ------------------------------------------------------------------------ |
+| `competitor-portal--labyrithm-2026.asia-southeast1.hosted.app` | `443` | HTTPS    | Contest Web Portal UI                                                    |
+| `labyrithm-api.nayantha.me`                               | `443` | HTTPS    | Backend API, submission grading, and long-lived Server-Sent Events (SSE) |
 
 Do **not** allow all of `*.hosted.app` or `*.run.app`. The portal serves its
 Next.js and Monaco assets from its own hostname, while those wildcards would
@@ -31,8 +32,9 @@ also make unrelated third-party applications on the same hosting platforms
 reachable from contestant machines.
 
 ### Network Protocol Requirements
+
 - **DNS Resolution**: Allow UDP and TCP port `53` only to the venue-approved DNS resolver. Do not permit arbitrary public DNS or DNS-over-HTTPS endpoints, because they can bypass DNS-based filtering.
-- **Persistent Connections**: The network gateway and stateful firewalls must permit long-lived HTTPS connections used for SSE to `mini-algothon-api.nayantha.me`. Do not drop idle TCP sessions under 60 seconds.
+- **Persistent Connections**: The network gateway and stateful firewalls must permit long-lived HTTPS connections used for SSE to `labyrithm-api.nayantha.me`. Do not drop idle TCP sessions under 60 seconds.
 - **Editor Runtime**: Permit JavaScript Web Workers and `blob:` URLs for the competitor portal. Monaco creates a local worker using a `blob:` URL; this is a browser capability, not another Internet hostname. Disable HTTPS inspection features that rewrite or sanitize the portal's JavaScript responses.
 
 ---
@@ -41,14 +43,14 @@ reachable from contestant machines.
 
 Contestants are permitted read-only access to standard library references and language tutorials. Permit outbound TCP port `443 (HTTPS)` to the following domains:
 
-| Language / Tool | Resource Description | Required Domains & CDNs |
-|---|---|---|
-| **Rust** | Official Rust Docs & Standard Library | `doc.rust-lang.org` |
-| **C & C++** | Cppreference (C and C++ Standard Reference) | `en.cppreference.com` |
-| **Python** | Python Official Documentation | `docs.python.org` |
-| **Java** | Oracle Java SE Documentation | `docs.oracle.com`<br>`dev.java` |
-| **JavaScript** | MDN Web Docs (Mozilla JavaScript Reference) | `developer.mozilla.org` |
-| **Tutorials / Reference** | W3Schools Web & Language Tutorials | `www.w3schools.com` |
+| Language / Tool           | Resource Description                        | Required Domains & CDNs         |
+| ------------------------- | ------------------------------------------- | ------------------------------- |
+| **Rust**                  | Official Rust Docs & Standard Library       | `doc.rust-lang.org`             |
+| **C & C++**               | Cppreference (C and C++ Standard Reference) | `en.cppreference.com`           |
+| **Python**                | Python Official Documentation               | `docs.python.org`               |
+| **Java**                  | Oracle Java SE Documentation                | `docs.oracle.com`<br>`dev.java` |
+| **JavaScript**            | MDN Web Docs (Mozilla JavaScript Reference) | `developer.mozilla.org`         |
+| **Tutorials / Reference** | W3Schools Web & Language Tutorials          | `www.w3schools.com`             |
 
 Some documentation pages may reference optional assets on additional hosts.
 Keep those blocked unless venue testing proves that a specific host is required;
@@ -58,7 +60,7 @@ do not replace this exact list with broad parent-domain wildcards.
 
 ## 3. Workstation Loopback Requirements
 
-The **Algothon Desktop Proctor Agent** runs locally on contestant machines and establishes a local loopback HTTP server to attest integrity directly to the contest browser.
+The **Labyrithm Desktop Proctor Agent** runs locally on contestant machines and establishes a local loopback HTTP server to attest integrity directly to the contest browser.
 
 This is a **workstation host-firewall exception**, not an Internet gateway
 allowlist entry. Host-level firewall policies (Windows Defender Firewall,
@@ -124,10 +126,12 @@ the failure; the request URL and error message are sufficient for initial diagno
 The network gateway should drop or reject all traffic outside the explicit allowlists above, with particular emphasis on:
 
 ### Blocked Protocols & Ports
+
 - **Plain HTTP (Port 80)**: Block outbound (all platform traffic is strictly HTTPS 443).
 - **Remote Access & File Transfer**: Ports `22` (SSH), `21` (FTP), `23` (Telnet), `3389` (RDP).
 
 ### Blocked Web Domains
+
 - **Generative AI & LLM Endpoints**:
   - `*.openai.com`, `*.chatgpt.com`
   - `*.anthropic.com`, `*.claude.ai`
@@ -149,14 +153,16 @@ The network gateway should drop or reject all traffic outside the explicit allow
 Run the following diagnostics from a contestant workstation on the contest network:
 
 ### 1. Verify Platform Connectivity
+
 ```bash
-curl -I https://competitor-portal--algothon-2026.asia-southeast1.hosted.app
-curl -I https://competitor-portal--algothon-2026.asia-southeast1.hosted.app/monaco/vs/loader.js
-curl -I https://competitor-portal--algothon-2026.asia-southeast1.hosted.app/monaco/vs/editor/editor.main.js
-curl -I https://mini-algothon-api.nayantha.me/healthz
+curl -I https://competitor-portal--labyrithm-2026.asia-southeast1.hosted.app
+curl -I https://competitor-portal--labyrithm-2026.asia-southeast1.hosted.app/monaco/vs/loader.js
+curl -I https://competitor-portal--labyrithm-2026.asia-southeast1.hosted.app/monaco/vs/editor/editor.main.js
+curl -I https://labyrithm-api.nayantha.me/healthz
 ```
-*Expected Result: `200 OK` for the assets and health endpoint. The portal root
-may return a `307` redirect to `/login` or `/challenges`, which is also expected.*
+
+_Expected Result: `200 OK` for the assets and health endpoint. The portal root
+may return a `307` redirect to `/login` or `/challenges`, which is also expected._
 
 After these checks pass, open a challenge in a supported browser and verify
 that the Monaco editor replaces the “Loading editor…” placeholder. If it does
@@ -252,6 +258,7 @@ Interpret failures as follows:
   JavaScript content rewriting for the exact competitor portal hostname.
 
 ### 2. Verify Documentation Sites
+
 ```bash
 curl -I https://doc.rust-lang.org
 curl -I https://en.cppreference.com
@@ -260,12 +267,15 @@ curl -I https://docs.oracle.com
 curl -I https://developer.mozilla.org
 curl -I https://www.w3schools.com
 ```
-*Expected Result: `HTTP/2 200` or `301/302 Redirect to HTTPS`.*
+
+_Expected Result: `HTTP/2 200` or `301/302 Redirect to HTTPS`._
 
 ### 3. Verify Blocked Destinations
+
 ```bash
 curl -I --connect-timeout 3 https://www.google.com
 curl -I --connect-timeout 3 https://chatgpt.com
 curl -I --connect-timeout 3 https://github.com
 ```
-*Expected Result: Connection timeout or firewall reset (`Connection refused`).*
+
+_Expected Result: Connection timeout or firewall reset (`Connection refused`)._

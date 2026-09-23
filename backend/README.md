@@ -1,6 +1,6 @@
-# Algothon Backend Service
+# Labyrithm Backend Service
 
-The Algothon backend is a high-performance Go service powered by the Gin web framework and PostgreSQL 16. It handles the core REST API, real-time Server-Sent Events (SSE) verdict streaming, participant telemetry ingestion, proctoring anomaly evaluation, immutable audit logging, and untrusted code execution using the Linux `isolate` sandbox.
+The Labyrithm backend is a high-performance Go service powered by the Gin web framework and PostgreSQL 16. It handles the core REST API, real-time Server-Sent Events (SSE) verdict streaming, participant telemetry ingestion, proctoring anomaly evaluation, immutable audit logging, and untrusted code execution using the Linux `isolate` sandbox.
 
 ---
 
@@ -46,7 +46,7 @@ backend/
 
 ## Distributed Judge Engine & Queue Mechanics
 
-Algothon uses an atomic, PostgreSQL-backed submission queue that eliminates the need for external broker dependencies like Redis or RabbitMQ:
+Labyrithm uses an atomic, PostgreSQL-backed submission queue that eliminates the need for external broker dependencies like Redis or RabbitMQ:
 
 ```mermaid
 sequenceDiagram
@@ -81,7 +81,7 @@ sequenceDiagram
 
 ### 1. Atomic Queue Claiming (`SKIP LOCKED`)
 
-Worker processes ([cmd/worker/](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/backend/cmd/worker) or in-process workers) poll for submissions using:
+Worker processes ([cmd/worker/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/backend/cmd/worker) or in-process workers) poll for submissions using:
 
 ```sql
 SELECT s.id, s.problem_id, s.user_id, s.language, s.source_code, s.created_at
@@ -107,8 +107,9 @@ When an evaluation finishes, the worker executes `pg_notify('judge_verdicts', <p
 ### 4. Worker Crash Recovery & Lease Reaper
 
 If a worker node crashes, experiences a kernel panic, or suffers a network partition:
+
 - The running submission's lease expires after 60 seconds (`lease_until < NOW()`).
-- The background lease reaper ([reaper.go](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/backend/internal/judge/reaper.go)) runs every 10 seconds:
+- The background lease reaper ([reaper.go](file:///Users/nayanthanethsara/Documents/Github/labyrithm/backend/internal/judge/reaper.go)) runs every 10 seconds:
   ```sql
   UPDATE submissions
   SET state = 'queued',
@@ -125,7 +126,7 @@ If a worker node crashes, experiences a kernel panic, or suffers a network parti
 
 ## Untrusted Code Sandbox (`isolate`)
 
-The judge engine evaluates user code within the Linux `isolate` sandbox ([internal/runner/](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/backend/internal/runner)):
+The judge engine evaluates user code within the Linux `isolate` sandbox ([internal/runner/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/backend/internal/runner)):
 
 - **Kernel cgroups v2**: Strict, hardware-level CPU time limits, wall-clock time limits, and memory limits (RAM + swap).
 - **Process Isolation**: Process tree limits (`--processes`) protect against fork bombs.
@@ -137,28 +138,29 @@ The judge engine evaluates user code within the Linux `isolate` sandbox ([intern
 
 ## Immutable Audit Logging Domain
 
-All sensitive administrative and authentication operations are logged to the `audit_logs` table via [internal/audit/](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/backend/internal/audit):
+All sensitive administrative and authentication operations are logged to the `audit_logs` table via [internal/audit/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/backend/internal/audit):
 
 ### Audit Schema
 
-| Column | Type | Description |
-| --- | --- | --- |
-| `id` | `UUID` | Unique audit record identifier |
-| `actor_id` | `UUID` | User ID of the initiator (NULL for anonymous login attempts) |
-| `actor_username` | `VARCHAR(64)` | Username of the initiator |
-| `actor_role` | `VARCHAR(32)` | Role at time of action (`admin`, `contestant`, `proctor`, `system`) |
-| `action` | `VARCHAR(64)` | Standardized event identifier (e.g. `auth.login.failure`, `contest.pause`) |
-| `target_type` | `VARCHAR(32)` | Entity category (`user`, `team`, `contest`, `problem`, `submission`, `proctor`) |
-| `target_id` | `VARCHAR(64)` | Identifier of the affected entity |
-| `status` | `VARCHAR(16)` | Outcome (`success`, `failure`, `locked`) |
-| `ip_address` | `INET` | Client IP address (resolved via `TRUSTED_PROXIES`) |
-| `user_agent` | `TEXT` | Client HTTP User-Agent |
-| `details` | `JSONB` | Structured contextual metadata |
-| `created_at` | `TIMESTAMPTZ` | Timestamp of occurrence |
+| Column           | Type          | Description                                                                     |
+| ---------------- | ------------- | ------------------------------------------------------------------------------- |
+| `id`             | `UUID`        | Unique audit record identifier                                                  |
+| `actor_id`       | `UUID`        | User ID of the initiator (NULL for anonymous login attempts)                    |
+| `actor_username` | `VARCHAR(64)` | Username of the initiator                                                       |
+| `actor_role`     | `VARCHAR(32)` | Role at time of action (`admin`, `contestant`, `proctor`, `system`)             |
+| `action`         | `VARCHAR(64)` | Standardized event identifier (e.g. `auth.login.failure`, `contest.pause`)      |
+| `target_type`    | `VARCHAR(32)` | Entity category (`user`, `team`, `contest`, `problem`, `submission`, `proctor`) |
+| `target_id`      | `VARCHAR(64)` | Identifier of the affected entity                                               |
+| `status`         | `VARCHAR(16)` | Outcome (`success`, `failure`, `locked`)                                        |
+| `ip_address`     | `INET`        | Client IP address (resolved via `TRUSTED_PROXIES`)                              |
+| `user_agent`     | `TEXT`        | Client HTTP User-Agent                                                          |
+| `details`        | `JSONB`       | Structured contextual metadata                                                  |
+| `created_at`     | `TIMESTAMPTZ` | Timestamp of occurrence                                                         |
 
 ### Asynchronous Non-Blocking Recording
 
 Audit entries are dispatched via `RecordAsync(entry)`:
+
 ```go
 go func() {
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -166,6 +168,7 @@ go func() {
     _ = r.Record(ctx, entry)
 }()
 ```
+
 This guarantees that database audit writes never delay client HTTP response times.
 
 ---
@@ -191,7 +194,7 @@ This guarantees that database audit writes never delay client HTTP response time
 The backend uses `pgxpool.Pool` for PostgreSQL database connectivity:
 
 ```ini
-DATABASE_URL=postgres://algothon:secret@127.0.0.1:5432/algothon?sslmode=disable
+DATABASE_URL=postgres://labyrithm:secret@127.0.0.1:5432/labyrithm?sslmode=disable
 DB_MAX_CONNS=25
 DB_MIN_CONNS=5
 ```
@@ -221,6 +224,7 @@ make worker
 ```
 
 Run tests:
+
 ```sh
 go test -v -race ./...
 ```

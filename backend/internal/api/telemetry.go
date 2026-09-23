@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/agent"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/audit"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/telemetry"
 )
 
 // recordWebPresence notes that a portal is open for this contestant. It carries no

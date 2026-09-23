@@ -2,19 +2,19 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_SERVER_URL: &str = match option_env!("ALGOTHON_SERVER_URL") {
+pub const DEFAULT_SERVER_URL: &str = match option_env!("LABYRITHM_SERVER_URL") {
     Some(url) => url,
-    None => "https://competitor-portal--algothon-2026.asia-southeast1.hosted.app",
+    None => "",
 };
 
-pub const DEFAULT_API_URL: &str = match option_env!("ALGOTHON_API_URL") {
+pub const DEFAULT_API_URL: &str = match option_env!("LABYRITHM_API_URL") {
     Some(url) => url,
-    None => "https://mini-algothon-api.nayantha.me",
+    None => "",
 };
 
-pub const DEFAULT_PORTAL_ORIGINS: &str = match option_env!("ALGOTHON_PORTAL_ORIGINS") {
+pub const DEFAULT_PORTAL_ORIGINS: &str = match option_env!("LABYRITHM_PORTAL_ORIGINS") {
     Some(origins) => origins,
-    None => "https://competitor-portal--algothon-2026.asia-southeast1.hosted.app,http://localhost:3000",
+    None => "",
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -47,7 +47,7 @@ pub struct Enrollment {
     pub consent_version: String,
 }
 
-pub const AUTOSTART_NAME: &str = "Algothon Agent";
+pub const AUTOSTART_NAME: &str = "Labyrithm Agent";
 
 pub fn config_dir() -> Option<PathBuf> {
     let base = if cfg!(target_os = "windows") {
@@ -60,7 +60,7 @@ pub fn config_dir() -> Option<PathBuf> {
             .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
     }?;
 
-    Some(base.join("com.algothon.agent"))
+    Some(base.join("com.labyrithm.agent"))
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(name: &str) -> Option<T> {
@@ -145,7 +145,7 @@ pub fn reset() -> Vec<String> {
     };
 
     if let Some(base) = base_dirs {
-        for folder in ["com.algothon.agent", "com.algothon.competitor", "com.minialgothon.competitor"] {
+        for folder in ["com.labyrithm.agent", "com.labyrithm.competitor", "com.minilabyrithm.competitor"] {
             let dir = base.join(folder);
             if dir.exists() {
                 for name in ["agent.json", "client.json", "buffer.json", "version.txt"] {
@@ -194,11 +194,10 @@ pub fn clear_autostart() {
 }
 
 const KNOWN_AUTOSTART_NAMES: &[&str] = &[
-    "Algothon Agent",
-    "algothon-agent",
-    "algothon-competitor",
-    "MiniAlgothon Agent",
-    "mini-algothon-competitor",
+    "Labyrithm Agent",
+    "labyrithm-agent",
+    "labyrithm-competitor",
+    "labyrithm-competitor",
 ];
 
 #[cfg(target_os = "macos")]
@@ -347,9 +346,9 @@ mod tests {
 
     #[test]
     fn accepts_any_configured_portal() {
-        let allowed = "http://contest.local,https://algothon.vercel.app";
+        let allowed = "http://contest.local,https://labyrithm.vercel.app";
         assert!(origin_matches(allowed, "http://contest.local"));
-        assert!(origin_matches(allowed, "https://algothon.vercel.app"));
+        assert!(origin_matches(allowed, "https://labyrithm.vercel.app"));
         assert!(!origin_matches(allowed, "https://evil.example"));
     }
 
@@ -363,9 +362,9 @@ mod tests {
     fn collects_the_primary_portal_and_its_standbys() {
         let origins = allowed_portal_origins(
             "http://contest.local/login",
-            "https://algothon.vercel.app, http://contest.local",
+            "https://labyrithm.vercel.app, http://contest.local",
         );
-        assert_eq!(origins, "http://contest.local,https://algothon.vercel.app");
+        assert_eq!(origins, "http://contest.local,https://labyrithm.vercel.app");
     }
 
     #[test]
@@ -385,7 +384,7 @@ mod tests {
     #[test]
     fn writes_version_marker() {
         let dir =
-            std::env::temp_dir().join(format!("algothon-version-test-{}", uuid::Uuid::new_v4()));
+            std::env::temp_dir().join(format!("labyrithm-version-test-{}", uuid::Uuid::new_v4()));
         write_version_marker(&dir, "0.99.99");
         let version_file = dir.join("version.txt");
         assert!(version_file.exists());

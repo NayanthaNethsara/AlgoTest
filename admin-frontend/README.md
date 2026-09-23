@@ -89,7 +89,7 @@ The Labyrithm Admin Portal is a specialized Next.js 15 web application for platf
 
 ## Security & Access Control
 
-- **Server-Side Authentication**: Protected routes enforce session validation in [src/proxy.ts](file:///Users/nayanthanethsara/Documents/Github/mini-algothon/admin-frontend/src/proxy.ts) via the backend `/api/v1/me` endpoint.
+- **Server-Side Authentication**: Protected routes enforce session validation in [src/proxy.ts](file:///Users/nayanthanethsara/Documents/Github/labyrithm/admin-frontend/src/proxy.ts) via the backend `/api/v1/me` endpoint.
 - **Role Verification**: Non-admin users attempting to access dashboard routes are redirected to `/login`.
 - **Session Lifetime**: Administrator sessions expire after 12 hours (`ADMIN_SESSION_TTL_HOURS=12`).
 - **Production Cookie Policy**: Enforces `Secure; HttpOnly; SameSite=Lax` cookies when `COOKIE_SECURE=true`.

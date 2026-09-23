@@ -22,9 +22,9 @@ export const MAX_CODE_LENGTH = 100_000;
 export const MAX_STDIN_LENGTH = 1_000_000;
 export const MAX_HISTORY_SNAPSHOTS = 50;
 
-export const THEME_STORAGE_KEY = "minialgothon_challenge_theme";
-export const BEST_SCORE_STORAGE_PREFIX = "mini-algothon:best:";
-export const HISTORY_STORAGE_PREFIX = "mini-algothon:history:";
+export const THEME_STORAGE_KEY = "minilabyrithm_challenge_theme";
+export const BEST_SCORE_STORAGE_PREFIX = "labyrithm:best:";
+export const HISTORY_STORAGE_PREFIX = "labyrithm:history:";
 
 export const NAV_LINKS = [
   { href: "/challenges", label: "Challenges", icon: Code2 },

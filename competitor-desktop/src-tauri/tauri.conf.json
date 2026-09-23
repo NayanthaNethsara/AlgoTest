@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "algothon-competitor",
+  "productName": "Labyrithm Desktop",
   "version": "0.2.4",
-  "identifier": "com.algothon.competitor",
+  "identifier": "com.labyrithm.competitor",
   "build": {
     "frontendDist": "../setup",
     "beforeDevCommand": "",

@@ -1,21 +1,26 @@
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import { getDisclosureAction } from "@/actions/disclosure";
-import { LegalPage, LegalSection, LegalList } from "@/components/legal/legal-page";
+import {
+  LegalPage,
+  LegalSection,
+  LegalList,
+} from "@/components/legal/legal-page";
 
 export const metadata = {
-  title: "Privacy & Support — Algothon",
+  title: `Privacy & Support — ${PRODUCT_NAME}`,
 };
 
 function AboutSection() {
   return (
     <LegalSection title="About This Platform">
       <p>
-        Algothon is an independent student project — it is free and
+        {PRODUCT_NAME} is an independent student project — it is free and
         open-source, provided as-is with no guaranteed uptime or support
         commitment.
       </p>
       <p>
-        It is not an official platform of, endorsed by, or affiliated with
-        GTN or SLIIT, and neither is responsible for it.
+        It is not an official platform of, endorsed by, or affiliated with GTN
+        or SLIIT, and neither is responsible for it.
       </p>
     </LegalSection>
   );
@@ -26,11 +31,11 @@ function SupportSection() {
     <LegalSection title="Support">
       <p>
         Login problems, a broken problem statement, a proctor client that
-        won&apos;t connect, anything during a contest — contact the
-        organizing committee through the official WhatsApp group. That&apos;s
-        the only support channel there is; there&apos;s no ticketing system or
-        support email behind this. We&apos;ll help where we can, but we
-        can&apos;t promise a fix or a timeline.
+        won&apos;t connect, anything during a contest — contact the organizing
+        committee through the official WhatsApp group. That&apos;s the only
+        support channel there is; there&apos;s no ticketing system or support
+        email behind this. We&apos;ll help where we can, but we can&apos;t
+        promise a fix or a timeline.
       </p>
     </LegalSection>
   );

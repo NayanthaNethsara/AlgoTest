@@ -1,8 +1,13 @@
 import Link from "next/link";
-import { LegalPage, LegalSection, LegalList } from "@/components/legal/legal-page";
+import { PRODUCT_NAME } from "@labyrithm/branding";
+import {
+  LegalPage,
+  LegalSection,
+  LegalList,
+} from "@/components/legal/legal-page";
 
 export const metadata = {
-  title: "Rules — Algothon",
+  title: `Rules — ${PRODUCT_NAME}`,
 };
 
 const LANGUAGES = [
@@ -40,8 +45,8 @@ export default function RulesPage() {
           items={[
             "Keep the contest portal open. Challenges and status updates appear automatically without a manual refresh.",
             <>
-              The Desktop Proctor client must stay running for the duration
-              of the contest — closing it locks scored submissions until it
+              The Desktop Proctor client must stay running for the duration of
+              the contest — closing it locks scored submissions until it
               reconnects.{" "}
               <Link
                 href="/download"
@@ -73,14 +78,18 @@ export default function RulesPage() {
         <p>
           The Desktop Proctor client watches for a few specific signals,
           including local AI runtimes, during the contest — see{" "}
-          <Link href="/privacy" className="text-primary underline underline-offset-2">
+          <Link
+            href="/privacy"
+            className="text-primary underline underline-offset-2"
+          >
             Privacy &amp; Support
           </Link>{" "}
           for the full, published list of what is and isn&apos;t collected.
         </p>
         <p>
-          Flagged signals go to a human for review — nothing is auto-disqualified.
-          If something looks off, an organizer will reach out.
+          Flagged signals go to a human for review — nothing is
+          auto-disqualified. If something looks off, an organizer will reach
+          out.
         </p>
       </LegalSection>
 
@@ -88,7 +97,10 @@ export default function RulesPage() {
         <p>
           Questions or issues before or during the contest go to the organizing
           committee via the official WhatsApp group — see{" "}
-          <Link href="/privacy" className="text-primary underline underline-offset-2">
+          <Link
+            href="/privacy"
+            className="text-primary underline underline-offset-2"
+          >
             Privacy &amp; Support
           </Link>{" "}
           for details.

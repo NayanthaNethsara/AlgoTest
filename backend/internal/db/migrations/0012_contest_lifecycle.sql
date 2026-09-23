@@ -1,6 +1,6 @@
 -- +goose Up
 INSERT INTO contest_settings (key, value) VALUES
-    ('contest.title', 'MiniAlgothon 2026'),
+    ('contest.title', 'New Session'),
     ('contest.status', 'NOT_STARTED'),
     ('contest.duration_seconds', '7200'),
     ('contest.freeze_minutes', '30'),

@@ -11,10 +11,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/contest"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/judge"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/agent"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/contest"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/judge"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
 )
 
 type createSubmissionRequest struct {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/telemetry"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/telemetry"
 )
 
 func TestParseMonitoringSections(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/metrics"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/metrics"
 )
 
 // ErrBusy means the node is at capacity: either the wait-queue is full, or a

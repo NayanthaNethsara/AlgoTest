@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/audit"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/problem"
 )
 
 type problemPayload struct {

@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/crypto"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/crypto"
 )
 
 // NewSessionToken returns a 256-bit URL-safe random token. Opaque and

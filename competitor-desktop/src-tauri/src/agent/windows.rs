@@ -40,7 +40,7 @@ fn show_page(app: &AppHandle, page: &'static str) {
             return;
         }
         let built = WebviewWindowBuilder::new(&app, SETUP_WINDOW, WebviewUrl::App(page.into()))
-            .title("Algothon Proctor")
+            .title("Labyrithm Proctor")
             .inner_size(520.0, 580.0)
             .min_inner_size(440.0, 460.0)
             .resizable(true)

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/crypto"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/crypto"
 )
 
 var (
@@ -142,7 +142,7 @@ func DefaultPolicy() Policy {
 			"geany", "notepad++", "kate", "com.apple.terminal", "terminal",
 			"com.googlecode.iterm2", "iterm", "iterm2", "windowsterminal", "cmd",
 			"powershell", "pwsh", "alacritty", "kitty", "wezterm", "warp",
-			"mini-algothon-competitor", "com.minialgothon.competitor", "app",
+			"labyrithm-competitor", "com.minilabyrithm.competitor", "app",
 			"com.apple.finder", "finder", "explorer", "systemsettings",
 			"com.apple.systempreferences",
 		},

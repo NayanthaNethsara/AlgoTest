@@ -1,9 +1,9 @@
-name: algothon-prod
+name: labyrithm-prod
 
 services:
   backend:
     image: ghcr.io/nayanthanethsara/algotest/backend:latest
-    container_name: algothon-backend
+    container_name: labyrithm-backend
     privileged: true
     restart: unless-stopped
     env_file:
@@ -12,13 +12,13 @@ services:
       - JUDGE_WORKERS=0
       - TRUSTED_PROXIES=127.0.0.1,172.16.0.0/12
     volumes:
-      - /var/local/lib/algothon-work:/var/local/lib/algothon-work
+      - /var/local/lib/labyrithm-work:/var/local/lib/labyrithm-work
     networks:
-      - algothon-net
+      - labyrithm-net
 
   nginx:
     image: nginx:1.27-alpine
-    container_name: algothon-nginx
+    container_name: labyrithm-nginx
     restart: unless-stopped
     ports:
       - "80:80"
@@ -31,9 +31,9 @@ services:
     depends_on:
       - backend
     networks:
-      - algothon-net
+      - labyrithm-net
 
 networks:
-  algothon-net:
-    name: algothon-net
+  labyrithm-net:
+    name: labyrithm-net
     driver: bridge

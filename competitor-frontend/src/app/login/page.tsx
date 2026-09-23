@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -41,8 +42,8 @@ export default async function LoginPage() {
             <div className="mt-4 flex items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logo/algothon.svg"
-                alt="Algothon"
+                src="/logo/labyrithm.svg"
+                alt={PRODUCT_NAME}
                 className="h-6 w-auto object-contain"
               />
               <span
@@ -84,7 +85,8 @@ export default async function LoginPage() {
                 Open-Source Project Notice
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                Algothon is free and open-source, provided &quot;as is&quot;. See the{" "}
+                {PRODUCT_NAME} is free and open-source, provided &quot;as
+                is&quot;. See the{" "}
                 <Link
                   href="/privacy"
                   className="underline underline-offset-2 hover:text-foreground"
@@ -110,8 +112,8 @@ export default async function LoginPage() {
             <div className="flex min-w-0 items-center gap-1.5 lg:hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logo/algothon.svg"
-                alt="Algothon"
+                src="/logo/labyrithm.svg"
+                alt={PRODUCT_NAME}
                 className="h-5 w-auto shrink object-contain"
               />
               <span
@@ -156,7 +158,7 @@ export default async function LoginPage() {
               Beta Release — sorry for any inconvenience.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center font-mono text-[10px] text-muted-foreground/50 sm:justify-between sm:text-left">
-              <span>ALGOTHON 2026</span>
+              <span>{PRODUCT_NAME.toUpperCase()} SESSION</span>
               <div className="flex items-center gap-2">
                 <Link
                   href="/rules"

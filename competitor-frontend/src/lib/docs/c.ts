@@ -51,7 +51,7 @@ Get-Content input.txt | .\\main.exe`,
         {
           id: "c-cli-judge",
           name: "3. Judge Sandbox Evaluation Command",
-          syntax: `# The exact command used by the Algothon evaluation sandbox:
+          syntax: `# The exact command used by the Labyrithm evaluation sandbox:
 gcc -O2 -std=c17 -o main main.c -lm
 ./main  # (stdin piped in isolated Linux cgroup)`,
           description:

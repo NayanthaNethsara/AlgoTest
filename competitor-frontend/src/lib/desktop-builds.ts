@@ -25,7 +25,7 @@ export const DESKTOP_BUILDS: DesktopBuild[] = [
   {
     os: "macos",
     label: "macOS",
-    file: "algothon-agent-macos.zip",
+    file: "labyrithm-agent-macos.zip",
     sizeLabel: "3.2 MB",
     sha256:
       "f00055d1b1c3c0a34cd46ac77c9d5a392d2b825a324fdc6a7c7d6d29dae0e4c8",

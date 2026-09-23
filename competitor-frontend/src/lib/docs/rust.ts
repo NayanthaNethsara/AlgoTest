@@ -51,7 +51,7 @@ Get-Content input.txt | .\\main.exe`,
         {
           id: "rust-cli-judge",
           name: "3. Judge Sandbox Evaluation Command",
-          syntax: `# The exact command used by the Algothon evaluation sandbox:
+          syntax: `# The exact command used by the Labyrithm evaluation sandbox:
 rustc -O -C strip=symbols main.rs -o main
 ./main  # (stdin piped in isolated Linux cgroup)`,
           description:

@@ -8,8 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/config"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/agent"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/config"
 )
 
 func TestRequireAgentSignature(t *testing.T) {

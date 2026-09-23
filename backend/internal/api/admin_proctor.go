@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/agent"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/audit"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
 )
 
 type updateExemptionRequest struct {

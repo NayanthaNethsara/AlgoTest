@@ -7,17 +7,14 @@ on:
   workflow_dispatch:
     inputs:
       portal_url:
-        description: 'Portal the client opens, and the only Origin its loopback server answers'
-        default: 'https://competitor-portal--algothon-2026.asia-southeast1.hosted.app'
-        required: false
+        description: "Portal the client opens, and the only Origin its loopback server answers"
+        required: true
       api_url:
-        description: 'API base URL the agent reports to'
-        default: 'https://mini-algothon-api.nayantha.me'
-        required: false
+        description: "API base URL the agent reports to"
+        required: true
       portal_origins:
-        description: 'Standby portals the loopback server also answers, comma-separated'
-        default: 'https://competitor-portal--algothon-2026.asia-southeast1.hosted.app,http://localhost:3000'
-        required: false
+        description: "Standby portals the loopback server also answers, comma-separated"
+        required: true
 
 jobs:
   build-agent:
@@ -28,15 +25,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            target: 'macos'
-            os_name: 'macOS'
-          - platform: 'windows-latest'
-            target: 'windows'
-            os_name: 'Windows'
-          - platform: 'ubuntu-22.04'
-            target: 'linux'
-            os_name: 'Linux'
+          - platform: "macos-latest"
+            target: "macos"
+            os_name: "macOS"
+          - platform: "windows-latest"
+            target: "windows"
+            os_name: "Windows"
+          - platform: "ubuntu-22.04"
+            target: "linux"
+            os_name: "Linux"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -69,18 +66,17 @@ jobs:
         id: addr
         shell: bash
         env:
-          PORTAL: ${{ inputs.portal_url || vars.ALGOTHON_SERVER_URL }}
-          API: ${{ inputs.api_url || vars.ALGOTHON_API_URL }}
+          PORTAL: ${{ inputs.portal_url || vars.LABYRITHM_SERVER_URL }}
+          API: ${{ inputs.api_url || vars.LABYRITHM_API_URL }}
         run: |
-          if [ -z "$PORTAL" ]; then
-            PORTAL="https://competitor-portal--algothon-2026.asia-southeast1.hosted.app"
+          if [ -z "$PORTAL" ] || [ -z "$API" ]; then
+            echo "portal_url and api_url are required inputs or repository variables" >&2
+            exit 1
           fi
-          if [ -z "$API" ]; then
-            API="https://mini-algothon-api.nayantha.me"
-          fi
-          ORIGINS="${{ inputs.portal_origins || vars.ALGOTHON_PORTAL_ORIGINS }}"
+          ORIGINS="${{ inputs.portal_origins || vars.LABYRITHM_PORTAL_ORIGINS }}"
           if [ -z "$ORIGINS" ]; then
-            ORIGINS="https://competitor-portal--algothon-2026.asia-southeast1.hosted.app,http://localhost:3000"
+            echo "portal_origins is required as an input or repository variable" >&2
+            exit 1
           fi
           echo "portal=$PORTAL" >> "$GITHUB_OUTPUT"
           echo "api=$API" >> "$GITHUB_OUTPUT"
@@ -88,15 +84,15 @@ jobs:
 
       - name: Build Standalone Agent
         env:
-          ALGOTHON_SERVER_URL: ${{ steps.addr.outputs.portal }}
-          ALGOTHON_API_URL: ${{ steps.addr.outputs.api }}
-          ALGOTHON_PORTAL_ORIGINS: ${{ steps.addr.outputs.origins }}
+          LABYRITHM_SERVER_URL: ${{ steps.addr.outputs.portal }}
+          LABYRITHM_API_URL: ${{ steps.addr.outputs.api }}
+          LABYRITHM_PORTAL_ORIGINS: ${{ steps.addr.outputs.origins }}
         shell: bash
         run: |
           if [ "${{ matrix.target }}" = "macos" ]; then
             cd competitor-desktop && pnpm run build:agent
           else
-            cd competitor-desktop/src-tauri && cargo build --release --bin algothon-agent
+            cd competitor-desktop/src-tauri && cargo build --release --bin labyrithm-agent
           fi
 
       - name: Prepare Standalone Portable Executables
@@ -104,27 +100,27 @@ jobs:
         run: |
           mkdir -p "$GITHUB_WORKSPACE/standalone_artifacts"
           if [ "${{ matrix.target }}" = "windows" ]; then
-            cp competitor-desktop/src-tauri/target/release/algothon-agent.exe "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-windows-x64.exe"
+            cp competitor-desktop/src-tauri/target/release/labyrithm-agent.exe "$GITHUB_WORKSPACE/standalone_artifacts/labyrithm-agent-windows-x64.exe"
           elif [ "${{ matrix.target }}" = "macos" ]; then
-            if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app" ]; then
+            if [ -d "competitor-desktop/src-tauri/target/release/bundle/macos/Labyrithm Agent.app" ]; then
               cd "competitor-desktop/src-tauri/target/release/bundle/macos"
-              zip -r -y "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos.zip" "Algothon Agent.app"
+              zip -r -y "$GITHUB_WORKSPACE/standalone_artifacts/labyrithm-agent-macos.zip" "Labyrithm Agent.app"
               cd "$GITHUB_WORKSPACE"
             fi
-            if [ -f "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" ]; then
-              cp "competitor-desktop/src-tauri/target/release/bundle/macos/Algothon Agent.app/Contents/MacOS/algothon-agent" "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos-binary"
-              chmod +x "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos-binary"
-            elif [ -f "competitor-desktop/src-tauri/target/release/algothon-agent" ]; then
-              cp "competitor-desktop/src-tauri/target/release/algothon-agent" "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos-binary"
-              chmod +x "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-macos-binary"
+            if [ -f "competitor-desktop/src-tauri/target/release/bundle/macos/Labyrithm Agent.app/Contents/MacOS/labyrithm-agent" ]; then
+              cp "competitor-desktop/src-tauri/target/release/bundle/macos/Labyrithm Agent.app/Contents/MacOS/labyrithm-agent" "$GITHUB_WORKSPACE/standalone_artifacts/labyrithm-agent-macos-binary"
+              chmod +x "$GITHUB_WORKSPACE/standalone_artifacts/labyrithm-agent-macos-binary"
+            elif [ -f "competitor-desktop/src-tauri/target/release/labyrithm-agent" ]; then
+              cp "competitor-desktop/src-tauri/target/release/labyrithm-agent" "$GITHUB_WORKSPACE/standalone_artifacts/labyrithm-agent-macos-binary"
+              chmod +x "$GITHUB_WORKSPACE/standalone_artifacts/labyrithm-agent-macos-binary"
             fi
           elif [ "${{ matrix.target }}" = "linux" ]; then
-            cp competitor-desktop/src-tauri/target/release/algothon-agent "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-linux-x64"
-            chmod +x "$GITHUB_WORKSPACE/standalone_artifacts/algothon-agent-linux-x64"
+            cp competitor-desktop/src-tauri/target/release/labyrithm-agent "$GITHUB_WORKSPACE/standalone_artifacts/labyrithm-agent-linux-x64"
+            chmod +x "$GITHUB_WORKSPACE/standalone_artifacts/labyrithm-agent-linux-x64"
           fi
 
       - name: Upload Agent Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: algothon-agent-${{ matrix.target }}
+          name: labyrithm-agent-${{ matrix.target }}
           path: standalone_artifacts/*

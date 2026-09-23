@@ -1,6 +1,7 @@
 {
-  "name": "algothon-workspace",
+  "name": "labyrithm-workspace",
   "private": true,
+  "description": "Labyrithm self-hosted platform for algorithmic problem solving and secure code evaluation",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",

@@ -3,7 +3,7 @@ package session
 import (
 	"time"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/crypto"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/crypto"
 )
 
 type Session struct {

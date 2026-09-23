@@ -123,7 +123,7 @@ or block comment
           name: "Variables & Primitive Types",
           syntax: `x = 42                 # Integer (arbitrary precision, no overflow)
 pi = 3.14159           # Float
-name = "Algothon"      # String
+name = "Labyrithm"      # String
 is_valid = True        # Boolean (True or False)
 nothing = None         # NoneType (represents absence of value)`,
           description:

@@ -20,7 +20,7 @@ const (
 	StatusPaused     = "PAUSED"
 	StatusEnded      = "ENDED"
 
-	defaultTitle           = "MiniAlgothon 2026"
+	defaultTitle           = "New Session"
 	defaultDurationSeconds = 7200
 	defaultFreezeMinutes   = 30
 )

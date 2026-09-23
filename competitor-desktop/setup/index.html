@@ -2,12 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Algothon Proctor</title>
+    <title>Labyrithm Proctor</title>
     <link rel="stylesheet" href="shared.css" />
     <script src="bridge.js"></script>
   </head>
   <body>
-    <h1>Algothon Proctor</h1>
+    <h1>Labyrithm Proctor</h1>
     <p class="lede">Workstation monitoring setup for contest integrity.</p>
 
     <!-- Enrolment Form View -->
@@ -42,7 +42,10 @@
         <details class="disclosure-drawer">
           <summary>Contest Integrity Rules & Monitored Signals</summary>
           <div class="disclosure-body">
-            <p id="disclosure-summary" style="color: var(--fg-muted); margin-bottom: 8px;"></p>
+            <p
+              id="disclosure-summary"
+              style="color: var(--fg-muted); margin-bottom: 8px"
+            ></p>
             <h2>Monitored Signals</h2>
             <ul class="tight" id="collected"></ul>
             <h2>Never Collected</h2>
@@ -50,7 +53,10 @@
             <h2>Local AI Probes</h2>
             <ul class="tight" id="probed-ports"></ul>
             <h2>Rules & Data Retention</h2>
-            <p id="retention" style="color: var(--fg-dim); font-size: 11px; margin: 4px 0 0;"></p>
+            <p
+              id="retention"
+              style="color: var(--fg-dim); font-size: 11px; margin: 4px 0 0"
+            ></p>
           </div>
         </details>
       </div>
@@ -60,11 +66,18 @@
     <!-- Connection Verification View -->
     <section id="step-verify" hidden>
       <div class="card">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-          <span style="font-weight: 500;">Connection Status</span>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+          "
+        >
+          <span style="font-weight: 500">Connection Status</span>
           <span class="pill working" id="verify-pill">Starting</span>
         </div>
-        <p class="lede" id="verify-status" style="margin-bottom: 8px;">
+        <p class="lede" id="verify-status" style="margin-bottom: 8px">
           Waiting for first report...
         </p>
         <div class="row">
@@ -80,9 +93,10 @@
     <!-- Outdated Binary View -->
     <section id="step-update-required" hidden>
       <div class="card">
-        <div class="pill bad" style="margin-bottom: 10px;">Update Required</div>
+        <div class="pill bad" style="margin-bottom: 10px">Update Required</div>
         <p class="lede" id="update-message">
-          Your proctor client is outdated and cannot connect to this contest server.
+          Your proctor client is outdated and cannot connect to this contest
+          server.
         </p>
         <div class="notice error" id="update-details">
           Please download the latest official client release before proceeding.
@@ -97,7 +111,7 @@
       <span id="machine-pill">Connecting...</span>
       <span id="target"></span>
     </div>
-    <p style="color: var(--fg-dim); font-size: 11px; margin-top: 8px;">
+    <p style="color: var(--fg-dim); font-size: 11px; margin-top: 8px">
       Closing signs you out, clears local app data, and stops proctoring.
     </p>
 
@@ -112,8 +126,16 @@
       const FIRST_REPORT_TIMEOUT_MS = 20000;
 
       function compareVersions(a, b) {
-        const pa = (a || "").replace(/^v/i, "").split("-")[0].split(".").map(Number);
-        const pb = (b || "").replace(/^v/i, "").split("-")[0].split(".").map(Number);
+        const pa = (a || "")
+          .replace(/^v/i, "")
+          .split("-")[0]
+          .split(".")
+          .map(Number);
+        const pb = (b || "")
+          .replace(/^v/i, "")
+          .split("-")[0]
+          .split(".")
+          .map(Number);
         for (let i = 0; i < 3; i++) {
           const na = pa[i] || 0;
           const nb = pb[i] || 0;
@@ -124,7 +146,11 @@
       }
 
       function show(step) {
-        for (const id of ["step-enroll", "step-verify", "step-update-required"]) {
+        for (const id of [
+          "step-enroll",
+          "step-verify",
+          "step-update-required",
+        ]) {
           const node = el(id);
           if (node) node.hidden = id !== step;
         }
@@ -164,9 +190,14 @@
         try {
           const payload = await invoke("fetch_disclosure");
           if (payload.minClientVersion && currentState?.agent_version) {
-            if (compareVersions(currentState.agent_version, payload.minClientVersion) < 0) {
+            if (
+              compareVersions(
+                currentState.agent_version,
+                payload.minClientVersion,
+              ) < 0
+            ) {
               showUpdateRequired(
-                `Your proctor client (v${currentState.agent_version}) is outdated. Server requires v${payload.minClientVersion} or newer.`
+                `Your proctor client (v${currentState.agent_version}) is outdated. Server requires v${payload.minClientVersion} or newer.`,
               );
               return;
             }
@@ -174,14 +205,17 @@
           const d = payload.disclosure ?? {};
           consentVersion = d.version ?? "unknown";
           el("disclosure-summary").textContent =
-            d.summary ?? "Workstation signals are monitored during active contest windows.";
+            d.summary ??
+            "Workstation signals are monitored during active contest windows.";
           list("collected", d.collected);
           list("not-collected", d.notCollected);
           list(
             "probed-ports",
             (payload.probedPorts ?? []).map((p) => `${p.port} — ${p.product}`),
           );
-          el("retention").textContent = [d.retention, d.policy].filter(Boolean).join(" ");
+          el("retention").textContent = [d.retention, d.policy]
+            .filter(Boolean)
+            .join(" ");
           return true;
         } catch (err) {
           return false;
@@ -199,7 +233,8 @@
             return "This machine enrolment was revoked. Contact an organizer.";
           }
           const waited = Math.round((Date.now() - startedAt) / 1000);
-          el("verify-status").textContent = `Waiting for first report... ${waited}s`;
+          el("verify-status").textContent =
+            `Waiting for first report... ${waited}s`;
           await new Promise((resolve) => setTimeout(resolve, 500));
         }
         return last?.last_error
@@ -219,7 +254,8 @@
         if (!problem) {
           el("verify-pill").className = "pill ok";
           el("verify-pill").textContent = "Reporting";
-          el("verify-status").textContent = "Enrolled successfully. Opening contest portal...";
+          el("verify-status").textContent =
+            "Enrolled successfully. Opening contest portal...";
           await invoke("enter_contest");
           return;
         }
@@ -234,14 +270,17 @@
       }
 
       el("verify-retry").addEventListener("click", () => verifyFirstReport());
-      el("verify-continue").addEventListener("click", () => invoke("enter_contest"));
+      el("verify-continue").addEventListener("click", () =>
+        invoke("enter_contest"),
+      );
 
       async function refreshTarget() {
         try {
           const state = await invoke("get_setup_state");
           currentState = state;
           el("target").textContent = "Network ready";
-          el("machine-pill").textContent = `Machine: ${state.machine_id.slice(0, 8)} · v${state.agent_version}`;
+          el("machine-pill").textContent =
+            `Machine: ${state.machine_id.slice(0, 8)} · v${state.agent_version}`;
         } catch (e) {
           el("machine-pill").textContent = "Client ready";
         }
@@ -299,12 +338,15 @@
             message.includes("Unauthorized Binary")
           ) {
             showUpdateRequired(
-              "Executable checksum mismatch. Please download the official release binary."
+              "Executable checksum mismatch. Please download the official release binary.",
             );
           } else if (message.includes("409")) {
             consentLoadPromise = loadConsent();
             await consentLoadPromise;
-            fail("enroll-error", "Disclosure terms were refreshed. Please click Sign In again.");
+            fail(
+              "enroll-error",
+              "Disclosure terms were refreshed. Please click Sign In again.",
+            );
           } else {
             fail("enroll-error", message);
           }

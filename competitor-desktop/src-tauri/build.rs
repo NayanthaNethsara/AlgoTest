@@ -1,8 +1,8 @@
 fn main() {
     for key in [
-        "ALGOTHON_SERVER_URL",
-        "ALGOTHON_API_URL",
-        "ALGOTHON_PORTAL_ORIGINS",
+        "LABYRITHM_SERVER_URL",
+        "LABYRITHM_API_URL",
+        "LABYRITHM_PORTAL_ORIGINS",
     ] {
         println!("cargo:rerun-if-env-changed={key}");
     }

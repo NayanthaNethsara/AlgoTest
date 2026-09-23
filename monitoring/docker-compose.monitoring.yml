@@ -1,9 +1,9 @@
-name: algothon-monitoring
+name: labyrithm-monitoring
 
 services:
   prometheus:
     image: prom/prometheus:v2.51.0
-    container_name: algothon-prometheus
+    container_name: labyrithm-prometheus
     restart: unless-stopped
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -12,30 +12,30 @@ services:
       - "--web.enable-lifecycle"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - algothon-prom-data:/prometheus
+      - labyrithm-prom-data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - algothon-net
+      - labyrithm-net
 
   loki:
     image: grafana/loki:3.0.0
-    container_name: algothon-loki
+    container_name: labyrithm-loki
     restart: unless-stopped
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
-      - algothon-loki-data:/loki
+      - labyrithm-loki-data:/loki
     ports:
       - "3100:3100"
     networks:
-      - algothon-net
+      - labyrithm-net
 
   promtail:
     image: grafana/promtail:3.0.0
-    container_name: algothon-promtail
+    container_name: labyrithm-promtail
     restart: unless-stopped
     command: -config.file=/etc/promtail/config.yml
     volumes:
@@ -45,11 +45,11 @@ services:
     depends_on:
       - loki
     networks:
-      - algothon-net
+      - labyrithm-net
 
   node-exporter:
     image: prom/node-exporter:v1.8.0
-    container_name: algothon-node-exporter
+    container_name: labyrithm-node-exporter
     restart: unless-stopped
     command:
       - "--path.procfs=/host/proc"
@@ -61,27 +61,27 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     networks:
-      - algothon-net
+      - labyrithm-net
 
   # Runs only where the "local" profile is enabled, so a server-side
   # `docker compose up -d` never starts it. See docs/monitoring.md.
   grafana:
     profiles: ["local"]
     image: grafana/grafana:11.0.0
-    container_name: algothon-grafana
+    container_name: labyrithm-grafana
     restart: unless-stopped
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/algothon-overview.json
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/labyrithm-overview.json
       - PROMETHEUS_URL=${PROMETHEUS_URL:-http://prometheus:9090}
       - LOKI_URL=${LOKI_URL:-http://loki:3100}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - algothon-grafana-data:/var/lib/grafana
+      - labyrithm-grafana-data:/var/lib/grafana
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -91,17 +91,17 @@ services:
       - prometheus
       - loki
     networks:
-      - algothon-net
+      - labyrithm-net
 
 volumes:
-  algothon-prom-data:
-    name: algothon-prom-data
-  algothon-loki-data:
-    name: algothon-loki-data
-  algothon-grafana-data:
-    name: algothon-grafana-data
+  labyrithm-prom-data:
+    name: labyrithm-prom-data
+  labyrithm-loki-data:
+    name: labyrithm-loki-data
+  labyrithm-grafana-data:
+    name: labyrithm-grafana-data
 
 networks:
-  algothon-net:
-    name: algothon-net
+  labyrithm-net:
+    name: labyrithm-net
     driver: bridge

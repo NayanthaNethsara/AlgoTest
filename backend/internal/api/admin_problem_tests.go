@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/problem"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/problem"
 	"github.com/gin-gonic/gin"
 )
 

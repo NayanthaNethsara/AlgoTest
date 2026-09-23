@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/audit"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/audit"
 )
 
 // disclosure is served rather than compiled into the client so the wording can be

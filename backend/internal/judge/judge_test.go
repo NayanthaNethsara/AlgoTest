@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/runner"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/runner"
 )
 
 func TestWorkspaceFailureIsInternalError(t *testing.T) {

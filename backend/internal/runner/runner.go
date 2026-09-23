@@ -70,7 +70,7 @@ func (r *Runner) checkWorkRoot() error {
 			"where a submission can fill the host disk (see deploy/provision-isolate.sh)")
 	}
 
-	probe, err := os.MkdirTemp(r.cfg.WorkRoot, "algothon-probe-*")
+	probe, err := os.MkdirTemp(r.cfg.WorkRoot, "labyrithm-probe-*")
 	if err != nil {
 		return fmt.Errorf("work root %s unusable: %w", r.cfg.WorkRoot, err)
 	}
@@ -145,7 +145,7 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	execCtx, execCancel := context.WithTimeout(ctx, batchTimeout(compileTimeout, effectiveWall, 1))
 	defer execCancel()
 
-	base, err := os.MkdirTemp(r.cfg.WorkRoot, "algothon-run-*")
+	base, err := os.MkdirTemp(r.cfg.WorkRoot, "labyrithm-run-*")
 	if err != nil {
 		return Result{}, fmt.Errorf("creating workspace: %w", err)
 	}
@@ -337,7 +337,7 @@ func (r *Runner) RunBatch(ctx context.Context, req BatchRequest) (BatchResult, e
 		batchTimeout(compileTimeout, effectiveWall, len(req.Cases)))
 	defer execCancel()
 
-	base, err := os.MkdirTemp(r.cfg.WorkRoot, "algothon-batch-*")
+	base, err := os.MkdirTemp(r.cfg.WorkRoot, "labyrithm-batch-*")
 	if err != nil {
 		return BatchResult{}, fmt.Errorf("creating workspace: %w", err)
 	}

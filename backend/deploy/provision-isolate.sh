@@ -82,7 +82,7 @@ EOF
 # Workspaces are bind-mounted into the sandbox, so isolate's --quota cannot bound
 # them and --fsize caps only one file at a time. Run the server with
 # RUN_WORK_ROOT set to this path.
-WORK_ROOT=/var/local/lib/algothon-work
+WORK_ROOT=/var/local/lib/labyrithm-work
 WORK_TMPFS_SIZE="${WORK_TMPFS_SIZE:-4G}"
 echo "==> provisioning ${WORK_ROOT} as a ${WORK_TMPFS_SIZE} tmpfs"
 mkdir -p "${WORK_ROOT}"

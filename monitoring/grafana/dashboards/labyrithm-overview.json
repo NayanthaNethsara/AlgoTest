@@ -36,7 +36,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "up{job=\"algothon-backend\"}",
+          "expr": "up{job=\"labyrithm-backend\"}",
           "legendFormat": "Status",
           "refId": "A"
         }
@@ -71,7 +71,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum(rate(algothon_http_requests_total[1m]))",
+          "expr": "sum(rate(labyrithm_http_requests_total[1m]))",
           "legendFormat": "RPS",
           "refId": "A"
         }
@@ -104,7 +104,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "(sum(rate(algothon_http_requests_total{status=~\"5..\"}[1m])) or vector(0)) / (sum(rate(algothon_http_requests_total[1m])) > 0 or vector(1)) * 100",
+          "expr": "(sum(rate(labyrithm_http_requests_total{status=~\"5..\"}[1m])) or vector(0)) / (sum(rate(labyrithm_http_requests_total[1m])) > 0 or vector(1)) * 100",
           "legendFormat": "5xx %",
           "refId": "A"
         }
@@ -138,7 +138,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(algothon_http_request_duration_seconds_bucket[1m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(labyrithm_http_request_duration_seconds_bucket[1m])) by (le))",
           "legendFormat": "P95",
           "refId": "A"
         }
@@ -172,7 +172,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "algothon_judge_workers_active",
+          "expr": "labyrithm_judge_workers_active",
           "legendFormat": "Workers",
           "refId": "A"
         }
@@ -202,12 +202,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "algothon_runner_boxes_active",
+          "expr": "labyrithm_runner_boxes_active",
           "legendFormat": "In Use",
           "refId": "A"
         },
         {
-          "expr": "algothon_runner_boxes_capacity",
+          "expr": "labyrithm_runner_boxes_capacity",
           "legendFormat": "Capacity",
           "refId": "B"
         }
@@ -237,12 +237,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "algothon_db_pool_acquired_connections",
+          "expr": "labyrithm_db_pool_acquired_connections",
           "legendFormat": "Acquired",
           "refId": "A"
         },
         {
-          "expr": "algothon_db_pool_max_connections",
+          "expr": "labyrithm_db_pool_max_connections",
           "legendFormat": "Max",
           "refId": "B"
         }
@@ -272,7 +272,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "algothon_http_requests_in_flight",
+          "expr": "labyrithm_http_requests_in_flight",
           "legendFormat": "In Flight",
           "refId": "A"
         }
@@ -312,7 +312,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum(rate(algothon_http_requests_total[1m])) by (route, method)",
+          "expr": "sum(rate(labyrithm_http_requests_total[1m])) by (route, method)",
           "legendFormat": "{{method}} {{route}}",
           "refId": "A"
         }
@@ -337,17 +337,17 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(algothon_http_request_duration_seconds_bucket[1m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(labyrithm_http_request_duration_seconds_bucket[1m])) by (le))",
           "legendFormat": "P50 Median",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.90, sum(rate(algothon_http_request_duration_seconds_bucket[1m])) by (le))",
+          "expr": "histogram_quantile(0.90, sum(rate(labyrithm_http_request_duration_seconds_bucket[1m])) by (le))",
           "legendFormat": "P90",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(algothon_http_request_duration_seconds_bucket[1m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(labyrithm_http_request_duration_seconds_bucket[1m])) by (le))",
           "legendFormat": "P99 Tail",
           "refId": "C"
         }
@@ -379,7 +379,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum(rate(algothon_judge_submissions_total[1m])) by (verdict)",
+          "expr": "sum(rate(labyrithm_judge_submissions_total[1m])) by (verdict)",
           "legendFormat": "{{verdict}}",
           "refId": "A"
         }
@@ -409,17 +409,17 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "algothon_judge_submissions_active",
+          "expr": "labyrithm_judge_submissions_active",
           "legendFormat": "Active Submissions Graded",
           "refId": "A"
         },
         {
-          "expr": "algothon_runner_boxes_active",
+          "expr": "labyrithm_runner_boxes_active",
           "legendFormat": "Active Runner Boxes",
           "refId": "B"
         },
         {
-          "expr": "algothon_runner_queue_depth",
+          "expr": "labyrithm_runner_queue_depth",
           "legendFormat": "Runner Queue Waiting",
           "refId": "C"
         }
@@ -451,22 +451,22 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "algothon_db_pool_acquired_connections",
+          "expr": "labyrithm_db_pool_acquired_connections",
           "legendFormat": "Acquired Connections",
           "refId": "A"
         },
         {
-          "expr": "algothon_db_pool_idle_connections",
+          "expr": "labyrithm_db_pool_idle_connections",
           "legendFormat": "Idle Connections",
           "refId": "B"
         },
         {
-          "expr": "algothon_db_pool_total_connections",
+          "expr": "labyrithm_db_pool_total_connections",
           "legendFormat": "Total Open Connections",
           "refId": "C"
         },
         {
-          "expr": "algothon_db_pool_max_connections",
+          "expr": "labyrithm_db_pool_max_connections",
           "legendFormat": "Max Pool Limit",
           "refId": "D"
         }
@@ -491,12 +491,12 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "go_goroutines{job=\"algothon-backend\"}",
+          "expr": "go_goroutines{job=\"labyrithm-backend\"}",
           "legendFormat": "Goroutines (count)",
           "refId": "A"
         },
         {
-          "expr": "go_memstats_heap_inuse_bytes{job=\"algothon-backend\"}",
+          "expr": "go_memstats_heap_inuse_bytes{job=\"labyrithm-backend\"}",
           "legendFormat": "Heap In Use (bytes)",
           "refId": "B"
         }
@@ -598,11 +598,11 @@
   "refresh": "10s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["algothon", "production", "overview"],
+  "tags": ["labyrithm", "production", "overview"],
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"] },
   "timezone": "browser",
-  "title": "MiniAlgothon - Platform & System Overview",
-  "uid": "algothon-overview",
+  "title": "Labyrithm - Platform & System Overview",
+  "uid": "labyrithm-overview",
   "version": 1
 }

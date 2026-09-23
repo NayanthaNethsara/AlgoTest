@@ -23,8 +23,8 @@ export function LegalPage({
         </Link>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo/algothon.svg"
-          alt="Algothon"
+          src="/logo/labyrithm.svg"
+          alt="Labyrithm"
           className="h-5 w-auto object-contain"
         />
       </div>

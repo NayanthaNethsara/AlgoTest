@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/agent"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/contest"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/agent"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/contest"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
@@ -266,7 +266,7 @@ func requireContestSubmissionsAllowedMiddleware(cm *contest.Manager) gin.Handler
 const (
 	attestHeader  = "X-Proctor-Attest"
 	clientHeader  = "X-Proctor-Client"
-	desktopCookie = "algothon-client"
+	desktopCookie = "labyrithm-client"
 )
 
 func portalAttestNonce(c *gin.Context) string {

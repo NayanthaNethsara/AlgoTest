@@ -11,9 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/metrics"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/team"
-	"github.com/NayanthaNethsara/mini-algothon/backend/internal/user"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/metrics"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/team"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
 )
 
 func TestPasswordLengthValidation(t *testing.T) {

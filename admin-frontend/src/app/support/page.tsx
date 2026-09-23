@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { PRODUCT_NAME } from "@labyrithm/branding";
 import { CopyEmailButton } from "@/components/support/copy-email-button";
 
 export const metadata: Metadata = {
-  title: "Support & FAQ - Algothon",
+  title: `Support & FAQ - ${PRODUCT_NAME}`,
   description:
     "Platform information, proctoring disclaimers, frequently asked questions, and maintainer contact.",
 };
@@ -12,9 +13,8 @@ const SUPPORT_EMAIL = "nayanthanethsara@gmail.com";
 
 const FAQ_ITEMS = [
   {
-    question: "What is Algothon and what scale is it designed for?",
-    answer:
-      "Algothon is an open-source platform designed for small-scale competitive programming competitions, university clubs, and local hackathons. It provides problem management, submission judging, and workstation monitoring tools in a unified setup.",
+    question: `What is ${PRODUCT_NAME} and what scale is it designed for?`,
+    answer: `${PRODUCT_NAME} is an open-source platform designed for small-scale competitive programming competitions, university clubs, and local hackathons. It provides problem management, submission judging, and workstation monitoring tools in a unified setup.`,
   },
   {
     question: "What is the Proctor client and what does it monitor?",
@@ -23,8 +23,7 @@ const FAQ_ITEMS = [
   },
   {
     question: "What is the liability disclaimer regarding the Proctor software?",
-    answer:
-      "Algothon and its proctor client are open-source software provided strictly 'AS IS'. The authors and maintainers accept no responsibility or liability for proctor monitoring, local machine configurations, or contest operations. Organizers and participants run the software at their own discretion.",
+    answer: `${PRODUCT_NAME} and its proctor client are open-source software provided strictly 'AS IS'. The authors and maintainers accept no responsibility or liability for proctor monitoring, local machine configurations, or contest operations. Organizers and participants run the software at their own discretion.`,
   },
   {
     question: "How are submitted solutions evaluated?",
@@ -49,7 +48,7 @@ export default function SupportPage() {
       <header className="border-b border-border/80 bg-card/40 px-6 py-4 sm:px-12">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div className="flex items-center gap-2 font-mono text-xs text-muted-foreground">
-            <span className="font-bold text-foreground">Algothon</span>
+            <span className="font-bold text-foreground">{PRODUCT_NAME}</span>
             <span>/</span>
             <span>SUPPORT &amp; FAQ</span>
           </div>
@@ -79,7 +78,7 @@ export default function SupportPage() {
               Support &amp; Frequently Asked Questions
             </h1>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              Algothon is an open-source platform for small-scale competitive programming
+              {PRODUCT_NAME} is an open-source platform for small-scale competitive programming
               competitions. Review common questions, platform disclaimers, and contact details
               below.
             </p>
@@ -165,7 +164,7 @@ export default function SupportPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <CopyEmailButton email={SUPPORT_EMAIL} />
                 <a
-                  href={`mailto:${SUPPORT_EMAIL}?subject=Algothon%20Inquiry`}
+                  href={`mailto:${SUPPORT_EMAIL}?subject=Labyrithm%20Inquiry`}
                   className="inline-flex h-8 items-center justify-center border border-border bg-card px-3 font-mono text-xs text-foreground transition-colors hover:bg-muted"
                 >
                   Open Email Client
@@ -176,7 +175,7 @@ export default function SupportPage() {
 
           {/* Navigation Footer */}
           <div className="flex flex-col items-start justify-between gap-4 border-t border-border/60 pt-6 sm:flex-row sm:items-center font-mono text-xs text-muted-foreground">
-            <span>Algothon Open Source</span>
+            <span>{PRODUCT_NAME} Open Source</span>
             <div className="flex items-center gap-4">
               <Link href="/privacy" className="hover:text-foreground underline underline-offset-2">
                 Privacy Policy

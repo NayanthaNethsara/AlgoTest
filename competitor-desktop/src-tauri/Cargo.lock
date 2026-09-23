@@ -18,32 +18,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "algothon-competitor"
-version = "0.2.4"
-dependencies = [
- "hex",
- "libc",
- "local-ip-address",
- "log",
- "machine-uid",
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
- "reqwest 0.11.27",
- "serde",
- "serde_json",
- "sha2",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tiny_http",
- "uuid",
- "windows-sys 0.59.0",
-]
-
-[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1910,6 +1884,32 @@ dependencies = [
  "bitflags 2.13.1",
  "serde",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "labyrithm-competitor"
+version = "0.2.4"
+dependencies = [
+ "hex",
+ "libc",
+ "local-ip-address",
+ "log",
+ "machine-uid",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "reqwest 0.11.27",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tiny_http",
+ "uuid",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

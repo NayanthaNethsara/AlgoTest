@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_SESSION_TITLE } from "@labyrithm/branding";
 import { CONTEST_STATUS } from "@/types/contest";
 
 export const contestStatusSchema = z.enum([
@@ -9,7 +10,7 @@ export const contestStatusSchema = z.enum([
 ]);
 
 export const contestStateSchema = z.object({
-  title: z.string().default("Algothon 2026"),
+  title: z.string().default(DEFAULT_SESSION_TITLE),
   status: contestStatusSchema.default(CONTEST_STATUS.NOT_STARTED),
   startTime: z.string().nullable().optional(),
   endTime: z.string().nullable().optional(),
