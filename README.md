@@ -30,7 +30,7 @@ Browse challenges, open a problem, write code in the Monaco editor, run custom i
 </tr>
 <tr>
 <td width="50%"><img src="docs/assets/leaderboard.png" alt="Leaderboard" width="100%"><br><sub>Leaderboard</sub></td>
-<td width="50%"></td>
+<td width="50%"><img src="docs/assets/timer.png" alt="Contest timer" width="100%"><br><sub>Contest timer</sub></td>
 </tr>
 </table>
 
@@ -41,11 +41,7 @@ The admin console provides contest readiness, problem and roster management, tim
 <table>
 <tr>
 <td width="50%"><img src="docs/assets/admin-dashboard.png" alt="Admin dashboard" width="100%"><br><sub>Admin dashboard</sub></td>
-<td width="50%"><img src="docs/assets/timer.png" alt="Contest timer" width="100%"><br><sub>Contest timer</sub></td>
-</tr>
-<tr>
 <td width="50%"><img src="docs/assets/admin-proctoring.png" alt="Proctoring monitor" width="100%"><br><sub>Proctoring monitor</sub></td>
-<td width="50%"></td>
 </tr>
 </table>
 
