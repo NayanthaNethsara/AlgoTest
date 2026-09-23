@@ -176,7 +176,7 @@ Detailed architectural and operational documentation is maintained in the [docs/
 
 ## License
 
-MIT License. See `LICENSE` for details.
+Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ## Open-Source Project
 

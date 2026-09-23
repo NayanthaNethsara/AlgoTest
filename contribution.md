@@ -64,4 +64,4 @@ Screenshots or short recordings are useful for user-facing changes.
 
 ## License
 
-By contributing, you agree that your contributions are provided under the [MIT License](LICENSE).
+By contributing, you agree that your contributions are provided under the [Apache License 2.0](LICENSE).
