@@ -23,29 +23,42 @@ Labyrithm brings participant, organizer, and proctoring workflows together in on
 
 Browse challenges, open a problem, write code in the Monaco editor, run custom input, and follow progress on the live leaderboard.
 
-![Challenge list](docs/assets/challenge-list.png)
-
-![Challenge workspace](docs/assets/challenge.png)
-
-![Leaderboard](docs/assets/leaderboard.png)
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/challenge-list.png" alt="Challenge list" width="100%"><br><sub>Challenge list</sub></td>
+<td width="50%"><img src="docs/assets/challenge.png" alt="Challenge workspace" width="100%"><br><sub>Challenge workspace</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/assets/leaderboard.png" alt="Leaderboard" width="100%"><br><sub>Leaderboard</sub></td>
+<td width="50%"></td>
+</tr>
+</table>
 
 ### Organizer Experience
 
 The admin console provides contest readiness, problem and roster management, timer controls, submission review, and live proctoring telemetry.
 
-![Admin dashboard](docs/assets/admin-dashboard.png)
-
-![Contest timer](docs/assets/timer.png)
-
-![Proctoring monitor](docs/assets/admin-proctoring.png)
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/admin-dashboard.png" alt="Admin dashboard" width="100%"><br><sub>Admin dashboard</sub></td>
+<td width="50%"><img src="docs/assets/timer.png" alt="Contest timer" width="100%"><br><sub>Contest timer</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/assets/admin-proctoring.png" alt="Proctoring monitor" width="100%"><br><sub>Proctoring monitor</sub></td>
+<td width="50%"></td>
+</tr>
+</table>
 
 ### Desktop Proctor
 
 The optional desktop client runs a separate background agent for enrollment, heartbeats, diagnostics, and loopback attestation.
 
-![Desktop proctor setup](docs/assets/desktop-app-setup.png)
-
-![Desktop proctor diagnostics](docs/assets/desktop-app-diagnostics.png)
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/desktop-app-setup.png" alt="Desktop proctor setup" width="100%"><br><sub>Desktop proctor setup</sub></td>
+<td width="50%"><img src="docs/assets/desktop-app-diagnostics.png" alt="Desktop proctor diagnostics" width="100%"><br><sub>Desktop proctor diagnostics</sub></td>
+</tr>
+</table>
 
 ---
 
