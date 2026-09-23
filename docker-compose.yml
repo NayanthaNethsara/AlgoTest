@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: labyrithm-postgres
+    environment:
+      POSTGRES_USER: labyrithm
+      POSTGRES_PASSWORD: labyrithm
+      POSTGRES_DB: labyrithm
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - labyrithm-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U labyrithm -d labyrithm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # The /run sandbox needs isolate, which needs Linux + cgroup v2, so the
+  # backend cannot run natively on macOS. This container is that Linux host.
+  # Started separately from postgres: `make backend` (or `docker compose up
+  # backend`), since it is only needed when working on the backend.
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: labyrithm-backend
+    # isolate creates cgroups and switches UIDs; a container manager does not
+    # delegate enough for that unprivileged. Acceptable for local dev only --
+    # production runs isolate on a real host, not in a container.
+    privileged: true
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://labyrithm:labyrithm@postgres:5432/labyrithm?sslmode=disable
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001
+      TRUSTED_PROXIES: ""
+      DB_MAX_CONNS: "25"
+      DB_MIN_CONNS: "5"
+      RUN_MAX_CONCURRENT: "8"
+      RUN_WORK_ROOT: /judge-work
+    volumes:
+      - ./backend:/app
+      - labyrithm-gocache:/go
+    tmpfs:
+      - /judge-work:size=2g,mode=0700
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: labyrithm-worker
+    command: ["go", "run", "./cmd/worker"]
+    privileged: true
+    environment:
+      DATABASE_URL: postgres://labyrithm:labyrithm@postgres:5432/labyrithm?sslmode=disable
+      RUN_MAX_CONCURRENT: "8"
+      RUN_WORK_ROOT: /judge-work
+    volumes:
+      - ./backend:/app
+      - labyrithm-gocache:/go
+    tmpfs:
+      - /judge-work:size=2g,mode=0700
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  labyrithm-pgdata:
+    name: labyrithm-pgdata
+  labyrithm-gocache:
+    name: labyrithm-gocache

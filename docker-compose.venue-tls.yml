@@ -1,0 +1,24 @@
+# TLS overlay for docker-compose.venue.yml. Needs fullchain.pem and privkey.pem in
+# ./certs, and PORTAL_SERVER_NAME set to a hostname contestants resolve -- a bare LAN
+# IP cannot be certificated.
+#
+#   make venue-tls
+#
+# Without this the session token travels in cleartext, which on WiFi with one shared
+# password is readable by any contestant who captures a handshake.
+
+services:
+  frontend:
+    environment:
+      COOKIE_SECURE: "true"
+
+  nginx:
+    ports:
+      - "443:443"
+    environment:
+      PORTAL_SERVER_NAME: ${PORTAL_SERVER_NAME:?set it in .env, e.g. contest.example.com}
+    volumes:
+      # Same target as the HTTP template, so this replaces it rather than adding a
+      # second server block on port 80.
+      - ./backend/deploy/templates/portal-tls.conf.template:/etc/nginx/templates/portal.conf.template:ro
+      - ./certs:/etc/nginx/certs:ro

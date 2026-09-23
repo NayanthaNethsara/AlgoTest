@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Labyrithm Diagnostics</title>
+    <link rel="stylesheet" href="shared.css" />
+    <script src="bridge.js"></script>
+  </head>
+  <body>
+    <h1>Diagnostics</h1>
+    <p class="lede">Proctor connection status and organizer support code.</p>
+
+    <div class="support-box">
+      <div>
+        <div
+          style="
+            font-size: 11px;
+            color: var(--fg-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          "
+        >
+          Support Code
+        </div>
+        <div class="support-code" id="support">—</div>
+      </div>
+      <span class="pill" id="status">Checking...</span>
+    </div>
+
+    <div class="notice error" id="error" hidden></div>
+
+    <div class="card">
+      <dl class="grid" id="agent-facts"></dl>
+      <p style="color: var(--fg-muted); font-size: 11px; margin-top: 12px">
+        An installed AI extension does not prove it is enabled or being used.
+      </p>
+    </div>
+
+    <details class="disclosure-drawer">
+      <summary>Recent Heartbeats</summary>
+      <div class="disclosure-body" style="padding: 0">
+        <div class="table-container" style="margin-bottom: 0; border: none">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Seq</th>
+                <th>Outcome</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody id="history"></tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+
+    <div class="row">
+      <button id="open" type="button">Open Contest Portal</button>
+      <button id="ping" type="button" class="secondary">Reconnect Now</button>
+      <button id="copy" type="button" class="secondary">
+        Copy Diagnostics
+      </button>
+      <button id="reset" type="button" class="secondary">Sign Out</button>
+    </div>
+
+    <div class="footer-bar">
+      <span id="last-refreshed">Updated just now</span>
+      <span
+        >Keep this window open while competing. Closing signs you out, clears
+        local app data, and locks submissions.</span
+      >
+      <span
+        id="network-pill"
+        class="pill ok"
+        style="padding: 2px 8px; font-size: 10px"
+        >Network Online</span
+      >
+    </div>
+
+    <script>
+      const invoke = window.appInvoke;
+      const el = (id) => document.getElementById(id);
+      let latest = null;
+      let refreshTimer = null;
+      let refreshing = false;
+
+      function facts(target, rows) {
+        const node = el(target);
+        if (!node) return;
+        node.innerHTML = "";
+        for (const [label, value] of rows) {
+          const dt = document.createElement("dt");
+          dt.textContent = label;
+          const dd = document.createElement("dd");
+          dd.textContent = value;
+          node.append(dt, dd);
+        }
+      }
+
+      function statusClass(d) {
+        if (!d.enrolled || d.revoked) return "bad";
+        return d.healthy ? "ok" : "warn";
+      }
+
+      async function refresh() {
+        if (refreshing || document.hidden) return;
+        refreshing = true;
+        try {
+          const invokeFn =
+            window.appInvoke ||
+            window.__TAURI__?.core?.invoke ||
+            window.__TAURI_INTERNALS__?.invoke;
+          if (typeof invokeFn !== "function") {
+            el("error").textContent = "Desktop bridge is not available.";
+            el("error").hidden = false;
+            return;
+          }
+
+          const d = await invokeFn("get_diagnostics");
+          if (!d) return;
+          latest = d;
+
+          el("status").textContent = d.status || "Unknown";
+          el("status").className = `pill ${statusClass(d)}`;
+          el("support").textContent = d.support_code || "—";
+
+          if (d.last_error) {
+            el("error").textContent = d.last_error;
+            el("error").hidden = false;
+          } else {
+            el("error").hidden = true;
+          }
+
+          const machineId = d.machine_id || "";
+          const shortMachineId =
+            machineId.length >= 8
+              ? machineId.slice(0, 8)
+              : machineId || "unknown";
+          const localAi =
+            d.inference_ports && d.inference_ports.length
+              ? d.inference_ports.join(", ")
+              : "None";
+          const matchedProc =
+            d.process_matches && d.process_matches.length
+              ? d.process_matches.join(", ")
+              : "None";
+
+          facts("agent-facts", [
+            ["Contestant", d.username || "Not enrolled"],
+            [
+              "Connection",
+              d.healthy
+                ? "Active"
+                : d.enrolled
+                  ? "Reconnecting"
+                  : "Awaiting Login",
+            ],
+            ["Version", `v${d.agent_version || "unknown"}`],
+            ["Machine ID", shortMachineId],
+            [
+              "Last Heartbeat",
+              d.seconds_since_ack === null || d.seconds_since_ack === undefined
+                ? "Never"
+                : `${d.seconds_since_ack}s ago`,
+            ],
+            ["Reports Sent", `#${d.seq ?? 0}`],
+            ["Local AI Ports", localAi],
+            ["Matched Processes", matchedProc],
+            ["Focused Application", d.foreground_app || "Not available"],
+            [
+              "Installed AI Extensions",
+              (d.installed_ai_extensions || []).join(", ") || "None detected",
+            ],
+            [
+              "Foreground Monitoring",
+              d.foreground_monitoring
+                ? "Available"
+                : "Unavailable on this platform",
+            ],
+          ]);
+
+          const netPill = el("network-pill");
+          if (d.internet_reachable) {
+            netPill.className = "pill ok";
+            netPill.textContent = "Network Online";
+          } else {
+            netPill.className = "pill bad";
+            netPill.textContent = "Offline";
+          }
+
+          el("last-refreshed").textContent =
+            `Updated ${new Date().toLocaleTimeString()}`;
+
+          const historyNode = el("history");
+          if (historyNode) {
+            historyNode.innerHTML = "";
+            const entries = [...(d.history || [])].reverse().slice(0, 25);
+            if (entries.length === 0) {
+              const tr = document.createElement("tr");
+              tr.innerHTML =
+                '<td colspan="4" style="text-align: center; color: var(--fg-dim); padding: 8px;">No heartbeats recorded yet</td>';
+              historyNode.appendChild(tr);
+            } else {
+              for (const entry of entries) {
+                const row = document.createElement("tr");
+                const timeStr =
+                  entry.at && entry.at.length >= 19
+                    ? entry.at.slice(11, 19)
+                    : entry.at || "";
+                for (const value of [
+                  timeStr,
+                  entry.seq,
+                  entry.outcome,
+                  entry.detail,
+                ]) {
+                  const cell = document.createElement("td");
+                  cell.textContent = String(value ?? "");
+                  row.appendChild(cell);
+                }
+                historyNode.appendChild(row);
+              }
+            }
+          }
+        } catch (err) {
+          el("error").textContent = `Diagnostics error: ${err}`;
+          el("error").hidden = false;
+        } finally {
+          refreshing = false;
+        }
+      }
+
+      function scheduleRefresh() {
+        clearTimeout(refreshTimer);
+        if (document.hidden) return;
+        refreshTimer = setTimeout(async () => {
+          await refresh();
+          scheduleRefresh();
+        }, 2500);
+      }
+
+      function showActionError(action, err) {
+        el("error").textContent = `${action}: ${err}`;
+        el("error").hidden = false;
+      }
+
+      el("copy").addEventListener("click", async () => {
+        if (!latest) return;
+        const sanitized = {
+          status: latest.status,
+          support_code: latest.support_code,
+          agent_version: latest.agent_version,
+          username: latest.username,
+          machine_id: (latest.machine_id || "").slice(0, 8),
+          uptime_seconds: latest.uptime_seconds,
+          healthy: latest.healthy,
+          seq: latest.seq,
+          buffered_heartbeats: latest.buffered_heartbeats,
+          network_online: latest.internet_reachable,
+          platform: latest.platform,
+        };
+        try {
+          await navigator.clipboard.writeText(
+            JSON.stringify(sanitized, null, 2),
+          );
+          el("copy").textContent = "Copied";
+          setTimeout(() => (el("copy").textContent = "Copy Diagnostics"), 1500);
+        } catch (err) {
+          showActionError("Could not copy diagnostics", err);
+        }
+      });
+
+      el("ping").addEventListener("click", async () => {
+        const btn = el("ping");
+        btn.disabled = true;
+        btn.textContent = "Reconnecting...";
+        try {
+          await invoke("reconnect_agent");
+          setTimeout(async () => {
+            try {
+              await refresh();
+            } finally {
+              btn.disabled = false;
+              btn.textContent = "Reconnect Now";
+            }
+          }, 600);
+        } catch (err) {
+          showActionError("Could not reconnect", err);
+          btn.disabled = false;
+          btn.textContent = "Reconnect Now";
+        }
+      });
+
+      el("open").addEventListener("click", async () => {
+        try {
+          await invoke("open_contest_window");
+        } catch (err) {
+          showActionError("Could not open the contest portal", err);
+        }
+      });
+      el("reset").addEventListener("click", async () => {
+        const btn = el("reset");
+        btn.disabled = true;
+        try {
+          await invoke("reset_enrollment");
+        } catch (err) {
+          showActionError("Could not reset enrollment", err);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      document.addEventListener("visibilitychange", async () => {
+        if (document.hidden) {
+          clearTimeout(refreshTimer);
+          return;
+        }
+        await refresh();
+        scheduleRefresh();
+      });
+
+      refresh().then(scheduleRefresh);
+    </script>
+  </body>
+</html>

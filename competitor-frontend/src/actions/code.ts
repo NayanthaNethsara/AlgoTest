@@ -1,0 +1,218 @@
+"use server";
+
+import { backendFetch } from "@/lib/api/server";
+import { executeRun } from "@/lib/runner";
+import {
+  runCodeInputSchema,
+  submitCodeInputSchema,
+} from "@/lib/validation/submission";
+import type {
+  RunResult,
+  SubmissionStatusResponse,
+  SubmitResult,
+} from "@/types/code";
+import type {
+  BackendSubmissionItem,
+  SubmissionItem,
+} from "@/types/submission";
+
+export async function runCode(
+  language: string,
+  code: string,
+  stdin: string,
+  problemId?: string,
+): Promise<RunResult> {
+  const parsed = runCodeInputSchema.safeParse({ language, code, stdin, problemId });
+  if (!parsed.success) {
+    const errorMsg = parsed.error.issues[0]?.message ?? "Invalid run parameters";
+    return { stdout: "", stderr: `Error: ${errorMsg}`, exitCode: 1, timeMs: 0 };
+  }
+
+  try {
+    return await executeRun(
+      parsed.data.language,
+      parsed.data.code,
+      parsed.data.stdin,
+      parsed.data.problemId,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Execution failed";
+    return { stdout: "", stderr: `Error: ${message}`, exitCode: 1, timeMs: 0 };
+  }
+}
+
+export type SubmissionTelemetry = {
+  typedCount?: number;
+  pasteCount?: number;
+  pastedChars?: number;
+  maxPasteSize?: number;
+};
+
+export async function submitCode(
+  problemId: string,
+  code: string,
+  previousBest: number,
+  language = "cpp",
+  attestNonce?: string | null,
+  telemetry?: SubmissionTelemetry,
+): Promise<SubmitResult> {
+  const parsed = submitCodeInputSchema.safeParse({
+    problemId,
+    code,
+    language,
+    previousBest,
+    attestNonce,
+    typedCount: telemetry?.typedCount,
+    pasteCount: telemetry?.pasteCount,
+    pastedChars: telemetry?.pastedChars,
+    maxPasteSize: telemetry?.maxPasteSize,
+  });
+
+  if (!parsed.success) {
+    const errorMsg = parsed.error.issues[0]?.message ?? "Invalid submission parameters";
+    return {
+      error: errorMsg,
+      subtasks: [],
+      score: previousBest,
+      maxScore: 100,
+      improvedBest: false,
+      previousBest,
+    };
+  }
+
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (parsed.data.attestNonce) {
+      headers["X-Proctor-Attest"] = parsed.data.attestNonce;
+    }
+
+    const res = await backendFetch("/api/v1/submissions", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        problem_id: parsed.data.problemId,
+        language: parsed.data.language,
+        code: parsed.data.code,
+        typed_count: parsed.data.typedCount,
+        paste_count: parsed.data.pasteCount,
+        pasted_chars: parsed.data.pastedChars,
+        max_paste_size: parsed.data.maxPasteSize,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      return {
+        error: errBody.error ?? `Submission failed (${res.status})`,
+        errorCode: errBody.code,
+        secondsSincePing: errBody.seconds_since_ping,
+        subtasks: [],
+        score: previousBest,
+        maxScore: 100,
+        improvedBest: false,
+        previousBest,
+      };
+    }
+
+    const data = await res.json();
+    return {
+      submissionId: data.id,
+      status: data.status,
+      queuePosition: data.queue_position,
+      subtasks: [],
+      score: 0,
+      maxScore: data.max_score ?? 100,
+      improvedBest: false,
+      previousBest,
+    };
+  } catch (err) {
+    const errorMsg =
+      err instanceof Error
+        ? err.message
+        : "Failed to queue submission. Please check your connection.";
+    return {
+      error: errorMsg,
+      subtasks: [],
+      score: previousBest,
+      maxScore: 100,
+      improvedBest: false,
+      previousBest,
+    };
+  }
+}
+
+export async function getSubmissionStatusAction(
+  submissionId: string,
+): Promise<SubmissionStatusResponse | null> {
+  try {
+    const res = await backendFetch(`/api/v1/submissions/${encodeURIComponent(submissionId)}`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    return (await res.json()) as SubmissionStatusResponse;
+  } catch (err) {
+    console.error("getSubmissionStatusAction error:", err);
+    return null;
+  }
+}
+
+export async function listSubmissionsAction(
+  problemId?: string,
+  limit?: number,
+  offset?: number,
+): Promise<SubmissionItem[]> {
+  try {
+    const params = new URLSearchParams();
+    if (problemId) params.set("problem_id", problemId);
+    if (typeof limit === "number") params.set("limit", limit.toString());
+    if (typeof offset === "number") params.set("offset", offset.toString());
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const url = `/api/v1/submissions${query}`;
+
+    const res = await backendFetch(url, { cache: "no-store" });
+    if (!res.ok) {
+      return [];
+    }
+
+    const data = (await res.json()) as { submissions?: BackendSubmissionItem[] };
+    const submissions = data.submissions ?? [];
+
+    return submissions.map((item) => {
+      const createdAt = item.createdAt;
+      const timestamp = new Date(createdAt).getTime();
+      const submittedAt = new Date(createdAt).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+
+      return {
+        id: item.submissionId,
+        submissionId: item.submissionId,
+        problemId: item.problemId,
+        problemTitle: item.problemTitle,
+        submittedBy: item.userName,
+        teamName: item.teamName,
+        language: item.language,
+        code: item.code,
+        score: item.score,
+        maxScore: item.maxScore,
+        status: item.verdict ?? item.status,
+        reviewStatus: item.reviewStatus,
+        reviewReason: item.reviewReason,
+        submittedAt,
+        timestamp,
+      };
+    });
+  } catch (err) {
+    console.error("listSubmissionsAction error:", err);
+    return [];
+  }
+}

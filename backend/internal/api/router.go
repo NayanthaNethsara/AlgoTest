@@ -1,0 +1,240 @@
+package api
+
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/agent"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/audit"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/config"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/contest"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/judge"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/metrics"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/problem"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/proctor"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/runner"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/session"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/team"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/telemetry"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
+)
+
+func NewRouter(
+	cfg config.Config,
+	j *judge.Judge,
+	rn *runner.Runner,
+	pool *pgxpool.Pool,
+	users *user.Repository,
+	sessions *session.Repository,
+	problems *problem.Repository,
+	teams *team.Repository,
+	telemetryRepo *telemetry.Repository,
+	log *slog.Logger,
+) *gin.Engine {
+	r := gin.New()
+	r.Use(metrics.GinRequestIDMiddleware(), metrics.GinMetricsMiddleware(), metrics.GinStructuredLoggingMiddleware(log), gin.Recovery(), corsMiddleware(cfg.AllowedOrigins), requestDecompressMiddleware())
+
+	metrics.RegisterDBPoolCollector(pool)
+
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil && log != nil {
+		log.Error("invalid TRUSTED_PROXIES; trusting no proxy", "error", err)
+		_ = r.SetTrustedProxies(nil)
+	}
+
+	proctorEval := proctor.NewEvaluator(pool, log)
+	telemetryBatcher := telemetry.NewBatcher(pool, log)
+	agentRepo := agent.NewRepository(pool)
+	settings := agent.NewSettings(pool, log)
+	agentService := agent.NewService(agentRepo, telemetryBatcher, proctorEval, settings, log)
+	proctorGate := agent.NewGate(agentRepo, agentService, settings)
+	contestRepo := contest.NewRepository(pool)
+	contestManager := contest.NewManager(contestRepo, log)
+	auditRepo := audit.NewRepository(pool, log)
+
+	ctx := context.Background()
+	if err := settings.Reload(ctx); err != nil && log != nil {
+		log.Warn("failed to load contest settings; using defaults", "error", err)
+	}
+	if err := proctorEval.ReloadRules(ctx); err != nil && log != nil {
+		log.Warn("failed to load rule catalogue; using default weights", "error", err)
+	}
+	if err := contestManager.Reload(ctx); err != nil && log != nil {
+		log.Warn("failed to load contest state; using defaults", "error", err)
+	}
+	go settings.StartRefresher(ctx, 30*time.Second)
+	go proctorEval.StartRulesRefresher(ctx, 30*time.Second)
+	go agentService.StartSweeper(ctx, 30*time.Second)
+	go contestManager.StartRefresher(ctx, 15*time.Second)
+
+	if rn != nil {
+		metrics.StartRunnerMetricsReporter(ctx, func() (int, int, int) {
+			st := rn.Stats()
+			return st.ActiveBoxes, st.TotalCapacity, st.WaitingQueue
+		}, 5*time.Second)
+	}
+
+	h := &handler{
+		cfg:              cfg,
+		judge:            j,
+		runner:           rn,
+		db:               pool,
+		users:            users,
+		sessions:         sessions,
+		problems:         problems,
+		teams:            teams,
+		telemetry:        telemetryRepo,
+		agents:           agentRepo,
+		agentService:     agentService,
+		agentSettings:    settings,
+		proctorGate:      proctorGate,
+		proctorEvaluator: proctorEval,
+		telemetryBatcher: telemetryBatcher,
+		contest:          contestManager,
+		audit:            auditRepo,
+		log:              log,
+	}
+
+	h.registerPublicRoutes(r)
+
+	gated := requireProctorAccess(func(ctx context.Context, userID string, claimsDesktop bool) (agent.Decision, error) {
+		d, _, err := proctorGate.Status(ctx, userID, claimsDesktop)
+		return d, err
+	}, log, cfg.ShouldBypassProctor())
+
+	v1 := r.Group("/api/v1")
+	{
+		h.registerCompetitorRoutes(v1, gated)
+		h.registerAgentRoutes(v1)
+
+		admin := v1.Group("/admin", h.requireUser, h.requireAdmin, maxBodySizeMiddleware(64*1024*1024), rateLimitMiddleware(adminLimiter, userIDKeyFunc))
+		h.registerAdminRoutes(admin)
+	}
+
+	return r
+}
+
+func (h *handler) registerPublicRoutes(r *gin.Engine) {
+	r.GET("/healthz", rateLimitMiddleware(healthLimiter, peerIPKeyFunc), h.health)
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	if !h.cfg.IsProduction() {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
+}
+
+func (h *handler) registerCompetitorRoutes(v1 *gin.RouterGroup, gated gin.HandlerFunc) {
+	contestActive := requireContestActiveMiddleware(h.contest)
+	submissionsAllowed := requireContestSubmissionsAllowedMiddleware(h.contest)
+
+	v1.POST("/auth/login", maxBodySizeMiddleware(4_096), h.login)
+	v1.POST("/auth/logout", h.logout)
+	v1.GET("/me", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), h.me)
+	v1.POST("/me/password", h.requireUser, maxBodySizeMiddleware(4_096), h.changePassword)
+
+	v1.GET("/problems", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.listPublishedProblems)
+	v1.GET("/problems/:slug", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, contestActive, h.getPublishedProblemBySlug)
+
+	v1.GET("/leaderboard", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.getLeaderboard)
+	v1.GET("/proctor/disclosure", h.getProctorDisclosure)
+	v1.GET("/telemetry/self", h.requireUser, rateLimitMiddleware(proctorSelfLimiter, userIDKeyFunc), h.getProctorSelfStatus)
+	v1.POST("/telemetry/browser-event", h.requireUser, maxBodySizeMiddleware(64_000), h.recordBrowserEvent)
+	v1.POST("/telemetry/leave-contest", h.requireUser, h.leaveContest)
+
+	v1.GET("/contest/state", h.getContestState)
+	v1.POST("/run", h.requireUser, maxBodySizeMiddleware(20_000_000), rateLimitMiddleware(runLimiter, userIDKeyFunc), gated, contestActive, h.runCode)
+
+	v1.POST("/submissions", h.requireUser, maxBodySizeMiddleware(2_000_000), rateLimitMiddleware(submissionLimiter, userIDKeyFunc), submissionsAllowed, h.createSubmission)
+	v1.GET("/submissions", h.requireUser, rateLimitMiddleware(readLimiter, userIDKeyFunc), gated, h.listUserSubmissions)
+	v1.GET("/submissions/stream", h.requireUser, rateLimitMiddleware(streamLimiter, userIDKeyFunc), h.streamSubmissions)
+	v1.GET("/submissions/:id", h.requireUser, rateLimitMiddleware(submissionStatusLimiter, userIDKeyFunc), gated, h.getSubmission)
+}
+
+func (h *handler) registerAgentRoutes(v1 *gin.RouterGroup) {
+	ag := v1.Group("/agent")
+	{
+		ag.POST("/enroll", maxBodySizeMiddleware(4_096), h.enrollAgent)
+		ag.POST("/heartbeat", h.requireAgent, maxBodySizeMiddleware(64_000), h.requireAgentSignature(),
+			rateLimitMiddleware(agentHeartbeatLimiter, agentIDKeyFunc), h.agentHeartbeat)
+		ag.POST("/events", h.requireAgent, maxBodySizeMiddleware(1_000_000), h.requireAgentSignature(),
+			rateLimitMiddleware(agentEventsLimiter, agentIDKeyFunc), h.agentEvents)
+		ag.POST("/shutdown", h.requireAgent, maxBodySizeMiddleware(4_096), h.requireAgentSignature(), h.agentShutdown)
+		ag.GET("/rules", h.requireAgent, h.agentRules)
+	}
+}
+
+func (h *handler) registerAdminRoutes(admin *gin.RouterGroup) {
+	admin.GET("/users", h.listUsers)
+	admin.POST("/users", h.createUser)
+	admin.POST("/users/bulk", h.bulkCreateUsers)
+	admin.POST("/users/bulk-action", h.bulkUserAction)
+	admin.POST("/users/:id/reset-password", h.resetPassword)
+	admin.PATCH("/users/:id/role", h.updateRole)
+	admin.PATCH("/users/:id/suspend", h.suspendUser)
+	admin.PATCH("/users/:id/exemption", h.updateUserProctorExemption)
+	admin.PATCH("/users/:id/access", h.updateUserProctorAccess)
+	admin.POST("/users/:id/unlock", h.unlockUser)
+	admin.DELETE("/users/:id", h.deleteUser)
+
+	admin.GET("/teams", h.listAdminTeams)
+	admin.POST("/teams", h.createTeam)
+	admin.POST("/teams/bulk", h.bulkCreateTeams)
+	admin.PUT("/teams/:id", h.updateTeam)
+	admin.DELETE("/teams/:id", h.deleteTeam)
+	admin.POST("/teams/:id/members", h.addTeamMember)
+	admin.DELETE("/teams/:id/members/:userId", h.removeTeamMember)
+
+	admin.GET("/problems", h.listAllProblems)
+	admin.POST("/problems", h.createProblem)
+	admin.GET("/problems/:id", h.getAdminProblemByID)
+	admin.PUT("/problems/:id", h.updateProblem)
+	admin.PATCH("/problems/:id/publish", h.setProblemPublished)
+	admin.DELETE("/problems/:id", h.deleteProblem)
+	admin.GET("/problems/:id/tests", h.getAdminProblemTests)
+	admin.POST("/problems/:id/tests", h.addSingleTestCase)
+	admin.PUT("/problems/:id/tests/:ordinal", h.updateSingleTestCase)
+	admin.DELETE("/problems/:id/tests/:ordinal", h.deleteSingleTestCase)
+	admin.PATCH("/problems/:id/tests/points", h.updateTestPoints)
+	admin.GET("/problems/:id/tests/:ordinal/input", h.getAdminSingleTestInput)
+	admin.GET("/problems/:id/tests/:ordinal/expected", h.getAdminSingleTestExpected)
+	admin.GET("/problems/:id/tests/export", h.exportProblemTestsZip)
+	admin.PUT("/problems/:id/tests", h.replaceTestCases)
+	admin.POST("/problems/:id/rejudge", h.rejudgeProblem)
+
+	admin.GET("/submissions", h.listAdminSubmissions)
+	admin.GET("/submissions/:id", h.getAdminSubmission)
+	admin.POST("/submissions/:id/rejudge", h.rejudgeSubmission)
+	admin.POST("/submissions/:id/cancel", h.cancelSubmission)
+	admin.POST("/submissions/:id/review", h.reviewSubmission)
+	admin.POST("/teams/:id/unstick", h.unstickTeamSubmissions)
+
+	admin.GET("/monitoring", h.getAdminMonitoring)
+
+	admin.GET("/telemetry", h.listAdminTelemetry)
+	admin.GET("/proctor/risk", h.listAdminProctorRisk)
+	admin.GET("/proctor/findings/:userId", h.getAdminProctorFindings)
+	admin.GET("/proctor/overview", h.getAdminProctorOverview)
+	admin.GET("/proctor/timeline/:userId", h.getAdminProctorTimeline)
+	admin.GET("/proctor/agents", h.listAdminAgents)
+	admin.POST("/proctor/agents/:id/revoke", h.revokeAgent)
+	admin.POST("/proctor/users/:id/readmit", h.readmitContestant)
+
+	admin.GET("/audit-logs", h.listAuditLogs)
+
+	admin.GET("/contest/state", h.getContestState)
+	admin.POST("/contest/start", h.adminStartContest)
+	admin.POST("/contest/pause", h.adminPauseContest)
+	admin.POST("/contest/resume", h.adminResumeContest)
+	admin.POST("/contest/extend", h.adminExtendContest)
+	admin.POST("/contest/freeze", h.adminFreezeContest)
+	admin.POST("/contest/unfreeze", h.adminUnfreezeContest)
+	admin.POST("/contest/reset", h.adminResetContest)
+	admin.POST("/contest/end", h.adminEndContest)
+	admin.PUT("/contest/settings", h.adminUpdateContestSettings)
+}

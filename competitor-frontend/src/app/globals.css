@@ -1,0 +1,680 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-pixel-body), sans-serif;
+  --font-pixel: var(--font-pixel-body), monospace;
+  --font-pixel-heading: var(--font-pixel-header), sans-serif;
+  --font-mono: var(--font-mono), monospace;
+  --font-heading: var(--font-pixel-header), sans-serif;
+  --font-modern: var(--font-inter), sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+  --color-edge: var(--edge);
+  --color-bevel-light: var(--bevel-light);
+  --color-bevel-dark: var(--bevel-dark);
+  --color-teal: var(--teal);
+  --color-teal-deep: var(--teal-deep);
+}
+
+:root {
+  --background: oklch(0.11 0.015 158);
+  --foreground: oklch(0.98 0.01 160);
+  --card: oklch(0.15 0.02 158);
+  --card-foreground: oklch(0.98 0.01 160);
+  --popover: oklch(0.15 0.02 158);
+  --popover-foreground: oklch(0.98 0.01 160);
+  --primary: oklch(0.72 0.16 155);
+  --primary-foreground: oklch(0.08 0.02 155);
+  --secondary: oklch(0.22 0.02 160);
+  --secondary-foreground: oklch(0.98 0.01 160);
+  --muted: oklch(0.19 0.015 160);
+  --muted-foreground: oklch(0.78 0.025 160);
+  --accent: oklch(0.24 0.03 158);
+  --accent-foreground: oklch(0.98 0.01 160);
+  --destructive: oklch(0.72 0.18 25);
+  --success: oklch(0.72 0.16 155);
+  --warning: oklch(0.82 0.14 85);
+  --border: oklch(0.29 0.02 160);
+  --input: oklch(0.12 0.015 160);
+  --ring: oklch(0.72 0.16 155);
+  --chart-1: oklch(0.72 0.16 155);
+  --chart-2: oklch(0.72 0.13 185);
+  --chart-3: oklch(0.82 0.14 85);
+  --chart-4: oklch(0.72 0.18 25);
+  --chart-5: oklch(0.72 0.14 300);
+  --radius: 0px;
+
+  /* The app's second brand hue, alongside --primary (emerald). Two tones, not a
+     rainbow: teal for secondary accents, teal-deep as the one place a UI needs a
+     third depth (the Hard difficulty tag) without reaching for a new hue. */
+  --teal: oklch(0.72 0.13 185);
+  --teal-deep: oklch(0.42 0.09 185);
+
+  /* Muted background/foreground/border triples for status chips (verdicts,
+     difficulty tags). Same hue families as --success/--warning/--destructive,
+     but dialed back so a badge reads as a label, not a klaxon. */
+  --success-bg: oklch(0.24 0.07 155);
+  --success-fg: oklch(0.88 0.14 155);
+  --success-border: oklch(0.55 0.14 155);
+  --warning-bg: oklch(0.27 0.07 85);
+  --warning-fg: oklch(0.90 0.14 85);
+  --warning-border: oklch(0.65 0.14 85);
+  --destructive-bg: oklch(0.27 0.09 25);
+  --destructive-fg: oklch(0.88 0.16 25);
+  --destructive-border: oklch(0.60 0.16 25);
+
+  /* Minecraft blocks read as blocks because every face is outlined in near-black
+     and lit from the top-left. These three tokens are that lighting model, and
+     every raised or recessed surface in the app derives from them. */
+  --edge: #000000;
+  --bevel-light: oklch(0.42 0.08 160);
+  --bevel-dark: oklch(0.07 0.015 155);
+
+  --sidebar: oklch(0.12 0.02 158);
+  --sidebar-foreground: oklch(0.98 0.01 160);
+  --sidebar-primary: oklch(0.72 0.16 155);
+  --sidebar-primary-foreground: oklch(0.08 0.02 155);
+  --sidebar-accent: oklch(0.22 0.02 160);
+  --sidebar-accent-foreground: oklch(0.98 0.01 160);
+  --sidebar-border: oklch(0.29 0.02 160);
+  --sidebar-ring: oklch(0.72 0.16 155);
+}
+
+.dark {
+  --background: oklch(0.11 0.015 158);
+  --foreground: oklch(0.98 0.01 160);
+  --card: oklch(0.15 0.02 158);
+  --card-foreground: oklch(0.98 0.01 160);
+  --popover: oklch(0.15 0.02 158);
+  --popover-foreground: oklch(0.98 0.01 160);
+  --primary: oklch(0.72 0.16 155);
+  --primary-foreground: oklch(0.08 0.02 155);
+  --secondary: oklch(0.22 0.02 160);
+  --secondary-foreground: oklch(0.98 0.01 160);
+  --muted: oklch(0.19 0.015 160);
+  --muted-foreground: oklch(0.78 0.025 160);
+  --accent: oklch(0.24 0.03 158);
+  --accent-foreground: oklch(0.98 0.01 160);
+  --destructive: oklch(0.72 0.18 25);
+  --success: oklch(0.72 0.16 155);
+  --warning: oklch(0.82 0.14 85);
+  --border: oklch(0.29 0.02 160);
+  --input: oklch(0.12 0.015 160);
+  --ring: oklch(0.72 0.16 155);
+  --sidebar: oklch(0.12 0.02 158);
+  --sidebar-foreground: oklch(0.98 0.01 160);
+  --sidebar-primary: oklch(0.72 0.16 155);
+  --sidebar-primary-foreground: oklch(0.08 0.02 155);
+  --sidebar-accent: oklch(0.22 0.02 160);
+  --sidebar-accent-foreground: oklch(0.98 0.01 160);
+  --sidebar-border: oklch(0.29 0.02 160);
+  --sidebar-ring: oklch(0.72 0.16 155);
+}
+
+@layer base {
+  * {
+    border-radius: 0px !important;
+  }
+
+  /* Inter carries the app — legible at small sizes, reads as a dev tool. The
+     pixel display font is reserved for a few deliberate accents (opt in with
+     .font-pixel-header) instead of every heading, so it stays a flourish
+     rather than the wallpaper. */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: none;
+    -ms-scroll-chaining: none;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family:
+      var(--font-sans),
+      Inter,
+      system-ui,
+      -apple-system,
+      sans-serif;
+  }
+
+  /* Prevent rubber-band elastic bouncing on fixed navigation headers and window drag handles */
+  header,
+  nav,
+  [data-tauri-drag-region],
+  [data-window-drag-region] {
+    overscroll-behavior: none;
+    overscroll-behavior-y: none;
+    overscroll-behavior-x: none;
+    -ms-scroll-chaining: none;
+  }
+
+  /* Prevent nested scroll areas from cascading boundary scroll events to the root window */
+  [data-slot="scroll-area-viewport"],
+  [data-radix-scroll-area-viewport],
+  .overflow-y-auto,
+  .overflow-auto {
+    overscroll-behavior: contain;
+    overscroll-behavior-y: contain;
+    -ms-scroll-chaining: none;
+  }
+
+  /* Horizontal table overflow containers must allow vertical page scrolling */
+  .overflow-x-auto,
+  [data-slot="table-container"] {
+    overscroll-behavior-x: contain;
+    overscroll-behavior-y: auto;
+    -ms-scroll-chaining: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: inherit;
+  }
+
+  /* One hard focus ring for the whole app. A blurred halo is the one thing that
+     cannot be pixel art, and the shadcn defaults ship `ring-3 ring-ring/50`
+     everywhere — so this replaces it rather than living alongside it.
+     Deliberately outline-only: focus styling that touched box-shadow would erase
+     the bevel of whatever it landed on, since every raised surface here *is* a
+     box-shadow. The 2px offset shows the page through the gap, which is what
+     separates the ring from the block's own black border. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+}
+
+@layer components {
+  /* A block lit from the top-left and sitting above the page — the signature
+     "chunky" surface: cards, panels, the nav bar, primary buttons. */
+  .pixel-raised {
+    border: 2px solid var(--edge);
+    box-shadow:
+      inset 2px 2px 0 var(--bevel-light),
+      inset -2px -2px 0 var(--bevel-dark),
+      0 4px 0 var(--edge);
+  }
+
+  /* The same block pressed into the page: bevel inverted, no drop shadow. Use for
+     anything the contestant types into or reads out of — inputs, wells, consoles. */
+  .pixel-inset {
+    border: 2px solid var(--edge);
+    box-shadow:
+      inset 2px 2px 0 var(--edge),
+      inset -2px -2px 0 var(--bevel-light);
+  }
+
+  /* Interactive blocks physically depress. 2px is one "pixel" at this scale, so
+     the motion lands on the grid instead of blurring across it. */
+  .pixel-press {
+    transition:
+      transform 0.05s ease,
+      box-shadow 0.05s ease;
+  }
+
+  .pixel-press:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: translateY(2px);
+    box-shadow:
+      inset -2px -2px 0 var(--bevel-light),
+      inset 2px 2px 0 var(--bevel-dark),
+      0 1px 0 var(--edge);
+  }
+
+  /* The chip tier: a solid dark-edged border with a flat fill, no bevel or drop
+     shadow. For badges, tags, filter pills, table header rows — chunky-bordered
+     like everything else, but flat, so the .pixel-raised block treatment stays
+     reserved for things that are genuinely elevated. */
+  .pixel-flat {
+    border: 2px solid var(--edge);
+    box-shadow: none;
+  }
+
+  /* Status-chip color triples, sharing the same lighting model as everything
+     else but muted enough to sit inside a small badge instead of shouting. */
+  .badge-success {
+    background: var(--success-bg);
+    color: var(--success-fg);
+    border-color: var(--success-border);
+  }
+
+  .badge-warning {
+    background: var(--warning-bg);
+    color: var(--warning-fg);
+    border-color: var(--warning-border);
+  }
+
+  .badge-destructive {
+    background: var(--destructive-bg);
+    color: var(--destructive-fg);
+    border-color: var(--destructive-border);
+  }
+
+  /* Difficulty tags read from the brand's two hues, not the semantic verdict
+     colors — "Hard" is a deeper teal, not an error red. Amber/red stay reserved
+     for actual warnings and failures (TLE, wrong answer). */
+  .badge-teal {
+    background: var(--teal);
+    color: var(--primary-foreground);
+  }
+
+  .badge-teal-deep {
+    background: var(--teal-deep);
+    color: var(--foreground);
+  }
+
+  /* Chunky rule. A 1px hairline is the giveaway that a "pixel" UI is really a
+     default one with the corners filed off. */
+  .pixel-divider {
+    border: 0;
+    background: var(--edge);
+    box-shadow: 0 1px 0 var(--bevel-light);
+  }
+
+  .pixel-divider[data-orientation="vertical"],
+  .pixel-divider[data-vertical] {
+    box-shadow: 1px 0 0 var(--bevel-light);
+  }
+
+  /* Section label: the small uppercase pixel heading used above panels. */
+  .pixel-label {
+    font-family: var(--font-pixel-header), sans-serif;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted-foreground);
+  }
+
+  /* Terminal prompt marker, for headings that should read as a shell line. */
+  .pixel-prompt::before {
+    content: "> ";
+    color: var(--primary);
+  }
+
+  /* Loaders tick around eight positions rather than gliding. A smooth rotation is
+     the other tell that a pixel UI is a normal one recoloured — nothing in this
+     visual language moves between pixels. */
+  .pixel-spin {
+    animation: pixel-spin 0.8s steps(8, end) infinite;
+  }
+
+  @keyframes pixel-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pixel-spin {
+      animation-duration: 2.4s;
+    }
+  }
+}
+
+.font-pixel-header {
+  font-family: var(--font-pixel-header), sans-serif;
+}
+
+.font-pixel-body {
+  font-family: var(--font-pixel-body), sans-serif;
+}
+
+.pixel-text-shadow {
+  text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.45);
+}
+
+.pixel-box {
+  background-color: var(--card);
+  border: 2px solid var(--edge);
+  box-shadow:
+    inset 2px 2px 0 var(--bevel-light),
+    inset -2px -2px 0 var(--bevel-dark),
+    0 4px 0 var(--edge);
+}
+
+.pixel-box-recessed {
+  background-color: var(--input);
+  border: 2px solid var(--edge);
+  box-shadow:
+    inset 2px 2px 0 var(--edge),
+    inset -2px -2px 0 var(--bevel-light);
+}
+
+.pixel-btn {
+  font-family: var(--font-pixel-body), sans-serif;
+  border: 2px solid #000000;
+  box-shadow:
+    inset 2px 2px 0px oklch(0.85 0.16 172),
+    inset -2px -2px 0px oklch(0.45 0.16 172);
+  transition:
+    transform 0.05s ease,
+    box-shadow 0.05s ease;
+}
+
+.pixel-btn:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow:
+    inset -2px -2px 0px oklch(0.85 0.16 172),
+    inset 2px 2px 0px oklch(0.45 0.16 172);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 2px solid var(--background);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+.markdown p {
+  margin-block: 0.6rem;
+}
+.markdown ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin-block: 0.6rem;
+}
+.markdown ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin-block: 0.6rem;
+}
+.markdown li {
+  margin-block: 0.2rem;
+}
+.markdown strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-family: var(--font-pixel-header), sans-serif;
+  margin-block: 0.8rem 0.4rem;
+}
+.markdown :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--muted);
+  color: var(--foreground);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0px;
+  border: 1px solid var(--edge);
+}
+.markdown > :first-child {
+  margin-top: 0;
+}
+.markdown img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin-block: 0.8rem;
+  border-radius: 4px;
+}
+
+/* Pixel noise texture overlay effect */
+/* A faint grain, not visible static — dialed back from a blocky 8-bit overlay
+   to something closer to film grain, so it reads as texture, not noise. */
+.pixel-noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+  background-image: url("/pixel-noice.png");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+  opacity: 0.03;
+  mix-blend-mode: overlay;
+}
+
+/* Hide pixel noise texture overlay completely when in dark or light challenge mode */
+body:has(.challenge-mode-dark) .pixel-noise-overlay,
+body:has(.challenge-mode-light) .pixel-noise-overlay {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+/* ==========================================================================
+   Challenge Workspace Mode Overrides (Dark & Light)
+   ========================================================================== */
+
+/* Dark Mode: Uses Geist Mono (var(--font-mono)) for all text and UI */
+.challenge-mode-dark {
+  font-family: var(--font-mono), monospace !important;
+}
+
+.challenge-mode-dark *,
+.challenge-mode-dark h1,
+.challenge-mode-dark h2,
+.challenge-mode-dark h3,
+.challenge-mode-dark h4,
+.challenge-mode-dark h5,
+.challenge-mode-dark h6,
+.challenge-mode-dark .pixel-text-shadow,
+.challenge-mode-dark .pixel-label,
+.challenge-mode-dark .font-pixel-header,
+.challenge-mode-dark .font-pixel-body {
+  font-family: var(--font-mono), monospace !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+}
+
+.challenge-mode-dark .pixel-prompt::before {
+  content: "" !important;
+}
+
+.challenge-mode-dark pre,
+.challenge-mode-dark code,
+.challenge-mode-dark .markdown :not(pre) > code {
+  font-family: var(--font-mono), monospace !important;
+}
+
+/* The pixel scrollbar clean styling */
+body:has(.challenge-mode-dark) ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-color: var(--background);
+}
+
+body:has(.challenge-mode-dark) ::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+/* Clean Light Mode: Full modern light theme with Geist Mono font */
+.challenge-mode-light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #e2e8f0;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --success: #16a34a;
+  --warning: #d97706;
+  --border: #e2e8f0;
+  --input: #ffffff;
+  --ring: #059669;
+  --edge: #cbd5e1;
+  --bevel-light: #ffffff;
+  --bevel-dark: #e2e8f0;
+  --success-bg: #dcfce7;
+  --success-fg: #15803d;
+  --success-border: #86efac;
+  --warning-bg: #fef3c7;
+  --warning-fg: #b45309;
+  --warning-border: #fcd34d;
+  --destructive-bg: #fee2e2;
+  --destructive-fg: #b91c1c;
+  --destructive-border: #fca5a5;
+  --teal: #0891b2;
+  --teal-deep: #0e7490;
+
+  font-family: var(--font-mono), monospace !important;
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+.challenge-mode-light *,
+.challenge-mode-light h1,
+.challenge-mode-light h2,
+.challenge-mode-light h3,
+.challenge-mode-light h4,
+.challenge-mode-light h5,
+.challenge-mode-light h6,
+.challenge-mode-light .pixel-text-shadow,
+.challenge-mode-light .pixel-label,
+.challenge-mode-light .font-pixel-header,
+.challenge-mode-light .font-pixel-body {
+  font-family: var(--font-mono), monospace !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+}
+
+.challenge-mode-light .pixel-prompt::before {
+  content: "" !important;
+}
+
+.challenge-mode-light pre,
+.challenge-mode-light code,
+.challenge-mode-light .markdown :not(pre) > code {
+  font-family: var(--font-mono), monospace !important;
+}
+
+/* Light mode panels, cards and wells */
+.challenge-mode-light .pixel-raised {
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.07) !important;
+}
+
+.challenge-mode-light .pixel-inset {
+  border-color: #e2e8f0 !important;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.challenge-mode-light .pixel-flat {
+  border-color: #e2e8f0 !important;
+  box-shadow: none !important;
+}
+
+.challenge-mode-light .border-black {
+  border-color: #e2e8f0 !important;
+}
+
+.challenge-mode-light textarea,
+.challenge-mode-light input,
+.challenge-mode-light select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Light mode tabs */
+.challenge-mode-light [data-slot="tabs-list"] {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.challenge-mode-light [data-slot="tabs-trigger"] {
+  color: #64748b !important;
+}
+
+.challenge-mode-light [data-slot="tabs-trigger"][data-active] {
+  background-color: #ffffff !important;
+  color: #059669 !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Light mode scrollbars */
+body:has(.challenge-mode-light) ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-color: #f8fafc;
+}
+
+body:has(.challenge-mode-light) ::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+/* Light mode code and markdown blocks */
+.challenge-mode-light pre,
+.challenge-mode-light code,
+.challenge-mode-light .markdown :not(pre) > code {
+  font-family: var(--font-mono), monospace !important;
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+

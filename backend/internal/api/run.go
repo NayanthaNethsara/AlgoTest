@@ -1,0 +1,189 @@
+package api
+
+import (
+	"errors"
+	"net/http"
+	"sync"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/contest"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/runner"
+	"github.com/NayanthaNethsara/labyrithm/backend/internal/user"
+)
+
+const (
+	maxRunCodeLength  = 100_000
+	maxRunStdinLength = 1_000_000
+)
+
+var (
+	activeRunsMu     sync.Mutex
+	activeRunUsers   = make(map[string]bool)
+	userLastRunTimes = make(map[string]time.Time)
+)
+
+func tryAcquireUserRun(userID string) (bool, string) {
+	activeRunsMu.Lock()
+	defer activeRunsMu.Unlock()
+
+	now := time.Now()
+	if len(userLastRunTimes) > 1024 {
+		for uid, t := range userLastRunTimes {
+			if now.Sub(t) > 5*time.Minute {
+				delete(userLastRunTimes, uid)
+			}
+		}
+	}
+
+	if activeRunUsers[userID] {
+		return false, "ACTIVE_RUN"
+	}
+
+	const cooldown = 3 * time.Second
+	if last, ok := userLastRunTimes[userID]; ok {
+		if now.Sub(last) < cooldown {
+			return false, "COOLDOWN"
+		}
+	}
+
+	activeRunUsers[userID] = true
+	userLastRunTimes[userID] = now
+	return true, ""
+}
+
+func releaseUserRun(userID string) {
+	activeRunsMu.Lock()
+	defer activeRunsMu.Unlock()
+
+	delete(activeRunUsers, userID)
+}
+
+type runCodeRequest struct {
+	ProblemID string `json:"problem_id"`
+	Language  string `json:"language" binding:"required"`
+	Code      string `json:"code" binding:"required"`
+	Stdin     string `json:"stdin"`
+}
+
+// @Summary Execute Code
+// @Description Execute code against sample test cases or custom stdin in an isolated sandbox.
+// @Tags Runner
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body runCodeRequest true "Code execution request"
+// @Success 200 {object} runner.Result
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Failure 503 {object} map[string]string
+// @Router /api/v1/run [post]
+func (h *handler) runCode(c *gin.Context) {
+	var req runCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if len(req.Code) > maxRunCodeLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "code too long"})
+		return
+	}
+	if len(req.Stdin) > maxRunStdinLength {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "stdin too long"})
+		return
+	}
+
+	u := currentUser(c)
+
+	if h.contest != nil && u.Role != user.RoleAdmin {
+		cState := h.contest.GetState()
+		switch cState.Status {
+		case contest.StatusNotStarted:
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest has not started yet",
+				"code":  "CONTEST_NOT_STARTED",
+			})
+			return
+		case contest.StatusPaused:
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest is currently paused by administrators",
+				"code":  "CONTEST_PAUSED",
+			})
+			return
+		case contest.StatusEnded:
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "contest has ended; code execution is closed",
+				"code":  "CONTEST_ENDED",
+			})
+			return
+		}
+	}
+
+	acquired, reason := tryAcquireUserRun(u.ID)
+	if !acquired {
+		if reason == "COOLDOWN" {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Run cooldown active. Please wait a few seconds before running code again."})
+			return
+		}
+		c.JSON(http.StatusConflict, gin.H{"error": "You already have an active code run in progress. Please wait for it to complete."})
+		return
+	}
+	defer releaseUserRun(u.ID)
+
+	if h.runner == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "sandbox execution service unavailable"})
+		return
+	}
+
+	var limits runner.Limits
+	if req.ProblemID != "" && h.problems != nil {
+		detail, err := h.problems.GetByID(c.Request.Context(), req.ProblemID, false)
+		if err != nil {
+			detail, err = h.problems.GetPublishedBySlug(c.Request.Context(), req.ProblemID)
+		}
+		if err != nil || (!detail.Published && u.Role != user.RoleAdmin) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "problem not found"})
+			return
+		}
+		p := detail
+		if p.TimeLimitMs > 0 {
+			cpu := time.Duration(p.TimeLimitMs) * time.Millisecond
+			limits.CPUSeconds = cpu.Seconds()
+			wall := 3*cpu + 2*time.Second
+			if wall < 5*time.Second {
+				wall = 5 * time.Second
+			}
+			limits.Wall = wall
+		}
+		if p.MemoryLimitMb > 0 {
+			limits.MemoryKB = int64(p.MemoryLimitMb) * 1024
+		}
+	}
+
+	result, err := h.runner.Run(c.Request.Context(), runner.Request{
+		Language: req.Language,
+		Code:     req.Code,
+		Stdin:    req.Stdin,
+		Limits:   limits,
+	})
+	if err != nil {
+		if errors.Is(err, runner.ErrUnsupportedLanguage) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, runner.ErrSandboxUnavailable) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "sandbox environment unavailable"})
+			return
+		}
+		if errors.Is(err, runner.ErrBusy) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "server busy, please retry"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "execution failed"})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}

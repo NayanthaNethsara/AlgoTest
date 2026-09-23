@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/backend/cmd/server",
+      "envFile": "${workspaceFolder}/backend/.env"
+    },
+    {
+      "name": "Competitor Frontend",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/competitor-frontend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Admin Frontend",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/admin-frontend",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Backend + Competitor Frontend",
+      "configurations": ["Backend", "Competitor Frontend"]
+    },
+    {
+      "name": "All Services",
+      "configurations": ["Backend", "Competitor Frontend", "Admin Frontend"]
+    }
+  ]
+}

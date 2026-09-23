@@ -1,0 +1,221 @@
+"use server";
+
+import { backendFetch } from "@/lib/api/server";
+import {
+  problemInputSchema,
+  replaceTestsSchema,
+  type ValidatedProblemInput,
+} from "@/lib/validation/problem";
+import type { ProblemDetail, ProblemInput, TestCaseInput, TestCaseMetadata } from "@/types/problem";
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
+function extractHtmlError(html: string): string {
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  if (titleMatch && titleMatch[1]) {
+    return titleMatch[1].trim();
+  }
+  const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+  if (h1Match && h1Match[1]) {
+    return h1Match[1].trim();
+  }
+  const clean = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return clean.slice(0, 200);
+}
+
+async function extractResponseErrorMessage(res: Response, fallback: string): Promise<string> {
+  const errText = await res.text().catch(() => "");
+  let errDetail = "";
+
+  if (errText) {
+    try {
+      const errJson = JSON.parse(errText);
+      errDetail = errJson.error || errJson.message || errJson.detail || "";
+    } catch {
+      if (errText.includes("<html") || errText.includes("<!DOCTYPE")) {
+        errDetail = extractHtmlError(errText);
+      } else {
+        errDetail = errText.slice(0, 300).trim();
+      }
+    }
+  }
+
+  let finalMessage = "";
+  if (res.status === 413) {
+    finalMessage =
+      `Payload Too Large (HTTP 413): The problem or test cases exceed the server upload buffer. ${errDetail}`.trim();
+  } else if (res.status === 502) {
+    finalMessage =
+      `Bad Gateway (HTTP 502): The backend API server is unreachable. ${errDetail}`.trim();
+  } else if (res.status === 504) {
+    finalMessage =
+      `Gateway Timeout (HTTP 504): The server timed out processing the request. ${errDetail}`.trim();
+  } else if (errDetail) {
+    finalMessage = `${fallback} (${res.status}): ${errDetail}`;
+  } else {
+    finalMessage = `${fallback} (HTTP ${res.status})`;
+  }
+
+  console.error(`[Admin Problems Action] Error ${res.status}:`, finalMessage);
+  return finalMessage;
+}
+
+async function handleResponseError(res: Response, fallback: string): Promise<never> {
+  const finalMessage = await extractResponseErrorMessage(res, fallback);
+  throw new Error(finalMessage);
+}
+
+export async function listProblemsAction(): Promise<ProblemDetail[]> {
+  try {
+    const res = await backendFetch("/api/v1/admin/problems");
+    if (!res.ok) {
+      return handleResponseError(res, "Failed to fetch problems");
+    }
+    const data = await res.json();
+    return data.problems ?? [];
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to fetch problems"));
+  }
+}
+
+export async function getProblemDetailAction(id: string): Promise<ProblemDetail> {
+  try {
+    const res = await backendFetch(`/api/v1/admin/problems/${id}`);
+    if (!res.ok) {
+      return handleResponseError(res, "Failed to fetch problem detail");
+    }
+    const data = await res.json();
+    return data.problem;
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to fetch problem detail"));
+  }
+}
+
+export async function createProblemAction(
+  input: ProblemInput
+): Promise<{ success: true; problem: ProblemDetail } | { success: false; error: string }> {
+  const parsed = problemInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    return { success: false, error: firstIssue?.message ?? "Invalid problem input data" };
+  }
+
+  const validatedData: ValidatedProblemInput = parsed.data;
+
+  try {
+    const res = await backendFetch("/api/v1/admin/problems", {
+      method: "POST",
+      body: JSON.stringify(validatedData),
+    });
+    if (!res.ok) {
+      const error = await extractResponseErrorMessage(res, "Failed to create problem");
+      return { success: false, error };
+    }
+    const data = await res.json();
+    return { success: true, problem: data.problem };
+  } catch (err: unknown) {
+    return { success: false, error: getErrorMessage(err, "Failed to create problem") };
+  }
+}
+
+export async function updateProblemAction(
+  id: string,
+  input: ProblemInput
+): Promise<{ success: true; problem: ProblemDetail } | { success: false; error: string }> {
+  const parsed = problemInputSchema.safeParse(input);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    return { success: false, error: firstIssue?.message ?? "Invalid problem input data" };
+  }
+
+  const validatedData: ValidatedProblemInput = parsed.data;
+
+  try {
+    const res = await backendFetch(`/api/v1/admin/problems/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(validatedData),
+    });
+    if (!res.ok) {
+      const error = await extractResponseErrorMessage(res, "Failed to update problem");
+      return { success: false, error };
+    }
+    const data = await res.json();
+    return { success: true, problem: data.problem };
+  } catch (err: unknown) {
+    return { success: false, error: getErrorMessage(err, "Failed to update problem") };
+  }
+}
+
+export async function togglePublishAction(
+  id: string,
+  published: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await backendFetch(`/api/v1/admin/problems/${id}/publish`, {
+      method: "PATCH",
+      body: JSON.stringify({ published }),
+    });
+    if (!res.ok) {
+      const error = await extractResponseErrorMessage(res, "Failed to update published status");
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: unknown) {
+    return { success: false, error: getErrorMessage(err, "Failed to update published status") };
+  }
+}
+
+export async function deleteProblemAction(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await backendFetch(`/api/v1/admin/problems/${id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const error = await extractResponseErrorMessage(res, "Failed to delete problem");
+      return { success: false, error };
+    }
+    return { success: true };
+  } catch (err: unknown) {
+    return { success: false, error: getErrorMessage(err, "Failed to delete problem") };
+  }
+}
+
+export async function getProblemTestsAction(id: string): Promise<TestCaseMetadata[]> {
+  try {
+    const res = await backendFetch(`/api/v1/admin/problems/${id}/tests`);
+    if (!res.ok) {
+      return handleResponseError(res, "Failed to fetch test cases");
+    }
+    const data = await res.json();
+    return data.tests ?? [];
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to fetch test cases"));
+  }
+}
+
+export async function replaceTestCasesAction(id: string, tests: TestCaseInput[]): Promise<void> {
+  const parsed = replaceTestsSchema.safeParse({ tests });
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    throw new Error(firstIssue?.message ?? "Invalid test case input data");
+  }
+
+  try {
+    const res = await backendFetch(`/api/v1/admin/problems/${id}/tests`, {
+      method: "PUT",
+      body: JSON.stringify({ tests: parsed.data.tests }),
+    });
+    if (!res.ok) {
+      return handleResponseError(res, "Failed to update test cases");
+    }
+  } catch (err: unknown) {
+    throw new Error(getErrorMessage(err, "Failed to update test cases"));
+  }
+}

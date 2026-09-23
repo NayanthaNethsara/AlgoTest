@@ -1,0 +1,84 @@
+import "./globals.css";
+import type { Metadata } from "next";
+import { ADMIN_DESCRIPTION, PRODUCT_NAME } from "@labyrithm/branding";
+import { Geist_Mono, Pixelify_Sans, Press_Start_2P, Inter } from "next/font/google";
+import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
+
+const pixelHeader = Press_Start_2P({
+  weight: "400",
+  variable: "--font-pixel-header",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const pixelBody = Pixelify_Sans({
+  variable: "--font-pixel-body",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+export const metadata: Metadata = {
+  title: `${PRODUCT_NAME} Admin Console`,
+  description: ADMIN_DESCRIPTION,
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    noarchive: true,
+    nosnippet: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      "max-video-preview": -1,
+      "max-image-preview": "none",
+      "max-snippet": -1,
+    },
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/icon.png",
+  },
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html
+      lang="en"
+      className={cn(
+        "dark font-sans",
+        inter.variable,
+        geistMono.variable,
+        pixelHeader.variable,
+        pixelBody.variable
+      )}
+      style={{ colorScheme: "dark" }}
+    >
+      <head>
+        <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+        <meta name="googlebot" content="noindex, nofollow" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
+        <link rel="apple-touch-icon" href="/icon.png" />
+      </head>
+      <body className="min-h-screen bg-background text-foreground antialiased selection:bg-primary/20">
+        <TooltipProvider delay={250}>{children}</TooltipProvider>
+        <Toaster />
+      </body>
+    </html>
+  );
+}
