@@ -15,6 +15,38 @@ Labyrithm delivers end-to-end algorithmic problem-solving infrastructure in a se
 - **Administrators** control contest states (start, pause, resume, extend, freeze), manage problem suites and test cases (supporting 200+ MB datasets), monitor live telemetry, and rejudge submissions on demand.
 - **Judge Workers** execute untrusted code inside isolated Linux `isolate` sandboxes with strict CPU, memory, and wall-clock enforcement, acquiring tasks atomically from PostgreSQL via `FOR UPDATE SKIP LOCKED`.
 
+## Product Tour
+
+Labyrithm brings participant, organizer, and proctoring workflows together in one self-hosted platform.
+
+### Competitor Experience
+
+Browse challenges, open a problem, write code in the Monaco editor, run custom input, and follow progress on the live leaderboard.
+
+![Challenge list](docs/assets/challenge-list.png)
+
+![Challenge workspace](docs/assets/challenge.png)
+
+![Leaderboard](docs/assets/leaderboard.png)
+
+### Organizer Experience
+
+The admin console provides contest readiness, problem and roster management, timer controls, submission review, and live proctoring telemetry.
+
+![Admin dashboard](docs/assets/admin-dashboard.png)
+
+![Contest timer](docs/assets/timer.png)
+
+![Proctoring monitor](docs/assets/admin-proctoring.png)
+
+### Desktop Proctor
+
+The optional desktop client runs a separate background agent for enrollment, heartbeats, diagnostics, and loopback attestation.
+
+![Desktop proctor setup](docs/assets/desktop-app-setup.png)
+
+![Desktop proctor diagnostics](docs/assets/desktop-app-diagnostics.png)
+
 ---
 
 ## Key Capabilities
@@ -55,12 +87,12 @@ Labyrithm delivers end-to-end algorithmic problem-solving infrastructure in a se
 
 | Component             | Directory                                                                                                 | Primary Technology                | Default Port       | Function                                                                                    |
 | --------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------ | ------------------------------------------------------------------------------------------- |
-| **Backend Core**      | [backend/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/backend)                         | Go 1.25, Gin, pgx/v5              | `8080`             | REST API, SSE streaming, submission queue, proctoring engine, and audit logger              |
-| **Judge Workers**     | [backend/cmd/worker/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/backend/cmd/worker)   | Go, Linux `isolate`               | N/A                | Distributed queue polling, sandbox compilation, test execution, and verdict broadcast       |
-| **Competitor Portal** | [competitor-frontend/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/competitor-frontend) | Next.js App Router, Monaco Editor | `3000`             | Problem viewer, code editor, custom runner, submission stream, and scoreboard               |
-| **Admin Console**     | [admin-frontend/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/admin-frontend)           | Next.js 15, Tailwind, shadcn/ui   | `3001`             | Contest timers, problem authoring, participant monitoring, risk dashboard, and audit viewer |
-| **Desktop Client**    | [competitor-desktop/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/competitor-desktop)   | Tauri v2, Rust                    | `47615` (loopback) | Background proctor daemon, process monitor, loopback attestation, and contest shell         |
-| **Database**          | [backend/internal/db/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/backend/internal/db) | PostgreSQL 16                     | `5432`             | Relational storage, `SKIP LOCKED` job queue, and `LISTEN/NOTIFY` pub/sub                    |
+| **Backend Core**      | [backend/](backend)                         | Go 1.25, Gin, pgx/v5              | `8080`             | REST API, SSE streaming, submission queue, proctoring engine, and audit logger              |
+| **Judge Workers**     | [backend/cmd/worker/](backend/cmd/worker)   | Go, Linux `isolate`               | N/A                | Distributed queue polling, sandbox compilation, test execution, and verdict broadcast       |
+| **Competitor Portal** | [competitor-frontend/](competitor-frontend) | Next.js App Router, Monaco Editor | `3000`             | Problem viewer, code editor, custom runner, submission stream, and scoreboard               |
+| **Admin Console**     | [admin-frontend/](admin-frontend)           | Next.js 15, Tailwind, shadcn/ui   | `3001`             | Contest timers, problem authoring, participant monitoring, risk dashboard, and audit viewer |
+| **Desktop Client**    | [competitor-desktop/](competitor-desktop)   | Tauri v2, Rust                    | `47615` (loopback) | Background proctor daemon, process monitor, loopback attestation, and contest shell         |
+| **Database**          | [backend/internal/db/](backend/internal/db) | PostgreSQL 16                     | `5432`             | Relational storage, `SKIP LOCKED` job queue, and `LISTEN/NOTIFY` pub/sub                    |
 | **Observability**     | `monitoring/`                                                                                             | Prometheus, Loki, Grafana         | `3002` (local)     | Execution metrics, container logs, queue depth monitoring, and runner telemetry             |
 
 ---
@@ -121,15 +153,15 @@ make worker               # Terminal 4: Optional standalone judge worker daemon
 
 ## Documentation Index
 
-Detailed architectural and operational documentation is maintained in the [docs/](file:///Users/nayanthanethsara/Documents/Github/labyrithm/docs) directory:
+Detailed architectural and operational documentation is maintained in the [docs/](docs) directory:
 
-- [System Architecture & Topology](file:///Users/nayanthanethsara/Documents/Github/labyrithm/docs/architecture.md): Complete architectural topology diagrams, submission evaluation sequence flows, proctoring attestation mechanics, and distributed locking guarantees.
-- [Quick Start Guide](file:///Users/nayanthanethsara/Documents/Github/labyrithm/docs/quick-start.md): Step-by-step local workstation setup, testing commands, and environment configuration.
-- [Production Deployment Guide](file:///Users/nayanthanethsara/Documents/Github/labyrithm/docs/deployment.md): Single-VM setup, horizontal worker scaling, GCE VM provisioning, TLS termination, PostgreSQL connection management, and crash recovery.
-- [Competitor Desktop Application Guide](file:///Users/nayanthanethsara/Documents/Github/labyrithm/docs/desktop-app-guide.md): Tauri v2 installation, macOS Gatekeeper troubleshooting, Windows portable executable, Linux AppImage, and automated CI/CD builds.
-- [Contestant Client Design & Proctoring Split](file:///Users/nayanthanethsara/Documents/Github/labyrithm/docs/client-design.md): In-depth analysis of the daemon/shell split, loopback attestation, and fail-safe web fallback mechanics.
-- [Observability & Monitoring Guide](file:///Users/nayanthanethsara/Documents/Github/labyrithm/docs/monitoring.md): Prometheus metrics, Loki log pipelines, PromQL/LogQL queries, and secure remote Grafana access.
-- [Backend Subsystem Documentation](file:///Users/nayanthanethsara/Documents/Github/labyrithm/backend/README.md): Detailed internal package layout, database migrations, CLI utilities, and runner specifications.
+- [System Architecture & Topology](docs/architecture.md): Complete architectural topology diagrams, submission evaluation sequence flows, proctoring attestation mechanics, and distributed locking guarantees.
+- [Quick Start Guide](docs/quick-start.md): Step-by-step local workstation setup, testing commands, and environment configuration.
+- [Production Deployment Guide](docs/deployment.md): Single-VM setup, horizontal worker scaling, GCE VM provisioning, TLS termination, PostgreSQL connection management, and crash recovery.
+- [Competitor Desktop Application Guide](docs/desktop-app-guide.md): Tauri v2 installation, macOS Gatekeeper troubleshooting, Windows portable executable, Linux AppImage, and automated CI/CD builds.
+- [Contestant Client Design & Proctoring Split](docs/client-design.md): In-depth analysis of the daemon/shell split, loopback attestation, and fail-safe web fallback mechanics.
+- [Observability & Monitoring Guide](docs/monitoring.md): Prometheus metrics, Loki log pipelines, PromQL/LogQL queries, and secure remote Grafana access.
+- [Backend Subsystem Documentation](backend/README.md): Detailed internal package layout, database migrations, CLI utilities, and runner specifications.
 
 ---
 

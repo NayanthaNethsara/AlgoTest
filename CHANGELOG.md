@@ -1,6 +1,6 @@
 # Changelog
 
-## Beta
+## v1.0.0-beta - 2026-09-23
 
 ### Added
 
@@ -15,4 +15,6 @@
 
 ### Notes
 
-This is an early beta intended for evaluation, self-hosting experiments, and feedback. Review the deployment and security documentation before using it for a real contest or assessment.
+This is the first public beta intended for evaluation, self-hosting experiments, and feedback. Review the deployment and security documentation before using it for a real contest or assessment.
+
+This release establishes Labyrithm as a self-hosted algorithmic problem-solving platform. Contest names, API endpoints, portal origins, and deployment settings are configurable by each operator.
